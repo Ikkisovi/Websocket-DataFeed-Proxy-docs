@@ -229,7 +229,7 @@
             <article class="doc-shell">
               <h1>Alpaca 行情代理 API</h1>
 <blockquote>
-<p>更新时间: 2026-05-18<br>
+<p>更新时间: 2026-05-21<br>
 代理地址: <code>52.37.182.24</code> | WS: <code>8767</code> | HTTP: <code>8768</code></p>
 </blockquote>
 <p>这个代理让你<strong>用一个 token 就能获取美股实时行情和历史数据</strong>，不需要自己持有 Alpaca API key 或 ThetaData 账号。</p>
@@ -508,7 +508,7 @@ ws.onmessage = (msg) =&gt; {
 <td><code>symbols</code></td>
 <td>string</td>
 <td>✅</td>
-<td>期权代码，逗号分隔，如 <code>AAPL260522C00200000</code></td>
+<td>支持两种格式：<br>1. OCC 格式期权代码：<code>AAPL260522C00200000</code><br>2. <strong>股票代码</strong>：<code>AAPL</code>（自动解析为期权链，返回前10个合约）</td>
 </tr>
 <tr>
 <td><code>start</code></td>
@@ -543,6 +543,7 @@ ws.onmessage = (msg) =&gt; {
 </tbody>
 </table>
 <p>💡 也可以用 <code>symbol</code>（单数），会自动转成 <code>symbols</code>。</p>
+<p><strong>新功能</strong>：传入股票代码（如 <code>AAPL</code>）时，系统会自动查询期权链并返回前10个合约的数据，无需手动指定 OCC 代码。</p>
 <p><strong>数据路由逻辑</strong>: 该端点优先尝试 <strong>ThetaData</strong> (gRPC) 获取期权分钟/日终 OHLC，如果 ThetaData 无数据或异常，自动 fallback 到 <strong>Alpaca</strong> REST API。你不需要关心底层 Provider，传同样的参数即可。</p>
 <hr>
 <h3>期权持仓量历史 (ThetaData)</h3>
