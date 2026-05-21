@@ -721,6 +721,92 @@ ALPACA_PROXY_TOKEN=你的token
 <p><strong>Q: 支持哪些时间框架？</strong><br>
 实时流无 bars；历史 K 线支持 <code>1Min</code> <code>5Min</code> <code>15Min</code> <code>1Hour</code> <code>1Day</code>。</p>
 <hr>
+<h2>🚀 期权链自动解析 (Option Chain Auto-Resolution)</h2>
+<p><strong>新增端点</strong>: <code>/v1/history/options/bars</code> 现已支持<strong>股票代码自动解析期权链</strong>。</p>
+<p>这个特性允许客户端通过传入标准股票代码（如 <code>"AAPL"</code>）而非复杂的 OCC 期权合约字符串，来请求历史期权 bars。代理会自动：</p>
+<ol>
+<li>检测输入为股票代码（非 OCC 格式）</li>
+<li>查询 <strong>ThetaData 合约列表</strong>（过滤当日活跃合约）</li>
+<li>自动解析前 10 个期权合约为标准 OCC 字符串（如 <code>AAPL260918C00360000</code>）</li>
+<li>并行查询返回这些合约的历史 bars</li>
+</ol>
+<h3>使用示例</h3>
+<pre><code>curl -X POST http://52.37.182.24:8768/v1/history/options/bars \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "你的token",
+    "symbol": "AAPL",
+    "timeframe": "1Min",
+    "start": "2026-05-19T09:30:00Z",
+    "end": "2026-05-19T16:00:00Z"
+  }'
+</code></pre>
+<p><strong>返回示例</strong>：</p>
+<pre><code>{"bars": {"AAPL260522C00200000": [...], "AAPL260522C00210000": [...]}}
+</code></pre>
+<h3>🔍 关键 Bug 修复记录</h3>
+<p>在实现和部署过程中，发现并修复了以下三个关键问题：</p>
+<p><strong>1. gRPC 请求类型错误</strong><br>
+Bug: 初始调用使用 <code>request_type="LIST"</code>，抛出 gRPC 内部错误 <code>Unsupported request type: LIST</code><br>
+Fix: 改为 <code>request_type="TRADE"</code>，ThetaData 服务端完全支持</p>
+<p><strong>2. 到期日格式校验失败</strong><br>
+Bug: 代码硬编码检查 <code>len(exp) == 8</code>，但 ThetaData 返回 <code>YYYY-MM-DD</code> 格式（10字符），导致所有合约被跳过<br>
+Fix: 清洗连字符 <code>exp.replace("-", "")</code> 转为 <code>YYYYMMDD</code> 格式后再截取 <code>YYMMDD</code></p>
+<p><strong>3. 期权方向缩写映射错误</strong><br>
+Bug: ThetaData 返回 <code>"CALL"</code>/<code>"PUT"</code>，但标准 OCC 格式需要 <code>"C"</code>/<code>"P"</code><br>
+Fix: 增加映射层：<code>"CALL"</code>/<code>"C"</code> → <code>"C"</code>，<code>"PUT"</code>/<code>"P"</code> → <code>"P"</code></p>
+<h3>📊 测试结果</h3>
+<table>
+<thead>
+<tr>
+<th>端点</th>
+<th>状态</th>
+<th>缓存</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>options_bars</code> (OCC 直接)</td>
+<td>OK</td>
+<td>HIT</td>
+<td>391 bars</td>
+</tr>
+<tr>
+<td><code>options_bars_auto_resolve</code> (股票代码)</td>
+<td>OK</td>
+<td>HIT</td>
+<td><strong>3,519 bars</strong></td>
+</tr>
+<tr>
+<td><code>options_contracts</code></td>
+<td>OK</td>
+<td>MISS</td>
+<td>156 contracts</td>
+</tr>
+<tr>
+<td><code>options_snapshots</code></td>
+<td>OK</td>
+<td>MISS</td>
+<td>1 snapshot</td>
+</tr>
+<tr>
+<td><code>options_open_interest</code></td>
+<td>OK</td>
+<td>MISS</td>
+<td>期权持仓量数据</td>
+</tr>
+<tr>
+<td><code>options_eod</code></td>
+<td>OK</td>
+<td>MISS</td>
+<td>期权日终数据</td>
+</tr>
+</tbody>
+</table>
+<p>全部 7 个用户通过全部端点测试，期权链自动解析功能已上线运行。</p>
+<hr>
+<hr>
 <h2>附录: 部署信息</h2>
 <p>以下内容仅供维护参考。</p>
 <ul>
