@@ -233,7 +233,8 @@
 代理地址: <code>52.37.182.24</code> | WS: <code>8767</code> | HTTP: <code>8768</code></p>
 </blockquote>
 <p>这个代理让你<strong>用一个 token 就能获取美股实时行情和历史数据</strong>，不需要自己持有 Alpaca API key 或 ThetaData 账号。</p>
-<p><strong>新增</strong>: 期权历史数据现已接入 <strong>ThetaData</strong> 作为 Primary Provider，Alpaca 作为 Fallback。新增 <code>/v1/options/open_interest</code> 和 <code>/v1/options/eod</code> 端点。</p>
+<p><strong>新增</strong>: 期权历史数据现已接入 <strong>ThetaData</strong> 作为 Primary Provider，Alpaca 作为 Fallback。新增 <code>/v1/options/open_interest</code> 和 <code>/v1/options/eod</code> 端点。<br>
+<strong>新增 (2026-05-22)</strong>: 股票逐笔 Tick 级成交与报价历史 <code>/v1/stock/history/trade_quote</code>，直连 ThetaData。</p>
 <h2>订阅套餐</h2>
 <table class="tier-table">
 <thead>
@@ -299,6 +300,12 @@ ws.onmessage = (msg) =&gt; {
   -H 'Content-Type: application/json' \
   -d '{&quot;token&quot;:&quot;你的token&quot;,&quot;symbol&quot;:&quot;AAPL&quot;,&quot;start&quot;:&quot;2026-05-13&quot;,&quot;end&quot;:&quot;2026-05-15&quot;,&quot;timeframe&quot;:&quot;1Min&quot;,&quot;limit&quot;:10}'
 </code></pre>
+<h3>5. 拉取股票逐笔 Tick 成交与报价历史 (HTTP)</h3>
+<pre><code class="language-bash">curl -X POST http://52.37.182.24:8768/v1/stock/history/trade_quote \
+  -H 'Content-Type: application/json' \
+  -d '{&quot;token&quot;:&quot;你的token&quot;,&quot;symbol&quot;:&quot;AAPL&quot;,&quot;date&quot;:&quot;2026-05-19&quot;}'
+</code></pre>
+<p>返回逐笔 trade + quote 数据，包含成交价格、成交量、买卖报价、交易所代码等。支持 <code>date</code> 单日查询或 <code>start_date</code>/<code>end_date</code> 区间查询。</p>
 <hr>
 <h2>WebSocket 实时流</h2>
 <p>所有 WS 端点都是<strong>先连接 → 发送 auth → 收到确认 → 订阅 → 收数据</strong>。</p>
@@ -485,6 +492,77 @@ ws.onmessage = (msg) =&gt; {
 </tr>
 </tbody>
 </table>
+<h3>股票逐笔 Tick 成交与报价历史 (ThetaData)</h3>
+<pre><code>POST /v1/stock/history/trade_quote
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>类型</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>token</code></td>
+<td>string</td>
+<td>✅</td>
+<td>代理 token</td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>string</td>
+<td>✅</td>
+<td>股票代码，如 <code>AAPL</code></td>
+</tr>
+<tr>
+<td><code>date</code></td>
+<td>string</td>
+<td>✅ (二选一)</td>
+<td>单日查询，格式 <code>YYYY-MM-DD</code> 或 <code>YYYYMMDD</code></td>
+</tr>
+<tr>
+<td><code>start_date</code></td>
+<td>string</td>
+<td>✅ (二选一)</td>
+<td>区间查询开始日期</td>
+</tr>
+<tr>
+<td><code>end_date</code></td>
+<td>string</td>
+<td>✅ (二选一)</td>
+<td>区间查询结束日期</td>
+</tr>
+<tr>
+<td><code>start_time</code></td>
+<td>string</td>
+<td>❌</td>
+<td>开始时间，默认 <code>09:30:00</code></td>
+</tr>
+<tr>
+<td><code>end_time</code></td>
+<td>string</td>
+<td>❌</td>
+<td>结束时间，默认 <code>16:00:00</code></td>
+</tr>
+<tr>
+<td><code>exclusive</code></td>
+<td>bool</td>
+<td>❌</td>
+<td>是否排除边界时间，默认 <code>false</code></td>
+</tr>
+<tr>
+<td><code>venue</code></td>
+<td>string</td>
+<td>❌</td>
+<td>数据源渠道，默认 <code>nqb</code> (Nasdaq Basic)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>返回字段</strong>: <code>timestamp</code>, <code>price</code>, <code>size</code>, <code>exchange</code>, <code>bid</code>, <code>ask</code>, <code>bid_size</code>, <code>ask_size</code> 等。</p>
+<p><strong>注意</strong>: 此端点直连 ThetaData，需要 ThetaData 账号具备 Standard 或更高订阅级别。Free 订阅会返回 <code>PERMISSION_DENIED</code>。由于数据量极大，建议单次查询不超过 1 个交易日。</p>
 <h3>期权历史 K 线 (双 Provider)</h3>
 <pre><code>POST /v1/history/options/bars
 </code></pre>
@@ -812,7 +890,8 @@ Fix: 增加映射层：<code>"CALL"</code>/<code>"C"</code> → <code>"C"</code>
 <ul>
 <li>部署模式: Paper trading (<code>IS_LIVE=false</code>), Pro feed (<code>IS_PRO=true</code>)</li>
 <li>上游数据源:</li>
-<li>股票: Alpaca <code>v2/sip</code></li>
+<li>股票历史 K 线: Alpaca <code>v2/sip</code></li>
+<li>股票逐笔 Tick: <strong>ThetaData</strong> <code>stock_history_trade_quote</code> (gRPC)</li>
 <li>期权实时流: Alpaca <code>v1beta1/opra</code></li>
 <li>期权历史 K 线: <strong>ThetaData</strong> (primary, gRPC) → Alpaca <code>v1beta1/options/bars</code> (fallback)</li>
 <li>期权 OI/EOD: <strong>ThetaData</strong> <code>option_history_open_interest</code> / <code>option_history_eod</code></li>
