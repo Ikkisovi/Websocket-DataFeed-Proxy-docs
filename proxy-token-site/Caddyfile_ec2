@@ -1,0 +1,25 @@
+# REST API reverse proxy (with CORS & OPTIONS handling)
+:8768 {
+    @options method OPTIONS
+    respond @options 204
+
+    reverse_proxy 100.70.107.106:8768
+
+    header Access-Control-Allow-Origin "*"
+    header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    header Access-Control-Allow-Headers "*"
+    header Access-Control-Max-Age "86400"
+}
+
+# WebSocket reverse proxy (with CORS & OPTIONS handling)
+:8767 {
+    @options method OPTIONS
+    respond @options 204
+
+    reverse_proxy 100.70.107.106:8767
+
+    header Access-Control-Allow-Origin "*"
+    header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    header Access-Control-Allow-Headers "*"
+    header Access-Control-Max-Age "86400"
+}

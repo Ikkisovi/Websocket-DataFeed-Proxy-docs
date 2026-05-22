@@ -1,0 +1,183 @@
+[
+  {
+    "username": "user1",
+    "phone": "1234567890",
+    "role": "premium",
+    "permissions": {
+      "ws": {
+        "stocks": true,
+        "options": true,
+        "overnight": true,
+        "crypto": true,
+        "news": true,
+        "boats": true,
+        "test": true
+      },
+      "rest": {
+        "stocks_history": true,
+        "options_history": true,
+        "options_contracts": true,
+        "options_snapshots": true,
+        "options_snapshots_expiry": true,
+        "crypto_orderbooks": true,
+        "admin_token_lookup": false,
+        "news_history": true
+      }
+    }
+  },
+  {
+    "username": "user2",
+    "phone": "0987654321",
+    "role": "restricted",
+    "permissions": {
+      "ws": {
+        "news": true
+      },
+      "rest": {
+        "news_history": true
+      }
+    }
+  },
+  {
+    "username": "谈小片生意被片250",
+    "phone": "123456789",
+    "role": "premium",
+    "permissions": {
+      "ws": {
+        "stocks": true,
+        "options": true,
+        "overnight": true,
+        "crypto": true,
+        "news": true,
+        "boats": true,
+        "test": true
+      },
+      "rest": {
+        "stocks_history": true,
+        "options_history": true,
+        "options_contracts": true,
+        "options_snapshots": true,
+        "options_snapshots_expiry": true,
+        "crypto_orderbooks": true,
+        "admin_token_lookup": false,
+        "news_history": true
+      }
+    }
+  },
+  {
+    "username": "ikkipipi",
+    "phone": "15213285787",
+    "role": "premium",
+    "plan": "premium",
+    "permissions": {
+      "ws": {
+        "stocks": true,
+        "options": true,
+        "overnight": true,
+        "crypto": true,
+        "news": true,
+        "boats": true,
+        "test": true
+      },
+      "rest": {
+        "stocks_history": true,
+        "options_history": true,
+        "options_contracts": true,
+        "options_snapshots": true,
+        "options_snapshots_expiry": true,
+        "crypto_orderbooks": true,
+        "admin_token_lookup": false,
+        "news_history": true
+      }
+    }
+  },
+  {
+    "username": "js",
+    "phone": "17657336886",
+    "role": "premium",
+    "expires_at": "2026-06-18T00:21:03.001506Z",
+    "permissions": {
+      "ws": {
+        "stocks": true,
+        "options": true,
+        "overnight": true,
+        "crypto": true,
+        "news": true,
+        "boats": true,
+        "test": true
+      },
+      "rest": {
+        "stocks_history": true,
+        "options_history": true,
+        "options_contracts": true,
+        "options_snapshots": true,
+        "options_snapshots_expiry": true,
+        "crypto_orderbooks": true,
+        "admin_token_lookup": false,
+        "news_history": true
+      }
+    }
+  },
+  {
+    "username": "托尼损",
+    "phone": "13816672286",
+    "role": "premium",
+    "plan": "premium",
+    "permissions": {
+      "ws": {
+        "stocks": true,
+        "options": true,
+        "overnight": true,
+        "crypto": true,
+        "news": true,
+        "boats": true,
+        "test": true
+      },
+      "rest": {
+        "stocks_history": true,
+        "options_history": true,
+        "options_contracts": true,
+        "options_snapshots": true,
+        "options_snapshots_expiry": true,
+        "crypto_orderbooks": true,
+        "admin_token_lookup": false,
+        "news_history": true
+      }
+    }
+  },
+  {
+    "username": "testuser123",
+    "phone": "13900139000",
+    "role": "premium",
+    "token": "c886624f-232d-4803-99fa-f8b970e4720a",
+    "approved": true,
+    "expires_at": "2026-06-19T14:15:57.059704+00:00"
+  },
+  {
+    "username": "卜拎吥零",
+    "phone": "18154317642",
+    "role": "limited_premium",
+    "plan": "limited_premium",
+    "permissions": {
+      "ws": {
+        "stocks": true,
+        "options": true,
+        "overnight": false,
+        "crypto": false,
+        "news": false,
+        "boats": false,
+        "test": false
+      },
+      "rest": {
+        "stocks_history": true,
+        "options_history": true,
+        "options_contracts": true,
+        "options_snapshots": true,
+        "options_snapshots_expiry": true,
+        "crypto_orderbooks": false,
+        "admin_token_lookup": false,
+        "news_history": false
+      }
+    }
+  }
+]

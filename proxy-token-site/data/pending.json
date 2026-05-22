@@ -1,0 +1,26 @@
+[
+  {
+    "id": "352b6eb6-77e7-4814-861b-d6201ea1426d",
+    "username": "kikikoko",
+    "phone": "19356526815",
+    "tier": "premium",
+    "registered_at": "2026-05-18T08:11:44.031Z",
+    "status": "pending"
+  },
+  {
+    "id": "61ce4f82-8b16-4e7e-be01-282730e53cc8",
+    "username": "tonnysun",
+    "phone": "18717931119",
+    "tier": "premium",
+    "registered_at": "2026-05-19T01:19:10.281Z",
+    "status": "pending"
+  },
+  {
+    "id": "18187df2-3211-4a2a-b874-67700579563e",
+    "username": "richardman",
+    "phone": "18154317642",
+    "tier": "premium",
+    "registered_at": "2026-05-22T15:38:33.452Z",
+    "status": "pending"
+  }
+]
