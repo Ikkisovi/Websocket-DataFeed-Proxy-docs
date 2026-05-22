@@ -1,0 +1,566 @@
+# Alpaca 行情代理 API
+
+> 更新时间: 2026-05-18  
+> 代理地址: `52.37.182.24` | WS: `8767` | HTTP: `8768`
+
+这个代理让你**用一个 token 就能获取美股实时行情和历史数据**，不需要自己持有 Alpaca API key 或 ThetaData 账号。
+
+**新增**: 期权历史数据现已接入 **ThetaData** 作为 Primary Provider，Alpaca 作为 Fallback。
+**新增 (2026-05-22)**: 股票逐笔 Tick 级成交与报价历史数据端点 `/v1/stock/history/trade_quote`，直连 ThetaData。
+
+---
+
+## 订阅套餐
+
+| 套餐 | 价格 | REST 请求/分钟 | WS 最大 Symbol 数 | 可用数据流 |
+| --- | --- | --- | --- | --- |
+| **Basic** | 20/月 | 10 | 10 | 股票、新闻 |
+| **Standard** | 50/月 | 60 | 100 | 股票、期权、加密货币、新闻 + 历史数据 |
+| **Premium** | 100/月 | 300 | 500 | 全部实时流 + 全部历史数据 |
+
+> 注册地址：`http://52.37.182.24:3000/register.html`
+> 选择套餐并填写信息后，等待管理员确认即可自助生成 Token。
+
+---
+
+## 快速开始
+
+### 1. 拿到你的 token
+
+在 `http://52.37.182.24:3000/register.html` 注册并选择套餐，等待管理员确认后即可自助生成 Token。不需要 Alpaca 账号。
+
+### 2. 测试连通性
+
+```bash
+curl http://52.37.182.24:8768/health
+# → OK
+```
+
+### 3. 连接实时行情 (WebSocket)
+
+```javascript
+// 以股票为例，期权/crypto/news 换对应的 URL 即可
+const ws = new WebSocket('ws://52.37.182.24:8767/stream');
+
+ws.onopen = () => {
+  ws.send(JSON.stringify({ action: 'auth', token: '你的token' }));
+  // 收到 {"T":"success","msg":"authenticated"} 后
+  ws.send(JSON.stringify({ action: 'subscribe', trades: ['AAPL'], quotes: ['AAPL'] }));
+};
+
+ws.onmessage = (msg) => {
+  // 股票/期权/boats/overnight 的行情是 MsgPack 二进制，需要解码
+  // crypto/news 是 JSON 文本
+  console.log(msg.data);
+};
+```
+
+### 4. 拉取历史 K 线 (HTTP)
+
+```bash
+curl -X POST http://52.37.182.24:8768/v1/history/bars \
+  -H 'Content-Type: application/json' \
+  -d '{"token":"你的token","symbol":"AAPL","start":"2026-05-13","end":"2026-05-15","timeframe":"1Min","limit":10}'
+```
+
+### 5. 拉取股票逐笔 Tick 成交与报价历史 (HTTP)
+
+```bash
+curl -X POST http://52.37.182.24:8768/v1/stock/history/trade_quote \
+  -H 'Content-Type: application/json' \
+  -d '{"token":"你的token","symbol":"AAPL","date":"2026-05-19"}'
+```
+
+返回逐笔 trade + quote 数据，包含成交价格、成交量、买卖报价、交易所代码等。支持传入 `start_date`/`end_date` 查询区间，或单日 `date` 快速查询。
+
+---
+
+## WebSocket 实时流
+
+所有 WS 端点都是**先连接 → 发送 auth → 收到确认 → 订阅 → 收数据**。
+
+### ⚠️ 帧编码（重要！）
+
+| 流 | 编码格式 |
+| --- | --- |
+| `/stream` (股票) | **MsgPack 二进制** |
+| `/stream/options` | **MsgPack 二进制** |
+| `/stream/test` | **MsgPack 二进制** |
+| `/stream/boats` | **MsgPack 二进制** |
+| `/stream/overnight` | **MsgPack 二进制** |
+| `/stream/crypto` | JSON 文本 |
+| `/stream/news` | JSON 文本 |
+
+**MsgPack 流必须用 msgpack 库解码，不能直接 JSON.parse。**
+
+### 端点一览
+
+| 端点 | 订阅键 | 说明 |
+| --- | --- | --- |
+| `ws://52.37.182.24:8767/stream` | `trades`, `quotes` | 美股实时成交+报价 |
+| `ws://52.37.182.24:8767/stream/options` | `trades`, `quotes` | 期权实时成交+报价 |
+| `ws://52.37.182.24:8767/stream/crypto` | `trades`, `orderbooks` | 加密货币 |
+| `ws://52.37.182.24:8767/stream/news` | `news` | 新闻推送（支持 `*` 全量订阅） |
+| `ws://52.37.182.24:8767/stream/boats` | `trades`, `quotes` | 美股（boats feed） |
+| `ws://52.37.182.24:8767/stream/overnight` | `trades`, `quotes` | 美股盘后 |
+| `ws://52.37.182.24:8767/stream/test` | `trades`, `quotes` | 测试流 |
+
+### Auth 消息
+
+```json
+{"action": "auth", "token": "你的token"}
+```
+
+成功回复:
+```json
+{"T": "success", "msg": "authenticated"}
+```
+
+### 订阅消息
+
+**股票 / 期权 / boats / overnight / test:**
+```json
+{"action": "subscribe", "trades": ["AAPL"], "quotes": ["AAPL"]}
+```
+
+**Crypto:**
+```json
+{"action": "subscribe", "trades": ["BTC/USD"], "orderbooks": ["BTC/USD"]}
+```
+
+**News:**
+```json
+{"action": "subscribe", "news": ["*"]}
+```
+
+### 限制
+
+- 不支持 `*` 通配符订阅（news 除外）
+- 股票代码不能带 `.`（`BRK.B` 不支持）
+- 不支持 WS bars / daily bars / LULD
+- Crypto 不支持 quotes
+
+---
+
+## HTTP REST API
+
+所有 HTTP 端点（`/health` 除外）都需要在 JSON body 里传 `token`:
+
+```json
+{"token": "你的token", ...}
+```
+
+也可以传 HTTP header: `Authorization: Bearer 你的token`
+
+### 健康检查
+
+```
+GET http://52.37.182.24:8768/health
+→ OK
+```
+
+### 股票历史 K 线
+
+```
+POST /v1/history/bars
+```
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `token` | string | ✅ | 代理 token |
+| `symbol` | string | ✅ | 单个股票代码 |
+| `start` | string | ✅ | 开始日期，如 `2026-05-13` |
+| `end` | string | ✅ | 结束日期 |
+| `timeframe` | string | ❌ | 默认 `1Min`，支持 `1Min`/`5Min`/`15Min`/`1Hour`/`1Day` |
+| `limit` | int | ❌ | 默认 10000，范围 1-10000 |
+| `max_pages` | int | ❌ | 默认 100 |
+| `feed` | string | ❌ | `sip` 或 `iex` |
+
+### 股票逐笔 Tick 成交与报价历史
+
+```
+POST /v1/stock/history/trade_quote
+```
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `token` | string | ✅ | 代理 token |
+| `symbol` | string | ✅ | 股票代码，如 `AAPL` |
+| `date` | string | ✅ (二选一) | 单日查询，格式 `YYYY-MM-DD` 或 `YYYYMMDD` |
+| `start_date` | string | ✅ (二选一) | 区间查询开始日期 |
+| `end_date` | string | ✅ (二选一) | 区间查询结束日期 |
+| `start_time` | string | ❌ | 开始时间，默认 `09:30:00` |
+| `end_time` | string | ❌ | 结束时间，默认 `16:00:00` |
+| `exclusive` | bool | ❌ | 是否排除边界时间，默认 `false` |
+| `venue` | string | ❌ | 数据源渠道，默认 `nqb` (Nasdaq Basic) |
+
+**返回字段示例**:
+```json
+{
+  "data": [
+    {"timestamp": "2026-05-19T09:30:00.123456-04:00", "price": 150.25, "size": 100, "exchange": "Q", "bid": 150.24, "ask": 150.26, "bid_size": 500, "ask_size": 300},
+    ...
+  ],
+  "count": 12500
+}
+```
+
+**注意**: 此端点直连 ThetaData，需要 ThetaData 账号具备 Standard 或更高订阅级别。Free 订阅会返回 `PERMISSION_DENIED`。
+
+### 期权历史 K 线
+
+```
+POST /v1/history/options/bars
+```
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `token` | string | ✅ | 代理 token |
+| `symbols` | string | ✅ | **支持两种格式**：<br>1. OCC 格式期权代码：`AAPL260522C00200000`<br>2. **股票代码**：`AAPL`（自动解析为期权链，返回前10个合约） |
+| `start` | string | ✅ | 开始日期 |
+| `end` | string | ✅ | 结束日期 |
+| `timeframe` | string | ❌ | 默认 `1Min` |
+| `limit` | int | ❌ | 默认 10000 |
+| `max_pages` | int | ❌ | 默认 100 |
+
+💡 也可以用 `symbol`（单数），会自动转成 `symbols`。
+
+**新功能**：传入股票代码（如 `AAPL`）时，系统会自动查询期权链并返回前10个合约的数据，无需手动指定 OCC 代码。
+
+OCC 格式: [股票代码][到期日YYMMDD][C/P][行权价*1000]
+- 示例: AAPL260522C00200000 = AAPL 2026-05-22 Call 200.00
+
+获取期权代码流程:
+1. 先用 /v1/options/contracts 查询合约列表
+2. 从返回的 symbol 字段获取 OCC 代码
+3. 再用该代码请求 /v1/history/options/bars
+
+数据源: 优先从 ThetaData 获取，失败时自动回退到 Alpaca。
+
+### 期权合约查询
+
+```
+POST /v1/options/contracts
+```
+
+```json
+{
+  "token": "你的token",
+  "underlying_symbols": "AAPL",
+  "expiration_date_gte": "2026-05-16",
+  "limit": 100
+}
+```
+
+支持的筛选字段: `underlying_symbols`, `expiration_date`, `expiration_date_gte`, `expiration_date_lte`, `strike_price_gte`, `strike_price_lte`, `type` / `option_type`, `limit`.
+
+### 期权快照
+
+```
+POST /v1/options/snapshots
+```
+
+```json
+{
+  "token": "你的token",
+  "symbols": ["AAPL260522C00200000"],
+  "feed": "opra"
+}
+```
+
+### 按到期日取期权快照（便捷接口）
+
+```
+POST /v1/options/snapshots/expiry
+```
+
+```json
+{
+  "token": "你的token",
+  "underlying": "AAPL",
+  "expiry": "2026-05-22"
+}
+```
+
+自动拉取该到期日所有合约，然后批量取快照。
+
+### 期权持仓量 (Open Interest)
+
+```
+POST /v1/options/open_interest
+```
+
+```json
+{
+  "token": "你的token",
+  "symbols": ["AAPL260522C00200000"]
+}
+```
+
+### 期权日终数据 (EOD)
+
+```
+POST /v1/options/eod
+```
+
+```json
+{
+  "token": "你的token",
+  "symbols": ["AAPL260522C00200000"],
+  "date": "2026-05-19"
+}
+```
+
+### Crypto 最新订单簿
+
+```
+POST /v1/crypto/us/latest/orderbooks
+```
+
+```json
+{
+  "token": "你的token",
+  "symbols": ["BTC/USD", "ETH/USD"]
+}
+```
+
+### 新闻历史
+
+```
+POST /v1/history/news
+```
+
+```json
+{
+  "token": "你的token",
+  "symbols": "AAPL",
+  "start": "2026-05-14T00:00:00Z",
+  "end": "2026-05-15T00:00:00Z",
+  "limit": 10
+}
+```
+
+### 鉴权与限流错误
+
+| HTTP 状态 | 含义 |
+| --- | --- |
+| `200` | 成功 |
+| `400` | 请求参数有误 |
+| `401` | token 无效（不在注册表中） |
+| `403` | token 有效但没有该端点的权限 |
+| `429` | **速率超限**（REST 请求太频繁或 WS 订阅 symbol 数超限制） |
+| `500` | 代理内部错误（上游 Alpaca 故障等） |
+
+### 速率限制
+
+代理按用户角色执行限流，超限返回 `429`。
+
+| 角色 | REST 请求/分钟 | WS 最大 Symbol 数 | 说明 |
+| --- | --- | --- | --- |
+| `basic` / `basic_flow` | 10 | 10 | 基础套餐 |
+| `standard` / `standard_flow` | 60 | 100 | 标准套餐 |
+| `premium` / `advanced` | 300 | 500 | 高级/ premium |
+| `fallback` / `admin` | 1000 | 1000 | 管理员/回退（实际不限） |
+
+> 注意: `/v1/stock/history/trade_quote` 端点由于返回逐笔 Tick 数据量极大，建议单次查询不超过 1 个交易日，并合理设置 `start_time`/`end_time` 缩小范围。
+
+> WS symbol 限制：每次 `subscribe` 会累加 symbol 数量，超出限制时 subscribe 被拒绝。断开后自动释放。
+
+### 管理接口（Admin）
+
+以下接口任何已认证用户均可调用。非管理员只能查看**自己的**数据；管理员可查看全部。
+
+#### 查询审计日志
+
+```
+POST /v1/admin/audit
+```
+
+```bash
+curl -X POST 'http://52.37.182.24:8768/v1/admin/audit?limit=50' \
+  -H 'Content-Type: application/json' \
+  -d '{"token":"你的token"}'
+```
+
+**查询参数**（管理员可用）：
+- `?user_id=xxx` — 过滤指定用户
+- `?event=http_request|ws_request` — 过滤事件类型
+- `?mode=stock|options|crypto|news|...` — 过滤 WS 模式
+- `?limit=100` — 最多返回条数（默认 100，最大 1000）
+
+**返回示例**：
+```json
+{
+  "total": 42,
+  "returned": 5,
+  "events": [
+    {
+      "event": "http_request",
+      "endpoint": "/v1/history/news",
+      "user_id": "ikkipipi",
+      "status": 200,
+      "elapsed_ms": 202,
+      "symbols": "AAPL",
+      "limit": 2
+    },
+    {
+      "event": "ws_request",
+      "ws_event": "auth",
+      "user_id": "ikkipipi",
+      "mode": "news",
+      "timestamp": 1716040000.0,
+      "token_masked": "967d4072...bc5d"
+    }
+  ]
+}
+```
+
+#### 查询流量与系统统计
+
+```
+POST /v1/admin/stats
+```
+
+```bash
+curl -X POST http://52.37.182.24:8768/v1/admin/stats \
+  -H 'Content-Type: application/json' \
+  -d '{"token":"你的token"}'
+```
+
+**返回示例**（普通用户）：
+```json
+{
+  "user_id": "ikkipipi",
+  "user_stats": {
+    "rest_requests_1min": 3,
+    "ws_symbols": 15
+  },
+  "all_user_stats": null,
+  "system": null
+}
+```
+
+**返回示例**（管理员）：
+```json
+{
+  "user_id": "ikkipipi",
+  "user_stats": { "rest_requests_1min": 3, "ws_symbols": 15 },
+  "all_user_stats": {
+    "user1": { "rest_requests_1min": 0, "ws_symbols": 5 },
+    "ikkipipi": { "rest_requests_1min": 3, "ws_symbols": 15 }
+  },
+  "system": {
+    "memory_percent": 65.6,
+    "memory_available_mb": 310,
+    "load_1min": 0.02,
+    "cpu_percent": 1.5
+  }
+}
+```
+
+---
+
+## 常见问题
+
+**Q: Lean/QuantConnect 怎么配置？**
+```
+ALPACA_PROXY_URL=ws://52.37.182.24:8767/stream
+ALPACA_PROXY_TOKEN=你的token
+```
+
+**Q: 历史数据走代理还是直连？**  
+默认直连 Alpaca REST。如果直连失败且设置了 `ALPACA_HISTORY_AUTO_FALLBACK=1`，会自动切到代理。
+
+**Q: 期权代码格式？**  
+标准 OCC 格式，如 `AAPL260522C00200000` = AAPL 2026-05-22 Call $200。
+
+**Q: 为什么我收到的数据是乱码？**  
+检查帧编码表 —— 股票和期权的 WS 流是 MsgPack，需要用 `msgpack.unpackb()` 解码。
+
+**Q: 支持哪些时间框架？**  
+实时流无 bars；历史 K 线支持 `1Min` `5Min` `15Min` `1Hour` `1Day`。
+
+---
+
+## 🚀 期权链自动解析 (Option Chain Auto-Resolution)
+
+> 新增端点: `/v1/history/options/bars` 现已支持**股票代码自动解析期权链**。
+
+这个特性允许客户端通过传入标准股票代码（如 `"AAPL"`）而非复杂的 OCC 期权合约字符串，来请求历史期权 bars。代理会自动：
+
+1. 检测输入为股票代码（非 OCC 格式）
+2. 查询 **ThetaData 合约列表**（过滤当日活跃合约）
+3. 自动解析前 10 个期权合约为标准 OCC 字符串（如 `AAPL260918C00360000`）
+4. 并行查询返回这些合约的历史 bars
+
+### 使用示例
+
+```bash
+curl -X POST http://52.37.182.24:8768/v1/history/options/bars \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "你的token",
+    "symbol": "AAPL",
+    "timeframe": "1Min",
+    "start": "2026-05-19T09:30:00Z",
+    "end": "2026-05-19T16:00:00Z"
+  }'
+```
+
+**返回示例**：
+```json
+{
+  "bars": {
+    "AAPL260522C00200000": [...],
+    "AAPL260522C00210000": [...]
+  }
+}
+```
+
+### 🔍 关键 Bug 修复记录
+
+在实现和部署过程中，发现并修复了以下三个关键问题：
+
+**1. gRPC 请求类型错误**
+- Bug: 初始调用使用 `request_type="LIST"`，抛出 gRPC 内部错误 `Unsupported request type: LIST`
+- Fix: 改为 `request_type="TRADE"`，ThetaData 服务端完全支持
+
+**2. 到期日格式校验失败**
+- Bug: 代码硬编码检查 `len(exp) == 8`，但 ThetaData 返回 `YYYY-MM-DD` 格式（10字符），导致所有合约被跳过
+- Fix: 清洗连字符 `exp.replace("-", "")` 转为 `YYYYMMDD` 格式后再截取 `YYMMDD`
+
+**3. 期权方向缩写映射错误**
+- Bug: ThetaData 返回 `"CALL"`/`"PUT"`，但标准 OCC 格式需要 `"C"`/`"P"`
+- Fix: 增加映射层：`"CALL"`/`"C"` → `"C"`，`"PUT"`/`"P"` → `"P"`
+
+### 📊 测试结果
+
+| 端点 | 状态 | 缓存 | 结果 |
+|------|------|------|------|
+| `options_bars` (OCC 直接) | OK | HIT | 391 bars |
+| `options_bars_auto_resolve` (股票代码) | OK | HIT | **3,519 bars** |
+| `options_contracts` | OK | MISS | 156 contracts |
+| `options_snapshots` | OK | MISS | 1 snapshot |
+| `options_open_interest` | OK | MISS | 期权持仓量数据 |
+| `options_eod` | OK | MISS | 期权日终数据 |
+
+> 全部 7 个用户通过全部端点测试，期权链自动解析功能已上线运行。
+
+---
+
+## 附录: 部署信息
+
+以下内容仅供维护参考。
+
+- 部署模式: Paper trading (`IS_LIVE=false`), Pro feed (`IS_PRO=true`)
+- 上游数据源:
+  - 股票历史: Alpaca `v2/sip`
+  - 股票逐笔 Tick: **ThetaData** `stock_history_trade_quote`
+  - 期权历史: **ThetaData** (Primary) → Alpaca `v1beta1/opra` (Fallback)
+  - 期权实时: Alpaca `v1beta1/opra`
+  - Crypto: Alpaca `v1beta3/crypto/us`
+  - News: Alpaca `v1beta1/news`
+  - Boats: Alpaca `v1beta1/boats`
+  - Overnight: Alpaca `v1beta1/overnight`
+- Token 注册表: `/app/users.json`（file-backed，支持运行时增删）
+- 源代码: [github.com/ikkisovi/Websocket-DataFeed-Proxy](https://github.com/ikkisovi/Websocket-DataFeed-Proxy)
