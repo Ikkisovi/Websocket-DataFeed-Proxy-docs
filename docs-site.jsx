@@ -375,34 +375,45 @@ Authorization: Bearer c88662...720a
 
       <h2 id="tiers-permissions" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Tiers &amp; permissions</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Three tiers control access to channels, symbols, rate limits, and REST endpoints.
-        <span style={{ color: "var(--ink-soft)", fontSize: 13 }}>三个套餐等级控制通道、标的、限速和接口权限。</span>
+        Four plans control access to channels, symbols, rate limits, and REST endpoints.
+        <span style={{ color: "var(--ink-soft)", fontSize: 13 }}>四个套餐等级控制通道、标的、限速和接口权限。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
-          <tr><th style={{ width: 150 }}>Tier</th><th>WS channels</th><th>WS symbols</th><th>REST req/min</th><th>REST endpoints</th></tr>
+          <tr><th style={{ width: 120 }}>Plan</th><th>Price</th><th>WS channels</th><th>WS symbols</th><th>REST req/min</th><th>REST endpoints</th></tr>
         </thead>
         <tbody>
           <tr>
             <td><span className="tier premium">Premium</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · overnight · crypto · news · boats</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$130/mo</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract · crypto · news · overnight</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>300</td>
             <td style={{ fontSize: 12 }}>All endpoints including crypto orderbooks</td>
           </tr>
           <tr>
-            <td><span className="tier standard">Limited Premium</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>20</td>
+            <td><span className="tier standard">Standard</span></td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$80/mo</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>60</td>
             <td style={{ fontSize: 12 }}>history/bars, options/*, news history excluded, no crypto</td>
           </tr>
           <tr>
+            <td><span className="tier trial">Trial</span></td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$30/3 days</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>60</td>
+            <td style={{ fontSize: 12 }}>Same as Standard · 3-day token · non-renewable</td>
+          </tr>
+          <tr>
             <td><span className="tier basic">Basic</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · news</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$40/mo</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>— (REST only)</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>10</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>10</td>
-            <td style={{ fontSize: 12 }}>stocks_history and news_history only</td>
+            <td style={{ fontSize: 12 }}>Bulk download · history · snapshots · no realtime</td>
           </tr>
         </tbody>
       </table>
@@ -421,7 +432,7 @@ Authorization: Bearer c88662...720a
       <ParamTable rows={[
         { name: "username", type: "string", required: true, desc: "Unique display name (must not exist in approved users)" },
         { name: "phone",    type: "string", required: true, desc: "Mobile number used to verify identity on token generation" },
-        { name: "tier",     type: "string", required: false, desc: "premium | limited_premium | basic (default: premium)" },
+        { name: "tier",     type: "string", required: false, desc: "premium | standard | trial | basic (default: premium). Maps to backend: trial/standard → limited_premium, basic → basic, premium → premium" },
       ]} />
       <pre className="code" style={{ marginBottom: 28 }}>
 {`// Request
@@ -663,8 +674,8 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
       <h2 id="post-v1-options-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/open_interest</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Historical open interest by date range and strike/expiry filter. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData</strong> (returns 503 if ThetaData unavailable).
-        Requires <em>limited_premium</em> or higher (mapped to <code>options_history</code> permission).
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>按日期范围和行权价/到期日筛选的历史持仓量数据。数据源：ThetaData。需 limited_premium 及以上。</span>
+        Requires <em>Standard</em>, <em>Trial</em>, or <em>Premium</em> (mapped to backend <code>options_history</code> / <code>limited_premium</code> permission).
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>按日期范围和行权价/到期日筛选的历史持仓量数据。数据源：ThetaData。需 Standard、Trial 或 Premium 套餐。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/open_interest`} />
       <ParamTable rows={[
@@ -1228,8 +1239,9 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
         <tbody>
           {[
             ["Premium",       "300", "150", "75",  "500"],
-            ["Limited Premium","60", "30",  "15",  "20"],
-            ["Basic",          "10", "5",   "2",   "10"],
+            ["Standard",      "60",  "30",  "15",  "50"],
+            ["Trial",         "60",  "30",  "15",  "50"],
+            ["Basic",         "10",  "5",   "2",   "—"],
           ].map(([t, r, l, c, w], i) => (
             <tr key={i}>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{t}</td>
@@ -1274,22 +1286,23 @@ function WsUsageBody() {
       </p>
 
       <table className="tbl card" style={{ marginBottom: 28, overflow: "hidden" }}>
-        <thead><tr><th>Channel</th><th>Path</th><th>Format</th><th>Basic</th><th>Lim. Premium</th><th>Premium</th></tr></thead>
+        <thead><tr><th>Channel</th><th>Path</th><th>Format</th><th>Basic</th><th>Trial</th><th>Standard</th><th>Premium</th></tr></thead>
         <tbody>
           {[
-            ["stocks",    "/stream",           "msgpack", "✓", "✓", "✓"],
-            ["options",   "/stream/options",   "msgpack", "—", "✓", "✓"],
-            ["overnight", "/stream/overnight", "msgpack", "—", "—", "✓"],
-            ["crypto",    "/stream/crypto",    "JSON",    "—", "—", "✓"],
-            ["news",      "/stream/news",      "JSON",    "✓", "—", "✓"],
-            ["boats",     "/stream/boats",     "msgpack", "—", "—", "✓"],
-          ].map(([ch, path, fmt, b, l, p], i) => (
+            ["stocks",    "/stream",           "msgpack", "—", "✓", "✓", "✓"],
+            ["options",   "/stream/options",   "msgpack", "—", "✓", "✓", "✓"],
+            ["contract",  "/stream/contract",  "msgpack", "—", "✓", "✓", "✓"],
+            ["overnight", "/stream/overnight", "msgpack", "—", "—", "—", "✓"],
+            ["crypto",    "/stream/crypto",    "JSON",    "—", "—", "—", "✓"],
+            ["news",      "/stream/news",      "JSON",    "—", "—", "—", "✓"],
+          ].map(([ch, path, fmt, b, tr, s, p], i) => (
             <tr key={i}>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, fontWeight: 600 }}>{ch}</td>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>{path}</td>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{fmt}</td>
               <td style={{ color: b === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{b}</td>
-              <td style={{ color: l === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{l}</td>
+              <td style={{ color: tr === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{tr}</td>
+              <td style={{ color: s === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{s}</td>
               <td style={{ color: p === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{p}</td>
             </tr>
           ))}
@@ -1357,12 +1370,12 @@ await ws.send(json.dumps({
         Use <code>"*"</code> to subscribe to all symbols.
       </p>
       <H3>Symbol limit</H3>
-      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>basic: 10 · limited_premium: 20 · premium: 500. Exceeding the limit returns an error message and the subscribe is rejected.</p>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>basic: — · trial/standard: 50 · premium: 500. Exceeding the limit returns an error message and the subscribe is rejected.</p>
 
       <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>options</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Live OPRA options feed. Subscribe using OCC symbols in the <code>trades</code> and <code>quotes</code> lists.
-        Limited Premium and Premium only.
+        Standard, Trial and Premium only.
       </p>
 
       <h2 id="crypto" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>crypto</h2>
@@ -1381,7 +1394,7 @@ await ws.send(json.dumps({
       <h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>news</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Realtime news events from Benzinga. Subscribe with a <code>news</code> list of tickers or <code>"*"</code> for all.
-        Messages are plain JSON. Available to Basic and Premium (not Limited Premium).
+        Messages are plain JSON. Available to Basic (REST only) and Premium. Standard/Trial get news via REST history, not realtime WS.
       </p>
 
       <h2 id="overnight" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>overnight</h2>
