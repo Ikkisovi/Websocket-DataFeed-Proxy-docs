@@ -132,8 +132,8 @@ function SideNav({ tab }) {
     { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions"] },
     { title: "Token API", items: ["POST /register", "POST /check-status", "POST /generate-token"] },
     { title: "REST History", items: ["POST /v1/history/bars", "POST /v1/history/news"] },
-    { title: "Options Data", items: ["POST /v1/options/contracts", "Snapshots", "POST /v1/history/options/bars", "POST /v1/options/open_interest", "POST /v1/options/eod"] },
-    { title: "Snapshots", items: ["POST /v1/options/snapshots", "POST /v1/options/snapshots/quote", "POST /v1/options/snapshots/open_interest", "POST /v1/options/snapshots/expiry"] },
+    { title: "Options Data", items: ["POST /v1/options/contracts", "POST /v1/history/options/bars", "POST /v1/options/open_interest", "POST /v1/options/eod"] },
+    { title: "Snapshots", sub: true, items: ["POST /v1/options/snapshots", "POST /v1/options/snapshots/quote", "POST /v1/options/snapshots/open_interest", "POST /v1/options/snapshots/expiry"] },
     { title: "Crypto Data", items: ["POST /v1/crypto/us/latest/orderbooks"] },
     { title: "Admin endpoints", items: ["POST /admin/login", "GET /admin/pending", "POST /admin/approve", "POST /admin/reject"] },
     { title: "Reference", items: ["Error codes", "Rate limits"] },
@@ -151,8 +151,8 @@ function SideNav({ tab }) {
       fontSize: 13, position: "sticky", top: 0, height: "100vh", overflow: "auto"
     }}>
       {sections.map((s, i) => (
-        <div key={i} style={{ marginBottom: 22 }}>
-          <div className="eyebrow" style={{ marginBottom: 8, color: "var(--ink-soft)" }}>{s.title}</div>
+        <div key={i} style={{ marginBottom: s.sub ? 16 : 22, marginLeft: s.sub ? 12 : 0 }}>
+          <div className="eyebrow" style={{ marginBottom: 8, color: "var(--ink-soft)", fontSize: s.sub ? 10 : undefined }}>{s.sub ? "↳ " : ""}{s.title}</div>
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 2 }}>
             {s.items.map((it, j) => (
               <li key={j}>
@@ -534,145 +534,6 @@ Authorization: Bearer c886624f-232d-4803-99fa-f8b970e4720a
 }`}
       </pre>
 
-      <h2 id="post-v1-options-snapshots" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Realtime option snapshots: greeks, implied volatility, NBBO bid/ask, last trade. Pass OCC symbols (e.g. <code>AAPL260620C00200000</code>) from <code>/v1/options/contracts</code>.
-      </p>
-      <div style={{
-        background: "rgba(245, 158, 11, 0.08)",
-        border: "1px solid rgba(245, 158, 11, 0.25)",
-        borderRadius: "8px",
-        padding: "16px 20px",
-        marginBottom: "24px",
-        display: "flex",
-        gap: "14px",
-        alignItems: "flex-start",
-      }}>
-        <div style={{ color: "#f59e0b", fontSize: 18, lineHeight: 1 }}>
-          ⚠️
-        </div>
-        <div style={{ fontSize: 14, color: "var(--ink-muted)", lineHeight: 1.5 }}>
-          <strong style={{ color: "var(--ink-strong)", display: "block", marginBottom: 4 }}>Notice: Options Caching & Availability</strong>
-          To protect upstream limits and ensure ultra-low latency performance, in-memory caching is active on all option snapshot endpoints with a <strong>60-second TTL</strong>. 
-          Please note that historical tick-level options trades/quotes (e.g. <code>/v1/history/options/trade_quote</code>) are <strong>not supported</strong> due to strict upstream provider rate restrictions. 
-          Use these real-time cached snapshot endpoints for your option analysis.
-        </div>
-      </div>
-      <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots`} />
-      <ParamTable rows={[
-        { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 1000 per request)" },
-        { name: "feed",    type: "string",  required: false, desc: "opra | indicative (default: opra for pro, indicative otherwise)" },
-        { name: "limit",   type: "integer", required: false, desc: "1–1000 (default: 100)" },
-      ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`curl -X POST ${REST_BASE}/v1/options/snapshots \\
-  -H "Authorization: Bearer <TOKEN>" \\
-  -H "Content-Type: application/json" \\
-  -d '{"symbols":"AAPL260620C00200000","feed":"indicative"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
-{`// Response — snapshots keyed by OCC symbol
-{
-  "snapshots": {
-    "AAPL260620C00200000": {
-      "greeks": { "delta": 0.72, "gamma": 0.01, "theta": -0.05, "vega": 0.18, "rho": 0.09 },
-      "impliedVolatility": 0.26,
-      "latestQuote": { "ap": 15.80, "as": 5, "bp": 15.60, "bs": 10, "t": "2026-05-22T..." },
-      "latestTrade": { "p": 15.70, "s": 1, "t": "2026-05-22T..." }
-    }
-  }
-}`}
-      </pre>
-
-      <h2 id="post-v1-options-snapshots-quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/quote</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        ThetaData-only snapshot for the latest NBBO quote of an option contract. Returns bid/ask prices, sizes, and exchanges. Use <code>feed: "thetadata"</code>.
-      </p>
-      <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/quote`} />
-      <ParamTable rows={[
-        { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 1000 per request)" },
-        { name: "feed",    type: "string",  required: false, desc: "thetadata (default: opra — must set to thetadata for this endpoint)" },
-        { name: "limit",   type: "integer", required: false, desc: "1–1000 (default: 100)" },
-      ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`curl -X POST ${REST_BASE}/v1/options/snapshots/quote \\
-  -H "Authorization: Bearer *** \\
-  -H "Content-Type: application/json" \\
-  -d '{"symbols":"AAPL260522C00110000","feed":"thetadata"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
-{`// Response
-{
-  "snapshots": {
-    "AAPL260522C00110000": {
-      "latestQuote": {
-        "ap": 200.10, "as": 101, "ax": "9",
-        "bp": 197.35, "bs": 101, "bx": "9",
-        "t": "2026-05-22T15:59:59.965Z"
-      }
-    }
-  }
-}`}
-      </pre>
-
-      <h2 id="post-v1-options-snapshots-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/open_interest</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        ThetaData-only snapshot for the latest open interest of an option contract. Returns OI count and timestamp. Use <code>feed: "thetadata"</code>.
-      </p>
-      <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/open_interest`} />
-      <ParamTable rows={[
-        { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 1000 per request)" },
-        { name: "feed",    type: "string",  required: false, desc: "thetadata (default: opra — must set to thetadata for this endpoint)" },
-        { name: "limit",   type: "integer", required: false, desc: "1–1000 (default: 100)" },
-      ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`curl -X POST ${REST_BASE}/v1/options/snapshots/open_interest \\
-  -H "Authorization: Bearer *** \\
-  -H "Content-Type: application/json" \\
-  -d '{"symbols":"AAPL260522C00110000","feed":"thetadata"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
-{`// Response
-{
-  "snapshots": {
-    "AAPL260522C00110000": {
-      "openInterest": {
-        "oi": 5,
-        "t": "2026-05-22T06:30:30.000Z"
-      }
-    }
-  }
-}`}
-      </pre>
-
-      <h2 id="post-v1-options-snapshots-expiry" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/expiry</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Convenience endpoint: fetches <em>all</em> contracts for an underlying on a specific expiry date and returns their snapshots in one call.
-        Internally runs <code>/v1/options/contracts</code> then batches snapshot requests (100 symbols per batch).
-      </p>
-      <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/expiry`} />
-      <ParamTable rows={[
-        { name: "underlying", type: "string", required: true,  desc: "Root ticker (e.g. AAPL)" },
-        { name: "expiry",     type: "string", required: true,  desc: "Expiration date YYYY-MM-DD" },
-        { name: "feed",       type: "string", required: false, desc: "opra | indicative (default: opra)" },
-      ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`curl -X POST ${REST_BASE}/v1/options/snapshots/expiry \\
-  -H "Authorization: Bearer <TOKEN>" \\
-  -H "Content-Type: application/json" \\
-  -d '{"underlying":"AAPL","expiry":"2026-05-22","feed":"indicative"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
-{`// Response
-{
-  "count": 42,
-  "contracts": [ { "symbol": "AAPL260522C00110000", ... } ],
-  "snapshots": {
-    "AAPL260522C00110000": { "greeks": {...}, "latestQuote": {...} }
-  }
-}`}
-      </pre>
-
       <h2 id="post-v1-history-options-bars" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/options/bars</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Historical OHLCV bars for option contracts. Primary data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData</strong> with Alpaca as fallback.
@@ -755,7 +616,8 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
 
       <h2 id="post-v1-options-eod" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/eod</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        End-of-day options summary: OHLC, volume, bid/ask, and trade count per contract per day. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData</strong>.
+        End-of-day OHLC summary for option contracts: open/high/low/close, volume, bid/ask, and trade count per contract per day.
+        This is the primary endpoint for historical options OHLC data. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData</strong>.
         Accepts the same filter parameters as <code>/v1/options/open_interest</code>.
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/eod`} />
@@ -775,8 +637,8 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
   -H "Content-Type: application/json" \\
   -d '{"symbol":"AAPL","start":"2025-01-02","end":"2025-01-03","right":"call","max_dte":30}'`}
       </pre>
-      <pre className="code" style={{ marginBottom: 48 }}>
-{`// Response
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Response — each record is one contract on one trading day
 {
   "count": 820,
   "data": [
@@ -794,6 +656,221 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
     }
   ]
 }`}
+      </pre>
+      <h3 id="eod-python-example" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Python example — fetch OHLC for near-term calls</h3>
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`import requests
+
+resp = requests.post(
+    "${REST_BASE}/v1/options/eod",
+    headers={"Authorization": "Bearer <TOKEN>"},
+    json={
+        "symbol": "AAPL",
+        "start":  "2025-01-02",
+        "end":    "2025-01-10",
+        "right":  "call",
+        "max_dte": 30,
+        "strike_range": 5      # ATM ± 5 strikes
+    }
+)
+data = resp.json()
+print(f"{data['count']} records")
+for row in data["data"][:5]:
+    print(f"  {row['expiration']} {row['strike']}C  "
+          f"O={row['open']} H={row['high']} L={row['low']} C={row['close']}  "
+          f"vol={row['volume']}")`}
+      </pre>
+
+      {/* ── Snapshots ── */}
+      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · Snapshots</div>
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 24px" }}>
+        Realtime snapshot endpoints return the <em>latest</em> state of option contracts — greeks, quotes, open interest — with a 60-second in-memory cache.
+        All snapshot endpoints accept OCC symbols from <code>/v1/options/contracts</code>.
+      </p>
+
+      <div style={{
+        background: "rgba(245, 158, 11, 0.08)",
+        border: "1px solid rgba(245, 158, 11, 0.25)",
+        borderRadius: "8px",
+        padding: "16px 20px",
+        marginBottom: "24px",
+        display: "flex",
+        gap: "14px",
+        alignItems: "flex-start",
+      }}>
+        <div style={{ color: "#f59e0b", fontSize: 18, lineHeight: 1 }}>
+          ⚠️
+        </div>
+        <div style={{ fontSize: 14, color: "var(--ink-muted)", lineHeight: 1.5 }}>
+          <strong style={{ color: "var(--ink-strong)", display: "block", marginBottom: 4 }}>Notice: Options Caching & Availability</strong>
+          To protect upstream limits and ensure ultra-low latency performance, in-memory caching is active on all option snapshot endpoints with a <strong>60-second TTL</strong>.
+          Please note that historical tick-level options trades/quotes (e.g. <code>/v1/history/options/trade_quote</code>) are <strong>not supported</strong> due to strict upstream provider rate restrictions.
+          Use these real-time cached snapshot endpoints for your option analysis.
+        </div>
+      </div>
+
+      <h2 id="post-v1-options-snapshots" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Full realtime snapshot: greeks, implied volatility, NBBO bid/ask, and last trade for each contract.
+        This is the most comprehensive snapshot — use the sub-endpoints below if you only need quotes or open interest.
+      </p>
+      <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots`} />
+      <ParamTable rows={[
+        { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 1000 per request)" },
+        { name: "feed",    type: "string",  required: false, desc: "opra | indicative (default: opra for pro, indicative otherwise)" },
+        { name: "limit",   type: "integer", required: false, desc: "1–1000 (default: 100)" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -X POST ${REST_BASE}/v1/options/snapshots \\
+  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"symbols":"AAPL260620C00200000","feed":"indicative"}'`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`// Response — snapshots keyed by OCC symbol
+{
+  "snapshots": {
+    "AAPL260620C00200000": {
+      "greeks": { "delta": 0.72, "gamma": 0.01, "theta": -0.05, "vega": 0.18, "rho": 0.09 },
+      "impliedVolatility": 0.26,
+      "latestQuote": { "ap": 15.80, "as": 5, "bp": 15.60, "bs": 10, "t": "2026-05-22T..." },
+      "latestTrade": { "p": 15.70, "s": 1, "t": "2026-05-22T..." }
+    }
+  }
+}`}
+      </pre>
+
+      <h2 id="post-v1-options-snapshots-quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/quote</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        ThetaData-only snapshot for the latest NBBO quote of an option contract. Returns bid/ask prices, sizes, and exchanges. Use <code>feed: "thetadata"</code>.
+      </p>
+      <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/quote`} />
+      <ParamTable rows={[
+        { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 1000 per request)" },
+        { name: "feed",    type: "string",  required: false, desc: "thetadata (default: opra — must set to thetadata for this endpoint)" },
+        { name: "limit",   type: "integer", required: false, desc: "1–1000 (default: 100)" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -X POST ${REST_BASE}/v1/options/snapshots/quote \\
+  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"symbols":"AAPL260522C00110000","feed":"thetadata"}'`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Response
+{
+  "snapshots": {
+    "AAPL260522C00110000": {
+      "latestQuote": {
+        "ap": 200.10, "as": 101, "ax": "9",
+        "bp": 197.35, "bs": 101, "bx": "9",
+        "t": "2026-05-22T15:59:59.965Z"
+      }
+    }
+  }
+}`}
+      </pre>
+      <h3 id="quote-python-example" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Python example — bid/ask spread</h3>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`import requests
+
+resp = requests.post(
+    "${REST_BASE}/v1/options/snapshots/quote",
+    headers={"Authorization": "Bearer <TOKEN>"},
+    json={"symbols": "AAPL260620C00200000", "feed": "thetadata"}
+)
+for sym, snap in resp.json()["snapshots"].items():
+    q = snap["latestQuote"]
+    spread = q["ap"] - q["bp"]
+    print(f"{sym}  bid={q['bp']}  ask={q['ap']}  spread={spread:.2f}")`}
+      </pre>
+
+      <h2 id="post-v1-options-snapshots-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/open_interest</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        ThetaData-only snapshot for the latest open interest of an option contract. Returns OI count and timestamp. Use <code>feed: "thetadata"</code>.
+      </p>
+      <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/open_interest`} />
+      <ParamTable rows={[
+        { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 1000 per request)" },
+        { name: "feed",    type: "string",  required: false, desc: "thetadata (default: opra — must set to thetadata for this endpoint)" },
+        { name: "limit",   type: "integer", required: false, desc: "1–1000 (default: 100)" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -X POST ${REST_BASE}/v1/options/snapshots/open_interest \\
+  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"symbols":"AAPL260522C00110000","feed":"thetadata"}'`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Response
+{
+  "snapshots": {
+    "AAPL260522C00110000": {
+      "openInterest": {
+        "oi": 5,
+        "t": "2026-05-22T06:30:30.000Z"
+      }
+    }
+  }
+}`}
+      </pre>
+      <h3 id="oi-snapshot-python-example" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Python example — check OI for multiple contracts</h3>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`import requests
+
+symbols = "AAPL260620C00200000,AAPL260620P00200000"
+resp = requests.post(
+    "${REST_BASE}/v1/options/snapshots/open_interest",
+    headers={"Authorization": "Bearer <TOKEN>"},
+    json={"symbols": symbols, "feed": "thetadata"}
+)
+for sym, snap in resp.json()["snapshots"].items():
+    oi = snap["openInterest"]
+    print(f"{sym}  OI={oi['oi']}  as_of={oi['t']}")`}
+      </pre>
+
+      <h2 id="post-v1-options-snapshots-expiry" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/expiry</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Convenience endpoint: fetches <em>all</em> contracts for an underlying on a specific expiry date and returns their snapshots in one call.
+        Internally runs <code>/v1/options/contracts</code> then batches snapshot requests (100 symbols per batch).
+      </p>
+      <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/expiry`} />
+      <ParamTable rows={[
+        { name: "underlying", type: "string", required: true,  desc: "Root ticker (e.g. AAPL)" },
+        { name: "expiry",     type: "string", required: true,  desc: "Expiration date YYYY-MM-DD" },
+        { name: "feed",       type: "string", required: false, desc: "opra | indicative (default: opra)" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -X POST ${REST_BASE}/v1/options/snapshots/expiry \\
+  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"underlying":"AAPL","expiry":"2026-05-22","feed":"indicative"}'`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Response
+{
+  "count": 42,
+  "contracts": [ { "symbol": "AAPL260522C00110000", ... } ],
+  "snapshots": {
+    "AAPL260522C00110000": { "greeks": {...}, "latestQuote": {...} }
+  }
+}`}
+      </pre>
+      <h3 id="expiry-python-example" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Python example — scan all contracts for a Friday expiry</h3>
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`import requests
+
+resp = requests.post(
+    "${REST_BASE}/v1/options/snapshots/expiry",
+    headers={"Authorization": "Bearer <TOKEN>"},
+    json={"underlying": "AAPL", "expiry": "2026-05-29", "feed": "indicative"}
+)
+data = resp.json()
+print(f"{data['count']} contracts for AAPL 2026-05-29")
+for sym, snap in data["snapshots"].items():
+    g = snap.get("greeks", {})
+    q = snap.get("latestQuote", {})
+    print(f"  {sym}  delta={g.get('delta','—')}  bid={q.get('bp','—')}  ask={q.get('ap','—')}")`}
       </pre>
 
       {/* ── Crypto ── */}
