@@ -62,7 +62,7 @@ function DocsSite() {
 
         {/* Tab strip */}
         <div style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
-          <Tab id="proxy" tab={tab} setTab={setTab} label="Proxy API" count="28 endpoints" />
+          <Tab id="proxy" tab={tab} setTab={setTab} label="Proxy API" count="45+ endpoints" />
           <Tab id="ws" tab={tab} setTab={setTab} label="WS usage" count="6 channels" />
           <div style={{ flex: 1 }}></div>
           <div style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
@@ -117,7 +117,14 @@ function Tab({ id, tab, setTab, label, count }) {
 
 function SideNav({ tab }) {
   const [activeId, setActiveId] = React.useState("");
-  const [expanded, setExpanded] = React.useState({ "Stock Data": true, "Options Data": true, "Snapshots": true });
+  const [expanded, setExpanded] = React.useState({
+    "Stock Data": true,
+    "Multi-symbol": true,
+    "Metadata": true,
+    "Single symbol": true,
+    "Options Data": true,
+    "Snapshots": true,
+  });
   React.useEffect(() => {
     const onHashChange = () => setActiveId(window.location.hash.slice(1));
     window.addEventListener('hashchange', onHashChange);
@@ -134,7 +141,11 @@ function SideNav({ tab }) {
     { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions"] },
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news"] },
-    { title: "Stock Data", items: ["stock availability", "stock examples"] },
+    { title: "Stock Data", items: ["overview"], children: [
+      { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
+      { title: "Metadata", items: ["condition codes", "exchange codes"] },
+      { title: "Single symbol", items: ["single bars", "single latest bar", "single quotes", "single latest quote", "single snapshot", "single trades", "single latest trade"] },
+    ]},
     { title: "Options Data", items: ["provider model", "contracts"], children: [
       { title: "Snapshots", items: ["snapshots", "quote", "snapshot trade", "open interest", "expiry", "snapshot ohlc"] },
       { title: "History", items: ["bars", "eod", "history open interest", "trades", "history ohlc"] },
@@ -170,7 +181,7 @@ function SideNav({ tab }) {
     const indent      = BASE_PAD + depth * INDENT_STEP;
 
     // Map sidebar labels to actual document IDs
-    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'history/news': 'post-v1-history-news', 'stock availability': 'stock-data-availability', 'stock examples': 'stock-data-examples', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
+    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'history/news': 'post-v1-history-news', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
     const getId = (label) => ID_MAP[label] || slugify(label);
 
     return (
@@ -333,6 +344,250 @@ function EndpointBadge({ method, path }) {
       <span className="method" style={{ background: colors[method] || "var(--accent)", color: "#fff", padding: "2px 8px", borderRadius: 4, fontFamily: "var(--f-mono)", fontSize: 11, fontWeight: 700 }}>{method}</span>
       <code style={{ fontFamily: "var(--f-mono)", fontSize: 13 }}>{path}</code>
     </div>
+  );
+}
+
+const STOCK_COMMON = {
+  symbols: { name: "symbols", type: "string", required: true, desc: "Comma-separated symbols, e.g. AAPL,MSFT" },
+  symbolPath: { name: "symbol", type: "path", required: true, desc: "Single ticker in the URL path, e.g. AAPL" },
+  start: { name: "start", type: "string", required: true, desc: "Inclusive start time/date. ISO 8601 recommended." },
+  end: { name: "end", type: "string", required: true, desc: "Exclusive end time/date. ISO 8601 recommended." },
+  feed: { name: "feed", type: "string", required: false, desc: "iex is safest by default; sip/delayed_sip/boats/overnight/otc depend on endpoint and entitlement." },
+  limit: { name: "limit", type: "integer", required: false, desc: "Page size. Use next_page_token for pagination when returned." },
+  pageToken: { name: "page_token", type: "string", required: false, desc: "Pagination token from the previous response." },
+  timeframe: { name: "timeframe", type: "string", required: true, desc: "1Min, 5Min, 15Min, 30Min, 1Hour, 1Day, etc." },
+  sort: { name: "sort", type: "string", required: false, desc: "asc or desc for historical tick endpoints." },
+  tape: { name: "tape", type: "string", required: true, desc: "Tape A, B, or C. Example: tape=C for Nasdaq-listed symbols." },
+};
+
+const STOCK_ENDPOINT_GROUPS = [
+  {
+    title: "Multi-symbol market data",
+    intro: "Batch endpoints for querying one or more stock symbols in one request.",
+    endpoints: [
+      {
+        id: "stock-auctions",
+        title: "Historical Auctions",
+        route: "/v2/stocks/auctions",
+        examplePath: "/v2/stocks/auctions?symbols=AAPL&start=2026-05-20&end=2026-05-21&limit=1&feed=sip",
+        desc: "Auction prices for one or more stocks. Use this when you need official auction prints rather than continuous trade ticks.",
+        zh: "查询一个或多个股票的历史 auction 数据。适合需要开盘/收盘 auction print 的场景。",
+        params: [STOCK_COMMON.symbols, STOCK_COMMON.start, STOCK_COMMON.end, { ...STOCK_COMMON.feed, desc: "Alpaca supports SIP feed for auctions." }, STOCK_COMMON.limit, STOCK_COMMON.pageToken],
+        keys: ["auctions", "next_page_token"],
+        tested: "200 alpaca MISS",
+      },
+      {
+        id: "stock-bars",
+        title: "Historical Bars",
+        route: "/v2/stocks/bars",
+        examplePath: "/v2/stocks/bars?symbols=AAPL&timeframe=1Day&start=2026-05-20&end=2026-05-21&limit=1&feed=iex",
+        desc: "Historical OHLCV bars for multiple symbols.",
+        zh: "多股票历史 OHLCV K 线。",
+        params: [STOCK_COMMON.symbols, STOCK_COMMON.timeframe, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, { name: "adjustment", type: "string", required: false, desc: "raw, split, dividend, or all." }, STOCK_COMMON.limit, STOCK_COMMON.pageToken],
+        keys: ["bars", "next_page_token"],
+        tested: "200 alpaca MISS",
+      },
+      {
+        id: "stock-latest-bars",
+        title: "Latest Bars",
+        route: "/v2/stocks/bars/latest",
+        examplePath: "/v2/stocks/bars/latest?symbols=AAPL&feed=iex",
+        desc: "Most recent minute bar for multiple symbols.",
+        zh: "多股票最新分钟 K 线。",
+        params: [STOCK_COMMON.symbols, STOCK_COMMON.feed],
+        keys: ["bars"],
+        tested: "200 alpaca MISS",
+      },
+      {
+        id: "stock-quotes",
+        title: "Historical Quotes",
+        route: "/v2/stocks/quotes",
+        examplePath: "/v2/stocks/quotes?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=iex",
+        desc: "Historical bid/ask quote ticks for multiple symbols.",
+        zh: "多股票历史 bid/ask quote ticks。",
+        params: [STOCK_COMMON.symbols, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, STOCK_COMMON.limit, STOCK_COMMON.sort, STOCK_COMMON.pageToken],
+        keys: ["quotes", "next_page_token"],
+        tested: "200 alpaca MISS",
+      },
+      {
+        id: "stock-latest-quotes",
+        title: "Latest Quotes",
+        route: "/v2/stocks/quotes/latest",
+        examplePath: "/v2/stocks/quotes/latest?symbols=AAPL&feed=iex",
+        desc: "Latest quote for multiple symbols.",
+        zh: "多股票最新报价。",
+        params: [STOCK_COMMON.symbols, STOCK_COMMON.feed],
+        keys: ["quotes"],
+        tested: "200 alpaca MISS; repeat DISK_HIT",
+      },
+      {
+        id: "stock-snapshots",
+        title: "Snapshots",
+        route: "/v2/stocks/snapshots",
+        examplePath: "/v2/stocks/snapshots?symbols=AAPL&feed=iex",
+        desc: "Composite latest state: latest trade, latest quote, minute bar, daily bar, and previous daily bar.",
+        zh: "股票综合快照：最新成交、最新报价、分钟 K、日 K、前一日 K。",
+        params: [STOCK_COMMON.symbols, STOCK_COMMON.feed],
+        keys: ["AAPL"],
+        tested: "200 alpaca MISS",
+      },
+      {
+        id: "stock-trades",
+        title: "Historical Trades",
+        route: "/v2/stocks/trades",
+        examplePath: "/v2/stocks/trades?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=iex",
+        desc: "Historical trade ticks for multiple symbols.",
+        zh: "多股票历史逐笔成交。",
+        params: [STOCK_COMMON.symbols, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, STOCK_COMMON.limit, STOCK_COMMON.sort, STOCK_COMMON.pageToken],
+        keys: ["trades", "next_page_token"],
+        tested: "200 alpaca MISS",
+      },
+      {
+        id: "stock-latest-trades",
+        title: "Latest Trades",
+        route: "/v2/stocks/trades/latest",
+        examplePath: "/v2/stocks/trades/latest?symbols=AAPL&feed=iex",
+        desc: "Latest trade for multiple symbols.",
+        zh: "多股票最新成交。",
+        params: [STOCK_COMMON.symbols, STOCK_COMMON.feed],
+        keys: ["trades"],
+        tested: "200 alpaca MISS",
+      },
+    ],
+  },
+  {
+    title: "Reference metadata",
+    intro: "Lookup tables for translating stock market data condition and exchange codes.",
+    endpoints: [
+      {
+        id: "stock-condition-codes",
+        title: "Condition Codes",
+        route: "/v2/stocks/meta/conditions/{ticktype}",
+        examplePath: "/v2/stocks/meta/conditions/trade?tape=C",
+        desc: "Maps condition code values to readable descriptions for trade or quote ticks.",
+        zh: "将成交/报价条件代码映射为可读说明。",
+        params: [{ name: "ticktype", type: "path", required: true, desc: "trade or quote." }, STOCK_COMMON.tape],
+        keys: ["1", "4", "5", "6", "7", "8", "9", "@"],
+        tested: "200 alpaca MISS",
+      },
+      {
+        id: "stock-exchange-codes",
+        title: "Exchange Codes",
+        route: "/v2/stocks/meta/exchanges",
+        examplePath: "/v2/stocks/meta/exchanges",
+        desc: "Maps exchange code values to readable venue names.",
+        zh: "将交易所代码映射为可读交易场所名称。",
+        params: [],
+        keys: ["A", "B", "C", "D", "E", "H", "I", "J"],
+        tested: "200 alpaca MISS",
+      },
+    ],
+  },
+  {
+    title: "Single-symbol market data",
+    intro: "Same data families as the batch endpoints, but scoped to one ticker in the URL path.",
+    endpoints: [
+      {
+        id: "stock-single-bars",
+        title: "Historical Bars, Single Symbol",
+        route: "/v2/stocks/{symbol}/bars",
+        examplePath: "/v2/stocks/AAPL/bars?timeframe=1Day&start=2026-05-20&end=2026-05-21&limit=1&feed=iex",
+        desc: "Historical OHLCV bars for one stock.",
+        zh: "单只股票历史 OHLCV K 线。",
+        params: [STOCK_COMMON.symbolPath, STOCK_COMMON.timeframe, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, STOCK_COMMON.limit, STOCK_COMMON.pageToken],
+        keys: ["bars", "next_page_token", "symbol"],
+        tested: "200 alpaca MISS",
+      },
+      {
+        id: "stock-single-latest-bar",
+        title: "Latest Bar, Single Symbol",
+        route: "/v2/stocks/{symbol}/bars/latest",
+        examplePath: "/v2/stocks/AAPL/bars/latest?feed=iex",
+        desc: "Latest minute bar for one stock.",
+        zh: "单只股票最新分钟 K 线。",
+        params: [STOCK_COMMON.symbolPath, STOCK_COMMON.feed],
+        keys: ["bar", "symbol"],
+        tested: "200 alpaca MISS",
+      },
+      {
+        id: "stock-single-quotes",
+        title: "Historical Quotes, Single Symbol",
+        route: "/v2/stocks/{symbol}/quotes",
+        examplePath: "/v2/stocks/AAPL/quotes?start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=iex",
+        desc: "Historical quote ticks for one stock.",
+        zh: "单只股票历史报价 ticks。",
+        params: [STOCK_COMMON.symbolPath, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, STOCK_COMMON.limit, STOCK_COMMON.sort, STOCK_COMMON.pageToken],
+        keys: ["quotes", "next_page_token", "symbol"],
+        tested: "200 alpaca MISS",
+      },
+      {
+        id: "stock-single-latest-quote",
+        title: "Latest Quote, Single Symbol",
+        route: "/v2/stocks/{symbol}/quotes/latest",
+        examplePath: "/v2/stocks/AAPL/quotes/latest?feed=iex",
+        desc: "Latest quote for one stock.",
+        zh: "单只股票最新报价。",
+        params: [STOCK_COMMON.symbolPath, STOCK_COMMON.feed],
+        keys: ["quote", "symbol"],
+        tested: "200 alpaca MISS",
+      },
+      {
+        id: "stock-single-snapshot",
+        title: "Snapshot, Single Symbol",
+        route: "/v2/stocks/{symbol}/snapshot",
+        examplePath: "/v2/stocks/AAPL/snapshot?feed=iex",
+        desc: "Composite latest state for one stock.",
+        zh: "单只股票综合快照。",
+        params: [STOCK_COMMON.symbolPath, STOCK_COMMON.feed],
+        keys: ["dailyBar", "latestQuote", "latestTrade", "minuteBar", "prevDailyBar", "symbol"],
+        tested: "200 alpaca MISS",
+      },
+      {
+        id: "stock-single-trades",
+        title: "Historical Trades, Single Symbol",
+        route: "/v2/stocks/{symbol}/trades",
+        examplePath: "/v2/stocks/AAPL/trades?start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=iex",
+        desc: "Historical trade ticks for one stock.",
+        zh: "单只股票历史逐笔成交。",
+        params: [STOCK_COMMON.symbolPath, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, STOCK_COMMON.limit, STOCK_COMMON.sort, STOCK_COMMON.pageToken],
+        keys: ["trades", "next_page_token", "symbol"],
+        tested: "200 alpaca MISS",
+      },
+      {
+        id: "stock-single-latest-trade",
+        title: "Latest Trade, Single Symbol",
+        route: "/v2/stocks/{symbol}/trades/latest",
+        examplePath: "/v2/stocks/AAPL/trades/latest?feed=iex",
+        desc: "Latest trade for one stock.",
+        zh: "单只股票最新成交。",
+        params: [STOCK_COMMON.symbolPath, STOCK_COMMON.feed],
+        keys: ["trade", "symbol"],
+        tested: "200 alpaca MISS",
+      },
+    ],
+  },
+];
+
+function StockEndpointSection({ endpoint }) {
+  return (
+    <section style={{ marginBottom: 42 }}>
+      <h2 id={endpoint.id} className="display-title" style={{ fontSize: 24, margin: "0 0 8px" }}>{endpoint.title}</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        {endpoint.desc}
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>{endpoint.zh}</span>
+      </p>
+      <EndpointBadge method="GET" path={`${REST_BASE}${endpoint.route}`} />
+      {endpoint.params.length > 0 ? <ParamTable rows={endpoint.params} /> : (
+        <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 20px" }}>No query parameters are required.</p>
+      )}
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}${endpoint.examplePath}"`}
+      </pre>
+      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: 0 }}>
+        Live test: <code>{endpoint.tested}</code>. Response top-level keys observed: <code>{endpoint.keys.join(", ")}</code>.
+      </p>
+    </section>
   );
 }
 
@@ -587,58 +842,17 @@ Authorization: Bearer c88662...720a
         Feed availability still follows the upstream entitlement: <code>iex</code> is the safest default; <code>sip</code>, <code>delayed_sip</code>, <code>boats</code>, <code>overnight</code>, and <code>otc</code> depend on the requested endpoint and subscription.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>以下股票数据接口均按 Alpaca native GET 路径开放。响应结构保持 Alpaca 原样，鉴权和服务端缓存由代理统一处理。</span>
       </p>
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
-        <thead><tr><th>Endpoint</th><th>Method</th><th>Route</th><th>Notes</th></tr></thead>
-        <tbody>
-          {[
-            ["Historical auctions", "GET", "/v2/stocks/auctions", "Auction prices; Alpaca supports SIP feed for auctions."],
-            ["Historical bars", "GET", "/v2/stocks/bars", "Multi-symbol OHLCV bars."],
-            ["Latest bars", "GET", "/v2/stocks/bars/latest", "Latest minute bar for multiple symbols."],
-            ["Condition codes", "GET", "/v2/stocks/meta/conditions/{ticktype}", "ticktype=trade or quote; requires tape=A/B/C."],
-            ["Exchange codes", "GET", "/v2/stocks/meta/exchanges", "Exchange code mapping."],
-            ["Historical quotes", "GET", "/v2/stocks/quotes", "Multi-symbol historical NBBO quotes."],
-            ["Latest quotes", "GET", "/v2/stocks/quotes/latest", "Latest quote for multiple symbols."],
-            ["Snapshots", "GET", "/v2/stocks/snapshots", "Latest trade, latest quote, minute bar, daily bar, previous daily bar."],
-            ["Historical trades", "GET", "/v2/stocks/trades", "Multi-symbol historical trades."],
-            ["Latest trades", "GET", "/v2/stocks/trades/latest", "Latest trade for multiple symbols."],
-            ["Historical bars (single symbol)", "GET", "/v2/stocks/{symbol}/bars", "Single-symbol OHLCV bars."],
-            ["Latest bar (single symbol)", "GET", "/v2/stocks/{symbol}/bars/latest", "Latest minute bar for one symbol."],
-            ["Historical quotes (single symbol)", "GET", "/v2/stocks/{symbol}/quotes", "Single-symbol historical quotes."],
-            ["Latest quote (single symbol)", "GET", "/v2/stocks/{symbol}/quotes/latest", "Latest quote for one symbol."],
-            ["Snapshot (single symbol)", "GET", "/v2/stocks/{symbol}/snapshot", "Latest trade, quote, minute bar, daily bar, previous daily bar."],
-            ["Historical trades (single symbol)", "GET", "/v2/stocks/{symbol}/trades", "Single-symbol historical trades."],
-            ["Latest trade (single symbol)", "GET", "/v2/stocks/{symbol}/trades/latest", "Latest trade for one symbol."],
-          ].map(([name, method, route, notes], i) => (
-            <tr key={i}>
-              <td style={{ fontSize: 12, color: "var(--ink-strong)" }}>{name}</td>
-              <td><span style={{ color: "var(--ok)", fontFamily: "var(--f-mono)", fontSize: 11 }}>{method}</span></td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>{route}</td>
-              <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>{notes}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 18px" }}>
-        Live smoke-tested on 2026-05-23: each route above returned <code>200</code> through the native provider path. Repeated latest/snapshot calls return <code>X-Cache: DISK_HIT</code> when served from cache.
+      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 28px" }}>
+        Live smoke-tested on 2026-05-23: every endpoint in this section returned <code>200</code> through the native provider path. Repeated latest/snapshot calls return <code>X-Cache: DISK_HIT</code> when served from cache.
       </p>
-      <h3 id="stock-data-examples" style={{ fontSize: 16, fontWeight: 500, margin: "0 0 8px", color: "var(--ink-strong)" }}>Stock examples</h3>
-      <pre className="code" style={{ marginBottom: 48 }}>
-{`# Historical auctions
-curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v2/stocks/auctions?symbols=AAPL&start=2026-05-20&end=2026-05-21&limit=1&feed=sip"
 
-# Latest quotes, multi-symbol
-curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v2/stocks/quotes/latest?symbols=AAPL,MSFT&feed=iex"
-
-# Single-symbol snapshot
-curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v2/stocks/AAPL/snapshot?feed=iex"
-
-# Condition codes
-curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v2/stocks/meta/conditions/trade?tape=C"`}
-      </pre>
+      {STOCK_ENDPOINT_GROUPS.map((group, gi) => (
+        <div key={group.title} style={{ marginBottom: gi === STOCK_ENDPOINT_GROUPS.length - 1 ? 48 : 28 }}>
+          <h3 id={slugify(group.title)} style={{ fontSize: 17, fontWeight: 500, margin: "0 0 8px", color: "var(--ink-strong)" }}>{group.title}</h3>
+          <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 20px" }}>{group.intro}</p>
+          {group.endpoints.map(endpoint => <StockEndpointSection key={endpoint.id} endpoint={endpoint} />)}
+        </div>
+      ))}
 
       {/* ── Provider Data ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Provider Data</div>
