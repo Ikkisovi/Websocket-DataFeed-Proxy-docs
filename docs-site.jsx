@@ -117,7 +117,7 @@ function Tab({ id, tab, setTab, label, count }) {
 
 function SideNav({ tab }) {
   const [activeId, setActiveId] = React.useState("");
-  const [expanded, setExpanded] = React.useState({ "Options Data": true, "Snapshots": true });
+  const [expanded, setExpanded] = React.useState({ "Stock Data": true, "Options Data": true, "Snapshots": true });
   React.useEffect(() => {
     const onHashChange = () => setActiveId(window.location.hash.slice(1));
     window.addEventListener('hashchange', onHashChange);
@@ -134,8 +134,9 @@ function SideNav({ tab }) {
     { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions"] },
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news"] },
+    { title: "Stock Data", items: ["stock availability", "stock examples"] },
     { title: "Options Data", items: ["provider model", "contracts"], children: [
-      { title: "Snapshots", items: ["snapshots", "quote", "open interest", "expiry", "snapshot ohlc"] },
+      { title: "Snapshots", items: ["snapshots", "quote", "snapshot trade", "open interest", "expiry", "snapshot ohlc"] },
       { title: "History", items: ["bars", "eod", "history open interest", "trades", "history ohlc"] },
       { title: "ThetaData Value", items: ["direct endpoints"] },
     ]},
@@ -169,7 +170,7 @@ function SideNav({ tab }) {
     const indent      = BASE_PAD + depth * INDENT_STEP;
 
     // Map sidebar labels to actual document IDs
-    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'history/news': 'post-v1-history-news', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
+    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'history/news': 'post-v1-history-news', 'stock availability': 'stock-data-availability', 'stock examples': 'stock-data-examples', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
     const getId = (label) => ID_MAP[label] || slugify(label);
 
     return (
@@ -576,6 +577,69 @@ Authorization: Bearer c88662...720a
 }`}
       </pre>
 
+      {/* ── Stock Data ── */}
+      <div className="eyebrow" style={{ marginBottom: 10 }}>Stock Data</div>
+
+      <h2 id="stock-data-availability" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Alpaca stock data availability</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        All native Alpaca stock market-data endpoints below are exposed as authenticated <code>GET</code> routes under <code>{REST_BASE}/v2/stocks/*</code>.
+        The proxy keeps the Alpaca response shape, strips proxy credentials from cache keys, and returns <code>X-Provider: alpaca</code>.
+        Feed availability still follows the upstream entitlement: <code>iex</code> is the safest default; <code>sip</code>, <code>delayed_sip</code>, <code>boats</code>, <code>overnight</code>, and <code>otc</code> depend on the requested endpoint and subscription.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>以下股票数据接口均按 Alpaca native GET 路径开放。响应结构保持 Alpaca 原样，鉴权和服务端缓存由代理统一处理。</span>
+      </p>
+      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
+        <thead><tr><th>Endpoint</th><th>Method</th><th>Route</th><th>Notes</th></tr></thead>
+        <tbody>
+          {[
+            ["Historical auctions", "GET", "/v2/stocks/auctions", "Auction prices; Alpaca supports SIP feed for auctions."],
+            ["Historical bars", "GET", "/v2/stocks/bars", "Multi-symbol OHLCV bars."],
+            ["Latest bars", "GET", "/v2/stocks/bars/latest", "Latest minute bar for multiple symbols."],
+            ["Condition codes", "GET", "/v2/stocks/meta/conditions/{ticktype}", "ticktype=trade or quote; requires tape=A/B/C."],
+            ["Exchange codes", "GET", "/v2/stocks/meta/exchanges", "Exchange code mapping."],
+            ["Historical quotes", "GET", "/v2/stocks/quotes", "Multi-symbol historical NBBO quotes."],
+            ["Latest quotes", "GET", "/v2/stocks/quotes/latest", "Latest quote for multiple symbols."],
+            ["Snapshots", "GET", "/v2/stocks/snapshots", "Latest trade, latest quote, minute bar, daily bar, previous daily bar."],
+            ["Historical trades", "GET", "/v2/stocks/trades", "Multi-symbol historical trades."],
+            ["Latest trades", "GET", "/v2/stocks/trades/latest", "Latest trade for multiple symbols."],
+            ["Historical bars (single symbol)", "GET", "/v2/stocks/{symbol}/bars", "Single-symbol OHLCV bars."],
+            ["Latest bar (single symbol)", "GET", "/v2/stocks/{symbol}/bars/latest", "Latest minute bar for one symbol."],
+            ["Historical quotes (single symbol)", "GET", "/v2/stocks/{symbol}/quotes", "Single-symbol historical quotes."],
+            ["Latest quote (single symbol)", "GET", "/v2/stocks/{symbol}/quotes/latest", "Latest quote for one symbol."],
+            ["Snapshot (single symbol)", "GET", "/v2/stocks/{symbol}/snapshot", "Latest trade, quote, minute bar, daily bar, previous daily bar."],
+            ["Historical trades (single symbol)", "GET", "/v2/stocks/{symbol}/trades", "Single-symbol historical trades."],
+            ["Latest trade (single symbol)", "GET", "/v2/stocks/{symbol}/trades/latest", "Latest trade for one symbol."],
+          ].map(([name, method, route, notes], i) => (
+            <tr key={i}>
+              <td style={{ fontSize: 12, color: "var(--ink-strong)" }}>{name}</td>
+              <td><span style={{ color: "var(--ok)", fontFamily: "var(--f-mono)", fontSize: 11 }}>{method}</span></td>
+              <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>{route}</td>
+              <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>{notes}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 18px" }}>
+        Live smoke-tested on 2026-05-23: each route above returned <code>200</code> through the native provider path. Repeated latest/snapshot calls return <code>X-Cache: DISK_HIT</code> when served from cache.
+      </p>
+      <h3 id="stock-data-examples" style={{ fontSize: 16, fontWeight: 500, margin: "0 0 8px", color: "var(--ink-strong)" }}>Stock examples</h3>
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`# Historical auctions
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v2/stocks/auctions?symbols=AAPL&start=2026-05-20&end=2026-05-21&limit=1&feed=sip"
+
+# Latest quotes, multi-symbol
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v2/stocks/quotes/latest?symbols=AAPL,MSFT&feed=iex"
+
+# Single-symbol snapshot
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v2/stocks/AAPL/snapshot?feed=iex"
+
+# Condition codes
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v2/stocks/meta/conditions/trade?tape=C"`}
+      </pre>
+
       {/* ── Provider Data ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Provider Data</div>
 
@@ -590,15 +654,16 @@ Authorization: Bearer c88662...720a
         <thead><tr><th>Provider surface</th><th>Route family</th><th>Behavior</th></tr></thead>
         <tbody>
           {[
-            ["Alpaca stocks", "/v2/stocks/*", "Native stock bars, trades, quotes, latest quotes/trades/bars, and snapshots."],
+            ["Alpaca stocks", "/v2/stocks/*", "Native stock auctions, bars, trades, quotes, latest data, snapshots, and metadata."],
             ["Alpaca crypto", "/v1beta3/crypto/* and /v1beta1/crypto-perps/*", "Native crypto bars, trades, quotes, latest data, and orderbooks."],
-            ["Alpaca options", "/v1beta1/options/*", "Native option bars, trades, quotes, latest data, and snapshots."],
+            ["Alpaca options", "/v1beta1/options/*", "Native option bars, historical trades, latest quotes/trades, snapshots, and option-chain snapshots. Historical option data starts 2024-02-01."],
             ["Alpaca news", "/v1beta1/news*", "Native news endpoint family."],
             ["Alpaca option contracts", "/v2/options/contracts*", "Native option contract metadata."],
             ["Option bars", "/v1/history/options/bars", "ThetaData OHLC first, Alpaca bars fallback. provider=thetadata disables Alpaca fallback; provider=alpaca skips ThetaData."],
             ["Contracts", "/v1/options/contracts", "Alpaca contracts first, ThetaData Value contracts fallback when Alpaca is unavailable. provider=thetadata requires underlying_symbols."],
             ["Full snapshots / greeks / IV", "/v1/options/snapshots", "Alpaca only because ThetaData Value does not include greeks, IV, or market value."],
-            ["Quote / OI / OHLC snapshots", "/v1/options/snapshots/* and /v3/option/snapshot/*", "ThetaData-backed where Value permits quote, open_interest, and OHLC snapshots."],
+            ["Quote / trade snapshots", "/v1/options/snapshots/quote and /v1/options/snapshots/trade", "Alpaca latest quote/trade first; response is normalized under snapshots[OCC].latestQuote/latestTrade."],
+            ["OI / OHLC snapshots", "/v1/options/snapshots/open_interest and /v3/option/snapshot/*", "ThetaData-backed where Value permits open_interest and OHLC snapshots."],
             ["ThetaData Value options", "/v3/option/*", "Exact ThetaData Value whitelist only, JSON response, no Alpaca fallback."],
           ].map(([area, route, behavior], i) => (
             <tr key={i}>
@@ -858,11 +923,12 @@ curl -X POST ${REST_BASE}/v1/history/options/eod \\
 
       <h2 id="post-v1-history-options-trades" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/options/trades</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Historical option trades from Alpaca. Maps to Alpaca's <code>/v1beta1/options/trades</code> endpoint.
+        Historical option trades from Alpaca. Maps to Alpaca's <code>/v1beta1/options/trades</code> endpoint, which is also available directly as a native <code>GET</code> route.
+        Alpaca historical option data starts on <strong style={{ color: "var(--ink-strong)" }}>2024-02-01</strong>; earlier requests return empty data plus a warning on this wrapper route.
         <strong>No ThetaData fallback</strong> — if queried too early or on an empty dataset, returns a standard empty response.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Alpaca 历史期权逐笔成交数据。无 ThetaData 备用源。若查询时间过早或数据集为空，返回标准空响应。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Alpaca 历史期权逐笔成交数据。Alpaca 历史期权数据从 2024-02-01 开始；无 ThetaData 备用源。若查询时间过早或数据集为空，返回标准空响应。</span>
       </p>
-      <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/options/trades`} />
+      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/history/options/trades`} />
       <ParamTable rows={[
         { name: "symbols",   type: "string",  required: true,  desc: "Comma-separated OCC option symbols" },
         { name: "start",     type: "string",  required: true,  desc: "ISO 8601 datetime" },
@@ -890,7 +956,12 @@ curl -X POST ${REST_BASE}/v1/history/options/eod \\
 // Empty response (too early or no data)
 {
   "trades": {},
-  "next_page_token": null
+  "next_page_token": null,
+  "data_availability": {
+    "provider": "alpaca",
+    "historical_options_since": "2024-02-01"
+  },
+  "warning": "Alpaca historical option data is available from 2024-02-01 onward."
 }`}
       </pre>
 
@@ -917,15 +988,15 @@ curl -X POST ${REST_BASE}/v1/history/options/eod \\
         <div style={{ fontSize: 14, color: "var(--ink-muted)", lineHeight: 1.5 }}>
           <strong style={{ color: "var(--ink-strong)", display: "block", marginBottom: 4 }}>Notice: Options Caching & Availability</strong>
           To protect upstream limits and ensure ultra-low latency performance, in-memory caching is active on all option snapshot endpoints with a <strong>60-second TTL</strong>.
-          Please note that historical tick-level options trades/quotes (e.g. <code>/v1/history/options/trade_quote</code>) are <strong>not supported</strong> due to strict upstream provider rate restrictions.
-          Use these real-time cached snapshot endpoints for your option analysis.
+          Alpaca historical option data is available from <strong>2024-02-01</strong> onward. Historical option trades are available through <code>/v1beta1/options/trades</code> or the alias <code>/v1/history/options/trades</code>; historical option quotes are still not exposed as a wrapper endpoint.
+          Use the realtime cached snapshot endpoints for current quote/trade analysis.
         </div>
       </div>
 
       <h2 id="post-v1-options-snapshots" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Full realtime snapshot for each contract: latest trade, latest quote, and greeks (delta, gamma, theta, vega, rho) plus implied volatility.
-        This is the most comprehensive snapshot — use the sub-endpoints below if you only need quotes or open interest.
+        This is the most comprehensive snapshot — use the sub-endpoints below if you only need quotes, trades, or open interest.
         Data source: Alpaca option chain API. Returns <code>403</code> if your tier lacks options permission.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>每个合约的完整实时快照：最新成交、最新报价、希腊值（delta, gamma, theta, vega, rho）及隐含波动率。数据源：Alpaca。权限不足返回 403。</span>
       </p>
@@ -972,20 +1043,20 @@ curl -X POST ${REST_BASE}/v1/history/options/eod \\
 
       <h2 id="post-v1-options-snapshots-quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/quote</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        ThetaData-only snapshot for the latest NBBO quote of an option contract. Returns bid/ask prices, sizes, and exchanges. Use <code>feed: "thetadata"</code>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>ThetaData 独家快照：期权合约的最新 NBBO 报价，返回买卖价、挂单量及交易所。需设置 feed: "thetadata"。</span>
+        Latest NBBO quote for option contracts. Default source is Alpaca's <code>/v1beta1/options/quotes/latest</code>; set <code>feed: "thetadata"</code> only when you explicitly want the ThetaData Value quote snapshot.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约最新 NBBO 报价。默认走 Alpaca latest quotes；只有明确需要 ThetaData Value quote snapshot 时才设置 feed: "thetadata"。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/quote`} />
       <ParamTable rows={[
         { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 1000 per request)" },
-        { name: "feed",    type: "string",  required: false, desc: "thetadata (default: opra — must set to thetadata for this endpoint)" },
+        { name: "feed",    type: "string",  required: false, desc: "opra | indicative | thetadata (default follows account entitlement)" },
         { name: "limit",   type: "integer", required: false, desc: "1–1000 (default: 100)" },
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/quote \\
   -H "Authorization: Bearer *** \\
   -H "Content-Type: application/json" \\
-  -d '{"symbols":"AAPL260522C00110000","feed":"thetadata"}'`}
+  -d '{"symbols":"AAPL260522C00110000","feed":"indicative"}'`}
       </pre>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`// Response
@@ -1008,12 +1079,29 @@ curl -X POST ${REST_BASE}/v1/history/options/eod \\
 resp = requests.post(
     "${REST_BASE}/v1/options/snapshots/quote",
     headers={"Authorization": "Bearer <TOKEN>"},
-    json={"symbols": "AAPL260620C00200000", "feed": "thetadata"}
+    json={"symbols": "AAPL260620C00200000", "feed": "indicative"}
 )
 for sym, snap in resp.json()["snapshots"].items():
     q = snap["latestQuote"]
     spread = q["ap"] - q["bp"]
     print(f"{sym}  bid={q['bp']}  ask={q['ap']}  spread={spread:.2f}")`}
+      </pre>
+
+      <h2 id="post-v1-options-snapshots-trade" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/trade</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Latest trade for option contracts. Default source is Alpaca's <code>/v1beta1/options/trades/latest</code>; responses are normalized under <code>snapshots[OCC].latestTrade</code>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约最新成交。默认走 Alpaca latest trades，响应归一化到 snapshots[OCC].latestTrade。</span>
+      </p>
+      <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/trade`} />
+      <ParamTable rows={[
+        { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 100 per Alpaca latest endpoint)" },
+        { name: "feed",    type: "string",  required: false, desc: "opra | indicative | thetadata (default follows account entitlement)" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`curl -X POST ${REST_BASE}/v1/options/snapshots/trade \\
+  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"symbols":"AAPL260522C00110000","feed":"indicative"}'`}
       </pre>
 
       <h2 id="post-v1-options-snapshots-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/open_interest</h2>

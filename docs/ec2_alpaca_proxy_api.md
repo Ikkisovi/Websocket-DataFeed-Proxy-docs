@@ -212,15 +212,57 @@ POST /v1/stock/history/trade_quote
 
 **注意**: 此端点直连 ThetaData，需要 ThetaData 账号具备 Standard 或更高订阅级别。Free 订阅会返回 `PERMISSION_DENIED`。
 
+### Alpaca Native 股票数据 (GET)
+
+以下 Alpaca 股票数据接口均已通过统一 provider 路由开放，使用同一个代理 token 鉴权。响应保持 Alpaca 原始结构；命中服务端缓存时返回 `X-Cache: DISK_HIT`，数据源头为 `X-Provider: alpaca`。
+
+| 接口 | 方法 | 路由 |
+| --- | --- | --- |
+| Historical auctions | GET | `/v2/stocks/auctions` |
+| Historical bars | GET | `/v2/stocks/bars` |
+| Latest bars | GET | `/v2/stocks/bars/latest` |
+| Condition codes | GET | `/v2/stocks/meta/conditions/{ticktype}` |
+| Exchange codes | GET | `/v2/stocks/meta/exchanges` |
+| Historical quotes | GET | `/v2/stocks/quotes` |
+| Latest quotes | GET | `/v2/stocks/quotes/latest` |
+| Snapshots | GET | `/v2/stocks/snapshots` |
+| Historical trades | GET | `/v2/stocks/trades` |
+| Latest trades | GET | `/v2/stocks/trades/latest` |
+| Historical bars (single symbol) | GET | `/v2/stocks/{symbol}/bars` |
+| Latest bar (single symbol) | GET | `/v2/stocks/{symbol}/bars/latest` |
+| Historical quotes (single symbol) | GET | `/v2/stocks/{symbol}/quotes` |
+| Latest quote (single symbol) | GET | `/v2/stocks/{symbol}/quotes/latest` |
+| Snapshot (single symbol) | GET | `/v2/stocks/{symbol}/snapshot` |
+| Historical trades (single symbol) | GET | `/v2/stocks/{symbol}/trades` |
+| Latest trade (single symbol) | GET | `/v2/stocks/{symbol}/trades/latest` |
+
+`feed=iex` 是最安全的默认值；`sip`、`delayed_sip`、`boats`、`overnight`、`otc` 是否可用取决于上游订阅和具体 endpoint。Historical auctions 按 Alpaca 规则使用 SIP。
+
+示例：
+
+```bash
+# 最新股票报价
+curl -H "Authorization: Bearer 你的token" \
+  "http://52.37.182.24:8768/v2/stocks/quotes/latest?symbols=AAPL&feed=iex"
+
+# 单只股票 snapshot
+curl -H "Authorization: Bearer 你的token" \
+  "http://52.37.182.24:8768/v2/stocks/AAPL/snapshot?feed=iex"
+
+# condition codes
+curl -H "Authorization: Bearer 你的token" \
+  "http://52.37.182.24:8768/v2/stocks/meta/conditions/trade?tape=C"
+```
+
 ### Provider 路由 / Fallback / 服务端缓存
 
 同一个 token 可以直接访问以下 native provider 路由族，鉴权、限流、凭据清洗和缓存行为一致：
 
 | Provider surface | 路由族 | 说明 |
 | --- | --- | --- |
-| Alpaca stocks | `/v2/stocks/*` | 股票 bars / trades / quotes / latest quotes/trades/bars / snapshots |
+| Alpaca stocks | `/v2/stocks/*` | 股票 auctions / bars / trades / quotes / latest / snapshots / metadata |
 | Alpaca crypto | `/v1beta3/crypto/*`, `/v1beta1/crypto-perps/*` | Crypto bars / trades / quotes / latest / orderbooks |
-| Alpaca options | `/v1beta1/options/*` | Option bars / trades / quotes / latest / snapshots |
+| Alpaca options | `/v1beta1/options/*` | Option bars / historical trades / latest quotes/trades / snapshots；历史期权数据从 2024-02-01 开始 |
 | Alpaca news | `/v1beta1/news*` | 新闻查询 |
 | Alpaca option contracts | `/v2/options/contracts*` | 期权合约元数据 |
 | ThetaData Value options | `/v3/option/*` | ThetaData Value 期权白名单端点 |
@@ -252,7 +294,8 @@ curl -H "Authorization: Bearer 你的token" \
 | `/v1/history/options/bars` | ThetaData Value OHLC → Alpaca option bars fallback |
 | `/v1/options/contracts` | Alpaca contracts → ThetaData Value contract list fallback |
 | `/v1/options/snapshots` | Alpaca only（ThetaData Value 不含 Greeks/IV/market value） |
-| `/v1/options/snapshots/quote`、`/v1/options/snapshots/open_interest`、`/v3/option/snapshot/*` | ThetaData Value 可用快照 |
+| `/v1/options/snapshots/quote`、`/v1/options/snapshots/trade` | Alpaca latest quote/trade 优先，归一化到 `snapshots[OCC].latestQuote/latestTrade` |
+| `/v1/options/snapshots/open_interest`、`/v3/option/snapshot/*` | ThetaData Value 可用快照 |
 | `/v3/option/*` | ThetaData Value 白名单，无 Alpaca fallback |
 
 服务端会缓存成功的 REST 响应。命中时响应头为 `X-Cache: DISK_HIT`。缓存键会剔除 `token` / API key 等凭据；TTL：历史数据 7 天、当日/盘中 60 秒、快照 5 分钟、合约/list 1 小时。
@@ -290,6 +333,20 @@ OCC 格式: [股票代码][到期日YYMMDD][C/P][行权价*1000]
 
 数据源: 默认优先从 ThetaData Value 获取，失败或无数据时自动回退到 Alpaca。响应包含 `provider` 字段。
 
+### 期权历史逐笔成交
+
+```
+GET/POST /v1/history/options/trades
+GET /v1beta1/options/trades
+```
+
+数据源为 Alpaca historical option trades。Alpaca 历史期权数据从 **2024-02-01** 开始；更早日期会返回空数据，wrapper 路由会附带 `data_availability` 和 `warning`。
+
+```bash
+curl -H "Authorization: Bearer 你的token" \
+  "http://52.37.182.24:8768/v1beta1/options/trades?symbols=AAPL260620C00200000&start=2025-01-02&end=2025-01-03&limit=100"
+```
+
 ### 期权合约查询
 
 ```
@@ -322,8 +379,31 @@ POST /v1/options/snapshots
 {
   "token": "你的token",
   "symbols": ["AAPL260522C00200000"],
-  "feed": "opra"
+  "feed": "indicative"
 }
+```
+
+### 期权最新报价 / 最新成交
+
+```
+POST /v1/options/snapshots/quote
+POST /v1/options/snapshots/trade
+GET  /v1beta1/options/quotes/latest
+GET  /v1beta1/options/trades/latest
+```
+
+`/v1/options/snapshots/quote` 默认使用 Alpaca `/v1beta1/options/quotes/latest`，返回 `snapshots[OCC].latestQuote`。
+`/v1/options/snapshots/trade` 默认使用 Alpaca `/v1beta1/options/trades/latest`，返回 `snapshots[OCC].latestTrade`。
+如需 ThetaData Value quote snapshot，可显式传 `feed: "thetadata"`。
+
+```bash
+curl -X POST http://52.37.182.24:8768/v1/options/snapshots/quote \
+  -H "Authorization: Bearer 你的token" \
+  -H "Content-Type: application/json" \
+  -d '{"symbols":"AAPL260620C00200000","feed":"indicative"}'
+
+curl -H "Authorization: Bearer 你的token" \
+  "http://52.37.182.24:8768/v1beta1/options/trades/latest?symbols=AAPL260620C00200000&feed=indicative"
 ```
 
 ### 按到期日取期权快照（便捷接口）
