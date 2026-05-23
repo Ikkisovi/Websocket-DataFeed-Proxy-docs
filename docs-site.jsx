@@ -774,8 +774,9 @@ for row in data["data"][:5]:
 
       <h2 id="post-v1-options-snapshots" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Full realtime snapshot: greeks, implied volatility, NBBO bid/ask, and last trade for each contract.
+        Full realtime snapshot for each contract: latest trade, latest quote, and greeks (delta, gamma, theta, vega, rho) plus implied volatility.
         This is the most comprehensive snapshot — use the sub-endpoints below if you only need quotes or open interest.
+        Data source: Alpaca option chain API. Returns <code>403</code> if your tier lacks options permission.
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots`} />
       <ParamTable rows={[
@@ -794,12 +795,27 @@ for row in data["data"][:5]:
 {
   "snapshots": {
     "AAPL260620C00200000": {
-      "greeks": { "delta": 0.72, "gamma": 0.01, "theta": -0.05, "vega": 0.18, "rho": 0.09 },
-      "impliedVolatility": 0.26,
-      "latestQuote": { "ap": 15.80, "as": 5, "bp": 15.60, "bs": 10, "t": "2026-05-22T..." },
-      "latestTrade": { "p": 15.70, "s": 1, "t": "2026-05-22T..." }
+      "greeks": {
+        "delta": 0.7521,
+        "gamma": 0.0624,
+        "theta": -0.2848,
+        "vega": 0.0475,
+        "rho": 0.0099
+      },
+      "impliedVolatility": 0.3372,
+      "latestQuote": {
+        "ap": 4.30, "as": 91, "ax": "B",
+        "bp": 4.15, "bs": 16, "bx": "C",
+        "c": "A",
+        "t": "2024-04-22T19:59:59.992734208Z"
+      },
+      "latestTrade": {
+        "p": 4.10, "s": 1, "t": "2024-04-22T19:57:32.589554432Z",
+        "c": "I", "x": "A"
+      }
     }
-  }
+  },
+  "next_page_token": null
 }`}
       </pre>
 
