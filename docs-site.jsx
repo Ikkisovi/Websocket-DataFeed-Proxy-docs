@@ -128,9 +128,8 @@ function SideNav({ tab }) {
     { title: "REST History", items: ["history/bars", "history/news"] },
     { title: "Options Data", items: ["contracts"], children: [
       { title: "Snapshots", items: ["snapshots", "quote", "open interest", "expiry"] },
-      { title: "History", items: ["bars"] },
+      { title: "History", items: ["bars", "eod", "trades"] },
       { title: "Open Interest", items: ["open interest"] },
-      { title: "EOD", items: ["eod"] },
     ]},
     { title: "Crypto Data", items: ["orderbooks"] },
     { title: "Admin endpoints", items: ["login", "pending", "approve", "reject"] },
@@ -162,7 +161,7 @@ function SideNav({ tab }) {
     const indent      = BASE_PAD + depth * INDENT_STEP;
 
     // Map sidebar labels to actual document IDs
-    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'history/news': 'post-v1-history-news', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'bars': 'post-v1-history-options-bars', 'options/open interest': 'post-v1-options-open-interest', 'eod': 'post-v1-options-eod', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
+    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'history/news': 'post-v1-history-news', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'trades': 'post-v1-history-options-trades', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
     const getId = (label) => ID_MAP[label] || slugify(label);
 
     return (
@@ -744,6 +743,60 @@ for row in data["data"][:5]:
           f"vol={row['volume']}")`}
       </pre>
 
+      <h2 id="post-v1-history-options-eod" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/options/eod</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Preferred route for EOD option data. Same response shape as <code>/v1/options/eod</code> above but located under the history namespace for API consistency.
+        Supports both <code>GET</code> (query params) and <code>POST</code> (JSON body). The proxy automatically extracts parameters from either source.
+      </p>
+      <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/options/eod`} />
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`# GET with query parameters
+curl "${REST_BASE}/v1/history/options/eod?symbol=AAPL&start=2025-01-02&end=2025-01-03&right=call"
+
+# POST with JSON body (same parameters)
+curl -X POST ${REST_BASE}/v1/history/options/eod \\
+  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"symbol":"AAPL","start":"2025-01-02","end":"2025-01-03","right":"call"}'`}
+      </pre>
+
+      <h2 id="post-v1-history-options-trades" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/options/trades</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Historical option trades from Alpaca. Maps to Alpaca's <code>/v1beta1/options/trades</code> endpoint.
+        <strong>No ThetaData fallback</strong> — if queried too early or on an empty dataset, returns a standard empty response.
+      </p>
+      <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/options/trades`} />
+      <ParamTable rows={[
+        { name: "symbols",   type: "string",  required: true,  desc: "Comma-separated OCC option symbols" },
+        { name: "start",     type: "string",  required: true,  desc: "ISO 8601 datetime" },
+        { name: "end",       type: "string",  required: true,  desc: "ISO 8601 datetime" },
+        { name: "limit",     type: "integer", required: false, desc: "1–10000 (default: 1000)" },
+        { name: "page_token",type: "string",  required: false, desc: "Pagination token from previous response" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -X POST ${REST_BASE}/v1/history/options/trades \\
+  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"symbols":"AAPL260620C00200000","start":"2025-01-02T09:30:00Z","end":"2025-01-02T16:00:00Z"}'`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`// Response — trades keyed by OCC symbol
+{
+  "trades": {
+    "AAPL260620C00200000": [
+      { "t": "2025-01-02T14:30:00Z", "x": "A", "p": 15.70, "s": 5, "c": ["@"] }
+    ]
+  },
+  "next_page_token": null
+}
+
+// Empty response (too early or no data)
+{
+  "trades": {},
+  "next_page_token": null
+}`}
+      </pre>
+
       {/* ── Snapshots ── */}
       <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · Snapshots</div>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 24px" }}>
@@ -1046,6 +1099,48 @@ for sym, snap in data["snapshots"].items():
 
 // Response 200
 { "success": true, "message": "已拒绝 tonnysun。" }`}
+      </pre>
+
+      <h2 id="post-v3-option-history-ohlc" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v3/option/history/ohlc</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Direct reverse proxy to the local <strong>ThetaData REST API</strong> (port 25503).
+        Returns historical option OHLC bars. Supports both <code>GET</code> and <code>POST</code>.
+        The proxy strips internal credentials before forwarding to ThetaData.
+      </p>
+      <EndpointBadge method="POST" path={`${REST_BASE}/v3/option/history/ohlc`} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`# GET — query parameters forwarded to ThetaData
+curl "${REST_BASE}/v3/option/history/ohlc?root=AAPL&exp=260620&strike=200000&right=C&start_date=20250102&end_date=20250103"
+
+# POST — JSON body forwarded to ThetaData
+curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
+  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"root":"AAPL","exp":260620,"strike":200000,"right":"C","start_date":20250102,"end_date":20250103}'`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`// Response — ThetaData native format
+{
+  "ohlc": [
+    { "date": 20250102, "open": 14.50, "high": 15.20, "low": 14.10, "close": 14.85, "volume": 320 }
+  ]
+}`}
+      </pre>
+
+      <h2 id="post-v3-option-snapshot-ohlc" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v3/option/snapshot/ohlc</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Direct reverse proxy to the local <strong>ThetaData REST API</strong> (port 25503).
+        Returns the latest option OHLC snapshot. Supports both <code>GET</code> and <code>POST</code>.
+        The proxy strips internal credentials before forwarding to ThetaData.
+      </p>
+      <EndpointBadge method="POST" path={`${REST_BASE}/v3/option/snapshot/ohlc`} />
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`curl "${REST_BASE}/v3/option/snapshot/ohlc?root=AAPL&exp=260620&strike=200000&right=C"
+
+// Response — ThetaData native format
+{
+  "ohlc": { "open": 14.50, "high": 15.20, "low": 14.10, "close": 14.85, "volume": 320 }
+}`}
       </pre>
 
       {/* ── Reference ── */}
