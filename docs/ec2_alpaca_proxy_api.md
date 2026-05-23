@@ -1,11 +1,11 @@
 # Alpaca 行情代理 API
 
-> 更新时间: 2026-05-18  
+> 更新时间: 2026-05-23
 > 代理地址: `52.37.182.24` | WS: `8767` | HTTP: `8768`
 
 这个代理让你**用一个 token 就能获取美股实时行情和历史数据**，不需要自己持有 Alpaca API key 或 ThetaData 账号。
 
-**新增**: 期权历史数据现已接入 **ThetaData** 作为 Primary Provider，Alpaca 作为 Fallback。
+**新增**: 期权数据现已支持 **Alpaca + ThetaData Value** 双 Provider。重叠接口使用明确 fallback 规则，并把新 REST 响应缓存到 ThinkCentre 磁盘。
 **新增 (2026-05-22)**: 股票逐笔 Tick 级成交与报价历史数据端点 `/v1/stock/history/trade_quote`，直连 ThetaData。
 
 ---
@@ -14,9 +14,10 @@
 
 | 套餐 | 价格 | REST 请求/分钟 | WS 最大 Symbol 数 | 可用数据流 |
 | --- | --- | --- | --- | --- |
-| **Basic** | 20/月 | 10 | 10 | 股票、新闻 |
-| **Standard** | 50/月 | 60 | 100 | 股票、期权、加密货币、新闻 + 历史数据 |
-| **Premium** | 100/月 | 300 | 500 | 全部实时流 + 全部历史数据 |
+| **Trial** | $30/3天 | 60 | 50 | Standard 能力，3 天试用 |
+| **Basic** | $40/月 | 10 | REST only | 历史数据、批量下载、快照，无实时流 |
+| **Standard** | $80/月 | 60 | 50 | 股票、期权、合约实时流 + 历史数据 |
+| **Premium** | $130/月 | 300 | 500 | 全部实时流 + 全部历史数据 |
 
 > 注册地址：`http://52.37.182.24:3000/register.html`
 > 选择套餐并填写信息后，等待管理员确认即可自助生成 Token。
@@ -144,13 +145,17 @@ curl -X POST http://52.37.182.24:8768/v1/stock/history/trade_quote \
 
 ## HTTP REST API
 
-所有 HTTP 端点（`/health` 除外）都需要在 JSON body 里传 `token`:
+所有 HTTP 端点（`/health` 除外）都需要 token。POST 可在 JSON body 里传 `token`，GET 可用 query 参数，推荐统一使用 `Authorization: Bearer 你的token`:
 
 ```json
 {"token": "你的token", ...}
 ```
 
-也可以传 HTTP header: `Authorization: Bearer 你的token`
+HTTP header:
+
+```http
+Authorization: Bearer 你的token
+```
 
 ### 健康检查
 
@@ -207,6 +212,30 @@ POST /v1/stock/history/trade_quote
 
 **注意**: 此端点直连 ThetaData，需要 ThetaData 账号具备 Standard 或更高订阅级别。Free 订阅会返回 `PERMISSION_DENIED`。
 
+### 期权 Provider / Fallback / 磁盘缓存
+
+支持 `provider` 参数的期权接口可传：
+
+| provider | 行为 |
+| --- | --- |
+| `auto` | 默认。按接口使用主 Provider，失败或无数据时按规则 fallback。 |
+| `thetadata` / `theta` | 强制 ThetaData Value。不会 fallback 到 Alpaca。 |
+| `alpaca` | 强制 Alpaca。不会先查 ThetaData。 |
+
+重叠接口 fallback 规则：
+
+| 接口 | 默认路由 |
+| --- | --- |
+| `/v1/history/options/bars` | ThetaData Value OHLC → Alpaca option bars fallback |
+| `/v1/options/contracts` | Alpaca contracts → ThetaData Value contract list fallback |
+| `/v1/options/snapshots` | Alpaca only（ThetaData Value 不含 Greeks/IV/market value） |
+| `/v1/options/snapshots/quote`、`/v1/options/snapshots/open_interest`、`/v3/option/snapshot/*` | ThetaData Value 可用快照 |
+| `/v3/option/*` | ThetaData Value 白名单直连，无 Alpaca fallback |
+
+ThinkCentre 后端为新期权 REST 响应写入 `/mnt/data/cache`。命中时响应头为 `X-Cache: DISK_HIT`。缓存键会剔除 `token` / API key 等凭据；TTL：历史数据 7 天、当日/盘中 60 秒、快照 5 分钟、合约/list 1 小时。
+
+ThetaData Value 仅开放期权 list、snapshot `ohlc` / `quote` / `open_interest`、history `eod` / `ohlc` / `quote` / `open_interest`、`at_time/quote`。不开放 option trades、trade_quote、market value、implied volatility、Greeks。
+
 ### 期权历史 K 线
 
 ```
@@ -220,6 +249,7 @@ POST /v1/history/options/bars
 | `start` | string | ✅ | 开始日期 |
 | `end` | string | ✅ | 结束日期 |
 | `timeframe` | string | ❌ | 默认 `1Min` |
+| `provider` | string | ❌ | `auto` / `thetadata` / `alpaca`，默认 `auto` |
 | `limit` | int | ❌ | 默认 10000 |
 | `max_pages` | int | ❌ | 默认 100 |
 
@@ -235,7 +265,7 @@ OCC 格式: [股票代码][到期日YYMMDD][C/P][行权价*1000]
 2. 从返回的 symbol 字段获取 OCC 代码
 3. 再用该代码请求 /v1/history/options/bars
 
-数据源: 优先从 ThetaData 获取，失败时自动回退到 Alpaca。
+数据源: 默认优先从 ThetaData Value 获取，失败或无数据时自动回退到 Alpaca。响应包含 `provider` 字段。
 
 ### 期权合约查询
 
@@ -248,11 +278,16 @@ POST /v1/options/contracts
   "token": "你的token",
   "underlying_symbols": "AAPL",
   "expiration_date_gte": "2026-05-16",
+  "provider": "auto",
   "limit": 100
 }
 ```
 
-支持的筛选字段: `underlying_symbols`, `expiration_date`, `expiration_date_gte`, `expiration_date_lte`, `strike_price_gte`, `strike_price_lte`, `type` / `option_type`, `limit`.
+支持的筛选字段: `underlying_symbols`, `expiration_date`, `expiration_date_gte`, `expiration_date_lte`, `strike_price_gte`, `strike_price_lte`, `type` / `option_type`, `provider`, `date`, `request_type`, `max_dte`, `limit`。
+
+- `provider=auto`: Alpaca 优先，失败时用 ThetaData Value contract list。
+- `provider=thetadata`: 只支持 `underlying_symbols` 查询，不支持 `symbol_or_id` 单合约 lookup。
+- `request_type`: ThetaData list metadata 使用 `quote` 或 `trade`，默认 `quote`。
 
 ### 期权快照
 
@@ -287,15 +322,20 @@ POST /v1/options/snapshots/expiry
 ### 期权持仓量 (Open Interest)
 
 ```
-POST /v1/options/open_interest
+GET/POST /v1/options/open_interest
 ```
 
 ```json
 {
   "token": "你的token",
-  "symbols": ["AAPL260522C00200000"]
+  "symbol": "AAPL",
+  "start": "2026-05-01",
+  "end": "2026-05-15",
+  "right": "both"
 }
 ```
+
+数据源为 ThetaData Value，支持 GET query 或 POST JSON，成功响应写入磁盘缓存。
 
 ### 期权日终数据 (EOD)
 
@@ -306,9 +346,41 @@ POST /v1/options/eod
 ```json
 {
   "token": "你的token",
-  "symbols": ["AAPL260522C00200000"],
-  "date": "2026-05-19"
+  "symbol": "AAPL",
+  "start": "2026-05-01",
+  "end": "2026-05-15",
+  "right": "call",
+  "max_dte": 30
 }
+```
+
+同样可用 `/v1/history/options/eod`，该路由支持 GET query 和 POST JSON。
+
+### ThetaData Value 直连白名单
+
+这些 `/v3/option/*` 端点通过代理鉴权后直连本机 ThetaData SDK，支持 GET 或 POST，返回 SDK-normalized JSON：
+
+| 端点 | 权限桶 |
+| --- | --- |
+| `/v3/option/list/symbols` | `options_contracts` |
+| `/v3/option/list/dates/quote` | `options_contracts` |
+| `/v3/option/list/dates/trade` | `options_contracts` |
+| `/v3/option/list/expirations` | `options_contracts` |
+| `/v3/option/list/strikes` | `options_contracts` |
+| `/v3/option/list/contracts/quote` | `options_contracts` |
+| `/v3/option/list/contracts/trade` | `options_contracts` |
+| `/v3/option/snapshot/ohlc` | `options_snapshots` |
+| `/v3/option/snapshot/quote` | `options_snapshots` |
+| `/v3/option/snapshot/open_interest` | `options_snapshots` |
+| `/v3/option/history/eod` | `options_history` |
+| `/v3/option/history/ohlc` | `options_history` |
+| `/v3/option/history/quote` | `options_history` |
+| `/v3/option/history/open_interest` | `options_history` |
+| `/v3/option/at_time/quote` | `options_history` |
+
+```bash
+curl -H "Authorization: Bearer 你的token" \
+  "http://52.37.182.24:8768/v3/option/history/ohlc?root=AAPL&exp=260620&strike=200000&right=C&start_date=20250102&end_date=20250103"
 ```
 
 ### Crypto 最新订单簿
@@ -523,7 +595,7 @@ curl -X POST http://52.37.182.24:8768/v1/history/options/bars \
 
 **1. gRPC 请求类型错误**
 - Bug: 初始调用使用 `request_type="LIST"`，抛出 gRPC 内部错误 `Unsupported request type: LIST`
-- Fix: 改为 `request_type="TRADE"`，ThetaData 服务端完全支持
+- Fix: 改为 `request_type="QUOTE"`，匹配 ThetaData Value 可用的报价合约列表能力
 
 **2. 到期日格式校验失败**
 - Bug: 代码硬编码检查 `len(exp) == 8`，但 ThetaData 返回 `YYYY-MM-DD` 格式（10字符），导致所有合约被跳过
@@ -537,9 +609,9 @@ curl -X POST http://52.37.182.24:8768/v1/history/options/bars \
 
 | 端点 | 状态 | 缓存 | 结果 |
 |------|------|------|------|
-| `options_bars` (OCC 直接) | OK | HIT | 391 bars |
-| `options_bars_auto_resolve` (股票代码) | OK | HIT | **3,519 bars** |
-| `options_contracts` | OK | MISS | 156 contracts |
+| `options_bars` (OCC 直接) | OK | DISK_HIT on repeat | 391 bars |
+| `options_bars_auto_resolve` (股票代码) | OK | DISK_HIT on repeat | **3,519 bars** |
+| `options_contracts` | OK | DISK_HIT on repeat | 156 contracts |
 | `options_snapshots` | OK | MISS | 1 snapshot |
 | `options_open_interest` | OK | MISS | 期权持仓量数据 |
 | `options_eod` | OK | MISS | 期权日终数据 |
@@ -556,7 +628,9 @@ curl -X POST http://52.37.182.24:8768/v1/history/options/bars \
 - 上游数据源:
   - 股票历史: Alpaca `v2/sip`
   - 股票逐笔 Tick: **ThetaData** `stock_history_trade_quote`
-  - 期权历史: **ThetaData** (Primary) → Alpaca `v1beta1/opra` (Fallback)
+  - 期权历史: **ThetaData Value** (Primary) → Alpaca `v1beta1/opra` (Fallback)
+  - 期权合约: Alpaca contracts → **ThetaData Value** list/contracts fallback
+  - 期权直连: **ThetaData Value** `/v3/option/*` 白名单
   - 期权实时: Alpaca `v1beta1/opra`
   - Crypto: Alpaca `v1beta3/crypto/us`
   - News: Alpaca `v1beta1/news`
