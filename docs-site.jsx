@@ -157,7 +157,7 @@ function SideNav({ tab }) {
     const basePad = 12;
     const indent = basePad + depth * 14;
     return (
-      <div style={{ marginBottom: hasChildren ? 2 : 6 }}>
+      <div style={{ marginBottom: hasChildren ? 2 : 10 }}>
         <div
           onClick={() => hasChildren && toggle(s.title)}
           style={{
