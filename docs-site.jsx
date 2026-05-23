@@ -29,9 +29,17 @@ function DocsTopbar({ active = "proxy" }) {
 
 function DocsSite() {
   const [tab, setTab] = useState("proxy");
+
+  let isEmbedded = false;
+  try {
+    isEmbedded = window.self !== window.top;
+  } catch (e) {
+    isEmbedded = true;
+  }
+
   return (
     <div className="proxy-app" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <DocsTopbar active={tab} />
+      {!isEmbedded && <DocsTopbar active={tab} />}
 
       {/* Hero */}
       <div style={{
