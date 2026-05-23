@@ -293,7 +293,7 @@ function OnThisPage({ tab }) {
 }
 
 const PROXY_HOST = "52.37.182.24";
-const REST_BASE  = `http://${PROXY_HOST}:8766`;
+const REST_BASE  = `http://${PROXY_HOST}:8768`;
 const TOKEN_BASE = `http://${PROXY_HOST}:3000`;
 
 function ParamRow({ name, type, required, desc }) {
@@ -344,16 +344,16 @@ function ProxyApiBody() {
       <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>Overview</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 16px", maxWidth: 640 }}>
         The Stock Options Proxy has two surfaces: a <strong style={{ color: "var(--ink-strong)" }}>token portal</strong> (port 3000) for registration and token issuance,
-        and a <strong style={{ color: "var(--ink-strong)" }}>data proxy</strong> (port 8766 REST / 8765 WS) for market data.
+        and a <strong style={{ color: "var(--ink-strong)" }}>data proxy</strong> (port 8768 REST / 8767 WS) for market data.
         Once you have a token, use it to call historical and realtime endpoints without managing your own Alpaca / ThetaData credentials.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>股票期权代理包含两个服务面：Token 门户（3000端口）用于注册和签发，数据代理（8766 REST / 8765 WS）用于行情数据。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>股票期权代理包含两个服务面：Token 门户（3000端口）用于注册和签发，数据代理（8768 REST / 8767 WS）用于行情数据。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 40 }}>
         <thead><tr><th>Surface</th><th>URL</th><th>Auth</th></tr></thead>
         <tbody>
           <tr><td>Token portal</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TOKEN_BASE}</td><td style={{ fontSize: 12 }}>username + phone</td></tr>
           <tr><td>REST data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{REST_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
-          <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{`ws://${PROXY_HOST}:8765`}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
+          <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{`ws://${PROXY_HOST}:8767`}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
         </tbody>
       </table>
 
@@ -1260,7 +1260,7 @@ Rate limit exceeded: 301/300 req/min
 }
 
 function WsUsageBody() {
-  const WS_BASE = `ws://${PROXY_HOST}:8765`;
+  const WS_BASE = `ws://${PROXY_HOST}:8767`;
   const H3 = ({ children }) => (
     <h3 style={{ fontFamily: "var(--f-sans)", fontWeight: 500, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--ink-muted)", margin: "32px 0 12px" }}>{children}</h3>
   );
