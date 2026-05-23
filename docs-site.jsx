@@ -276,9 +276,9 @@ function OnThisPage({ tab }) {
         <p style={{ margin: "0 0 10px", color: "var(--ink-muted)", fontSize: 12 }}>
           Open the live token portal to test your credentials.
         </p>
-        <button className="btn" style={{ width: "100%", justifyContent: "center", fontSize: 12 }}>
+        <a href="register.html" className="btn" style={{ width: "100%", justifyContent: "center", fontSize: 12, textDecoration: "none" }}>
           Open portal →
-        </button>
+        </a>
       </div>
     </aside>
   );
@@ -1035,7 +1035,7 @@ for sym, snap in data["snapshots"].items():
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Latest L2 order book snapshot for US crypto pairs. Premium tier only.
         Each side of the book is an array of <code>{"{ p: price, s: size }"}</code> objects sorted by price.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>美国加密货币对的最新 L2 订单簿快照。仅限 Premium 套餐。每侧订单簿为按价格排序的 { p: price, s: size } 对象数组。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>美国加密货币对的最新 L2 订单簿快照。仅限 Premium 套餐。每侧订单簿为按价格排序的 {"{ p: price, s: size }"} 对象数组。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/crypto/us/latest/orderbooks`} />
       <ParamTable rows={[
