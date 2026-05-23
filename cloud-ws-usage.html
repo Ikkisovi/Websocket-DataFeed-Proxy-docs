@@ -437,7 +437,7 @@ curl -X POST http://52.37.182.24:8768/v1/history/options/bars \
   -H 'Content-Type: application/json' \
   -d '{"token":"你的token","symbol":"SPY260522C00500000","start":"2026-05-14","end":"2026-05-15","timeframe":"1Min","provider":"auto","limit":5}'
 
-# 期权持仓量历史 (ThetaData Value, GET/POST, 磁盘缓存)
+# 期权持仓量历史 (ThetaData Value, GET/POST, 服务端缓存)
 curl -X POST http://52.37.182.24:8768/v1/options/open_interest \
   -H 'Content-Type: application/json' \
   -d '{"token":"你的token","symbol":"AAPL","start":"2026-05-01","end":"2026-05-15"}'
@@ -546,7 +546,7 @@ resp = requests.post(
 )
 print(resp.json())
 
-# 期权持仓量历史 (ThetaData Value, 磁盘缓存)
+# 期权持仓量历史 (ThetaData Value, 服务端缓存)
 resp = requests.post(
     f"{BASE}/v1/options/open_interest",
     headers=headers,
@@ -562,7 +562,7 @@ resp = requests.post(
 )
 print(resp.json())
 
-# ThetaData Value 直连：SDK-normalized JSON, X-Cache: DISK_HIT on repeat
+# ThetaData Value 白名单：JSON response, X-Cache: DISK_HIT on repeat
 resp = requests.get(
     f"{BASE}/v3/option/history/ohlc",
     headers=headers,

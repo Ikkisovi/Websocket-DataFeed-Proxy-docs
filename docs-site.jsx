@@ -432,7 +432,7 @@ Authorization: Bearer c88662...720a
       <ParamTable rows={[
         { name: "username", type: "string", required: true, desc: "Unique display name (must not exist in approved users)" },
         { name: "phone",    type: "string", required: true, desc: "Mobile number used to verify identity on token generation" },
-        { name: "tier",     type: "string", required: false, desc: "premium | standard | trial | basic (default: premium). The selected tier is stored directly in the backend registry." },
+        { name: "tier",     type: "string", required: false, desc: "premium | standard | trial | basic (default: premium)." },
       ]} />
       <pre className="code" style={{ marginBottom: 28 }}>
 {`// Request
@@ -576,25 +576,30 @@ Authorization: Bearer c88662...720a
 }`}
       </pre>
 
-      {/* ── Options Data ── */}
-      <div className="eyebrow" style={{ marginBottom: 10 }}>Options Data</div>
+      {/* ── Provider Data ── */}
+      <div className="eyebrow" style={{ marginBottom: 10 }}>Provider Data</div>
 
-      <h2 id="provider-fallback-cache" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Provider routing, fallback, and cache</h2>
+      <h2 id="provider-fallback-cache" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Provider routes and server-side cache</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Option endpoints use a dual-provider model: <strong style={{ color: "var(--ink-strong)" }}>Alpaca</strong> for OPRA snapshots, trades, greeks, IV, and contract metadata;
-        <strong style={{ color: "var(--ink-strong)" }}> ThetaData Value</strong> for option lists, quote/OHLC/open-interest snapshots, and quote/OHLC/open-interest/EOD history.
-        Use <code>provider</code> when an endpoint supports overrides: <code>auto</code> (default), <code>alpaca</code>, or <code>thetadata</code>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权接口采用 Alpaca + ThetaData Value 双数据源。支持 provider 参数的接口默认 auto，也可指定 alpaca 或 thetadata。</span>
+        Native provider routes share one proxy layer for auth, permissions, rate limits, credential stripping, and server-side caching.
+        Alpaca data routes are available as native HTTP endpoints; ThetaData Value option routes are exposed only for the covered Value endpoints.
+        Wrapper endpoints such as <code>/v1/history/options/bars</code> still provide higher-level fallback behavior.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>原生数据源路径统一走同一层代理：鉴权、权限、限流、参数清洗和服务端缓存一致；业务友好接口继续提供 fallback。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
-        <thead><tr><th>Area</th><th>Route</th><th>Auto behavior</th></tr></thead>
+        <thead><tr><th>Provider surface</th><th>Route family</th><th>Behavior</th></tr></thead>
         <tbody>
           {[
+            ["Alpaca stocks", "/v2/stocks/*", "Native stock bars, trades, quotes, latest quotes/trades/bars, and snapshots."],
+            ["Alpaca crypto", "/v1beta3/crypto/* and /v1beta1/crypto-perps/*", "Native crypto bars, trades, quotes, latest data, and orderbooks."],
+            ["Alpaca options", "/v1beta1/options/*", "Native option bars, trades, quotes, latest data, and snapshots."],
+            ["Alpaca news", "/v1beta1/news*", "Native news endpoint family."],
+            ["Alpaca option contracts", "/v2/options/contracts*", "Native option contract metadata."],
             ["Option bars", "/v1/history/options/bars", "ThetaData OHLC first, Alpaca bars fallback. provider=thetadata disables Alpaca fallback; provider=alpaca skips ThetaData."],
             ["Contracts", "/v1/options/contracts", "Alpaca contracts first, ThetaData Value contracts fallback when Alpaca is unavailable. provider=thetadata requires underlying_symbols."],
             ["Full snapshots / greeks / IV", "/v1/options/snapshots", "Alpaca only because ThetaData Value does not include greeks, IV, or market value."],
             ["Quote / OI / OHLC snapshots", "/v1/options/snapshots/* and /v3/option/snapshot/*", "ThetaData-backed where Value permits quote, open_interest, and OHLC snapshots."],
-            ["Direct ThetaData", "/v3/option/*", "Exact ThetaData Value whitelist only, SDK-normalized JSON shape, no Alpaca fallback."],
+            ["ThetaData Value options", "/v3/option/*", "Exact ThetaData Value whitelist only, JSON response, no Alpaca fallback."],
           ].map(([area, route, behavior], i) => (
             <tr key={i}>
               <td style={{ fontSize: 12, color: "var(--ink-strong)" }}>{area}</td>
@@ -605,10 +610,24 @@ Authorization: Bearer c88662...720a
         </tbody>
       </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
-        New option REST routes are backed by the ThinkCentre disk cache at <code>/mnt/data/cache</code>.
-        Cache keys strip proxy credentials, return <code>X-Cache: DISK_HIT</code> on repeat, and use tiered TTLs: historical 7 days, intraday 60 seconds, snapshots 5 minutes, contracts/lists 1 hour.
+        Successful REST responses are cached server-side.
+        Cache keys strip proxy credentials, return <code>X-Cache: DISK_HIT</code> on repeat, and use tiered TTLs: historical 7 days, intraday/latest 60 seconds, snapshots 5 minutes, contracts/lists 1 hour.
         ThetaData Value does <strong>not</strong> expose direct option trades, trade_quote, market value, implied volatility, or greeks.
       </p>
+      <h3 id="alpaca-native-examples" style={{ fontSize: 16, fontWeight: 500, margin: "0 0 8px", color: "var(--ink-strong)" }}>Native Alpaca examples</h3>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`# Latest stock quote (Alpaca native)
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v2/stocks/quotes/latest?symbols=AAPL&feed=iex"
+
+# Latest crypto quote (Alpaca native)
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1beta3/crypto/us/latest/quotes?symbols=BTC%2FUSD"
+
+# Historical stock quotes (Alpaca native)
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v2/stocks/quotes?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&feed=iex"`}
+      </pre>
 
       <h2 id="post-v1-options-contracts" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/contracts</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -670,8 +689,8 @@ Authorization: Bearer c88662...720a
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Historical OHLCV bars for option contracts. Default <code>provider: "auto"</code> routes to <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong> first and falls back to Alpaca bars only when ThetaData has no usable data.
         You can pass either OCC symbols directly (<code>AAPL260620C00200000</code>) or a plain stock ticker — the proxy will auto-resolve it to the option chain active on the <code>start</code> date.
-        Supports in-flight coalescing and disk cache; repeat historical calls return <code>X-Cache: DISK_HIT</code>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约历史 OHLCV K线。默认 ThetaData Value，必要时回退 Alpaca。支持 OCC 或股票代码自动解析，并写入磁盘缓存。</span>
+        Supports in-flight coalescing and server-side cache; repeat historical calls return <code>X-Cache: DISK_HIT</code>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约历史 OHLCV K线。默认 ThetaData Value，必要时回退 Alpaca。支持 OCC 或股票代码自动解析，并写入服务端缓存。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/options/bars`} />
       <ParamTable rows={[
@@ -713,9 +732,9 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
       <h2 id="post-v1-options-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/options/open_interest</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Historical open interest by date range and strike/expiry filter. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong> (returns 503 if ThetaData unavailable).
-        Supports GET query parameters or POST JSON and writes successful responses to disk cache.
-        Requires a tier with the backend <code>options_history</code> permission (Trial, Standard, or Premium).
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>按日期范围和行权价/到期日筛选历史持仓量。支持 GET/POST，并写入 ThinkCentre 磁盘缓存。</span>
+        Supports GET query parameters or POST JSON and writes successful responses to the server-side cache.
+        Requires a tier with options history access (Trial, Standard, or Premium).
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>按日期范围和行权价/到期日筛选历史持仓量。支持 GET/POST，并写入服务端缓存。</span>
       </p>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/options/open_interest`} />
       <ParamTable rows={[
@@ -754,9 +773,9 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
       <h2 id="post-v1-options-eod" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/eod</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         End-of-day OHLC summary for option contracts: open/high/low/close, volume, bid/ask, and trade count per contract per day.
-        This is the primary endpoint for daily option OHLC summaries. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong> with disk cache.
+        This is the primary endpoint for daily option OHLC summaries. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong> with server-side cache.
         Accepts the same filter parameters as <code>/v1/options/open_interest</code>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约的日终 OHLC 汇总，数据源为 ThetaData Value，并写入磁盘缓存。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约的日终 OHLC 汇总，数据源为 ThetaData Value，并写入服务端缓存。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/eod`} />
       <ParamTable rows={[
@@ -822,8 +841,8 @@ for row in data["data"][:5]:
       <h2 id="post-v1-history-options-eod" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/options/eod</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Preferred route for EOD option data. Same response shape as <code>/v1/options/eod</code> above but located under the history namespace for API consistency.
-        Supports both <code>GET</code> (query params) and <code>POST</code> (JSON body). Successful responses are cached on ThinkCentre disk.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>EOD 期权数据的首选路由。支持 GET 和 POST，成功响应会写入 ThinkCentre 磁盘缓存。</span>
+        Supports both <code>GET</code> (query params) and <code>POST</code> (JSON body). Successful responses are cached server-side.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>EOD 期权数据的首选路由。支持 GET 和 POST，成功响应会写入服务端缓存。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/options/eod`} />
       <pre className="code" style={{ marginBottom: 40 }}>
@@ -1045,8 +1064,8 @@ for sym, snap in resp.json()["snapshots"].items():
       <h2 id="post-v1-options-snapshots-expiry" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/expiry</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Convenience endpoint: fetches <em>all</em> contracts for an underlying on a specific expiry date and returns their snapshots in one call.
-        Internally runs <code>/v1/options/contracts</code> then batches snapshot requests (100 symbols per batch).
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>便捷接口：一次性获取指定标的在特定到期日的所有合约快照。内部先调 contracts 再批量请求快照（每批 100 个标的）。</span>
+        Resolves the contract list and batches snapshot requests (100 symbols per batch).
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>便捷接口：一次性获取指定标的在特定到期日的所有合约快照。会先解析合约列表，再批量请求快照（每批 100 个标的）。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/expiry`} />
       <ParamTable rows={[
@@ -1194,35 +1213,35 @@ for sym, snap in data["snapshots"].items():
 
       <h2 id="post-v3-option-direct-value" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/* (ThetaData Value)</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Direct proxy through the local <strong>ThetaData SDK</strong>, limited to endpoints included in the ThetaData Value option subscription.
-        Supports both <code>GET</code> query parameters and <code>POST</code> JSON bodies, strips proxy credentials before execution, and disk-caches successful JSON responses.
+        Authenticated proxy for ThetaData Value option endpoints included in the subscription.
+        Supports both <code>GET</code> query parameters and <code>POST</code> JSON bodies, strips proxy credentials before execution, and caches successful JSON responses server-side.
         Unsupported Standard/Pro-only routes such as option trades, trade_quote, market value, implied volatility, and greeks are intentionally not exposed here.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>本地 ThetaData SDK 的直连代理，仅开放 Value 订阅允许的期权端点。支持 GET/POST，成功 JSON 响应写入磁盘缓存。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>ThetaData Value 期权白名单代理，仅开放 Value 订阅允许的端点。支持 GET/POST，成功 JSON 响应写入服务端缓存。</span>
       </p>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/...`} />
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
-        <thead><tr><th>Endpoint</th><th>Permission bucket</th><th>Notes</th></tr></thead>
+        <thead><tr><th>Endpoint</th><th>Required access</th><th>Notes</th></tr></thead>
         <tbody>
           {[
-            ["/v3/option/list/symbols", "options_contracts", "List option root symbols"],
-            ["/v3/option/list/dates/quote", "options_contracts", "Available quote dates"],
-            ["/v3/option/list/dates/trade", "options_contracts", "Available trade dates as list metadata"],
-            ["/v3/option/list/expirations", "options_contracts", "Expirations for a root"],
-            ["/v3/option/list/strikes", "options_contracts", "Strikes for root/expiration"],
-            ["/v3/option/list/contracts/quote", "options_contracts", "Contract list by quote availability"],
-            ["/v3/option/list/contracts/trade", "options_contracts", "Contract list by trade availability"],
-            ["/v3/option/snapshot/ohlc", "options_snapshots", "Latest OHLC snapshot"],
-            ["/v3/option/snapshot/quote", "options_snapshots", "Latest NBBO quote snapshot"],
-            ["/v3/option/snapshot/open_interest", "options_snapshots", "Latest open-interest snapshot"],
-            ["/v3/option/history/eod", "options_history", "Daily EOD summary"],
-            ["/v3/option/history/ohlc", "options_history", "Historical OHLC bars"],
-            ["/v3/option/history/quote", "options_history", "Historical quotes"],
-            ["/v3/option/history/open_interest", "options_history", "Historical open interest"],
-            ["/v3/option/at_time/quote", "options_history", "Quote at a timestamp"],
-          ].map(([endpoint, permission, notes], i) => (
+            ["/v3/option/list/symbols", "Options contracts", "List option root symbols"],
+            ["/v3/option/list/dates/quote", "Options contracts", "Available quote dates"],
+            ["/v3/option/list/dates/trade", "Options contracts", "Available trade dates as list metadata"],
+            ["/v3/option/list/expirations", "Options contracts", "Expirations for a root"],
+            ["/v3/option/list/strikes", "Options contracts", "Strikes for root/expiration"],
+            ["/v3/option/list/contracts/quote", "Options contracts", "Contract list by quote availability"],
+            ["/v3/option/list/contracts/trade", "Options contracts", "Contract list by trade availability"],
+            ["/v3/option/snapshot/ohlc", "Options snapshots", "Latest OHLC snapshot"],
+            ["/v3/option/snapshot/quote", "Options snapshots", "Latest NBBO quote snapshot"],
+            ["/v3/option/snapshot/open_interest", "Options snapshots", "Latest open-interest snapshot"],
+            ["/v3/option/history/eod", "Options history", "Daily EOD summary"],
+            ["/v3/option/history/ohlc", "Options history", "Historical OHLC bars"],
+            ["/v3/option/history/quote", "Options history", "Historical quotes"],
+            ["/v3/option/history/open_interest", "Options history", "Historical open interest"],
+            ["/v3/option/at_time/quote", "Options history", "Quote at a timestamp"],
+          ].map(([endpoint, access, notes], i) => (
             <tr key={i}>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>{endpoint}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>{permission}</td>
+              <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>{access}</td>
               <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>{notes}</td>
             </tr>
           ))}

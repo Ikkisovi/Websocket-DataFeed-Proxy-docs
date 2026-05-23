@@ -5,7 +5,7 @@
 
 这个代理让你**用一个 token 就能获取美股实时行情和历史数据**，不需要自己持有 Alpaca API key 或 ThetaData 账号。
 
-**新增**: 期权数据现已支持 **Alpaca + ThetaData Value** 双 Provider。重叠接口使用明确 fallback 规则，并把新 REST 响应缓存到 ThinkCentre 磁盘。
+**新增**: REST 数据统一走 Provider 路由层，支持 Alpaca native stocks / crypto / options / news 与 ThetaData Value 期权白名单；成功响应进入服务端缓存。
 **新增 (2026-05-22)**: 股票逐笔 Tick 级成交与报价历史数据端点 `/v1/stock/history/trade_quote`，直连 ThetaData。
 
 ---
@@ -212,7 +212,30 @@ POST /v1/stock/history/trade_quote
 
 **注意**: 此端点直连 ThetaData，需要 ThetaData 账号具备 Standard 或更高订阅级别。Free 订阅会返回 `PERMISSION_DENIED`。
 
-### 期权 Provider / Fallback / 磁盘缓存
+### Provider 路由 / Fallback / 服务端缓存
+
+同一个 token 可以直接访问以下 native provider 路由族，鉴权、限流、凭据清洗和缓存行为一致：
+
+| Provider surface | 路由族 | 说明 |
+| --- | --- | --- |
+| Alpaca stocks | `/v2/stocks/*` | 股票 bars / trades / quotes / latest quotes/trades/bars / snapshots |
+| Alpaca crypto | `/v1beta3/crypto/*`, `/v1beta1/crypto-perps/*` | Crypto bars / trades / quotes / latest / orderbooks |
+| Alpaca options | `/v1beta1/options/*` | Option bars / trades / quotes / latest / snapshots |
+| Alpaca news | `/v1beta1/news*` | 新闻查询 |
+| Alpaca option contracts | `/v2/options/contracts*` | 期权合约元数据 |
+| ThetaData Value options | `/v3/option/*` | ThetaData Value 期权白名单端点 |
+
+示例：
+
+```bash
+# 最新股票报价
+curl -H "Authorization: Bearer 你的token" \
+  "http://52.37.182.24:8768/v2/stocks/quotes/latest?symbols=AAPL&feed=iex"
+
+# 最新 crypto 报价
+curl -H "Authorization: Bearer 你的token" \
+  "http://52.37.182.24:8768/v1beta3/crypto/us/latest/quotes?symbols=BTC%2FUSD"
+```
 
 支持 `provider` 参数的期权接口可传：
 
@@ -230,9 +253,9 @@ POST /v1/stock/history/trade_quote
 | `/v1/options/contracts` | Alpaca contracts → ThetaData Value contract list fallback |
 | `/v1/options/snapshots` | Alpaca only（ThetaData Value 不含 Greeks/IV/market value） |
 | `/v1/options/snapshots/quote`、`/v1/options/snapshots/open_interest`、`/v3/option/snapshot/*` | ThetaData Value 可用快照 |
-| `/v3/option/*` | ThetaData Value 白名单直连，无 Alpaca fallback |
+| `/v3/option/*` | ThetaData Value 白名单，无 Alpaca fallback |
 
-ThinkCentre 后端为新期权 REST 响应写入 `/mnt/data/cache`。命中时响应头为 `X-Cache: DISK_HIT`。缓存键会剔除 `token` / API key 等凭据；TTL：历史数据 7 天、当日/盘中 60 秒、快照 5 分钟、合约/list 1 小时。
+服务端会缓存成功的 REST 响应。命中时响应头为 `X-Cache: DISK_HIT`。缓存键会剔除 `token` / API key 等凭据；TTL：历史数据 7 天、当日/盘中 60 秒、快照 5 分钟、合约/list 1 小时。
 
 ThetaData Value 仅开放期权 list、snapshot `ohlc` / `quote` / `open_interest`、history `eod` / `ohlc` / `quote` / `open_interest`、`at_time/quote`。不开放 option trades、trade_quote、market value、implied volatility、Greeks。
 
@@ -335,7 +358,7 @@ GET/POST /v1/options/open_interest
 }
 ```
 
-数据源为 ThetaData Value，支持 GET query 或 POST JSON，成功响应写入磁盘缓存。
+数据源为 ThetaData Value，支持 GET query 或 POST JSON，成功响应写入服务端缓存。
 
 ### 期权日终数据 (EOD)
 
@@ -358,25 +381,25 @@ POST /v1/options/eod
 
 ### ThetaData Value 直连白名单
 
-这些 `/v3/option/*` 端点通过代理鉴权后直连本机 ThetaData SDK，支持 GET 或 POST，返回 SDK-normalized JSON：
+这些 `/v3/option/*` 端点通过代理鉴权后访问 ThetaData Value 期权白名单，支持 GET 或 POST，返回 JSON：
 
-| 端点 | 权限桶 |
+| 端点 | 访问要求 |
 | --- | --- |
-| `/v3/option/list/symbols` | `options_contracts` |
-| `/v3/option/list/dates/quote` | `options_contracts` |
-| `/v3/option/list/dates/trade` | `options_contracts` |
-| `/v3/option/list/expirations` | `options_contracts` |
-| `/v3/option/list/strikes` | `options_contracts` |
-| `/v3/option/list/contracts/quote` | `options_contracts` |
-| `/v3/option/list/contracts/trade` | `options_contracts` |
-| `/v3/option/snapshot/ohlc` | `options_snapshots` |
-| `/v3/option/snapshot/quote` | `options_snapshots` |
-| `/v3/option/snapshot/open_interest` | `options_snapshots` |
-| `/v3/option/history/eod` | `options_history` |
-| `/v3/option/history/ohlc` | `options_history` |
-| `/v3/option/history/quote` | `options_history` |
-| `/v3/option/history/open_interest` | `options_history` |
-| `/v3/option/at_time/quote` | `options_history` |
+| `/v3/option/list/symbols` | Options contracts |
+| `/v3/option/list/dates/quote` | Options contracts |
+| `/v3/option/list/dates/trade` | Options contracts |
+| `/v3/option/list/expirations` | Options contracts |
+| `/v3/option/list/strikes` | Options contracts |
+| `/v3/option/list/contracts/quote` | Options contracts |
+| `/v3/option/list/contracts/trade` | Options contracts |
+| `/v3/option/snapshot/ohlc` | Options snapshots |
+| `/v3/option/snapshot/quote` | Options snapshots |
+| `/v3/option/snapshot/open_interest` | Options snapshots |
+| `/v3/option/history/eod` | Options history |
+| `/v3/option/history/ohlc` | Options history |
+| `/v3/option/history/quote` | Options history |
+| `/v3/option/history/open_interest` | Options history |
+| `/v3/option/at_time/quote` | Options history |
 
 ```bash
 curl -H "Authorization: Bearer 你的token" \
@@ -588,53 +611,3 @@ curl -X POST http://52.37.182.24:8768/v1/history/options/bars \
   }
 }
 ```
-
-### 🔍 关键 Bug 修复记录
-
-在实现和部署过程中，发现并修复了以下三个关键问题：
-
-**1. gRPC 请求类型错误**
-- Bug: 初始调用使用 `request_type="LIST"`，抛出 gRPC 内部错误 `Unsupported request type: LIST`
-- Fix: 改为 `request_type="QUOTE"`，匹配 ThetaData Value 可用的报价合约列表能力
-
-**2. 到期日格式校验失败**
-- Bug: 代码硬编码检查 `len(exp) == 8`，但 ThetaData 返回 `YYYY-MM-DD` 格式（10字符），导致所有合约被跳过
-- Fix: 清洗连字符 `exp.replace("-", "")` 转为 `YYYYMMDD` 格式后再截取 `YYMMDD`
-
-**3. 期权方向缩写映射错误**
-- Bug: ThetaData 返回 `"CALL"`/`"PUT"`，但标准 OCC 格式需要 `"C"`/`"P"`
-- Fix: 增加映射层：`"CALL"`/`"C"` → `"C"`，`"PUT"`/`"P"` → `"P"`
-
-### 📊 测试结果
-
-| 端点 | 状态 | 缓存 | 结果 |
-|------|------|------|------|
-| `options_bars` (OCC 直接) | OK | DISK_HIT on repeat | 391 bars |
-| `options_bars_auto_resolve` (股票代码) | OK | DISK_HIT on repeat | **3,519 bars** |
-| `options_contracts` | OK | DISK_HIT on repeat | 156 contracts |
-| `options_snapshots` | OK | MISS | 1 snapshot |
-| `options_open_interest` | OK | MISS | 期权持仓量数据 |
-| `options_eod` | OK | MISS | 期权日终数据 |
-
-> 全部 7 个用户通过全部端点测试，期权链自动解析功能已上线运行。
-
----
-
-## 附录: 部署信息
-
-以下内容仅供维护参考。
-
-- 部署模式: Paper trading (`IS_LIVE=false`), Pro feed (`IS_PRO=true`)
-- 上游数据源:
-  - 股票历史: Alpaca `v2/sip`
-  - 股票逐笔 Tick: **ThetaData** `stock_history_trade_quote`
-  - 期权历史: **ThetaData Value** (Primary) → Alpaca `v1beta1/opra` (Fallback)
-  - 期权合约: Alpaca contracts → **ThetaData Value** list/contracts fallback
-  - 期权直连: **ThetaData Value** `/v3/option/*` 白名单
-  - 期权实时: Alpaca `v1beta1/opra`
-  - Crypto: Alpaca `v1beta3/crypto/us`
-  - News: Alpaca `v1beta1/news`
-  - Boats: Alpaca `v1beta1/boats`
-  - Overnight: Alpaca `v1beta1/overnight`
-- Token 注册表: `/app/users.json`（file-backed，支持运行时增删）
-- 源代码: [github.com/ikkisovi/Websocket-DataFeed-Proxy](https://github.com/ikkisovi/Websocket-DataFeed-Proxy)
