@@ -154,35 +154,37 @@ function SideNav({ tab }) {
     const hasChildren = s.children && s.children.length > 0;
     const isOpen = expanded[s.title] !== false;
     const isMono = s.title.includes("endpoints") || s.title === "Messages";
+    const basePad = 12;
+    const indent = basePad + depth * 14;
     return (
-      <div style={{ marginBottom: 4 }}>
+      <div style={{ marginBottom: hasChildren ? 2 : 6 }}>
         <div
           onClick={() => hasChildren && toggle(s.title)}
           style={{
             display: "flex", alignItems: "center", gap: 6,
-            padding: "5px 10px 5px " + (10 + depth * 14),
+            padding: hasChildren ? "4px 10px 4px " + indent : "4px 10px 4px " + (indent + 16),
             cursor: hasChildren ? "pointer" : "default",
             color: "var(--ink-soft)", fontSize: 11, fontWeight: 600,
             letterSpacing: "0.08em", textTransform: "uppercase",
             userSelect: "none",
           }}
         >
-          {s.title}
           {hasChildren && <Chevron open={isOpen} />}
+          {s.title}
         </div>
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 1 }}>
           {s.items && s.items.map((it, j) => (
             <li key={j} style={{ position: "relative" }}>
               {depth > 0 && (
-                <span style={{ position: "absolute", left: 10 + (depth - 1) * 14 + 6, top: 0, bottom: 0, width: 1, background: "var(--rule)" }} />
+                <span style={{ position: "absolute", left: indent - 4, top: 0, bottom: 0, width: 1, background: "var(--rule)" }} />
               )}
               <a href={"#" + slugify(it)} style={{
                 textDecoration: "none", display: "block",
-                padding: "4px 10px 4px " + (10 + depth * 14 + (depth > 0 ? 12 : 0)),
+                padding: "3px 10px 3px " + (indent + 14),
                 color: activeId === slugify(it) ? "var(--ink-strong)" : "var(--ink-muted)",
                 fontWeight: activeId === slugify(it) ? 500 : 400,
                 borderLeft: activeId === slugify(it) ? "2px solid var(--accent)" : "2px solid transparent",
-                marginLeft: -10 + (depth > 0 ? 10 : 0),
+                marginLeft: 0,
                 fontFamily: isMono ? "var(--f-mono)" : "var(--f-sans)",
                 fontSize: isMono ? 12 : 13,
               }}>{it}</a>
