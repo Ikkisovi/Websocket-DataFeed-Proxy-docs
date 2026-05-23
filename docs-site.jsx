@@ -124,16 +124,16 @@ function SideNav({ tab }) {
 
   const sections = tab === "proxy" ? [
     { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions"] },
-    { title: "Token API", items: ["POST /register", "POST /check-status", "POST /generate-token"] },
-    { title: "REST History", items: ["POST /v1/history/bars", "POST /v1/history/news"] },
-    { title: "Options Data", items: ["POST /v1/options/contracts"], children: [
-      { title: "Snapshots", items: ["POST /v1/options/snapshots", "POST /v1/options/snapshots/quote", "POST /v1/options/snapshots/open_interest", "POST /v1/options/snapshots/expiry"] },
-      { title: "History", items: ["POST /v1/history/options/bars"] },
-      { title: "Open Interest", items: ["POST /v1/options/open_interest"] },
-      { title: "EOD", items: ["POST /v1/options/eod"] },
+    { title: "Token API", items: ["register", "check-status", "generate-token"] },
+    { title: "REST History", items: ["history/bars", "history/news"] },
+    { title: "Options Data", items: ["options/contracts"], children: [
+      { title: "Snapshots", items: ["options/snapshots", "options/snapshots/quote", "options/snapshots/open_interest", "options/snapshots/expiry"] },
+      { title: "History", items: ["history/options/bars"] },
+      { title: "Open Interest", items: ["options/open_interest"] },
+      { title: "EOD", items: ["options/eod"] },
     ]},
-    { title: "Crypto Data", items: ["POST /v1/crypto/us/latest/orderbooks"] },
-    { title: "Admin endpoints", items: ["POST /admin/login", "GET /admin/pending", "POST /admin/approve", "POST /admin/reject"] },
+    { title: "Crypto Data", items: ["crypto/us/latest/orderbooks"] },
+    { title: "Admin endpoints", items: ["admin/login", "admin/pending", "admin/approve", "admin/reject"] },
     { title: "Reference", items: ["Error codes", "Rate limits"] },
   ] : [
     { title: "Connecting", items: ["Endpoint", "Auth message", "Heartbeat"] },
