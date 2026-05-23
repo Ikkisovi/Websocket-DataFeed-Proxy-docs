@@ -109,31 +109,29 @@ function Tab({ id, tab, setTab, label, count }) {
 
 function SideNav({ tab }) {
   const [activeId, setActiveId] = React.useState("");
+  const [expanded, setExpanded] = React.useState({ "Options Data": true, "Snapshots": true });
   React.useEffect(() => {
     const onHashChange = () => setActiveId(window.location.hash.slice(1));
     window.addEventListener('hashchange', onHashChange);
-    // Intersection observer for scrolling
     const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if(entry.isIntersecting) {
-          setActiveId(entry.target.id);
-        }
-      });
+      entries.forEach(entry => { if(entry.isIntersecting) setActiveId(entry.target.id); });
     }, { rootMargin: '-20% 0px -80% 0px' });
-    setTimeout(() => {
-      document.querySelectorAll('h2[id], h3[id]').forEach(h => observer.observe(h));
-    }, 500);
-    return () => {
-      window.removeEventListener('hashchange', onHashChange);
-      observer.disconnect();
-    };
+    setTimeout(() => document.querySelectorAll('h2[id], h3[id]').forEach(h => observer.observe(h)), 500);
+    return () => { window.removeEventListener('hashchange', onHashChange); observer.disconnect(); };
   }, [tab]);
+
+  const toggle = (title) => setExpanded(prev => ({ ...prev, [title]: !prev[title] }));
+
   const sections = tab === "proxy" ? [
     { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions"] },
     { title: "Token API", items: ["POST /register", "POST /check-status", "POST /generate-token"] },
     { title: "REST History", items: ["POST /v1/history/bars", "POST /v1/history/news"] },
-    { title: "Options Data", items: ["POST /v1/options/contracts", "POST /v1/history/options/bars", "POST /v1/options/open_interest", "POST /v1/options/eod"] },
-    { title: "Snapshots", sub: true, items: ["POST /v1/options/snapshots", "POST /v1/options/snapshots/quote", "POST /v1/options/snapshots/open_interest", "POST /v1/options/snapshots/expiry"] },
+    { title: "Options Data", items: ["POST /v1/options/contracts"], children: [
+      { title: "Snapshots", items: ["POST /v1/options/snapshots", "POST /v1/options/snapshots/quote", "POST /v1/options/snapshots/open_interest", "POST /v1/options/snapshots/expiry"] },
+      { title: "History", items: ["POST /v1/history/options/bars"] },
+      { title: "Open Interest", items: ["POST /v1/options/open_interest"] },
+      { title: "EOD", items: ["POST /v1/options/eod"] },
+    ]},
     { title: "Crypto Data", items: ["POST /v1/crypto/us/latest/orderbooks"] },
     { title: "Admin endpoints", items: ["POST /admin/login", "GET /admin/pending", "POST /admin/approve", "POST /admin/reject"] },
     { title: "Reference", items: ["Error codes", "Rate limits"] },
@@ -143,6 +141,61 @@ function SideNav({ tab }) {
     { title: "Messages", items: ["Subscribe", "Unsubscribe", "Trade", "Quote", "Bar"] },
     { title: "Operations", items: ["Reconnect", "Backpressure"] },
   ];
+
+  function Chevron({ open }) {
+    return (
+      <svg width="10" height="10" viewBox="0 0 10 10" style={{ transition: 'transform 0.2s', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', marginLeft: 'auto', opacity: 0.5 }}>
+        <path d="M3 1 L7 5 L3 9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+  }
+
+  function Section({ s, depth = 0 }) {
+    const hasChildren = s.children && s.children.length > 0;
+    const isOpen = expanded[s.title] !== false;
+    const isMono = s.title.includes("endpoints") || s.title === "Messages";
+    return (
+      <div style={{ marginBottom: 4 }}>
+        <div
+          onClick={() => hasChildren && toggle(s.title)}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "5px 10px 5px " + (10 + depth * 14),
+            cursor: hasChildren ? "pointer" : "default",
+            color: "var(--ink-soft)", fontSize: 11, fontWeight: 600,
+            letterSpacing: "0.08em", textTransform: "uppercase",
+            userSelect: "none",
+          }}
+        >
+          {s.title}
+          {hasChildren && <Chevron open={isOpen} />}
+        </div>
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 1 }}>
+          {s.items && s.items.map((it, j) => (
+            <li key={j} style={{ position: "relative" }}>
+              {depth > 0 && (
+                <span style={{ position: "absolute", left: 10 + (depth - 1) * 14 + 6, top: 0, bottom: 0, width: 1, background: "var(--rule)" }} />
+              )}
+              <a href={"#" + slugify(it)} style={{
+                textDecoration: "none", display: "block",
+                padding: "4px 10px 4px " + (10 + depth * 14 + (depth > 0 ? 12 : 0)),
+                color: activeId === slugify(it) ? "var(--ink-strong)" : "var(--ink-muted)",
+                fontWeight: activeId === slugify(it) ? 500 : 400,
+                borderLeft: activeId === slugify(it) ? "2px solid var(--accent)" : "2px solid transparent",
+                marginLeft: -10 + (depth > 0 ? 10 : 0),
+                fontFamily: isMono ? "var(--f-mono)" : "var(--f-sans)",
+                fontSize: isMono ? 12 : 13,
+              }}>{it}</a>
+            </li>
+          ))}
+        </ul>
+        {hasChildren && isOpen && s.children.map((child, k) => (
+          <Section key={k} s={child} depth={depth + 1} />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <nav style={{
       padding: "32px 0 32px 32px",
@@ -150,28 +203,7 @@ function SideNav({ tab }) {
       background: "var(--bg-canvas)",
       fontSize: 13, position: "sticky", top: 0, height: "100vh", overflow: "auto"
     }}>
-      {sections.map((s, i) => (
-        <div key={i} style={{ marginBottom: s.sub ? 16 : 22, marginLeft: s.sub ? 12 : 0 }}>
-          <div className="eyebrow" style={{ marginBottom: 8, color: "var(--ink-soft)", fontSize: s.sub ? 10 : undefined }}>{s.sub ? "↳ " : ""}{s.title}</div>
-          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-            {s.items.map((it, j) => (
-              <li key={j}>
-                <a href={"#" + slugify(it)} style={{textDecoration: "none", 
-                  display: "block",
-                  padding: "4px 10px 4px 0",
-                  color: activeId === slugify(it) ? "var(--ink-strong)" : "var(--ink-muted)",
-                  fontWeight: activeId === slugify(it) ? 500 : 400,
-                  borderLeft: activeId === slugify(it) ? "2px solid var(--accent)" : "2px solid transparent",
-                  paddingLeft: i === 1 && j === 2 ? 10 : 10,
-                  marginLeft: -10,
-                  fontFamily: s.title.includes("endpoints") || s.title === "Messages" ? "var(--f-mono)" : "var(--f-sans)",
-                  fontSize: s.title.includes("endpoints") || s.title === "Messages" ? 12 : 13,
-                }}>{it}</a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      {sections.map((s, i) => <Section key={i} s={s} />)}
     </nav>
   );
 }
