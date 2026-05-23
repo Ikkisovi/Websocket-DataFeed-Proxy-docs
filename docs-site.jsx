@@ -640,22 +640,6 @@ Authorization: Bearer c88662...720a
         </thead>
         <tbody>
           <tr>
-            <td><span className="tier premium">Premium</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$130/mo</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract · crypto · news · overnight</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>300</td>
-            <td style={{ fontSize: 12 }}>All endpoints including crypto orderbooks</td>
-          </tr>
-          <tr>
-            <td><span className="tier standard">Standard</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$80/mo</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>60</td>
-            <td style={{ fontSize: 12 }}>history/bars, options/*, news history excluded, no crypto</td>
-          </tr>
-          <tr>
             <td><span className="tier trial">Trial</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$30/3 days</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract</td>
@@ -670,6 +654,22 @@ Authorization: Bearer c88662...720a
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>10</td>
             <td style={{ fontSize: 12 }}>Bulk download · history · snapshots · no realtime</td>
+          </tr>
+          <tr>
+            <td><span className="tier standard">Standard</span></td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$80/mo</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>60</td>
+            <td style={{ fontSize: 12 }}>history/bars, options/*, news history excluded, no crypto</td>
+          </tr>
+          <tr>
+            <td><span className="tier premium">Premium</span></td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$130/mo</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract · crypto · news · overnight</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>300</td>
+            <td style={{ fontSize: 12 }}>All endpoints including crypto orderbooks</td>
           </tr>
         </tbody>
       </table>
@@ -688,7 +688,7 @@ Authorization: Bearer c88662...720a
       <ParamTable rows={[
         { name: "username", type: "string", required: true, desc: "Unique display name (must not exist in approved users)" },
         { name: "phone",    type: "string", required: true, desc: "Mobile number used to verify identity on token generation" },
-        { name: "tier",     type: "string", required: false, desc: "premium | standard | trial | basic (default: premium)." },
+        { name: "tier",     type: "string", required: false, desc: "trial | basic | standard | premium (default: standard)." },
       ]} />
       <pre className="code" style={{ marginBottom: 28 }}>
 {`// Request
@@ -1049,14 +1049,14 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
 }`}
       </pre>
 
-      <h2 id="post-v1-options-eod" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/eod</h2>
+      <h2 id="post-v1-history-options-eod" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/history/options/eod</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         End-of-day OHLC summary for option contracts: open/high/low/close, volume, bid/ask, and trade count per contract per day.
-        This is the primary endpoint for daily option OHLC summaries. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong> with server-side cache.
-        Accepts the same filter parameters as <code>/v1/options/open_interest</code>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约的日终 OHLC 汇总，数据源为 ThetaData Value，并写入服务端缓存。</span>
+        Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong> with server-side cache. Supports <code>GET</code> (query) and <code>POST</code> (JSON body).
+        Also accessible at the legacy alias <code>/v1/options/eod</code> with identical behavior.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约日终 OHLC 汇总。数据源 ThetaData Value，写入服务端缓存。也可走旧别名 /v1/options/eod。</span>
       </p>
-      <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/eod`} />
+      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/history/options/eod`} />
       <ParamTable rows={[
         { name: "symbol",       type: "string",  required: true,  desc: "Root ticker (e.g. AAPL)" },
         { name: "start",        type: "string",  required: true,  desc: "ISO 8601 date" },
@@ -1068,10 +1068,15 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
         { name: "strike_range", type: "integer", required: false, desc: "ATM ± N strikes filter" },
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
-{`curl -X POST ${REST_BASE}/v1/options/eod \\
-  -H "Authorization: Bearer *** \\
+{`# POST
+curl -X POST ${REST_BASE}/v1/history/options/eod \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
-  -d '{"symbol":"AAPL","start":"2025-01-02","end":"2025-01-03","right":"call","max_dte":30}'`}
+  -d '{"symbol":"AAPL","start":"2025-01-02","end":"2025-01-03","right":"call","max_dte":30}'
+
+# GET
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1/history/options/eod?symbol=AAPL&start=2025-01-02&end=2025-01-03&right=call"`}
       </pre>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`// Response — each record is one contract on one trading day
@@ -1098,7 +1103,7 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
 {`import requests
 
 resp = requests.post(
-    "${REST_BASE}/v1/options/eod",
+    "${REST_BASE}/v1/history/options/eod",
     headers={"Authorization": "Bearer <TOKEN>"},
     json={
         "symbol": "AAPL",
@@ -1115,24 +1120,6 @@ for row in data["data"][:5]:
     print(f"  {row['expiration']} {row['strike']}C  "
           f"O={row['open']} H={row['high']} L={row['low']} C={row['close']}  "
           f"vol={row['volume']}")`}
-      </pre>
-
-      <h2 id="post-v1-history-options-eod" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/options/eod</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Preferred route for EOD option data. Same response shape as <code>/v1/options/eod</code> above but located under the history namespace for API consistency.
-        Supports both <code>GET</code> (query params) and <code>POST</code> (JSON body). Successful responses are cached server-side.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>EOD 期权数据的首选路由。支持 GET 和 POST，成功响应会写入服务端缓存。</span>
-      </p>
-      <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/options/eod`} />
-      <pre className="code" style={{ marginBottom: 40 }}>
-{`# GET with query parameters
-curl "${REST_BASE}/v1/history/options/eod?symbol=AAPL&start=2025-01-02&end=2025-01-03&right=call"
-
-# POST with JSON body (same parameters)
-curl -X POST ${REST_BASE}/v1/history/options/eod \\
-  -H "Authorization: Bearer <TOKEN>" \\
-  -H "Content-Type: application/json" \\
-  -d '{"symbol":"AAPL","start":"2025-01-02","end":"2025-01-03","right":"call"}'`}
       </pre>
 
       <h2 id="post-v1-history-options-trades" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/options/trades</h2>
@@ -1182,30 +1169,9 @@ curl -X POST ${REST_BASE}/v1/history/options/eod \\
       {/* ── Snapshots ── */}
       <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · Snapshots</div>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 24px" }}>
-        Realtime snapshot endpoints return the <em>latest</em> state of option contracts — greeks, quotes, open interest — with a 60-second in-memory cache.
-        All snapshot endpoints accept OCC symbols from <code>/v1/options/contracts</code>.
+        Snapshot endpoints return the <em>latest</em> state of option contracts — greeks, quotes, trade, open interest — served from a 60-second in-memory cache.
+        All snapshot endpoints accept OCC symbols obtained from <code>/v1/options/contracts</code>.
       </p>
-
-      <div style={{
-        background: "rgba(245, 158, 11, 0.08)",
-        border: "1px solid rgba(245, 158, 11, 0.25)",
-        borderRadius: "8px",
-        padding: "16px 20px",
-        marginBottom: "24px",
-        display: "flex",
-        gap: "14px",
-        alignItems: "flex-start",
-      }}>
-        <div style={{ color: "#f59e0b", fontSize: 18, lineHeight: 1 }}>
-          ⚠️
-        </div>
-        <div style={{ fontSize: 14, color: "var(--ink-muted)", lineHeight: 1.5 }}>
-          <strong style={{ color: "var(--ink-strong)", display: "block", marginBottom: 4 }}>Notice: Options Caching & Availability</strong>
-          To protect upstream limits and ensure ultra-low latency performance, in-memory caching is active on all option snapshot endpoints with a <strong>60-second TTL</strong>.
-          Alpaca historical option data is available from <strong>2024-02-01</strong> onward. Historical option trades are available through <code>/v1beta1/options/trades</code> or the alias <code>/v1/history/options/trades</code>; historical option quotes are still not exposed as a wrapper endpoint.
-          Use the realtime cached snapshot endpoints for current quote/trade analysis.
-        </div>
-      </div>
 
       <h2 id="post-v1-options-snapshots" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -1623,10 +1589,10 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
         </thead>
         <tbody>
           {[
-            ["Premium",       "300", "150", "75",  "500"],
-            ["Standard",      "60",  "30",  "15",  "50"],
-            ["Trial",         "60",  "30",  "15",  "50"],
-            ["Basic",         "10",  "5",   "2",   "—"],
+            ["Trial",    "60",  "30",  "15",  "50"],
+            ["Basic",    "10",  "5",   "2",   "—"],
+            ["Standard", "60",  "30",  "15",  "50"],
+            ["Premium",  "300", "150", "75",  "500"],
           ].map(([t, r, l, c, w], i) => (
             <tr key={i}>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{t}</td>
