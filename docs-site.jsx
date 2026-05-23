@@ -964,6 +964,7 @@ curl -H "Authorization: Bearer <TOKEN>" \\
 }`}
       </pre>
 
+      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 32, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · History</div>
       <h2 id="post-v1-history-options-bars" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/options/bars</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Historical OHLCV bars for option contracts. Default <code>provider: "auto"</code> routes to <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong> first and falls back to Alpaca bars only when ThetaData has no usable data.
@@ -1374,6 +1375,75 @@ for sym, snap in data["snapshots"].items():
     print(f"  {sym}  delta={g.get('delta','—')}  bid={q.get('bp','—')}  ask={q.get('ap','—')}")`}
       </pre>
 
+      {/* ── ThetaData Value direct endpoints ── */}
+      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · ThetaData Value</div>
+      <h2 id="post-v3-option-direct-value" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/* (ThetaData Value)</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Authenticated proxy for ThetaData Value option endpoints included in the subscription.
+        Supports both <code>GET</code> query parameters and <code>POST</code> JSON bodies, strips proxy credentials before execution, and caches successful JSON responses server-side.
+        Unsupported Standard/Pro-only routes such as option trades, trade_quote, market value, implied volatility, and greeks are intentionally not exposed here.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>ThetaData Value 期权白名单代理，仅开放 Value 订阅允许的端点。支持 GET/POST，成功 JSON 响应写入服务端缓存。</span>
+      </p>
+      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/...`} />
+      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
+        <thead><tr><th>Endpoint</th><th>Required access</th><th>Notes</th></tr></thead>
+        <tbody>
+          {[
+            ["/v3/option/list/symbols",          "Options contracts", "List option root symbols"],
+            ["/v3/option/list/dates/quote",      "Options contracts", "Available quote dates"],
+            ["/v3/option/list/dates/trade",      "Options contracts", "Available trade dates as list metadata"],
+            ["/v3/option/list/expirations",      "Options contracts", "Expirations for a root"],
+            ["/v3/option/list/strikes",          "Options contracts", "Strikes for root/expiration"],
+            ["/v3/option/list/contracts/quote",  "Options contracts", "Contract list by quote availability"],
+            ["/v3/option/list/contracts/trade",  "Options contracts", "Contract list by trade availability"],
+            ["/v3/option/snapshot/ohlc",         "Options snapshots", "Latest OHLC snapshot"],
+            ["/v3/option/snapshot/quote",        "Options snapshots", "Latest NBBO quote snapshot"],
+            ["/v3/option/snapshot/open_interest","Options snapshots", "Latest open-interest snapshot"],
+            ["/v3/option/history/eod",           "Options history",   "Daily EOD summary"],
+            ["/v3/option/history/ohlc",          "Options history",   "Historical OHLC bars"],
+            ["/v3/option/history/quote",         "Options history",   "Historical quotes"],
+            ["/v3/option/history/open_interest", "Options history",   "Historical open interest"],
+            ["/v3/option/at_time/quote",         "Options history",   "Quote at a timestamp"],
+          ].map(([endpoint, access, notes], i) => (
+            <tr key={i}>
+              <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>{endpoint}</td>
+              <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>{access}</td>
+              <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>{notes}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <h3 id="post-v3-option-history-ohlc" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Historical OHLC example</h3>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`# GET — query parameters forwarded to ThetaData
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v3/option/history/ohlc?root=AAPL&exp=260620&strike=200000&right=C&start_date=20250102&end_date=20250103"
+
+# POST — JSON body forwarded to ThetaData
+curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
+  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"root":"AAPL","exp":260620,"strike":200000,"right":"C","start_date":20250102,"end_date":20250103}'`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`// Response — ThetaData native format
+{
+  "ohlc": [
+    { "date": 20250102, "open": 14.50, "high": 15.20, "low": 14.10, "close": 14.85, "volume": 320 }
+  ]
+}`}
+      </pre>
+      <h3 id="post-v3-option-snapshot-ohlc" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Snapshot OHLC example</h3>
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v3/option/snapshot/ohlc?root=AAPL&exp=260620&strike=200000&right=C"
+
+// Response — ThetaData native format
+{
+  "ohlc": { "open": 14.50, "high": 15.20, "low": 14.10, "close": 14.85, "volume": 320 }
+}`}
+      </pre>
+
       {/* ── Crypto ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Crypto Data</div>
 
@@ -1479,73 +1549,6 @@ for sym, snap in data["snapshots"].items():
 { "success": true, "message": "已拒绝 tonnysun。" }`}
       </pre>
 
-      <h2 id="post-v3-option-direct-value" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/* (ThetaData Value)</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Authenticated proxy for ThetaData Value option endpoints included in the subscription.
-        Supports both <code>GET</code> query parameters and <code>POST</code> JSON bodies, strips proxy credentials before execution, and caches successful JSON responses server-side.
-        Unsupported Standard/Pro-only routes such as option trades, trade_quote, market value, implied volatility, and greeks are intentionally not exposed here.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>ThetaData Value 期权白名单代理，仅开放 Value 订阅允许的端点。支持 GET/POST，成功 JSON 响应写入服务端缓存。</span>
-      </p>
-      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/...`} />
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
-        <thead><tr><th>Endpoint</th><th>Required access</th><th>Notes</th></tr></thead>
-        <tbody>
-          {[
-            ["/v3/option/list/symbols", "Options contracts", "List option root symbols"],
-            ["/v3/option/list/dates/quote", "Options contracts", "Available quote dates"],
-            ["/v3/option/list/dates/trade", "Options contracts", "Available trade dates as list metadata"],
-            ["/v3/option/list/expirations", "Options contracts", "Expirations for a root"],
-            ["/v3/option/list/strikes", "Options contracts", "Strikes for root/expiration"],
-            ["/v3/option/list/contracts/quote", "Options contracts", "Contract list by quote availability"],
-            ["/v3/option/list/contracts/trade", "Options contracts", "Contract list by trade availability"],
-            ["/v3/option/snapshot/ohlc", "Options snapshots", "Latest OHLC snapshot"],
-            ["/v3/option/snapshot/quote", "Options snapshots", "Latest NBBO quote snapshot"],
-            ["/v3/option/snapshot/open_interest", "Options snapshots", "Latest open-interest snapshot"],
-            ["/v3/option/history/eod", "Options history", "Daily EOD summary"],
-            ["/v3/option/history/ohlc", "Options history", "Historical OHLC bars"],
-            ["/v3/option/history/quote", "Options history", "Historical quotes"],
-            ["/v3/option/history/open_interest", "Options history", "Historical open interest"],
-            ["/v3/option/at_time/quote", "Options history", "Quote at a timestamp"],
-          ].map(([endpoint, access, notes], i) => (
-            <tr key={i}>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>{endpoint}</td>
-              <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>{access}</td>
-              <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>{notes}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <h3 id="post-v3-option-history-ohlc" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Historical OHLC example</h3>
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`# GET — query parameters forwarded to ThetaData
-curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v3/option/history/ohlc?root=AAPL&exp=260620&strike=200000&right=C&start_date=20250102&end_date=20250103"
-
-# POST — JSON body forwarded to ThetaData
-curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
-  -H "Authorization: Bearer <TOKEN>" \\
-  -H "Content-Type: application/json" \\
-  -d '{"root":"AAPL","exp":260620,"strike":200000,"right":"C","start_date":20250102,"end_date":20250103}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
-{`// Response — ThetaData native format
-{
-  "ohlc": [
-    { "date": 20250102, "open": 14.50, "high": 15.20, "low": 14.10, "close": 14.85, "volume": 320 }
-  ]
-}`}
-      </pre>
-
-      <h3 id="post-v3-option-snapshot-ohlc" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Snapshot OHLC example</h3>
-      <pre className="code" style={{ marginBottom: 40 }}>
-{`curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v3/option/snapshot/ohlc?root=AAPL&exp=260620&strike=200000&right=C"
-
-// Response — ThetaData native format
-{
-  "ohlc": { "open": 14.50, "high": 15.20, "low": 14.10, "close": 14.85, "volume": 320 }
-}`}
-      </pre>
 
       {/* ── Reference ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Reference</div>
