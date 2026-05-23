@@ -326,7 +326,7 @@ function ProxyApiBody() {
       </p>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`# Option A — Authorization header (preferred)
-Authorization: Bearer c886624f-232d-4803-99fa-f8b970e4720a
+Authorization: Bearer c88662...720a
 
 # Option B — token field in request body
 { "token": "c886624f-232d-4803-99fa-f8b970e4720a", "symbol": "AAPL", ... }`}
@@ -450,7 +450,7 @@ Authorization: Bearer c886624f-232d-4803-99fa-f8b970e4720a
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/history/bars \\
-  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Authorization: Bearer *** \\
   -H "Content-Type: application/json" \\
   -d '{"symbol":"AAPL","timeframe":"1Day","start":"2024-01-02","end":"2024-01-05","limit":5}'`}
       </pre>
@@ -489,7 +489,7 @@ Authorization: Bearer c886624f-232d-4803-99fa-f8b970e4720a
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/history/news \\
-  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Authorization: Bearer *** \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL","start":"2024-01-02","end":"2024-01-03","limit":3}'`}
       </pre>
@@ -538,7 +538,7 @@ Authorization: Bearer c886624f-232d-4803-99fa-f8b970e4720a
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/contracts \\
-  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Authorization: Bearer *** \\
   -H "Content-Type: application/json" \\
   -d '{"underlying_symbols":"AAPL","limit":2}'`}
       </pre>
@@ -590,7 +590,7 @@ Authorization: Bearer c886624f-232d-4803-99fa-f8b970e4720a
       <pre className="code" style={{ marginBottom: 12 }}>
 {`// With explicit OCC symbol
 curl -X POST ${REST_BASE}/v1/history/options/bars \\
-  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Authorization: Bearer *** \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260620C00200000","start":"2025-05-01","end":"2025-05-15","timeframe":"1Day"}'
 
@@ -627,7 +627,7 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/open_interest \\
-  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Authorization: Bearer *** \\
   -H "Content-Type: application/json" \\
   -d '{"symbol":"AAPL","start":"2025-01-02","end":"2025-01-05"}'`}
       </pre>
@@ -667,7 +667,7 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/eod \\
-  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Authorization: Bearer *** \\
   -H "Content-Type: application/json" \\
   -d '{"symbol":"AAPL","start":"2025-01-02","end":"2025-01-03","right":"call","max_dte":30}'`}
       </pre>
@@ -756,7 +756,7 @@ for row in data["data"][:5]:
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots \\
-  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Authorization: Bearer *** \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260620C00200000","feed":"indicative"}'`}
       </pre>
@@ -786,7 +786,7 @@ for row in data["data"][:5]:
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/quote \\
-  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Authorization: Bearer *** \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260522C00110000","feed":"thetadata"}'`}
       </pre>
@@ -831,7 +831,7 @@ for sym, snap in resp.json()["snapshots"].items():
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/open_interest \\
-  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Authorization: Bearer *** \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260522C00110000","feed":"thetadata"}'`}
       </pre>
@@ -876,7 +876,7 @@ for sym, snap in resp.json()["snapshots"].items():
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/expiry \\
-  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Authorization: Bearer *** \\
   -H "Content-Type: application/json" \\
   -d '{"underlying":"AAPL","expiry":"2026-05-22","feed":"indicative"}'`}
       </pre>
@@ -921,7 +921,7 @@ for sym, snap in data["snapshots"].items():
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/crypto/us/latest/orderbooks \\
-  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Authorization: Bearer *** \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"BTC/USD,ETH/USD"}'`}
       </pre>
@@ -1278,8 +1278,8 @@ async def with_reconnect(token, uri, handler, backoff=1):
         try:
             async with websockets.connect(uri) as ws:
                 await ws.send(json.dumps({"action": "auth", "token": token}))
-                await ws.recv()                          # auth response
-                await ws.send(json.dumps({               # re-subscribe
+                await ws.recv()                          // auth response
+                await ws.send(json.dumps({               // re-subscribe
                     "action": "subscribe",
                     "trades": ["AAPL", "TSLA"]
                 }))
