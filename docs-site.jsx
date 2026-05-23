@@ -859,26 +859,23 @@ Authorization: Bearer c88662...720a
 
       <h2 id="provider-fallback-cache" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Provider routes and server-side cache</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Native provider routes share one proxy layer for auth, permissions, rate limits, credential stripping, and server-side caching.
-        Alpaca data routes are available as native HTTP endpoints; ThetaData Value option routes are exposed only for the covered Value endpoints.
-        Wrapper endpoints such as <code>/v1/history/options/bars</code> still provide higher-level fallback behavior.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>原生数据源路径统一走同一层代理：鉴权、权限、限流、参数清洗和服务端缓存一致；业务友好接口继续提供 fallback。</span>
+        Two upstreams sit behind a single proxy layer (auth, permissions, rate limits, credential stripping, cache):
+        Alpaca for stocks, crypto, news, and most options; ThetaData Value for the option subset shown below.
+        The table lists only routes where the dual-provider routing or fallback decision matters — pass-through Alpaca routes
+        (<code>/v2/stocks/*</code>, <code>/v1beta3/crypto/*</code>, <code>/v1beta1/news*</code>, <code>/v2/options/contracts*</code>) are documented in their own sections.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>两个上游共享同一层代理。下表只列需要 dual-provider 路由/回退判断的端点；纯 Alpaca 透传端点在各自章节展开。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
-        <thead><tr><th>Provider surface</th><th>Route family</th><th>Behavior</th></tr></thead>
+        <thead><tr><th>Surface</th><th>Route</th><th>Routing behavior</th></tr></thead>
         <tbody>
           {[
-            ["Alpaca stocks", "/v2/stocks/*", "Native stock auctions, bars, trades, quotes, latest data, snapshots, and metadata."],
-            ["Alpaca crypto", "/v1beta3/crypto/* and /v1beta1/crypto-perps/*", "Native crypto bars, trades, quotes, latest data, and orderbooks."],
-            ["Alpaca options", "/v1beta1/options/*", "Native option bars, historical trades, latest quotes/trades, snapshots, and option-chain snapshots. Historical option data starts 2024-02-01."],
-            ["Alpaca news", "/v1beta1/news*", "Native news endpoint family."],
-            ["Alpaca option contracts", "/v2/options/contracts*", "Native option contract metadata."],
-            ["Option bars", "/v1/history/options/bars", "ThetaData OHLC first, Alpaca bars fallback. provider=thetadata disables Alpaca fallback; provider=alpaca skips ThetaData."],
-            ["Contracts", "/v1/options/contracts", "Alpaca contracts first, ThetaData Value contracts fallback when Alpaca is unavailable. provider=thetadata requires underlying_symbols."],
-            ["Full snapshots / greeks / IV", "/v1/options/snapshots", "Alpaca only because ThetaData Value does not include greeks, IV, or market value."],
-            ["Quote / trade snapshots", "/v1/options/snapshots/quote and /v1/options/snapshots/trade", "Alpaca latest quote/trade first; response is normalized under snapshots[OCC].latestQuote/latestTrade."],
-            ["OI / OHLC snapshots", "/v1/options/snapshots/open_interest and /v3/option/snapshot/*", "ThetaData-backed where Value permits open_interest and OHLC snapshots."],
-            ["ThetaData Value options", "/v3/option/*", "Exact ThetaData Value whitelist only, JSON response, no Alpaca fallback."],
+            ["Alpaca options (native)",       "/v1beta1/options/*",                                            "Bars, historical trades, latest quotes/trades, snapshots, chain snapshots. Historical option data starts 2024-02-01."],
+            ["Option bars (wrapper)",         "/v1/history/options/bars",                                      "ThetaData OHLC first; Alpaca bars fallback. provider=thetadata|alpaca to pin."],
+            ["Contracts (wrapper)",           "/v1/options/contracts",                                         "Alpaca contracts first; ThetaData Value contracts fallback. provider=thetadata requires underlying_symbols."],
+            ["Full snapshots / greeks / IV",  "/v1/options/snapshots",                                         "Alpaca only — ThetaData Value lacks greeks, IV, market value."],
+            ["Quote / trade snapshots",       "/v1/options/snapshots/{quote,trade}",                           "Alpaca latest quote/trade; normalized to snapshots[OCC].latestQuote/latestTrade."],
+            ["OI / OHLC snapshots",           "/v1/options/snapshots/open_interest, /v3/option/snapshot/*",    "ThetaData-backed where Value permits OI and OHLC snapshots."],
+            ["ThetaData Value options",       "/v3/option/*",                                                  "ThetaData Value whitelist only; JSON response; no Alpaca fallback."],
           ].map(([area, route, behavior], i) => (
             <tr key={i}>
               <td style={{ fontSize: 12, color: "var(--ink-strong)" }}>{area}</td>
@@ -1011,10 +1008,8 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
 
       <h2 id="post-v1-options-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/options/open_interest</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Historical open interest by date range and strike/expiry filter. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong> (returns 503 if ThetaData unavailable).
-        Supports GET query parameters or POST JSON and writes successful responses to the server-side cache.
-        Requires a tier with options history access (Trial, Standard, or Premium).
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>按日期范围和行权价/到期日筛选历史持仓量。支持 GET/POST，并写入服务端缓存。</span>
+        Historical open interest by date range with strike/expiry filters. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong> (returns 503 if ThetaData is unavailable).
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>按日期范围和行权价/到期日筛选历史持仓量。</span>
       </p>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/options/open_interest`} />
       <ParamTable rows={[
@@ -1176,10 +1171,9 @@ for row in data["data"][:5]:
 
       <h2 id="post-v1-options-snapshots" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Full realtime snapshot for each contract: latest trade, latest quote, and greeks (delta, gamma, theta, vega, rho) plus implied volatility.
-        This is the most comprehensive snapshot — use the sub-endpoints below if you only need quotes, trades, or open interest.
-        Data source: Alpaca option chain API. Returns <code>403</code> if your tier lacks options permission.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>每个合约的完整实时快照：最新成交、最新报价、希腊值（delta, gamma, theta, vega, rho）及隐含波动率。数据源：Alpaca。权限不足返回 403。</span>
+        Full snapshot per contract: latest trade, latest quote, greeks (delta, gamma, theta, vega, rho), and implied volatility.
+        Use the sub-endpoints below when you only need one slice.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>每个合约的完整快照：最新成交、最新报价、希腊值与隐含波动率。只需单项时改用下方子端点。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots`} />
       <ParamTable rows={[
@@ -1224,8 +1218,8 @@ for row in data["data"][:5]:
 
       <h2 id="post-v1-options-snapshots-quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/quote</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Latest NBBO quote for option contracts. Default source is Alpaca's <code>/v1beta1/options/quotes/latest</code>; set <code>feed: "thetadata"</code> only when you explicitly want the ThetaData Value quote snapshot.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约最新 NBBO 报价。默认走 Alpaca latest quotes；只有明确需要 ThetaData Value quote snapshot 时才设置 feed: "thetadata"。</span>
+        Latest NBBO quote per contract, normalized to <code>snapshots[OCC].latestQuote</code>. Set <code>feed: "thetadata"</code> only to force the ThetaData Value quote snapshot.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约最新 NBBO 报价。只有明确需要 ThetaData Value 时才设置 feed: "thetadata"。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/quote`} />
       <ParamTable rows={[
@@ -1270,8 +1264,8 @@ for sym, snap in resp.json()["snapshots"].items():
 
       <h2 id="post-v1-options-snapshots-trade" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/trade</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Latest trade for option contracts. Default source is Alpaca's <code>/v1beta1/options/trades/latest</code>; responses are normalized under <code>snapshots[OCC].latestTrade</code>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约最新成交。默认走 Alpaca latest trades，响应归一化到 snapshots[OCC].latestTrade。</span>
+        Latest trade per contract, normalized to <code>snapshots[OCC].latestTrade</code>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约最新成交，归一化到 snapshots[OCC].latestTrade。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/trade`} />
       <ParamTable rows={[
@@ -1287,8 +1281,8 @@ for sym, snap in resp.json()["snapshots"].items():
 
       <h2 id="post-v1-options-snapshots-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/open_interest</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        ThetaData-only snapshot for the latest open interest of an option contract. Returns OI count and timestamp. Use <code>feed: "thetadata"</code>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>ThetaData 独家快照：期权合约的最新持仓量，返回持仓量数值和时间戳。需设置 feed: "thetadata"。</span>
+        Latest open interest per contract (count + timestamp). ThetaData-only — must set <code>feed: "thetadata"</code>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约最新持仓量。仅 ThetaData，必须设 feed: "thetadata"。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/open_interest`} />
       <ParamTable rows={[
