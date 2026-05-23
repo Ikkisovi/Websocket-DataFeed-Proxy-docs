@@ -126,14 +126,14 @@ function SideNav({ tab }) {
     { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions"] },
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news"] },
-    { title: "Options Data", items: ["options/contracts"], children: [
-      { title: "Snapshots", items: ["options/snapshots", "options/snapshots/quote", "options/snapshots/open_interest", "options/snapshots/expiry"] },
-      { title: "History", items: ["history/options/bars"] },
-      { title: "Open Interest", items: ["options/open_interest"] },
-      { title: "EOD", items: ["options/eod"] },
+    { title: "Options Data", items: ["contracts"], children: [
+      { title: "Snapshots", items: ["snapshots", "quote", "open interest", "expiry"] },
+      { title: "History", items: ["bars"] },
+      { title: "Open Interest", items: ["open interest"] },
+      { title: "EOD", items: ["eod"] },
     ]},
-    { title: "Crypto Data", items: ["crypto/us/latest/orderbooks"] },
-    { title: "Admin endpoints", items: ["admin/login", "admin/pending", "admin/approve", "admin/reject"] },
+    { title: "Crypto Data", items: ["orderbooks"] },
+    { title: "Admin endpoints", items: ["login", "pending", "approve", "reject"] },
     { title: "Reference", items: ["Error codes", "Rate limits"] },
   ] : [
     { title: "Connecting", items: ["Endpoint", "Auth message", "Heartbeat"] },
