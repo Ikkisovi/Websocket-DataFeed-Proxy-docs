@@ -162,7 +162,7 @@ function SideNav({ tab }) {
           onClick={() => hasChildren && toggle(s.title)}
           style={{
             display: "flex", alignItems: "center", gap: 6,
-            padding: hasChildren ? "4px 10px 4px " + indent : "4px 10px 4px " + (indent + 16),
+            padding: "4px 10px 4px " + (indent + (hasChildren ? 0 : 16)),
             cursor: hasChildren ? "pointer" : "default",
             color: "var(--ink-soft)", fontSize: 11, fontWeight: 600,
             letterSpacing: "0.08em", textTransform: "uppercase",
