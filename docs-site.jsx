@@ -152,46 +152,53 @@ function SideNav({ tab }) {
 
   function Section({ s, depth = 0 }) {
     const hasChildren = s.children && s.children.length > 0;
+    const hasItems = s.items && s.items.length > 0;
+    const isCollapsible = hasChildren || hasItems;
     const isOpen = expanded[s.title] !== false;
     const isMono = s.title.includes("endpoints") || s.title === "Messages";
+    const indent = 14 + depth * 12;
     return (
-      <div style={{ marginBottom: 4 }}>
+      <div style={{ marginBottom: 2 }}>
         <div
-          onClick={() => hasChildren && toggle(s.title)}
+          onClick={() => isCollapsible && toggle(s.title)}
           style={{
-            display: "flex", alignItems: "center", gap: 6,
-            padding: "5px 10px 5px " + (10 + depth * 14),
-            cursor: hasChildren ? "pointer" : "default",
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "6px 12px 6px " + indent,
+            cursor: isCollapsible ? "pointer" : "default",
             color: "var(--ink-soft)", fontSize: 11, fontWeight: 600,
             letterSpacing: "0.08em", textTransform: "uppercase",
-            userSelect: "none",
+            userSelect: "none", borderRadius: 4,
           }}
         >
-          {s.title}
-          {hasChildren && <Chevron open={isOpen} />}
+          {isCollapsible && <Chevron open={isOpen} />}
+          <span style={{ marginLeft: isCollapsible ? 0 : 18 }}>{s.title}</span>
         </div>
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 1 }}>
-          {s.items && s.items.map((it, j) => (
-            <li key={j} style={{ position: "relative" }}>
-              {depth > 0 && (
-                <span style={{ position: "absolute", left: 10 + (depth - 1) * 14 + 6, top: 0, bottom: 0, width: 1, background: "var(--rule)" }} />
-              )}
-              <a href={"#" + slugify(it)} style={{
-                textDecoration: "none", display: "block",
-                padding: "4px 10px 4px " + (10 + depth * 14 + (depth > 0 ? 12 : 0)),
-                color: activeId === slugify(it) ? "var(--ink-strong)" : "var(--ink-muted)",
-                fontWeight: activeId === slugify(it) ? 500 : 400,
-                borderLeft: activeId === slugify(it) ? "2px solid var(--accent)" : "2px solid transparent",
-                marginLeft: -10 + (depth > 0 ? 10 : 0),
-                fontFamily: isMono ? "var(--f-mono)" : "var(--f-sans)",
-                fontSize: isMono ? 12 : 13,
-              }}>{it}</a>
-            </li>
-          ))}
-        </ul>
-        {hasChildren && isOpen && s.children.map((child, k) => (
-          <Section key={k} s={child} depth={depth + 1} />
-        ))}
+        {isOpen && (
+          <>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 1 }}>
+              {s.items && s.items.map((it, j) => (
+                <li key={j} style={{ position: "relative" }}>
+                  {depth >= 0 && (
+                    <span style={{ position: "absolute", left: indent + 10, top: 0, bottom: 0, width: 1, background: "var(--rule)", opacity: 0.6 }} />
+                  )}
+                  <a href={"#" + slugify(it)} style={{
+                    textDecoration: "none", display: "block",
+                    padding: "4px 10px 4px " + (indent + 22),
+                    color: activeId === slugify(it) ? "var(--ink-strong)" : "var(--ink-muted)",
+                    fontWeight: activeId === slugify(it) ? 500 : 400,
+                    borderLeft: activeId === slugify(it) ? "2px solid var(--accent)" : "2px solid transparent",
+                    marginLeft: -2,
+                    fontFamily: isMono ? "var(--f-mono)" : "var(--f-sans)",
+                    fontSize: isMono ? 12 : 13,
+                  }}>{it}</a>
+                </li>
+              ))}
+            </ul>
+            {hasChildren && s.children.map((child, k) => (
+              <Section key={k} s={child} depth={depth + 1} />
+            ))}
+          </>
+        )}
       </div>
     );
   }
