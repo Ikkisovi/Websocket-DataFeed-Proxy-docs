@@ -584,9 +584,6 @@ function StockEndpointSection({ endpoint }) {
 {`curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}${endpoint.examplePath}"`}
       </pre>
-      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: 0 }}>
-        Live test: <code>{endpoint.tested}</code>. Response top-level keys observed: <code>{endpoint.keys.join(", ")}</code>.
-      </p>
     </section>
   );
 }
@@ -720,7 +717,7 @@ Authorization: Bearer c88662...720a
 
       <h2 id="post-generate-token" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/generate-token</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Exchange approved credentials for a 30-day UUID token. If a token already exists for this user in the proxy registry it is returned as-is (not regenerated).
+        Exchange approved credentials for a 30-day UUID token. If a token already exists for this user in the active token list it is returned as-is (not regenerated).
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>用已审批的凭据换取 30 天有效期的 UUID Token。若该用户已有 Token 则直接返回，不会重新生成。</span>
       </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/generate-token`} />
@@ -1411,13 +1408,13 @@ for sym, snap in data["snapshots"].items():
       <pre className="code" style={{ marginBottom: 12 }}>
 {`# GET — query parameters forwarded to ThetaData
 curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v3/option/history/ohlc?root=AAPL&exp=260620&strike=200000&right=C&start_date=20250102&end_date=20250103"
+  "${REST_BASE}/v3/option/history/ohlc?root=AAPL&exp=260620&strike=200.0&right=C&start_date=20250102&end_date=20250103"
 
 # POST — JSON body forwarded to ThetaData
 curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
-  -d '{"root":"AAPL","exp":260620,"strike":200000,"right":"C","start_date":20250102,"end_date":20250103}'`}
+  -d '{"root":"AAPL","exp":260620,"strike":200.0,"right":"C","start_date":20250102,"end_date":20250103}'`}
       </pre>
       <pre className="code" style={{ marginBottom: 40 }}>
 {`// Response — ThetaData native format
@@ -1430,11 +1427,32 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
       <h3 id="post-v3-option-snapshot-ohlc" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Snapshot OHLC example</h3>
       <pre className="code" style={{ marginBottom: 48 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v3/option/snapshot/ohlc?root=AAPL&exp=260620&strike=200000&right=C"
+  "${REST_BASE}/v3/option/snapshot/ohlc?root=AAPL&exp=260620&strike=200.0&right=C"
 
 // Response — ThetaData native format
 {
   "ohlc": { "open": 14.50, "high": 15.20, "low": 14.10, "close": 14.85, "volume": 320 }
+}`}
+      </pre>
+
+      <h3 id="post-v3-option-at-time-quote" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Quote at time example</h3>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`# GET — quote at a specific time of day
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v3/option/at_time/quote?root=AAPL&exp=260620&strike=200.0&right=C&start_date=20250102&end_date=20250102&time_of_day=14:30:00"
+
+# POST — JSON body
+curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
+  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"root":"AAPL","exp":260620,"strike":200.0,"right":"C","start_date":20250102,"end_date":20250102,"time_of_day":"14:30:00"}'`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`// Response — ThetaData native format
+{
+  "quotes": [
+    { "date": 20250102, "ms_of_day": 52200000, "bid": 14.80, "bid_size": 10, "ask": 14.90, "ask_size": 15 }
+  ]
 }`}
       </pre>
 
@@ -1512,7 +1530,7 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
 
       <h2 id="post-admin-approve" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/admin/approve</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Approve a pending registration. Writes the user to both <code>data/users.json</code> and <code>cloud-proxy/users.json</code>, issuing a token automatically.
+        Approve a pending registration. Writes the user to both the token-site database and the proxy backend, issuing a token automatically.
         Returns the generated token so you can share it directly with the user.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>审批通过待处理的注册申请。自动写入用户数据库并签发 Token，可直接将 Token 分享给用户。</span>
       </p>
@@ -1556,9 +1574,9 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
         <tbody>
           {[
             ["400", '{"error":"Missing required fields"}', "Required parameter absent or malformed JSON"],
-            ["401", '{"error":"Invalid token"}', "Token missing, expired, or not in registry"],
+            ["401", '{"error":"Invalid token"}', "Token missing, expired, or not active"],
             ["403", '{"error":"Forbidden"}', "Token valid but tier lacks permission for this endpoint"],
-            ["404", '{"error":"Token not found"}', "Admin lookup: user_id not in registry"],
+            ["404", '{"error":"Token not found"}', "Admin lookup: user_id not in active token list"],
             ["409", '{"success":false,"message":"..."}', "Duplicate username on registration"],
             ["429", "Rate limit exceeded: N/M req/min", "REST rate limit hit; retry after 60 s"],
             ["500", '{"error":"Cloud missing Alpaca master keys"}', "Proxy misconfiguration"],
@@ -1576,9 +1594,9 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
 
       <h2 id="rate-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Rate limits</h2>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        REST limits are per-user, per rolling 60-second window. The <code>AdaptiveRateLimiter</code> tightens limits automatically when CPU &gt;80% or memory &gt;85% (overloaded) and tightens further at CPU &gt;95% or mem &gt;92% (critical).
+        REST limits are per-user, per rolling 60-second window. Limits tighten automatically when the server is under load (overloaded) and further under critical load.
         WebSocket symbol subscriptions are counted separately and do not reset on reconnect.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>REST 限速按用户、按 60 秒滚动窗口计算。AdaptiveRateLimiter 在 CPU&gt;80% 或内存&gt;85% 时自动收紧，在 CPU&gt;95% 或内存&gt;92% 时进一步收紧。WS 标订阅数单独计算，重连不重置。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>REST 限速按用户、按 60 秒滚动窗口计算。服务器负载高时自动收紧，极端负载时进一步收紧。WS 标订阅数单独计算，重连不重置。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
