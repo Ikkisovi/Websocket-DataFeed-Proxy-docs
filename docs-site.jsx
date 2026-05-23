@@ -152,48 +152,73 @@ function SideNav({ tab }) {
 
   function Section({ s, depth = 0 }) {
     const hasChildren = s.children && s.children.length > 0;
-    const isOpen = expanded[s.title] !== false;
-    const isMono = s.title.includes("endpoints") || s.title === "Messages";
-    const basePad = 12;
-    const indent = basePad + depth * 14;
+    const hasItems    = s.items && s.items.length > 0;
+    const isParent    = hasChildren || hasItems;
+    const isOpen      = expanded[s.title] !== false;
+    const isMono      = s.title.includes("endpoints") || s.title === "Messages";
+
+    const BASE_PAD    = 10;
+    const INDENT_STEP = 20;
+    const indent      = BASE_PAD + depth * INDENT_STEP;
+
     return (
-      <div style={{ marginBottom: hasChildren ? 2 : 10 }}>
+      <div style={{ marginBottom: hasChildren ? 0 : 8 }}>
+        {/* ── header row (chevron right-aligned like the reference) ── */}
         <div
-          onClick={() => hasChildren && toggle(s.title)}
+          onClick={() => isParent && toggle(s.title)}
           style={{
-            display: "flex", alignItems: "center", gap: 6,
-            padding: "4px 10px 4px " + (indent + (hasChildren ? 0 : 16)),
-            cursor: hasChildren ? "pointer" : "default",
-            color: "var(--ink-soft)", fontSize: 11, fontWeight: 600,
-            letterSpacing: "0.08em", textTransform: "uppercase",
+            display: "flex", alignItems: "center",
+            padding: "5px 10px 5px " + indent,
+            cursor: isParent ? "pointer" : "default",
+            color: depth === 0 ? "var(--ink-strong)" : "var(--ink-soft)",
+            fontSize: 11,
+            fontWeight: depth === 0 ? 700 : 600,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
             userSelect: "none",
           }}
         >
-          {hasChildren && <Chevron open={isOpen} />}
-          {s.title}
+          <span style={{ flex: 1 }}>{s.title}</span>
+          {isParent && <Chevron open={isOpen} />}
         </div>
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 1 }}>
-          {s.items && s.items.map((it, j) => (
-            <li key={j} style={{ position: "relative" }}>
-              {depth > 0 && (
-                <span style={{ position: "absolute", left: indent - 4, top: 0, bottom: 0, width: 1, background: "var(--rule)" }} />
-              )}
-              <a href={"#" + slugify(it)} style={{
-                textDecoration: "none", display: "block",
-                padding: "3px 10px 3px " + (indent + 14),
-                color: activeId === slugify(it) ? "var(--ink-strong)" : "var(--ink-muted)",
-                fontWeight: activeId === slugify(it) ? 500 : 400,
-                borderLeft: activeId === slugify(it) ? "2px solid var(--accent)" : "2px solid transparent",
-                marginLeft: 0,
-                fontFamily: isMono ? "var(--f-mono)" : "var(--f-sans)",
-                fontSize: isMono ? 12 : 13,
-              }}>{it}</a>
-            </li>
-          ))}
-        </ul>
-        {hasChildren && isOpen && s.children.map((child, k) => (
-          <Section key={k} s={child} depth={depth + 1} />
-        ))}
+
+        {/* ── children + guide lines ── */}
+        {isOpen && (
+          <>
+            {/* vertical guide line for this group */}
+            {isParent && (
+              <div style={{
+                position: "relative",
+                marginLeft: indent + 8,
+                paddingLeft: 12,
+                borderLeft: "1px solid var(--rule)",
+              }}>
+                {/* leaf items */}
+                {hasItems && (
+                  <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+                    {s.items.map((it, j) => (
+                      <li key={j}>
+                        <a href={"#" + slugify(it)} style={{
+                          textDecoration: "none", display: "block",
+                          padding: "3px 0",
+                          color: activeId === slugify(it) ? "var(--ink-strong)" : "var(--ink-muted)",
+                          fontWeight: activeId === slugify(it) ? 500 : 400,
+                          fontFamily: isMono ? "var(--f-mono)" : "var(--f-sans)",
+                          fontSize: isMono ? 12 : 13,
+                        }}>{it}</a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* nested sub-sections */}
+                {hasChildren && s.children.map((child, k) => (
+                  <Section key={k} s={child} depth={depth + 1} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
     );
   }
