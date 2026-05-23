@@ -161,6 +161,10 @@ function SideNav({ tab }) {
     const INDENT_STEP = 20;
     const indent      = BASE_PAD + depth * INDENT_STEP;
 
+    // Map sidebar labels to actual document IDs
+    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'history/news': 'post-v1-history-news', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'bars': 'post-v1-history-options-bars', 'options/open interest': 'post-v1-options-open-interest', 'eod': 'post-v1-options-eod', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
+    const getId = (label) => ID_MAP[label] || slugify(label);
+
     return (
       <div style={{ marginBottom: hasChildren ? 0 : 8 }}>
         {/* ── header row (chevron right-aligned like the reference) ── */}
@@ -198,11 +202,11 @@ function SideNav({ tab }) {
                   <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                     {s.items.map((it, j) => (
                       <li key={j}>
-                        <a href={"#" + slugify(it)} style={{
+                        <a href={"#" + getId(it)} style={{
                           textDecoration: "none", display: "block",
                           padding: "3px 0",
-                          color: activeId === slugify(it) ? "var(--ink-strong)" : "var(--ink-muted)",
-                          fontWeight: activeId === slugify(it) ? 500 : 400,
+                          color: activeId === getId(it) ? "var(--ink-strong)" : "var(--ink-muted)",
+                          fontWeight: activeId === getId(it) ? 500 : 400,
                           fontFamily: isMono ? "var(--f-mono)" : "var(--f-sans)",
                           fontSize: isMono ? 12 : 13,
                         }}>{it}</a>
