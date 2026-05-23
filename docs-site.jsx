@@ -127,8 +127,8 @@ function SideNav({ tab }) {
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news"] },
     { title: "Options Data", items: ["contracts"], children: [
-      { title: "Snapshots", items: ["snapshots", "quote", "open interest", "expiry"] },
-      { title: "History", items: ["bars", "eod", "trades"] },
+      { title: "Snapshots", items: ["snapshots", "quote", "open interest", "expiry", "snapshot ohlc"] },
+      { title: "History", items: ["bars", "eod", "trades", "history ohlc"] },
       { title: "Open Interest", items: ["open interest"] },
     ]},
     { title: "Crypto Data", items: ["orderbooks"] },
@@ -161,7 +161,7 @@ function SideNav({ tab }) {
     const indent      = BASE_PAD + depth * INDENT_STEP;
 
     // Map sidebar labels to actual document IDs
-    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'history/news': 'post-v1-history-news', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'trades': 'post-v1-history-options-trades', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
+    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'history/news': 'post-v1-history-news', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-snapshot-ohlc', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-history-ohlc', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
     const getId = (label) => ID_MAP[label] || slugify(label);
 
     return (
@@ -338,6 +338,7 @@ function ProxyApiBody() {
         The Stock Options Proxy has two surfaces: a <strong style={{ color: "var(--ink-strong)" }}>token portal</strong> (port 3000) for registration and token issuance,
         and a <strong style={{ color: "var(--ink-strong)" }}>data proxy</strong> (port 8766 REST / 8765 WS) for market data.
         Once you have a token, use it to call historical and realtime endpoints without managing your own Alpaca / ThetaData credentials.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>股票期权代理包含两个服务面：Token 门户（3000端口）用于注册和签发，数据代理（8766 REST / 8765 WS）用于行情数据。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 40 }}>
         <thead><tr><th>Surface</th><th>URL</th><th>Auth</th></tr></thead>
@@ -351,6 +352,7 @@ function ProxyApiBody() {
       <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Authentication</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         All data endpoints (REST and WS) require a UUID token. Pass it as an HTTP header or in the JSON body:
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>所有数据接口（REST 和 WS）都需要 UUID Token，可通过 HTTP Header 或 JSON Body 传递。</span>
       </p>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`# Option A — Authorization header (preferred)
@@ -364,6 +366,10 @@ Authorization: Bearer c88662...720a
       </p>
 
       <h2 id="tiers-permissions" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Tiers &amp; permissions</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Three tiers control access to channels, symbols, rate limits, and REST endpoints.
+        <span style={{ color: "var(--ink-soft)", fontSize: 13 }}>三个套餐等级控制通道、标的、限速和接口权限。</span>
+      </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
           <tr><th style={{ width: 150 }}>Tier</th><th>WS channels</th><th>WS symbols</th><th>REST req/min</th><th>REST endpoints</th></tr>
@@ -400,7 +406,9 @@ Authorization: Bearer c88662...720a
       <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>Token API</div>
 
       <h2 id="post-register" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/register</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Submit a new account registration. The request enters a pending queue until approved by an admin.</p>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Submit a new account registration. The request enters a pending queue until approved by an admin.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>提交新账户注册申请，请求将进入待审核队列等待管理员审批。</span>
+      </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/register`} />
       <ParamTable rows={[
         { name: "username", type: "string", required: true, desc: "Unique display name (must not exist in approved users)" },
@@ -419,7 +427,9 @@ Authorization: Bearer c88662...720a
       </pre>
 
       <h2 id="post-check-status" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/check-status</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Poll approval status before attempting token generation.</p>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Poll approval status before attempting token generation.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>在尝试生成 Token 前查询账户审批状态。</span>
+      </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/check-status`} />
       <ParamTable rows={[
         { name: "username", type: "string", required: true, desc: "The username submitted at registration" },
@@ -436,6 +446,7 @@ Authorization: Bearer c88662...720a
       <h2 id="post-generate-token" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/generate-token</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Exchange approved credentials for a 30-day UUID token. If a token already exists for this user in the proxy registry it is returned as-is (not regenerated).
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>用已审批的凭据换取 30 天有效期的 UUID Token。若该用户已有 Token 则直接返回，不会重新生成。</span>
       </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/generate-token`} />
       <ParamTable rows={[
@@ -465,6 +476,7 @@ Authorization: Bearer c88662...720a
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Fetch historical OHLCV bars for US equities. Paginates automatically up to <code>max_pages</code>. Results are cached for 5 minutes; check the <code>X-Cache</code> response header for <code>HIT</code> / <code>MISS</code>.
         Data source: Alpaca SIP feed (pro account, split/dividend adjusted).
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取美股历史 OHLCV K线数据。支持自动分页，结果缓存 5 分钟。数据源：Alpaca SIP。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/bars`} />
       <ParamTable rows={[
@@ -503,6 +515,7 @@ Authorization: Bearer c88662...720a
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Fetch historical news articles. Source: Benzinga via Alpaca. Available to all tiers including Basic.
         Pass <code>max_pages</code> greater than 1 to auto-paginate; each page contains up to 50 articles.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取历史新闻文章。来源：Benzinga via Alpaca。所有套餐可用。支持自动分页，每页最多 50 篇。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/news`} />
       <ParamTable rows={[
@@ -551,6 +564,7 @@ Authorization: Bearer c88662...720a
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         List active option contracts for one or more underlying symbols. Returns Alpaca contract metadata including OCC symbol, strike, expiration, open interest, and last close price.
         Use the returned <code>symbol</code> field as input to <code>/v1/options/snapshots</code> or <code>/v1/history/options/bars</code>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>列出指定标的的活跃期权合约，返回 OCC 代码、行权价、到期日、持仓量等元数据。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/contracts`} />
       <ParamTable rows={[
@@ -601,6 +615,7 @@ Authorization: Bearer c88662...720a
         Historical OHLCV bars for option contracts. Primary data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData</strong> with Alpaca as fallback.
         You can pass either OCC symbols directly (<code>AAPL260620C00200000</code>) or a plain stock ticker — the proxy will auto-resolve it to the option chain active on the <code>start</code> date.
         Supports in-flight coalescing: duplicate concurrent requests share one upstream fetch.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约历史 OHLCV K线。主数据源：ThetaData，Alpaca 作为备用。支持传入 OCC 代码或股票代码自动解析。支持请求合并。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/options/bars`} />
       <ParamTable rows={[
@@ -641,6 +656,7 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Historical open interest by date range and strike/expiry filter. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData</strong> (returns 503 if ThetaData unavailable).
         Requires <em>limited_premium</em> or higher (mapped to <code>options_history</code> permission).
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>按日期范围和行权价/到期日筛选的历史持仓量数据。数据源：ThetaData。需 limited_premium 及以上。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/open_interest`} />
       <ParamTable rows={[
@@ -681,6 +697,7 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
         End-of-day OHLC summary for option contracts: open/high/low/close, volume, bid/ask, and trade count per contract per day.
         This is the primary endpoint for historical options OHLC data. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData</strong>.
         Accepts the same filter parameters as <code>/v1/options/open_interest</code>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约的日终 OHLC 汇总：开盘价/最高价/最低价/收盘价、成交量、买卖报价和每日交易笔数。数据源：ThetaData。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/eod`} />
       <ParamTable rows={[
@@ -747,6 +764,7 @@ for row in data["data"][:5]:
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Preferred route for EOD option data. Same response shape as <code>/v1/options/eod</code> above but located under the history namespace for API consistency.
         Supports both <code>GET</code> (query params) and <code>POST</code> (JSON body). The proxy automatically extracts parameters from either source.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>EOD 期权数据的首选路由。与 /v1/options/eod 响应格式相同，但位于 history 命名空间下以保持 API 一致性。支持 GET 和 POST。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/options/eod`} />
       <pre className="code" style={{ marginBottom: 40 }}>
@@ -764,6 +782,7 @@ curl -X POST ${REST_BASE}/v1/history/options/eod \\
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Historical option trades from Alpaca. Maps to Alpaca's <code>/v1beta1/options/trades</code> endpoint.
         <strong>No ThetaData fallback</strong> — if queried too early or on an empty dataset, returns a standard empty response.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Alpaca 历史期权逐笔成交数据。无 ThetaData 备用源。若查询时间过早或数据集为空，返回标准空响应。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/options/trades`} />
       <ParamTable rows={[
@@ -830,6 +849,7 @@ curl -X POST ${REST_BASE}/v1/history/options/eod \\
         Full realtime snapshot for each contract: latest trade, latest quote, and greeks (delta, gamma, theta, vega, rho) plus implied volatility.
         This is the most comprehensive snapshot — use the sub-endpoints below if you only need quotes or open interest.
         Data source: Alpaca option chain API. Returns <code>403</code> if your tier lacks options permission.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>每个合约的完整实时快照：最新成交、最新报价、希腊值（delta, gamma, theta, vega, rho）及隐含波动率。数据源：Alpaca。权限不足返回 403。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots`} />
       <ParamTable rows={[
@@ -875,6 +895,7 @@ curl -X POST ${REST_BASE}/v1/history/options/eod \\
       <h2 id="post-v1-options-snapshots-quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/quote</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         ThetaData-only snapshot for the latest NBBO quote of an option contract. Returns bid/ask prices, sizes, and exchanges. Use <code>feed: "thetadata"</code>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>ThetaData 独家快照：期权合约的最新 NBBO 报价，返回买卖价、挂单量及交易所。需设置 feed: "thetadata"。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/quote`} />
       <ParamTable rows={[
@@ -920,6 +941,7 @@ for sym, snap in resp.json()["snapshots"].items():
       <h2 id="post-v1-options-snapshots-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/open_interest</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         ThetaData-only snapshot for the latest open interest of an option contract. Returns OI count and timestamp. Use <code>feed: "thetadata"</code>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>ThetaData 独家快照：期权合约的最新持仓量，返回持仓量数值和时间戳。需设置 feed: "thetadata"。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/open_interest`} />
       <ParamTable rows={[
@@ -965,6 +987,7 @@ for sym, snap in resp.json()["snapshots"].items():
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Convenience endpoint: fetches <em>all</em> contracts for an underlying on a specific expiry date and returns their snapshots in one call.
         Internally runs <code>/v1/options/contracts</code> then batches snapshot requests (100 symbols per batch).
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>便捷接口：一次性获取指定标的在特定到期日的所有合约快照。内部先调 contracts 再批量请求快照（每批 100 个标的）。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/expiry`} />
       <ParamTable rows={[
@@ -1012,6 +1035,7 @@ for sym, snap in data["snapshots"].items():
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Latest L2 order book snapshot for US crypto pairs. Premium tier only.
         Each side of the book is an array of <code>{"{ p: price, s: size }"}</code> objects sorted by price.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>美国加密货币对的最新 L2 订单簿快照。仅限 Premium 套餐。每侧订单簿为按价格排序的 { p: price, s: size } 对象数组。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/crypto/us/latest/orderbooks`} />
       <ParamTable rows={[
@@ -1048,7 +1072,9 @@ for sym, snap in data["snapshots"].items():
       </p>
 
       <h2 id="post-admin-login" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/admin/login</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Receive a session token for the admin panel. Password set via <code>ADMIN_PASSWORD</code> environment variable.</p>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Receive a session token for the admin panel. Password set via <code>ADMIN_PASSWORD</code> environment variable.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取管理员面板的会话 Token。密码通过 ADMIN_PASSWORD 环境变量设置。</span>
+      </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/admin/login`} />
       <pre className="code" style={{ marginBottom: 28 }}>
 {`// Request
@@ -1062,7 +1088,9 @@ for sym, snap in data["snapshots"].items():
       </pre>
 
       <h2 id="get-admin-pending" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET /api/admin/pending</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>List registrations awaiting approval.</p>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>List registrations awaiting approval.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>列出待审批的注册申请。</span>
+      </p>
       <EndpointBadge method="GET" path={`${TOKEN_BASE}/api/admin/pending`} />
       <pre className="code" style={{ marginBottom: 28 }}>
 {`// Response
@@ -1076,6 +1104,7 @@ for sym, snap in data["snapshots"].items():
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Approve a pending registration. Writes the user to both <code>data/users.json</code> and <code>cloud-proxy/users.json</code>, issuing a token automatically.
         Returns the generated token so you can share it directly with the user.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>审批通过待处理的注册申请。自动写入用户数据库并签发 Token，可直接将 Token 分享给用户。</span>
       </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/admin/approve`} />
       <pre className="code" style={{ marginBottom: 28 }}>
@@ -1092,6 +1121,9 @@ for sym, snap in data["snapshots"].items():
       </pre>
 
       <h2 id="post-admin-reject" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/admin/reject</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Reject a pending registration with an optional reason.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>拒绝待处理的注册申请，可附带拒绝原因。</span>
+      </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/admin/reject`} />
       <pre className="code" style={{ marginBottom: 48 }}>
 {`// Request
@@ -1106,6 +1138,7 @@ for sym, snap in data["snapshots"].items():
         Direct reverse proxy to the local <strong>ThetaData REST API</strong> (port 25503).
         Returns historical option OHLC bars. Supports both <code>GET</code> and <code>POST</code>.
         The proxy strips internal credentials before forwarding to ThetaData.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>本地 ThetaData REST API（25503端口）的直接反向代理。返回历史期权 OHLC K线。支持 GET 和 POST。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v3/option/history/ohlc`} />
       <pre className="code" style={{ marginBottom: 12 }}>
@@ -1132,6 +1165,7 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
         Direct reverse proxy to the local <strong>ThetaData REST API</strong> (port 25503).
         Returns the latest option OHLC snapshot. Supports both <code>GET</code> and <code>POST</code>.
         The proxy strips internal credentials before forwarding to ThetaData.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>本地 ThetaData REST API（25503端口）的直接反向代理。返回最新期权 OHLC 快照。支持 GET 和 POST。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v3/option/snapshot/ohlc`} />
       <pre className="code" style={{ marginBottom: 40 }}>
@@ -1147,6 +1181,9 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
       <div className="eyebrow" style={{ marginBottom: 10 }}>Reference</div>
 
       <h2 id="error-codes" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Error codes</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Common HTTP status codes returned by the proxy and when they occur.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>代理返回的常见 HTTP 状态码及其触发场景。</span>
+      </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 40 }}>
         <thead><tr><th style={{ width: 80 }}>Status</th><th>Body</th><th>When</th></tr></thead>
         <tbody>
@@ -1174,6 +1211,7 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         REST limits are per-user, per rolling 60-second window. The <code>AdaptiveRateLimiter</code> tightens limits automatically when CPU &gt;80% or memory &gt;85% (overloaded) and tightens further at CPU &gt;95% or mem &gt;92% (critical).
         WebSocket symbol subscriptions are counted separately and do not reset on reconnect.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>REST 限速按用户、按 60 秒滚动窗口计算。AdaptiveRateLimiter 在 CPU&gt;80% 或内存&gt;85% 时自动收紧，在 CPU&gt;95% 或内存&gt;92% 时进一步收紧。WS 标订阅数单独计算，重连不重置。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
