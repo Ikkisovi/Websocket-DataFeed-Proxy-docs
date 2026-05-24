@@ -237,18 +237,18 @@ POST /v1/stock/history/trade_quote
 | Historical trades (single symbol) | GET | `/v2/stocks/{symbol}/trades` |
 | Latest trade (single symbol) | GET | `/v2/stocks/{symbol}/trades/latest` |
 
-`feed=iex` 是最安全的默认值；`sip`、`delayed_sip`、`boats`、`overnight`、`otc` 是否可用取决于上游订阅和具体 endpoint。Historical auctions 按 Alpaca 规则使用 SIP。
+我们的上游已订阅了全市场数据，因此推荐使用 `feed=sip` 获取最准确的 NBBO 数据；`iex`、`delayed_sip`、`boats`、`overnight`、`otc` 也完全可用。Historical auctions 按 Alpaca 规则使用 SIP。
 
 示例：
 
 ```bash
 # 最新股票报价
 curl -H "Authorization: Bearer 你的token" \
-  "http://52.37.182.24:8768/v2/stocks/quotes/latest?symbols=AAPL&feed=iex"
+  "http://52.37.182.24:8768/v2/stocks/quotes/latest?symbols=AAPL&feed=sip"
 
 # 单只股票 snapshot
 curl -H "Authorization: Bearer 你的token" \
-  "http://52.37.182.24:8768/v2/stocks/AAPL/snapshot?feed=iex"
+  "http://52.37.182.24:8768/v2/stocks/AAPL/snapshot?feed=sip"
 
 # condition codes
 curl -H "Authorization: Bearer 你的token" \
@@ -273,7 +273,7 @@ curl -H "Authorization: Bearer 你的token" \
 ```bash
 # 最新股票报价
 curl -H "Authorization: Bearer 你的token" \
-  "http://52.37.182.24:8768/v2/stocks/quotes/latest?symbols=AAPL&feed=iex"
+  "http://52.37.182.24:8768/v2/stocks/quotes/latest?symbols=AAPL&feed=sip"
 
 # 最新 crypto 报价
 curl -H "Authorization: Bearer 你的token" \

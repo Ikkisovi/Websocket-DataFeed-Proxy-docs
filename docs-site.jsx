@@ -380,7 +380,7 @@ const STOCK_ENDPOINT_GROUPS = [
         id: "stock-bars",
         title: "Historical Bars",
         route: "/v2/stocks/bars",
-        examplePath: "/v2/stocks/bars?symbols=AAPL&timeframe=1Day&start=2026-05-20&end=2026-05-21&limit=1&feed=iex",
+        examplePath: "/v2/stocks/bars?symbols=AAPL&timeframe=1Day&start=2026-05-20&end=2026-05-21&limit=1&feed=sip",
         desc: "Historical OHLCV bars for multiple symbols.",
         zh: "多股票历史 OHLCV K 线。",
         params: [STOCK_COMMON.symbols, STOCK_COMMON.timeframe, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, { name: "adjustment", type: "string", required: false, desc: "raw, split, dividend, or all." }, STOCK_COMMON.limit, STOCK_COMMON.pageToken],
@@ -391,7 +391,7 @@ const STOCK_ENDPOINT_GROUPS = [
         id: "stock-latest-bars",
         title: "Latest Bars",
         route: "/v2/stocks/bars/latest",
-        examplePath: "/v2/stocks/bars/latest?symbols=AAPL&feed=iex",
+        examplePath: "/v2/stocks/bars/latest?symbols=AAPL&feed=sip",
         desc: "Most recent minute bar for multiple symbols.",
         zh: "多股票最新分钟 K 线。",
         params: [STOCK_COMMON.symbols, STOCK_COMMON.feed],
@@ -402,7 +402,7 @@ const STOCK_ENDPOINT_GROUPS = [
         id: "stock-quotes",
         title: "Historical Quotes",
         route: "/v2/stocks/quotes",
-        examplePath: "/v2/stocks/quotes?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=iex",
+        examplePath: "/v2/stocks/quotes?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=sip",
         desc: "Historical bid/ask quote ticks for multiple symbols.",
         zh: "多股票历史 bid/ask quote ticks。",
         params: [STOCK_COMMON.symbols, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, STOCK_COMMON.limit, STOCK_COMMON.sort, STOCK_COMMON.pageToken],
@@ -413,7 +413,7 @@ const STOCK_ENDPOINT_GROUPS = [
         id: "stock-latest-quotes",
         title: "Latest Quotes",
         route: "/v2/stocks/quotes/latest",
-        examplePath: "/v2/stocks/quotes/latest?symbols=AAPL&feed=iex",
+        examplePath: "/v2/stocks/quotes/latest?symbols=AAPL&feed=sip",
         desc: "Latest quote for multiple symbols.",
         zh: "多股票最新报价。",
         params: [STOCK_COMMON.symbols, STOCK_COMMON.feed],
@@ -424,7 +424,7 @@ const STOCK_ENDPOINT_GROUPS = [
         id: "stock-snapshots",
         title: "Snapshots",
         route: "/v2/stocks/snapshots",
-        examplePath: "/v2/stocks/snapshots?symbols=AAPL&feed=iex",
+        examplePath: "/v2/stocks/snapshots?symbols=AAPL&feed=sip",
         desc: "Composite latest state: latest trade, latest quote, minute bar, daily bar, and previous daily bar.",
         zh: "股票综合快照：最新成交、最新报价、分钟 K、日 K、前一日 K。",
         params: [STOCK_COMMON.symbols, STOCK_COMMON.feed],
@@ -435,7 +435,7 @@ const STOCK_ENDPOINT_GROUPS = [
         id: "stock-trades",
         title: "Historical Trades",
         route: "/v2/stocks/trades",
-        examplePath: "/v2/stocks/trades?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=iex",
+        examplePath: "/v2/stocks/trades?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=sip",
         desc: "Historical trade ticks for multiple symbols.",
         zh: "多股票历史逐笔成交。",
         params: [STOCK_COMMON.symbols, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, STOCK_COMMON.limit, STOCK_COMMON.sort, STOCK_COMMON.pageToken],
@@ -446,7 +446,7 @@ const STOCK_ENDPOINT_GROUPS = [
         id: "stock-latest-trades",
         title: "Latest Trades",
         route: "/v2/stocks/trades/latest",
-        examplePath: "/v2/stocks/trades/latest?symbols=AAPL&feed=iex",
+        examplePath: "/v2/stocks/trades/latest?symbols=AAPL&feed=sip",
         desc: "Latest trade for multiple symbols.",
         zh: "多股票最新成交。",
         params: [STOCK_COMMON.symbols, STOCK_COMMON.feed],
@@ -491,7 +491,7 @@ const STOCK_ENDPOINT_GROUPS = [
         id: "stock-single-bars",
         title: "Historical Bars, Single Symbol",
         route: "/v2/stocks/{symbol}/bars",
-        examplePath: "/v2/stocks/AAPL/bars?timeframe=1Day&start=2026-05-20&end=2026-05-21&limit=1&feed=iex",
+        examplePath: "/v2/stocks/AAPL/bars?timeframe=1Day&start=2026-05-20&end=2026-05-21&limit=1&feed=sip",
         desc: "Historical OHLCV bars for one stock.",
         zh: "单只股票历史 OHLCV K 线。",
         params: [STOCK_COMMON.symbolPath, STOCK_COMMON.timeframe, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, STOCK_COMMON.limit, STOCK_COMMON.pageToken],
@@ -502,7 +502,7 @@ const STOCK_ENDPOINT_GROUPS = [
         id: "stock-single-latest-bar",
         title: "Latest Bar, Single Symbol",
         route: "/v2/stocks/{symbol}/bars/latest",
-        examplePath: "/v2/stocks/AAPL/bars/latest?feed=iex",
+        examplePath: "/v2/stocks/AAPL/bars/latest?feed=sip",
         desc: "Latest minute bar for one stock.",
         zh: "单只股票最新分钟 K 线。",
         params: [STOCK_COMMON.symbolPath, STOCK_COMMON.feed],
@@ -513,7 +513,7 @@ const STOCK_ENDPOINT_GROUPS = [
         id: "stock-single-quotes",
         title: "Historical Quotes, Single Symbol",
         route: "/v2/stocks/{symbol}/quotes",
-        examplePath: "/v2/stocks/AAPL/quotes?start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=iex",
+        examplePath: "/v2/stocks/AAPL/quotes?start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=sip",
         desc: "Historical quote ticks for one stock.",
         zh: "单只股票历史报价 ticks。",
         params: [STOCK_COMMON.symbolPath, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, STOCK_COMMON.limit, STOCK_COMMON.sort, STOCK_COMMON.pageToken],
@@ -524,7 +524,7 @@ const STOCK_ENDPOINT_GROUPS = [
         id: "stock-single-latest-quote",
         title: "Latest Quote, Single Symbol",
         route: "/v2/stocks/{symbol}/quotes/latest",
-        examplePath: "/v2/stocks/AAPL/quotes/latest?feed=iex",
+        examplePath: "/v2/stocks/AAPL/quotes/latest?feed=sip",
         desc: "Latest quote for one stock.",
         zh: "单只股票最新报价。",
         params: [STOCK_COMMON.symbolPath, STOCK_COMMON.feed],
@@ -535,7 +535,7 @@ const STOCK_ENDPOINT_GROUPS = [
         id: "stock-single-snapshot",
         title: "Snapshot, Single Symbol",
         route: "/v2/stocks/{symbol}/snapshot",
-        examplePath: "/v2/stocks/AAPL/snapshot?feed=iex",
+        examplePath: "/v2/stocks/AAPL/snapshot?feed=sip",
         desc: "Composite latest state for one stock.",
         zh: "单只股票综合快照。",
         params: [STOCK_COMMON.symbolPath, STOCK_COMMON.feed],
@@ -546,7 +546,7 @@ const STOCK_ENDPOINT_GROUPS = [
         id: "stock-single-trades",
         title: "Historical Trades, Single Symbol",
         route: "/v2/stocks/{symbol}/trades",
-        examplePath: "/v2/stocks/AAPL/trades?start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=iex",
+        examplePath: "/v2/stocks/AAPL/trades?start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=sip",
         desc: "Historical trade ticks for one stock.",
         zh: "单只股票历史逐笔成交。",
         params: [STOCK_COMMON.symbolPath, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, STOCK_COMMON.limit, STOCK_COMMON.sort, STOCK_COMMON.pageToken],
@@ -557,7 +557,7 @@ const STOCK_ENDPOINT_GROUPS = [
         id: "stock-single-latest-trade",
         title: "Latest Trade, Single Symbol",
         route: "/v2/stocks/{symbol}/trades/latest",
-        examplePath: "/v2/stocks/AAPL/trades/latest?feed=iex",
+        examplePath: "/v2/stocks/AAPL/trades/latest?feed=sip",
         desc: "Latest trade for one stock.",
         zh: "单只股票最新成交。",
         params: [STOCK_COMMON.symbolPath, STOCK_COMMON.feed],
@@ -913,7 +913,7 @@ Authorization: Bearer c88662...720a
       <pre className="code" style={{ marginBottom: 40 }}>
 {`# Latest stock quote (Alpaca native)
 curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v2/stocks/quotes/latest?symbols=AAPL&feed=iex"
+  "${REST_BASE}/v2/stocks/quotes/latest?symbols=AAPL&feed=sip"
 
 # Latest crypto quote (Alpaca native)
 curl -H "Authorization: Bearer <TOKEN>" \\
@@ -921,7 +921,7 @@ curl -H "Authorization: Bearer <TOKEN>" \\
 
 # Historical stock quotes (Alpaca native)
 curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v2/stocks/quotes?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&feed=iex"`}
+  "${REST_BASE}/v2/stocks/quotes?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&feed=sip"`}
       </pre>
 
       <h2 id="post-v1-options-contracts" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/contracts</h2>
