@@ -125,6 +125,28 @@ function syncToThinkCentre() {
 }
 
 /**
+ * Promise-based sync to ThinkCentre. Returns {ok, message}.
+ */
+function syncToThinkCentreAsync() {
+  return new Promise((resolve) => {
+    execFile('scp', [
+      '-o', 'StrictHostKeyChecking=no',
+      '-o', 'ConnectTimeout=10',
+      PROXY_USERS_FILE,
+      `${THINKCENTRE_HOST}:${THINKCENTRE_USERS_PATH}`
+    ], { timeout: 20000 }, (err, stdout, stderr) => {
+      if (err) {
+        console.error('[Sync] SCP to ThinkCentre failed:', err.message, stderr);
+        resolve({ ok: false, message: `SCP failed: ${err.message}` });
+      } else {
+        console.log('[Sync] users.json synced to ThinkCentre');
+        resolve({ ok: true, message: 'Synced to ThinkCentre' });
+      }
+    });
+  });
+}
+
+/**
  * Write proxy users file and sync to ThinkCentre.
  */
 function writeProxyUsersAndSync(data) {
@@ -358,6 +380,36 @@ app.post('/api/admin/reject', requireAdmin, (req, res) => {
   writeJSON(PENDING_FILE, pending);
 
   return res.json({ success: true, message: `已拒绝 ${entry.username}。` });
+});
+
+// ============================================================
+// ADMIN: Force reload users.json and sync to ThinkCentre
+// ============================================================
+app.post('/api/admin/sync-users', requireAdmin, async (req, res) => {
+  const logs = [];
+  const log = (msg) => { logs.push(`[${new Date().toISOString()}] ${msg}`); };
+
+  // 1. Read current proxy users.json
+  let proxyData;
+  try {
+    proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+    const count = (proxyData.users || []).length;
+    log(`Read ${count} users from proxy registry`);
+  } catch (err) {
+    log(`ERROR reading proxy users: ${err.message}`);
+    return res.json({ success: false, logs });
+  }
+
+  // 2. Sync to ThinkCentre
+  log('Syncing to ThinkCentre...');
+  const syncResult = await syncToThinkCentreAsync();
+  log(syncResult.ok ? '✓ ' + syncResult.message : '✗ ' + syncResult.message);
+
+  return res.json({
+    success: syncResult.ok,
+    userCount: (proxyData.users || []).length,
+    logs
+  });
 });
 
 // ============================================================

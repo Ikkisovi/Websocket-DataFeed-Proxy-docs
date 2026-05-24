@@ -4769,6 +4769,8 @@ def _theta_build_sdk_call(endpoint, params):
     root = _theta_get_param(params, "root", "symbol", "underlying")
     expiration_value = _theta_get_param(params, "exp", "expiration", "expiration_date")
     strike = _theta_get_param(params, "strike", default="*")
+    if strike != "*":
+        strike = str(strike)
     right = _theta_right(_theta_get_param(params, "right", default="both"))
     max_dte = _theta_optional_int(_theta_get_param(params, "max_dte"))
     strike_range = _theta_optional_int(_theta_get_param(params, "strike_range"))

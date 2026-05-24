@@ -62,7 +62,10 @@ Two physical hosts, Tailscale mesh. **EC2 does NOT run its own cloud-proxy — i
 # EC2 (ed25519 key)
 ssh -i /tmp/ec2_ed25519.pem ec2-user@52.37.182.24
 
-# ThinkCentre (Tailscale SSH — may need browser auth, provide URL to user)
+# ThinkCentre (Tailscale SSH)
+# CRITICAL: Tailscale Admin Console ACLs MUST be configured with action: "accept"
+# for EC2 -> ThinkCentre SSH to bypass the browser check-mode prompt. Otherwise,
+# automated SCP syncs from server.js will hang and timeout!
 ssh mint@100.70.107.106
 
 # From EC2 → ThinkCentre (for SCP sync, used by server.js automatically)
@@ -175,15 +178,16 @@ User generates token → validates against data/users.json, writes to cloud-prox
 
 | UI Tier | Backend Role | REST/min | WS Symbols | REST Parallel | WS Conns | Expiry | WS Access |
 |---------|-------------|----------|------------|---------------|----------|--------|-----------|
-| trial | standard | 60 | 50 | 5 | 3 | 3 days | stocks, options |
+| trial | standard | 60 | 50 | 5 | 3 | 3 days | all channels |
 | basic | basic | 10 | 10 | 2 | 1 | 30 days | none (REST only) |
-| value | value | 30 | 30 | 3 | 2 | 30 days | stocks OR options (pick one at signup) |
-| standard | standard | 60 | 100 | 5 | 3 | 30 days | stocks, options |
+| value | value | 30 | 30 | 3 | 2 | 30 days | all channels |
+| standard | standard | 60 | 100 | 5 | 3 | 30 days | all channels |
 | premium | premium | 300 | 500 | 10 | inf | 30 days | all channels |
 
 Rate limits are enforced by the cloud proxy's `RateLimiter` class based on the `role` field.
 
 Admin: `POST /api/admin/login` with `ADMIN_PASSWORD` (default `admin123`), then `X-Admin-Token` header. Sessions are in-memory — die on restart.
+Admin Sync: `POST /api/admin/sync-users` (Requires Admin Token) forces a Promise-based SCP of users.json to ThinkCentre.
 
 **Tests:** `server.test.js` uses isolated temp dirs via `DATA_DIR` and `PROXY_USERS_FILE` env vars. Safe to run on EC2 without affecting live data.
 
