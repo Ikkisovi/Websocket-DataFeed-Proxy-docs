@@ -51,17 +51,17 @@ const TIERS = {
     expiryDays: 30,
     modes: {
       stocks: {
-        ws: { stocks: true, options: false, overnight: false, crypto: false, news: false, boats: false, test: true },
+        ws: { stocks: true, options: true, overnight: false, crypto: false, news: false, boats: false, test: true },
         rest: { stocks_history: true, options_history: false, options_contracts: false, options_snapshots: false, options_snapshots_expiry: false, crypto_orderbooks: false, admin_token_lookup: false, news_history: false }
       },
       options: {
-        ws: { stocks: false, options: true, overnight: false, crypto: false, news: false, boats: false, test: true },
+        ws: { stocks: true, options: true, overnight: false, crypto: false, news: false, boats: false, test: true },
         rest: { stocks_history: false, options_history: true, options_contracts: true, options_snapshots: true, options_snapshots_expiry: true, crypto_orderbooks: false, admin_token_lookup: false, news_history: false }
       }
     },
     // Default permissions (used when mode not specified — shouldn't happen but safe fallback)
     permissions: {
-      ws: { stocks: true, options: false, overnight: false, crypto: false, news: false, boats: false, test: true },
+      ws: { stocks: true, options: true, overnight: false, crypto: false, news: false, boats: false, test: true },
       rest: { stocks_history: true, options_history: false, options_contracts: false, options_snapshots: false, options_snapshots_expiry: false, crypto_orderbooks: false, admin_token_lookup: false, news_history: false }
     }
   },
