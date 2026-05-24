@@ -58,6 +58,21 @@ const TIERS = [
     badge: null,
   },
   {
+    id: "lite",
+    name: "Lite",
+    price: "$50",
+    period: "/ month",
+    tagline: "轻量实时",
+    desc: "实时股票/期权 + 合约流 · 30 symbols · 限速 30 req/min",
+    channels: ["stocks", "options", "contract"],
+    wsSymbols: 30,
+    restPerMin: 30,
+    validity: "30 days",
+    rest: "history · contracts · snapshots",
+    restOnly: false,
+    badge: null,
+  },
+  {
     id: "standard",
     name: "Standard",
     price: "$80",
@@ -223,10 +238,10 @@ function RegisterPage() {
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
                 <div className="eyebrow">1 · 选择服务等级</div>
                 <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>
-                  4 plans · USD · subscription
+                  5 plans · USD · subscription
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 28 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 28 }}>
                 {TIERS.map(t => {
                   const selected = tier === t.id;
                   return (

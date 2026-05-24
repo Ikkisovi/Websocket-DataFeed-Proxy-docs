@@ -140,6 +140,7 @@ curl -X POST http://52.37.182.24:8768/v1/stock/history/trade_quote \
 - 股票代码不能带 `.`（`BRK.B` 不支持）
 - 不支持 WS bars / daily bars / LULD
 - Crypto 不支持 quotes
+- **WebSocket Options 限制**: 实时流 `/stream/options` 不支持指数期权（如 `SPX`、`SPXW`、`NDX`、`RUT` 等），仅支持美国个股与 ETF 期权。这是因为上游数据源 (Alpaca) 暂未提供指数期权实时行情。
 
 ---
 
@@ -301,6 +302,8 @@ curl -H "Authorization: Bearer 你的token" \
 服务端会缓存成功的 REST 响应。命中时响应头为 `X-Cache: DISK_HIT`。缓存键会剔除 `token` / API key 等凭据；TTL：历史数据 7 天、当日/盘中 60 秒、快照 5 分钟、合约/list 1 小时。
 
 ThetaData Value 仅开放期权 list、snapshot `ohlc` / `quote` / `open_interest`、history `eod` / `ohlc` / `quote` / `open_interest`、`at_time/quote`。不开放 option trades、trade_quote、market value、implied volatility、Greeks。
+
+💡 **指数期权支持 (REST)**: REST 接口（如 `/v1/history/options/bars` 和 `/v1/options/contracts`）在指定 `provider=thetadata` 时，**完全支持** `SPX`、`SPXW`、`NDX` 等指数期权的历史 K 线和合约列表查询。由于 ThetaData 拥有完整的历史期权数据库（部分数据多达 8-12 年），期权链在历史上是非常齐全的。你可以使用 `date` 参数来重构历史上任何一天的完整期权链（包括已到期过期的合约）。
 
 ### 期权历史 K 线
 
@@ -484,6 +487,101 @@ POST /v1/options/eod
 ```bash
 curl -H "Authorization: Bearer 你的token" \
   "http://52.37.182.24:8768/v3/option/history/ohlc?root=AAPL&exp=260620&strike=200000&right=C&start_date=20250102&end_date=20250103"
+```
+
+#### 📌 指定时间期权报价 (At Time Quote)
+
+```
+GET/POST /v3/option/at_time/quote
+```
+
+返回由 OPRA 报告的、在一天中指定毫秒的最后一个 NBBO 期权报价。用于在指定具体时刻（如开盘瞬间、特定消息发布瞬间）获取高精度盘口价格快照。
+
+##### 1. 请求参数
+
+支持以 GET Query 参数或 POST JSON Body 参数形式传递（推荐使用 `Authorization` Bearer Token 鉴权）：
+
+| 参数名 | 类型 | 必填 | 默认值 | 说明 |
+| --- | --- | --- | --- | --- |
+| `symbol` / `root` | string | ✅ | - | 标的股票或指数代码（例如 `AAPL`、`SPX` 等） |
+| `start_date` / `start` | string | ✅ | - | 开始日期，格式 `YYYY-MM-DD` 或 `YYYYMMDD` |
+| `end_date` / `end` | string | ✅ | - | 结束日期，格式 `YYYY-MM-DD` 或 `YYYYMMDD` |
+| `time_of_day` / `time` | string | ✅ | `09:30:00` | 精确时间，格式 `HH:MM:SS` 或 `HH:MM:SS.SSS`（美东时间） |
+| `expiration` / `exp` | string | ✅ | - | 期权到期日，格式 `YYYY-MM-DD`/`YYYYMMDD` 或 `*` (全部) |
+| `strike` | string | ❌ | `*` | 行权价（如 `220.00`），或 `*` (全部) |
+| `right` | string | ❌ | `both` | 期权类型，可选：`call` / `put` / `both` |
+| `max_dte` | integer | ❌ | - | 最大到期天数 (DTE) 过滤条件 |
+| `strike_range` | integer | ❌ | - | 限制行权价范围，返回标的现价上下 `n` 档以内的合约 |
+
+##### 2. 响应字段 (JSON Array)
+
+返回的对象数组包含以下结构：
+
+```json
+[
+  {
+    "symbol": "AAPL",
+    "expiration": "2024-11-08",
+    "strike": 220.0,
+    "right": "call",
+    "timestamp": "2024-11-04T09:30:01.000",
+    "bid_size": 10,
+    "bid_exchange": 4,
+    "bid": 2.15,
+    "bid_condition": 0,
+    "ask_size": 15,
+    "ask_exchange": 4,
+    "ask": 2.20,
+    "ask_condition": 0
+  }
+]
+```
+
+##### 3. 使用示例
+
+**GET 请求 (URL 参数):**
+```bash
+curl -H "Authorization: Bearer 你的token" \
+  "http://52.37.182.24:8768/v3/option/at_time/quote?symbol=AAPL&expiration=20241108&strike=220.000&right=call&start_date=20241104&end_date=20241104&time_of_day=09:30:01.000"
+```
+
+**POST 请求 (JSON Body):**
+```bash
+curl -X POST http://52.37.182.24:8768/v3/option/at_time/quote \
+  -H "Authorization: Bearer 你的token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symbol": "AAPL",
+    "start_date": "2024-11-04",
+    "end_date": "2024-11-04",
+    "time_of_day": "09:30:01.000",
+    "expiration": "2024-11-08",
+    "strike": "220.00",
+    "right": "call"
+  }'
+```
+
+**Python 客户端调用示例:**
+```python
+import httpx
+
+headers = {
+    "Authorization": "Bearer 你的token",
+    "Content-Type": "application/json"
+}
+
+params = {
+    "symbol": "AAPL",
+    "start_date": "2024-11-04",
+    "end_date": "2024-11-04",
+    "time_of_day": "09:30:01.000",
+    "expiration": "2024-11-08",
+    "strike": "220.00",
+    "right": "call"
+}
+
+response = httpx.post("http://52.37.182.24:8768/v3/option/at_time/quote", json=params, headers=headers)
+print(response.json())
 ```
 
 ### Crypto 最新订单簿

@@ -225,7 +225,9 @@ code.inline, .ic {
 }
 .tier.premium::before { background: oklch(0.55 0.13 295); }
 .tier.standard::before { background: var(--accent); }
+.tier.lite::before { background: oklch(0.60 0.14 165); }
 .tier.basic::before { background: oklch(0.65 0.12 75); }
+.tier.trial::before { background: oklch(0.60 0.10 30); }
 
 /* --- Buttons --- */
 .btn {

@@ -628,12 +628,12 @@ Authorization: Bearer c88662...720a
 
       <h2 id="tiers-permissions" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Tiers &amp; permissions</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Four plans control access to channels, symbols, rate limits, and REST endpoints.
-        <span style={{ color: "var(--ink-soft)", fontSize: 13 }}>四个套餐等级控制通道、标的、限速和接口权限。</span>
+        Five plans control access to channels, symbols, rate limits, and REST endpoints.
+        <span style={{ color: "var(--ink-soft)", fontSize: 13 }}>五个套餐等级控制通道、标的、限速和接口权限。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
-          <tr><th style={{ width: 120 }}>Plan</th><th>Price</th><th>WS channels</th><th>WS symbols</th><th>REST req/min</th><th>REST endpoints</th></tr>
+          <tr><th style={{ width: 120 }}>Plan</th><th>Price</th><th>WS channels</th><th>WS symbols</th><th>WS conns</th><th>REST req/min</th><th>REST parallel</th><th>REST endpoints</th></tr>
         </thead>
         <tbody>
           <tr>
@@ -641,7 +641,9 @@ Authorization: Bearer c88662...720a
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$30/3 days</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>60</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>5</td>
             <td style={{ fontSize: 12 }}>Same as Standard · 3-day token · non-renewable</td>
           </tr>
           <tr>
@@ -649,15 +651,29 @@ Authorization: Bearer c88662...720a
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$40/mo</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>— (REST only)</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>10</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td>
             <td style={{ fontSize: 12 }}>Bulk download · history · snapshots · no realtime</td>
+          </tr>
+          <tr>
+            <td><span className="tier lite">Lite</span></td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$50/mo</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>30</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>30</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
+            <td style={{ fontSize: 12 }}>Same as Standard · rate-limited · 30 WS symbols</td>
           </tr>
           <tr>
             <td><span className="tier standard">Standard</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$80/mo</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>60</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>5</td>
             <td style={{ fontSize: 12 }}>history/bars, options/*, news history excluded, no crypto</td>
           </tr>
           <tr>
@@ -665,7 +681,9 @@ Authorization: Bearer c88662...720a
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$130/mo</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract · crypto · news · overnight</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{"\u221E"}</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>300</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>10</td>
             <td style={{ fontSize: 12 }}>All endpoints including crypto orderbooks</td>
           </tr>
         </tbody>
@@ -1579,6 +1597,7 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
             ["404", '{"error":"Token not found"}', "Admin lookup: user_id not in active token list"],
             ["409", '{"success":false,"message":"..."}', "Duplicate username on registration"],
             ["429", "Rate limit exceeded: N/M req/min", "REST rate limit hit; retry after 60 s"],
+            ["429", '{"error":"REST concurrency limit exceeded: N/M parallel requests"}', "Too many parallel requests in flight; wait for one to finish"],
             ["500", '{"error":"Cloud missing Alpaca master keys"}', "Proxy misconfiguration"],
             ["503", '{"error":"ThetaData not available"}', "ThetaData client offline (open_interest / eod)"],
             ["503", '{"error":"Server overloaded, stream priority active."}', "High load; WS streams take priority"],
@@ -1606,6 +1625,7 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
           {[
             ["Trial",    "60",  "30",  "15",  "50"],
             ["Basic",    "10",  "5",   "2",   "—"],
+            ["Lite",     "30",  "15",  "7",   "30"],
             ["Standard", "60",  "30",  "15",  "50"],
             ["Premium",  "300", "150", "75",  "500"],
           ].map(([t, r, l, c, w], i) => (
@@ -1622,9 +1642,49 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
         Cached responses (X-Cache: HIT) do not count against REST rate limits. Check the <code>X-Cache</code> header — cache TTL is 5 minutes (300 s).
       </p>
+
+      <h2 id="concurrency-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Concurrency limits</h2>
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        In addition to rate limits, the proxy enforces per-user concurrency limits on both REST and WebSocket connections.
+        REST concurrency limits the number of parallel in-flight requests; WebSocket concurrency limits the number of simultaneously open connections across all channels.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>除限速外，代理还对 REST 和 WebSocket 实施每用户并发限制。REST 并发限制同时在途请求数；WS 并发限制所有通道的同时连接数。</span>
+      </p>
+      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
+        <thead>
+          <tr><th style={{ width: 150 }}>Tier</th><th>REST parallel</th><th>WS connections</th></tr>
+        </thead>
+        <tbody>
+          {[
+            ["Trial",    "5",   "3"],
+            ["Basic",    "2",   "1"],
+            ["Lite",     "3",   "2"],
+            ["Standard", "5",   "3"],
+            ["Premium",  "10",  "\u221E"],
+          ].map(([t, r, w], i) => (
+            <tr key={i}>
+              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{t}</td>
+              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{r}</td>
+              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{w}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
+        Exceeding the REST concurrency limit returns <code>429</code> with a JSON body. Exceeding the WS connection limit rejects the <code>auth</code> message and closes the socket with code <code>1008</code>.
+      </p>
+
       <pre className="code" style={{ marginBottom: 40 }}>
-{`// 429 response body (plain text)
+{`// 429 response body (plain text) — rate limit
 Rate limit exceeded: 301/300 req/min
+
+// 429 response body (JSON) — concurrency limit
+{
+  "error": "REST concurrency limit exceeded: 5/5 parallel requests"
+}
+
+// WS auth rejected — connection limit
+[{"T": "error", "msg": "Connection limit exceeded: 3/3 active websockets"}]
+// Socket closed with code 1008 (policy violation)
 
 // 503 response body (JSON) — backpressure under load
 {
@@ -1725,6 +1785,7 @@ await ws.send(json.dumps({
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 28px" }}>
         The server sends WebSocket ping frames automatically. Most client libraries respond to pings automatically. If your client does not, call <code>pong()</code> on receipt to stay connected.
         The server will close connections that exceed the send queue limit (200 messages).
+        Each tier has a per-user connection limit across all channels (see <a href="#concurrency-limits">Concurrency limits</a>). Exceeding it rejects auth with code <code>1008</code>.
       </p>
 
       {/* ── Channels ── */}
