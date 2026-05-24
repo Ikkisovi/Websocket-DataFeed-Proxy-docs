@@ -26,6 +26,8 @@ function RegisterTopbar() {
 
 // Single source of truth for tier display.
 // Numbers (wsSymbols, restPerMin) must match cloud-proxy RateLimiter and docs Tiers table.
+const ALL_CHANNELS = ["stocks", "options", "boats", "overnight", "crypto", "news"];
+
 const TIERS = [
   {
     id: "trial",
@@ -33,12 +35,14 @@ const TIERS = [
     price: "$30",
     period: "/ 3 days",
     tagline: "短期体验",
-    desc: "3 天试用 · 标准套餐全部能力 · 不可续期",
-    channels: ["stocks", "options", "contract"],
+    desc: "3 天试用 · 全部 WS 通道 · 不可续期",
+    channels: ALL_CHANNELS,
     wsSymbols: 50,
     restPerMin: 60,
+    restParallel: 5,
+    wsConns: 3,
     validity: "3 days",
-    rest: "history · snapshots",
+    rest: "stocks + options history",
     restOnly: false,
     badge: null,
   },
@@ -52,8 +56,10 @@ const TIERS = [
     channels: [],
     wsSymbols: 0,
     restPerMin: 10,
+    restParallel: 2,
+    wsConns: 1,
     validity: "30 days",
-    rest: "bulk download · history · snapshots",
+    rest: "stocks + options history",
     restOnly: true,
     badge: null,
   },
@@ -62,19 +68,21 @@ const TIERS = [
     name: "Value",
     price: "$50",
     period: "/ month",
-    tagline: "历史二选一 · 限速",
-    desc: "双端实时流 + 股票或期权历史二选一 · 限速 30 req/min",
-    channels: ["stocks", "options", "contract"],
+    tagline: "REST 二选一 · 限速",
+    desc: "全部 WS 通道 + REST 股票或期权二选一 · 限速 30 req/min",
+    channels: ALL_CHANNELS,
     wsSymbols: 30,
     restPerMin: 30,
+    restParallel: 3,
+    wsConns: 2,
     validity: "30 days",
     rest: "stocks history 或 options chains",
     restOnly: false,
     badge: null,
     hasMode: true,
     modes: [
-      { id: "stocks", label: "股票历史", desc: "包含双端实时流 + 仅股票历史数据" },
-      { id: "options", label: "期权历史", desc: "包含双端实时流 + 仅期权历史数据" },
+      { id: "stocks", label: "股票方向", desc: "全部 WS + REST 仅股票历史" },
+      { id: "options", label: "期权方向", desc: "全部 WS + REST 仅期权历史" },
     ],
   },
   {
@@ -83,12 +91,14 @@ const TIERS = [
     price: "$80",
     period: "/ month",
     tagline: "主流套餐",
-    desc: "实时股票/期权 + 合约流 · 50 symbols · 历史数据",
-    channels: ["stocks", "options", "contract"],
+    desc: "全部 WS 通道 · 50 symbols · stocks + options 历史",
+    channels: ALL_CHANNELS,
     wsSymbols: 50,
     restPerMin: 60,
+    restParallel: 5,
+    wsConns: 3,
     validity: "30 days",
-    rest: "history · contracts · snapshots",
+    rest: "stocks + options history",
     restOnly: false,
     badge: "POPULAR",
   },
@@ -98,12 +108,14 @@ const TIERS = [
     price: "$130",
     period: "/ month",
     tagline: "完整接入",
-    desc: "全部实时流 · 500 symbols · 全部历史数据",
-    channels: ["stocks", "options", "contract", "crypto", "news", "overnight"],
+    desc: "全部 WS 通道 · 500 symbols · 全部 REST 含 crypto",
+    channels: ALL_CHANNELS,
     wsSymbols: 500,
     restPerMin: 300,
+    restParallel: 10,
+    wsConns: "∞",
     validity: "30 days",
-    rest: "全部 · 含 orderbooks",
+    rest: "全部 · 含 crypto orderbooks",
     restOnly: false,
     badge: null,
   },
@@ -111,11 +123,12 @@ const TIERS = [
 
 const COMPARISON_ROWS = [
   { label: "Realtime WebSocket",       get: t => t.channels.length > 0 },
-  { label: "Contract stream",          get: t => t.channels.includes("contract") },
-  { label: "Crypto · news · overnight", get: t => ["crypto", "news", "overnight"].every(c => t.channels.includes(c)) },
-  { label: "Bulk download (REST)",     get: t => t.restOnly || t.id === "premium" },
+  { label: "WS channels",              get: t => t.channels.length === 0 ? "—" : `${t.channels.length} channels`, raw: true },
+  { label: "REST data scope",          get: t => t.id === "premium" ? "all" : t.id === "value" ? "mode" : t.restOnly ? "stocks+options" : "stocks+options", raw: true },
   { label: "REST req/min",             get: t => `${t.restPerMin}/min`, raw: true },
+  { label: "REST parallel",            get: t => `${t.restParallel}`, raw: true },
   { label: "WS symbols",               get: t => t.wsSymbols === 0 ? "—" : `${t.wsSymbols}`, raw: true },
+  { label: "WS connections",           get: t => t.channels.length === 0 ? "—" : `${t.wsConns}`, raw: true },
   { label: "Token validity",           get: t => t.validity, raw: true },
 ];
 
@@ -146,7 +159,7 @@ function RegisterPage() {
       return;
     }
     if (tier === "value" && !mode) {
-      setRegMsg("Value 套餐请先选择历史数据方向（股票 或 期权）。");
+      setRegMsg("Value 套餐请先选择 REST 数据方向（股票 或 期权）。");
       setRegStatus("error");
       return;
     }
@@ -370,8 +383,8 @@ function RegisterPage() {
                 return (
                   <div className="card" style={{ padding: 16, marginBottom: 20, borderColor: !mode ? "oklch(0.65 0.18 25)" : "var(--rule)", transition: "border-color .2s" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                      <div className="eyebrow" style={{ margin: 0 }}>选择历史数据方向</div>
-                      <span style={{ fontFamily: "var(--f-mono)", fontSize: 10, color: "var(--ink-soft)" }}>pick one</span>
+                      <div className="eyebrow" style={{ margin: 0 }}>选择 REST 数据方向</div>
+                      <span style={{ fontFamily: "var(--f-mono)", fontSize: 10, color: "var(--ink-soft)" }}>pick one · WS 不受限</span>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                       {vt.modes.map(m => {

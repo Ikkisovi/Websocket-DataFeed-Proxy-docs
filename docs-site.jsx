@@ -639,7 +639,7 @@ Authorization: Bearer c88662...720a
           <tr>
             <td><span className="tier trial">Trial</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$30/3 days</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>60</td>
@@ -654,37 +654,37 @@ Authorization: Bearer c88662...720a
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>10</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td>
-            <td style={{ fontSize: 12 }}>Bulk download · history · snapshots · no realtime</td>
+            <td style={{ fontSize: 12 }}>stocks + options history · no realtime</td>
           </tr>
           <tr>
             <td><span className="tier value">Value</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$50/mo</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks OR options (pick one)</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>30</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>30</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontSize: 12 }}>Stocks or options (choose at signup) · rate-limited</td>
+            <td style={{ fontSize: 12 }}>REST: stocks OR options (pick at signup) · WS: all channels</td>
           </tr>
           <tr>
             <td><span className="tier standard">Standard</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$80/mo</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>60</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>5</td>
-            <td style={{ fontSize: 12 }}>history/bars, options/*, news history, no crypto</td>
+            <td style={{ fontSize: 12 }}>stocks + options history · no crypto orderbooks</td>
           </tr>
           <tr>
             <td><span className="tier premium">Premium</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$130/mo</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract · crypto · news · overnight</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{"\u221E"}</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>300</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>10</td>
-            <td style={{ fontSize: 12 }}>All endpoints including crypto orderbooks</td>
+            <td style={{ fontSize: 12 }}>All REST endpoints including crypto orderbooks</td>
           </tr>
         </tbody>
       </table>
@@ -1719,12 +1719,12 @@ function WsUsageBody() {
         <thead><tr><th>Channel</th><th>Path</th><th>Format</th><th>Basic</th><th>Trial</th><th>Value</th><th>Standard</th><th>Premium</th></tr></thead>
         <tbody>
           {[
-            ["stocks",    "/stream",           "msgpack", "—", "✓", "mode", "✓", "✓"],
-            ["options",   "/stream/options",   "msgpack", "—", "✓", "mode", "✓", "✓"],
-            ["boats",     "/stream/boats",     "msgpack", "—", "—", "—",    "—", "✓"],
-            ["overnight", "/stream/overnight", "msgpack", "—", "—", "—",    "—", "✓"],
-            ["crypto",    "/stream/crypto",    "JSON",    "—", "—", "—",    "—", "✓"],
-            ["news",      "/stream/news",      "JSON",    "—", "—", "—",    "—", "✓"],
+            ["stocks",    "/stream",           "msgpack", "—", "✓", "✓", "✓", "✓"],
+            ["options",   "/stream/options",   "msgpack", "—", "✓", "✓", "✓", "✓"],
+            ["boats",     "/stream/boats",     "msgpack", "—", "✓", "✓", "✓", "✓"],
+            ["overnight", "/stream/overnight", "msgpack", "—", "✓", "✓", "✓", "✓"],
+            ["crypto",    "/stream/crypto",    "JSON",    "—", "✓", "✓", "✓", "✓"],
+            ["news",      "/stream/news",      "JSON",    "—", "✓", "✓", "✓", "✓"],
           ].map(([ch, path, fmt, b, tr, v, s, p], i) => (
             <tr key={i}>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, fontWeight: 600 }}>{ch}</td>
@@ -1732,7 +1732,7 @@ function WsUsageBody() {
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{fmt}</td>
               <td style={{ color: b === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{b}</td>
               <td style={{ color: tr === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{tr}</td>
-              <td style={{ color: v === "mode" ? "var(--warn)" : v === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center", fontSize: v === "mode" ? 10 : 12 }}>{v}</td>
+              <td style={{ color: v === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{v}</td>
               <td style={{ color: s === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{s}</td>
               <td style={{ color: p === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{p}</td>
             </tr>
@@ -1807,14 +1807,14 @@ await ws.send(json.dumps({
       <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>options</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Live OPRA options feed. Subscribe using OCC symbols in the <code>trades</code> and <code>quotes</code> lists.
-        Trial, Value (options mode), Standard and Premium.
+        All tiers except Basic.
         <strong style={{ color: "var(--ink-strong)" }}> Index options (SPX, SPXW, NDX, RUT) are not available via WebSocket</strong> — the upstream Alpaca feed only covers equity and ETF options. Use the REST <code>/v1/history/options/bars</code> endpoint with <code>provider=thetadata</code> for index option history.
       </p>
 
       <h2 id="crypto" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>crypto</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Live US crypto orderbooks and trades. Subscribe using <code>orderbooks</code> and/or <code>trades</code> lists with pairs like <code>BTC/USD</code>.
-        Messages are plain JSON (not msgpack). Premium only.
+        Messages are plain JSON (not msgpack). All tiers except Basic.
       </p>
       <pre className="code" style={{ marginBottom: 24 }}>
 {`await ws.send(json.dumps({
@@ -1827,12 +1827,12 @@ await ws.send(json.dumps({
       <h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>news</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Realtime news events from Benzinga. Subscribe with a <code>news</code> list of tickers or <code>"*"</code> for all.
-        Messages are plain JSON. Premium only. All tiers can query historical news via REST <code>/v1/history/news</code>.
+        Messages are plain JSON. All tiers except Basic. Historical news is also available via REST <code>/v1/history/news</code>.
       </p>
 
       <h2 id="overnight" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>overnight</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 28px" }}>
-        Extended-hours equity data. Same subscribe format as stocks (trades + quotes). Premium only.
+        Extended-hours equity data. Same subscribe format as stocks (trades + quotes). All tiers except Basic.
       </p>
 
       {/* ── Messages ── */}
