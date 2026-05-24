@@ -24,8 +24,6 @@ function RegisterTopbar() {
   );
 }
 
-// Single source of truth for tier display.
-// Numbers (wsSymbols, restPerMin) must match cloud-proxy RateLimiter and docs Tiers table.
 const TIERS = [
   {
     id: "trial",
@@ -34,12 +32,9 @@ const TIERS = [
     period: "/ 3 days",
     tagline: "短期体验",
     desc: "3 天试用 · 标准套餐全部能力 · 不可续期",
+    symbols: "50 symbols",
     channels: ["stocks", "options", "contract"],
-    wsSymbols: 50,
-    restPerMin: 60,
-    validity: "3 days",
     rest: "history · snapshots",
-    restOnly: false,
     badge: null,
   },
   {
@@ -49,33 +44,11 @@ const TIERS = [
     period: "/ month",
     tagline: "仅 REST · 批量下载",
     desc: "无实时 WebSocket · 仅历史数据与批量下载接口",
+    symbols: "unlimited (REST)",
     channels: [],
-    wsSymbols: 0,
-    restPerMin: 10,
-    validity: "30 days",
-    rest: "bulk download · history · snapshots",
     restOnly: true,
+    rest: "bulk download · history · snapshots",
     badge: null,
-  },
-  {
-    id: "value",
-    name: "Value",
-    price: "$50",
-    period: "/ month",
-    tagline: "二选一 · 限速",
-    desc: "股票 或 期权 二选一 · 限速 30 req/min · 适合专注单一方向",
-    channels: ["stocks OR options"],
-    wsSymbols: 30,
-    restPerMin: 30,
-    validity: "30 days",
-    rest: "stocks history 或 options chains",
-    restOnly: false,
-    badge: null,
-    hasMode: true,
-    modes: [
-      { id: "stocks", label: "股票", desc: "实时 stocks WS + history bars + quotes" },
-      { id: "options", label: "期权", desc: "实时 options WS + bars + snapshots + chains" },
-    ],
   },
   {
     id: "standard",
@@ -84,12 +57,9 @@ const TIERS = [
     period: "/ month",
     tagline: "主流套餐",
     desc: "实时股票/期权 + 合约流 · 50 symbols · 历史数据",
+    symbols: "50 symbols",
     channels: ["stocks", "options", "contract"],
-    wsSymbols: 50,
-    restPerMin: 60,
-    validity: "30 days",
     rest: "history · contracts · snapshots",
-    restOnly: false,
     badge: "POPULAR",
   },
   {
@@ -98,31 +68,17 @@ const TIERS = [
     price: "$130",
     period: "/ month",
     tagline: "完整接入",
-    desc: "全部实时流 · 500 symbols · 全部历史数据",
+    desc: "全部实时流 · 500 symbols · 全部历史数据 · 优先速率",
+    symbols: "500 symbols",
     channels: ["stocks", "options", "contract", "crypto", "news", "overnight"],
-    wsSymbols: 500,
-    restPerMin: 300,
-    validity: "30 days",
     rest: "全部 · 含 orderbooks",
-    restOnly: false,
     badge: null,
   },
 ];
 
-const COMPARISON_ROWS = [
-  { label: "Realtime WebSocket",       get: t => t.channels.length > 0 },
-  { label: "Contract stream",          get: t => t.channels.includes("contract") },
-  { label: "Crypto · news · overnight", get: t => ["crypto", "news", "overnight"].every(c => t.channels.includes(c)) },
-  { label: "Bulk download (REST)",     get: t => t.restOnly || t.id === "premium" },
-  { label: "REST req/min",             get: t => `${t.restPerMin}/min`, raw: true },
-  { label: "WS symbols",               get: t => t.wsSymbols === 0 ? "—" : `${t.wsSymbols}`, raw: true },
-  { label: "Token validity",           get: t => t.validity, raw: true },
-];
-
 function RegisterPage() {
   const [tier, setTier] = useRegState("standard");
-  const [mode, setMode] = useRegState("");  // "stocks" or "options" for value tier
-
+  
   // Registration Form State
   const [regUsername, setRegUsername] = useRegState("");
   const [regPhone, setRegPhone] = useRegState("");
@@ -145,11 +101,6 @@ function RegisterPage() {
       setRegStatus("error");
       return;
     }
-    if (tier === "value" && !mode) {
-      setRegMsg("Value 套餐请先选择数据方向（股票 或 期权）。");
-      setRegStatus("error");
-      return;
-    }
     setRegLoading(true);
     setRegMsg("");
     setRegStatus("");
@@ -161,8 +112,7 @@ function RegisterPage() {
         body: JSON.stringify({
           username: regUsername.trim(),
           phone: regPhone.trim(),
-          tier,
-          ...(tier === "value" && mode && { mode })
+          tier
         })
       });
       const data = await resp.json();
@@ -250,16 +200,16 @@ function RegisterPage() {
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
                 <div className="eyebrow">1 · 选择服务等级</div>
                 <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>
-                  5 plans · USD · subscription
+                  4 plans · USD · billed once
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 28 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 28 }}>
                 {TIERS.map(t => {
                   const selected = tier === t.id;
                   return (
                     <button
                       key={t.id}
-                      onClick={() => { setTier(t.id); if (t.id !== "value") setMode(""); }}
+                      onClick={() => setTier(t.id)}
                       className="card"
                       style={{
                         textAlign: "left",
@@ -319,7 +269,7 @@ function RegisterPage() {
                           fontFamily: "var(--f-mono)",
                           color: "var(--ink-strong)",
                           fontSize: 11,
-                        }}>{t.restOnly ? "unlimited (REST)" : `${t.wsSymbols} symbols`}</span>
+                        }}>{t.symbols}</span>
                       </div>
 
                       {/* Channels */}
@@ -364,56 +314,7 @@ function RegisterPage() {
                 })}
               </div>
 
-              {/* Value mode selector — shown only when value tier is selected */}
-              {tier === "value" && (() => {
-                const vt = TIERS.find(t => t.id === "value");
-                return (
-                  <div className="card" style={{ padding: 16, marginBottom: 20, borderColor: !mode ? "oklch(0.65 0.18 25)" : "var(--rule)", transition: "border-color .2s" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                      <div className="eyebrow" style={{ margin: 0 }}>选择数据方向</div>
-                      <span style={{ fontFamily: "var(--f-mono)", fontSize: 10, color: "var(--ink-soft)" }}>pick one</span>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                      {vt.modes.map(m => {
-                        const active = mode === m.id;
-                        return (
-                          <button
-                            key={m.id}
-                            onClick={() => setMode(m.id)}
-                            style={{
-                              padding: "12px 14px",
-                              border: `1.5px solid ${active ? "var(--ink-strong)" : "var(--rule)"}`,
-                              borderRadius: "var(--radius-lg)",
-                              background: active ? "var(--bg-paper)" : "var(--bg-canvas)",
-                              cursor: "pointer",
-                              textAlign: "left",
-                              fontFamily: "inherit",
-                              boxShadow: active ? "0 1px 0 var(--ink-strong)" : "none",
-                              transition: "all .15s",
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                              <span style={{
-                                width: 14, height: 14, borderRadius: "50%",
-                                border: `1.5px solid ${active ? "var(--ink-strong)" : "var(--ink-soft)"}`,
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                                background: active ? "var(--ink-strong)" : "transparent",
-                                color: "#fff", fontSize: 8, flexShrink: 0,
-                              }}>{active ? "✓" : ""}</span>
-                              <span style={{ fontWeight: 600, fontSize: 13, color: "var(--ink-strong)" }}>{m.label}</span>
-                            </div>
-                            <div style={{ fontFamily: "var(--f-mono)", fontSize: 10.5, color: "var(--ink-muted)", lineHeight: 1.5, paddingLeft: 20 }}>
-                              {m.desc}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Feature comparison strip — data-driven from TIERS */}
+              {/* Feature comparison strip */}
               <div className="card" style={{ padding: 0, marginBottom: 28, overflow: "hidden" }}>
                 <table className="tbl">
                   <thead>
@@ -423,20 +324,41 @@ function RegisterPage() {
                     </tr>
                   </thead>
                   <tbody style={{ fontFamily: "var(--f-mono)", fontSize: 11.5 }}>
-                    {COMPARISON_ROWS.map(row => (
-                      <tr key={row.label}>
-                        <td style={{ fontFamily: "var(--f-sans)", color: "var(--ink-strong)" }}>{row.label}</td>
-                        {TIERS.map(t => {
-                          const v = row.get(t);
-                          if (row.raw) {
-                            return <td key={t.id} style={{ textAlign: "center", color: v === "—" ? "var(--ink-soft)" : "var(--ink-base)" }}>{v}</td>;
-                          }
-                          return v
-                            ? <td key={t.id} style={{ textAlign: "center", color: "var(--ok)" }}>✓</td>
-                            : <td key={t.id} style={{ textAlign: "center", color: "var(--ink-soft)" }}>—</td>;
-                        })}
-                      </tr>
-                    ))}
+                    <tr>
+                      <td style={{ fontFamily: "var(--f-sans)", color: "var(--ink-strong)" }}>Realtime WebSocket</td>
+                      <td style={{ textAlign: "center", color: "var(--ok)" }}>✓</td>
+                      <td style={{ textAlign: "center", color: "var(--ink-soft)" }}>—</td>
+                      <td style={{ textAlign: "center", color: "var(--ok)" }}>✓</td>
+                      <td style={{ textAlign: "center", color: "var(--ok)" }}>✓</td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontFamily: "var(--f-sans)", color: "var(--ink-strong)" }}>Contract stream</td>
+                      <td style={{ textAlign: "center", color: "var(--ok)" }}>✓</td>
+                      <td style={{ textAlign: "center", color: "var(--ink-soft)" }}>—</td>
+                      <td style={{ textAlign: "center", color: "var(--ok)" }}>✓</td>
+                      <td style={{ textAlign: "center", color: "var(--ok)" }}>✓</td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontFamily: "var(--f-sans)", color: "var(--ink-strong)" }}>Crypto · news · overnight</td>
+                      <td style={{ textAlign: "center", color: "var(--ink-soft)" }}>—</td>
+                      <td style={{ textAlign: "center", color: "var(--ink-soft)" }}>—</td>
+                      <td style={{ textAlign: "center", color: "var(--ink-soft)" }}>—</td>
+                      <td style={{ textAlign: "center", color: "var(--ok)" }}>✓</td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontFamily: "var(--f-sans)", color: "var(--ink-strong)" }}>Bulk download (REST)</td>
+                      <td style={{ textAlign: "center", color: "var(--ink-soft)" }}>—</td>
+                      <td style={{ textAlign: "center", color: "var(--ok)" }}>✓</td>
+                      <td style={{ textAlign: "center", color: "var(--ink-soft)" }}>—</td>
+                      <td style={{ textAlign: "center", color: "var(--ok)" }}>✓</td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontFamily: "var(--f-sans)", color: "var(--ink-strong)" }}>Token validity</td>
+                      <td style={{ textAlign: "center" }}>3 days</td>
+                      <td style={{ textAlign: "center" }}>30 days</td>
+                      <td style={{ textAlign: "center" }}>30 days</td>
+                      <td style={{ textAlign: "center" }}>30 days</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>

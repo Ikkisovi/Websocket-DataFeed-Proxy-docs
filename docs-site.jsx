@@ -623,7 +623,7 @@ Authorization: Bearer c88662...720a
 { "token": "c886624f-232d-4803-99fa-f8b970e4720a", "symbol": "AAPL", ... }`}
       </pre>
       <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 40px" }}>
-        Tokens expire 30 days after issuance. The proxy returns <code>401</code> for invalid or expired tokens and <code>403</code> if your tier lacks permission for the endpoint.
+        Tokens expire 30 days after issuance (trial: 3 days, non-renewable). The proxy returns <code>401</code> for invalid or expired tokens and <code>403</code> if your tier lacks permission for the endpoint.
       </p>
 
       <h2 id="tiers-permissions" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Tiers &amp; permissions</h2>
@@ -657,14 +657,14 @@ Authorization: Bearer c88662...720a
             <td style={{ fontSize: 12 }}>Bulk download · history · snapshots · no realtime</td>
           </tr>
           <tr>
-            <td><span className="tier lite">Lite</span></td>
+            <td><span className="tier value">Value</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$50/mo</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks · options · contract</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>stocks OR options (pick one)</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>30</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>30</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontSize: 12 }}>Same as Standard · rate-limited · 30 WS symbols</td>
+            <td style={{ fontSize: 12 }}>Stocks or options (choose at signup) · rate-limited</td>
           </tr>
           <tr>
             <td><span className="tier standard">Standard</span></td>
@@ -674,7 +674,7 @@ Authorization: Bearer c88662...720a
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>60</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>5</td>
-            <td style={{ fontSize: 12 }}>history/bars, options/*, news history excluded, no crypto</td>
+            <td style={{ fontSize: 12 }}>history/bars, options/*, news history, no crypto</td>
           </tr>
           <tr>
             <td><span className="tier premium">Premium</span></td>
@@ -703,11 +703,15 @@ Authorization: Bearer c88662...720a
       <ParamTable rows={[
         { name: "username", type: "string", required: true, desc: "Unique display name (must not exist in approved users)" },
         { name: "phone",    type: "string", required: true, desc: "Mobile number used to verify identity on token generation" },
-        { name: "tier",     type: "string", required: false, desc: "trial | basic | standard | premium (default: standard)." },
+        { name: "tier",     type: "string", required: false, desc: "trial | basic | value | standard | premium (default: standard)." },
+        { name: "mode",     type: "string", required: false, desc: "stocks | options — required when tier is value. Determines which data vertical is enabled." },
       ]} />
       <pre className="code" style={{ marginBottom: 28 }}>
 {`// Request
 { "username": "tonnysun", "phone": "18717931119", "tier": "premium" }
+
+// Value tier — mode required
+{ "username": "qianyu", "phone": "13800138000", "tier": "value", "mode": "options" }
 
 // Response 200
 { "success": true, "message": "注册成功！请等待卖家确认订单后即可生成 Token。", "id": "61ce4f82-..." }
@@ -1625,7 +1629,7 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
           {[
             ["Trial",    "60",  "30",  "15",  "50"],
             ["Basic",    "10",  "5",   "2",   "—"],
-            ["Lite",     "30",  "15",  "7",   "30"],
+            ["Value",    "30",  "15",  "7",   "30"],
             ["Standard", "60",  "30",  "15",  "50"],
             ["Premium",  "300", "150", "75",  "500"],
           ].map(([t, r, l, c, w], i) => (
@@ -1657,7 +1661,7 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
           {[
             ["Trial",    "5",   "3"],
             ["Basic",    "2",   "1"],
-            ["Lite",     "3",   "2"],
+            ["Value",    "3",   "2"],
             ["Standard", "5",   "3"],
             ["Premium",  "10",  "\u221E"],
           ].map(([t, r, w], i) => (
@@ -1712,22 +1716,23 @@ function WsUsageBody() {
       </p>
 
       <table className="tbl card" style={{ marginBottom: 28, overflow: "hidden" }}>
-        <thead><tr><th>Channel</th><th>Path</th><th>Format</th><th>Basic</th><th>Trial</th><th>Standard</th><th>Premium</th></tr></thead>
+        <thead><tr><th>Channel</th><th>Path</th><th>Format</th><th>Basic</th><th>Trial</th><th>Value</th><th>Standard</th><th>Premium</th></tr></thead>
         <tbody>
           {[
-            ["stocks",    "/stream",           "msgpack", "—", "✓", "✓", "✓"],
-            ["options",   "/stream/options",   "msgpack", "—", "✓", "✓", "✓"],
-            ["contract",  "/stream/contract",  "msgpack", "—", "✓", "✓", "✓"],
-            ["overnight", "/stream/overnight", "msgpack", "—", "—", "—", "✓"],
-            ["crypto",    "/stream/crypto",    "JSON",    "—", "—", "—", "✓"],
-            ["news",      "/stream/news",      "JSON",    "—", "—", "—", "✓"],
-          ].map(([ch, path, fmt, b, tr, s, p], i) => (
+            ["stocks",    "/stream",           "msgpack", "—", "✓", "mode", "✓", "✓"],
+            ["options",   "/stream/options",   "msgpack", "—", "✓", "mode", "✓", "✓"],
+            ["boats",     "/stream/boats",     "msgpack", "—", "—", "—",    "—", "✓"],
+            ["overnight", "/stream/overnight", "msgpack", "—", "—", "—",    "—", "✓"],
+            ["crypto",    "/stream/crypto",    "JSON",    "—", "—", "—",    "—", "✓"],
+            ["news",      "/stream/news",      "JSON",    "—", "—", "—",    "—", "✓"],
+          ].map(([ch, path, fmt, b, tr, v, s, p], i) => (
             <tr key={i}>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, fontWeight: 600 }}>{ch}</td>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>{path}</td>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{fmt}</td>
               <td style={{ color: b === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{b}</td>
               <td style={{ color: tr === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{tr}</td>
+              <td style={{ color: v === "mode" ? "var(--warn)" : v === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center", fontSize: v === "mode" ? 10 : 12 }}>{v}</td>
               <td style={{ color: s === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{s}</td>
               <td style={{ color: p === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{p}</td>
             </tr>
@@ -1797,12 +1802,13 @@ await ws.send(json.dumps({
         Use <code>"*"</code> to subscribe to all symbols.
       </p>
       <H3>Symbol limit</H3>
-      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>basic: — · trial/standard: 50 · premium: 500. Exceeding the limit returns an error message and the subscribe is rejected.</p>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>basic: — · value: 30 · trial/standard: 50 · premium: 500. Exceeding the limit returns an error message and the subscribe is rejected.</p>
 
       <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>options</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Live OPRA options feed. Subscribe using OCC symbols in the <code>trades</code> and <code>quotes</code> lists.
-        Standard, Trial and Premium only.
+        Trial, Value (options mode), Standard and Premium.
+        <strong style={{ color: "var(--ink-strong)" }}> Index options (SPX, SPXW, NDX, RUT) are not available via WebSocket</strong> — the upstream Alpaca feed only covers equity and ETF options. Use the REST <code>/v1/history/options/bars</code> endpoint with <code>provider=thetadata</code> for index option history.
       </p>
 
       <h2 id="crypto" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>crypto</h2>
@@ -1821,7 +1827,7 @@ await ws.send(json.dumps({
       <h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>news</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Realtime news events from Benzinga. Subscribe with a <code>news</code> list of tickers or <code>"*"</code> for all.
-        Messages are plain JSON. Available to Basic (REST only) and Premium. Standard/Trial get news via REST history, not realtime WS.
+        Messages are plain JSON. Premium only. All tiers can query historical news via REST <code>/v1/history/news</code>.
       </p>
 
       <h2 id="overnight" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>overnight</h2>
