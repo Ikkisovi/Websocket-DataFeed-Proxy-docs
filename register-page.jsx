@@ -62,9 +62,9 @@ const TIERS = [
     name: "Value",
     price: "$50",
     period: "/ month",
-    tagline: "二选一 · 限速",
-    desc: "股票 或 期权 二选一 · 限速 30 req/min · 适合专注单一方向",
-    channels: ["stocks OR options"],
+    tagline: "历史二选一 · 限速",
+    desc: "双端实时流 + 股票或期权历史二选一 · 限速 30 req/min",
+    channels: ["stocks", "options", "contract"],
     wsSymbols: 30,
     restPerMin: 30,
     validity: "30 days",
@@ -73,8 +73,8 @@ const TIERS = [
     badge: null,
     hasMode: true,
     modes: [
-      { id: "stocks", label: "股票", desc: "实时 stocks WS + history bars + quotes" },
-      { id: "options", label: "期权", desc: "实时 options WS + bars + snapshots + chains" },
+      { id: "stocks", label: "股票历史", desc: "包含双端实时流 + 仅股票历史数据" },
+      { id: "options", label: "期权历史", desc: "包含双端实时流 + 仅期权历史数据" },
     ],
   },
   {
@@ -146,7 +146,7 @@ function RegisterPage() {
       return;
     }
     if (tier === "value" && !mode) {
-      setRegMsg("Value 套餐请先选择数据方向（股票 或 期权）。");
+      setRegMsg("Value 套餐请先选择历史数据方向（股票 或 期权）。");
       setRegStatus("error");
       return;
     }
@@ -370,7 +370,7 @@ function RegisterPage() {
                 return (
                   <div className="card" style={{ padding: 16, marginBottom: 20, borderColor: !mode ? "oklch(0.65 0.18 25)" : "var(--rule)", transition: "border-color .2s" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                      <div className="eyebrow" style={{ margin: 0 }}>选择数据方向</div>
+                      <div className="eyebrow" style={{ margin: 0 }}>选择历史数据方向</div>
                       <span style={{ fontFamily: "var(--f-mono)", fontSize: 10, color: "var(--ink-soft)" }}>pick one</span>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
