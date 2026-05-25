@@ -633,7 +633,7 @@ Authorization: Bearer c88662...720a
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
-          <tr><th style={{ width: 120 }}>Plan</th><th>Price</th><th>WS channels</th><th>WS symbols</th><th>WS conns</th><th>REST req/min</th><th>REST parallel</th><th>REST endpoints</th></tr>
+          <tr><th style={{ width: 120 }}>Plan</th><th>Price</th><th>WS channels</th><th>WS symbols</th><th>WS conns</th><th>REST req/min<br/><span style={{ fontWeight: 400, fontSize: 11, color: "var(--ink-soft)" }}>(rolling 60 s window)</span></th><th>REST parallel</th><th>REST endpoints</th></tr>
         </thead>
         <tbody>
           <tr>
@@ -642,7 +642,7 @@ Authorization: Bearer c88662...720a
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>60</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1800</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>5</td>
             <td style={{ fontSize: 12 }}>Same as Standard · 3-day token · non-renewable</td>
           </tr>
@@ -652,7 +652,7 @@ Authorization: Bearer c88662...720a
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>— (REST only)</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>10</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>600</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td>
             <td style={{ fontSize: 12 }}>stocks + options history · no realtime</td>
           </tr>
@@ -662,7 +662,7 @@ Authorization: Bearer c88662...720a
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>30</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>30</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1800</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
             <td style={{ fontSize: 12 }}>REST: stocks OR options (pick at signup) · WS: all channels</td>
           </tr>
@@ -672,7 +672,7 @@ Authorization: Bearer c88662...720a
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>60</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1800</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>5</td>
             <td style={{ fontSize: 12 }}>stocks + options history · no crypto orderbooks</td>
           </tr>
@@ -682,14 +682,18 @@ Authorization: Bearer c88662...720a
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{"\u221E"}</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>300</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>6000</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>10</td>
             <td style={{ fontSize: 12 }}>All REST endpoints including crypto orderbooks</td>
           </tr>
         </tbody>
       </table>
-      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
+      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 8px" }}>
         Rate limits tighten automatically under load: limits halve when server is overloaded and quarter under critical load. WebSocket delivery is always prioritised over REST.
+      </p>
+      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
+        Per-second equivalents: Basic 10/s · Value 30/s · Standard 30/s · Premium 100/s. Exceeding the per-minute quota or the parallel-request cap returns <strong>HTTP 429</strong>; back off and retry after the 60-second window.
+        <br/>每秒换算：Basic 10/s · Value 30/s · Standard 30/s · Premium 100/s。超过每分钟配额或并发上限会返回 <strong>HTTP 429</strong>，请等候 60 秒窗口刷新后再重试。
       </p>
 
       {/* ── Token API ── */}
@@ -1616,6 +1620,10 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
       </table>
 
       <h2 id="rate-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Rate limits</h2>
+      <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", margin: "0 0 12px", fontSize: 13 }}>
+        <strong>HTTP 429 = rate limit hit.</strong> If you receive a <code>429</code> response, you have exceeded your tier's per-minute REST quota or your parallel-request concurrency cap. Back off and retry after the 60-second rolling window or after one in-flight request finishes — do not hammer the endpoint.
+        <br/><span style={{ color: "var(--ink-soft)" }}>收到 HTTP 429 说明触发了限速：超过了套餐的每分钟 REST 配额或并发上限。请等待 60 秒滚动窗口刷新或等已有请求完成后再重试，不要持续重试。</span>
+      </div>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         REST limits are per-user, per rolling 60-second window. Limits tighten automatically when the server is under load (overloaded) and further under critical load.
         WebSocket symbol subscriptions are counted separately and do not reset on reconnect.
@@ -1627,11 +1635,11 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
         </thead>
         <tbody>
           {[
-            ["Trial",    "60",  "30",  "15",  "50"],
-            ["Basic",    "10",  "5",   "2",   "—"],
-            ["Value",    "30",  "15",  "7",   "30"],
-            ["Standard", "60",  "30",  "15",  "50"],
-            ["Premium",  "300", "150", "75",  "500"],
+            ["Trial",    "1800", "900", "450", "50"],
+            ["Basic",    "600",  "300", "150", "—"],
+            ["Value",    "1800", "900", "450", "30"],
+            ["Standard", "1800", "900", "450", "50"],
+            ["Premium",  "6000", "3000","1500","500"],
           ].map(([t, r, l, c, w], i) => (
             <tr key={i}>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{t}</td>
