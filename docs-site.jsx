@@ -17,7 +17,7 @@ function DocsTopbar({ active = "proxy" }) {
       </div>
       <div className="spacer"></div>
       <div className="meta">
-        <span className="pill"><span className="live"></span> v2.5 · live</span>
+        <span className="pill"><span className="live"></span> v2.6 · live</span>
         <a className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.34c-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.74.54 1.49v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0z"/></svg>
           ikkisovi/Websocket-DataFeed-Proxy-docs
@@ -66,7 +66,7 @@ function DocsSite() {
           <Tab id="ws" tab={tab} setTab={setTab} label="WS usage" count="6 channels" />
           <div style={{ flex: 1 }}></div>
           <div style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
-            last sync · 2026-05-23 dual-provider
+            last sync · 2026-05-25 ThinkCentre migration
           </div>
         </div>
       </div>
@@ -140,7 +140,7 @@ function SideNav({ tab }) {
   const sections = tab === "proxy" ? [
     { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions"] },
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
-    { title: "REST History", items: ["history/bars", "history/news"] },
+    { title: "REST History", items: ["history/bars", "history/news", "stock trade+quote"] },
     { title: "Stock Data", items: ["overview"], children: [
       { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
       { title: "Metadata", items: ["condition codes", "exchange codes"] },
@@ -181,7 +181,7 @@ function SideNav({ tab }) {
     const indent      = BASE_PAD + depth * INDENT_STEP;
 
     // Map sidebar labels to actual document IDs
-    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'history/news': 'post-v1-history-news', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
+    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
     const getId = (label) => ID_MAP[label] || slugify(label);
 
     return (
@@ -307,6 +307,11 @@ function OnThisPage({ tab }) {
 const PROXY_HOST = "52.37.182.24";
 const REST_BASE  = `http://${PROXY_HOST}:8768`;
 const TOKEN_BASE = `http://${PROXY_HOST}:3000`;
+
+// ThinkCentre direct (Tailscale mesh — same network only)
+const TC_HOST    = "100.70.107.106";
+const TC_REST    = `http://${TC_HOST}:8768`;
+const TC_FUNNEL  = "leandata.tail5a8dea.ts.net";
 
 function ParamRow({ name, type, required, desc }) {
   return (
@@ -601,14 +606,20 @@ function ProxyApiBody() {
         Once you have a token, use it to call historical and realtime endpoints without managing your own Alpaca / ThetaData credentials.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>股票期权代理包含两个服务面：Token 门户（3000端口）用于注册和签发，数据代理（8768 REST / 8767 WS）用于行情数据。</span>
       </p>
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 40 }}>
-        <thead><tr><th>Surface</th><th>URL</th><th>Auth</th></tr></thead>
+      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
+        <thead><tr><th>Surface</th><th>Public (EC2 legacy)</th><th>Tailscale direct (ThinkCentre)</th><th>Auth</th></tr></thead>
         <tbody>
-          <tr><td>Token portal</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TOKEN_BASE}</td><td style={{ fontSize: 12 }}>username + phone</td></tr>
-          <tr><td>REST data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{REST_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
-          <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{`ws://${PROXY_HOST}:8767`}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
+          <tr><td>Token portal</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TOKEN_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, color: "var(--ink-soft)" }}>same (EC2 only for now)</td><td style={{ fontSize: 12 }}>username + phone</td></tr>
+          <tr><td>REST data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{REST_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TC_REST}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
+          <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{`ws://${PROXY_HOST}:8767`}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{`ws://${TC_HOST}:8767`}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
         </tbody>
       </table>
+      <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13 }}>
+        <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Migration in progress</strong> — The data proxy is migrating from EC2 to <strong>ThinkCentre</strong> via Tailscale.
+        EC2 forwards all data traffic to ThinkCentre through Caddy reverse proxy. On the same Tailscale network, connect to ThinkCentre directly for lower latency.
+        Both addresses are live and interchangeable.
+        <br/><span style={{ color: "var(--ink-soft)" }}>数据代理正在从 EC2 迁移到 ThinkCentre。EC2 通过 Caddy 反代转发所有流量到 ThinkCentre。同一 Tailscale 网络内直连 ThinkCentre 延迟更低。两个地址均可用。</span>
+      </div>
 
       <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Authentication</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -855,6 +866,47 @@ Authorization: Bearer c88662...720a
 }`}
       </pre>
 
+      <h2 id="post-v1-stock-history-trade-quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/stock/history/trade_quote</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Combined historical trade + quote data for a single stock symbol in one call.
+        Fetches both <code>/v2/stocks/trades</code> and <code>/v2/stocks/quotes</code> from Alpaca in parallel, auto-paginates each leg, and returns them in a single response.
+        Cached server-side; repeat calls return <code>X-Cache: DISK_HIT</code>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>单只股票的合并历史成交+报价数据。并行从 Alpaca 拉取 trades 和 quotes 自动分页，单次返回。支持服务端缓存。</span>
+      </p>
+      <EndpointBadge method="POST" path={`${REST_BASE}/v1/stock/history/trade_quote`} />
+      <ParamTable rows={[
+        { name: "symbol", type: "string",  required: true,  desc: "Stock ticker (e.g. AAPL)" },
+        { name: "start",  type: "string",  required: true,  desc: "ISO 8601 datetime (e.g. 2026-05-20T13:30:00Z)" },
+        { name: "end",    type: "string",  required: true,  desc: "ISO 8601 datetime" },
+        { name: "limit",  type: "integer", required: false, desc: "Max records per leg, 1–10000 (default: 1000)" },
+        { name: "feed",   type: "string",  required: false, desc: "sip | iex (default: sip with pro account)" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -X POST ${REST_BASE}/v1/stock/history/trade_quote \\
+  -H "Authorization: Bearer ***" \\
+  -H "Content-Type: application/json" \\
+  -d '{"symbol":"AAPL","start":"2026-05-20T13:30:00Z","end":"2026-05-20T13:31:00Z","limit":3}'`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`// Response
+{
+  "symbol": "AAPL",
+  "start": "2026-05-20T13:30:00Z",
+  "end": "2026-05-20T13:31:00Z",
+  "feed": "sip",
+  "trades": [
+    { "c": ["@","I"], "i": 1301, "p": 298.44, "s": 1,
+      "t": "2026-05-20T13:30:00.002Z", "x": "K", "z": "C" }
+  ],
+  "trade_count": 156,
+  "quotes": [
+    { "ap": 298.45, "as": 200, "bp": 298.43, "bs": 500, "ax": "V", "bx": "Q",
+      "t": "2026-05-20T13:30:00.001Z", "c": ["R"], "z": "C" }
+  ],
+  "quote_count": 312
+}`}
+      </pre>
+
       {/* ── Stock Data ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Stock Data</div>
 
@@ -992,12 +1044,16 @@ curl -H "Authorization: Bearer <TOKEN>" \\
         Supports in-flight coalescing and server-side cache; repeat historical calls return <code>X-Cache: DISK_HIT</code>.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约历史 OHLCV K线。默认 ThetaData Value，必要时回退 Alpaca。支持 OCC 或股票代码自动解析，并写入服务端缓存。</span>
       </p>
+      <div style={{ background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 8, padding: "10px 14px", margin: "0 0 12px", fontSize: 12 }}>
+        <strong>{"\u26A0\uFE0F"} ThetaData Value plan limitation:</strong> Only <code>1Day</code> timeframe is available via ThetaData. Intraday timeframes (1Min, 5Min, 15Min, 1Hour) return <em>"No data found"</em> because the Value subscription does not include historical minute bars for options. Set <code>provider: "alpaca"</code> to use Alpaca for intraday option bars (data available from 2024-02-01).
+        <br/><span style={{ color: "var(--ink-soft)" }}>ThetaData Value 仅支持 1Day 日线。分钟级（1Min/5Min/15Min/1Hour）会返回"No data found"。如需分钟级期权 K 线，请指定 provider: "alpaca"（数据从 2024-02-01 起）。</span>
+      </div>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/options/bars`} />
       <ParamTable rows={[
         { name: "symbols",   type: "string",  required: true,  desc: "OCC symbol(s) comma-separated, or a stock ticker for auto-resolution" },
         { name: "start",     type: "string",  required: true,  desc: "ISO 8601 date" },
         { name: "end",       type: "string",  required: true,  desc: "ISO 8601 date" },
-        { name: "timeframe", type: "string",  required: false, desc: "1Min | 5Min | 15Min | 30Min | 1Hour | 1Day (default: 1Min)" },
+        { name: "timeframe", type: "string",  required: false, desc: "1Day only on ThetaData Value. Intraday (1Min, 5Min, 15Min, 1Hour) requires provider=\"alpaca\". Default: 1Day" },
         { name: "provider",  type: "string",  required: false, desc: "auto | thetadata | alpaca (default: auto). thetadata disables Alpaca fallback; alpaca skips ThetaData." },
         { name: "limit",     type: "integer", required: false, desc: "Bars per page, 1–10000 (default: 10000)" },
         { name: "max_pages", type: "integer", required: false, desc: "Max pagination pages (default: 100)" },
@@ -1184,6 +1240,25 @@ for row in data["data"][:5]:
   "warning": "Alpaca historical option data is available from 2024-02-01 onward."
 }`}
       </pre>
+
+      {/* ── Not Supported ── */}
+      <div style={{ background: "#f8d7da", border: "1px solid #f5c6cb", borderRadius: 8, padding: "14px 18px", margin: "48px 0 24px", fontSize: 13 }}>
+        <h3 id="not-supported-value" style={{ fontSize: 16, fontWeight: 600, margin: "0 0 8px", color: "#721c24" }}>Not supported on ThetaData Value plan</h3>
+        <p style={{ margin: "0 0 8px", color: "#721c24" }}>
+          The following endpoints are registered in the proxy but will return errors because the ThetaData Value subscription does not include them. Do not call these unless you have upgraded to Standard/Pro.
+        </p>
+        <table className="tbl" style={{ width: "100%", fontSize: 12, marginBottom: 8 }}>
+          <thead><tr><th>Endpoint</th><th>Error</th><th>Alternative</th></tr></thead>
+          <tbody>
+            <tr><td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>/v1/history/options/trade_quote</td><td>PERMISSION_DENIED — requires Standard subscription</td><td>Use /v1/history/options/trades (Alpaca) or /v3/option/history/quote (quote only)</td></tr>
+            <tr><td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>/v1/options/snapshots/market_value</td><td>ThetaData Value lacks market_value data</td><td>Use /v1/options/snapshots (Alpaca-backed, includes greeks)</td></tr>
+            <tr><td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>/v1/history/options/bars (intraday)</td><td>"No data found" for 1Min/5Min/15Min/1Hour</td><td>Use timeframe=1Day or provider="alpaca" for intraday</td></tr>
+          </tbody>
+        </table>
+        <p style={{ margin: 0, fontSize: 12, color: "#856404" }}>
+          ThetaData Value includes: EOD bars, OHLC snapshots, quote snapshots, open interest, contract lists, and historical quotes. It does <strong>not</strong> include: option trades, trade_quote, market value, implied volatility, or greeks via ThetaData. Greeks/IV are available via Alpaca snapshots.
+        </p>
+      </div>
 
       {/* ── Snapshots ── */}
       <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · Snapshots</div>
