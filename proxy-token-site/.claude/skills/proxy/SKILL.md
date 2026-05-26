@@ -14,45 +14,41 @@ This skill loads the complete architecture context for the proxy stack so you ca
 
 ## 1. Topology
 
-Two physical hosts, Tailscale mesh. **EC2 does NOT run its own cloud-proxy — it forwards everything to ThinkCentre via Caddy.**
+Dual-path active topology: Users can connect via EC2 (legacy reverse proxy) or directly via Tailscale Funnel (public HTTPS). **EC2 does NOT run its own cloud-proxy — it forwards everything to ThinkCentre via Caddy.**
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│ PUBLIC INTERNET                                                      │
-│   Users → 52.37.182.24:3000  (token portal)                          │
-│   Users → 52.37.182.24:8767  (WebSocket data)                        │
-│   Users → 52.37.182.24:8768  (REST data)                             │
-└──────────────────────┬───────────────────────────────────────────────┘
-                       ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│ EC2  ip 52.37.182.24   tailscale 100.92.160.46                       │
-│                                                                      │
-│   :3000 ─ proxy-token-site  (Express, PM2)                           │
-│           writes tokens → /home/ec2-user/cloud-proxy/users.json      │
-│           auto-SCPs users.json → ThinkCentre on approve/generate     │
-│                                                                      │
-│   :8767 ─ Caddy ──→ 100.70.107.106:8767  (WS → ThinkCentre)         │
-│   :8768 ─ Caddy ──→ 100.70.107.106:8768  (REST → ThinkCentre)       │
-│           OPTIONS preflight returns 204 locally; CORS headers added  │
-│                                                                      │
-│   (No local cloud-proxy container — killed 2026-05-23)               │
-└──────────────────────────────────────────────────────────────────────┘
-                       │ Tailscale
-                       ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│ ThinkCentre  tailscale 100.70.107.106  user: mint                    │
-│                                                                      │
-│   :8767/:8768 ─ Docker: alpaca_cloud_proxy.py                        │
-│           THE live public-facing proxy (Alpaca + ThetaData upstream) │
-│           Reads /app/users.json (volume-mounted from host)           │
-│           Source: ~/Websocket-DataFeed-Proxy/ec2-primary-backup/     │
-│                                                                      │
-│   users.json: ~/Websocket-DataFeed-Proxy/ec2-primary-backup/users.json│
-│   Disk cache: /mnt/data/cache/ (100GB budget)                        │
-└──────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│ PUBLIC INTERNET                                                                       │
+│   1. Legacy Path: Users → EC2 IP (52.37.182.24:8768 REST / 8767 WS)                   │
+│   2. Direct Funnel: Users → Tailscale Funnel (https://leandata.tail5a8dea.ts.net)      │
+│   3. Token Portal: Users → EC2 IP (52.37.182.24:3000)                                 │
+└──────────────────────────┬─────────────────────────────┬──────────────────────────────┘
+                           │                             │
+                           ▼                             │
+┌──────────────────────────────────────────────────────┐ │
+│ EC2  ip 52.37.182.24   tailscale 100.92.160.46       │ │
+│                                                      │ │
+│   :3000 ─ proxy-token-site  (Express, PM2)           │ │
+│           writes tokens → cloud-proxy/users.json     │ │
+│           auto-SCPs users.json → ThinkCentre         │ │
+│                                                      │ │
+│   :8767 ─ Caddy ──→ 100.70.107.106:8767 (WS)         │ │
+│   :8768 ─ Caddy ──→ 100.70.107.106:8768 (REST)       │ │
+└──────────────────────────┬───────────────────────────┘ │
+                           │                             │
+                           │ Tailscale                   │ Funnel
+                           ▼                             ▼
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│ ThinkCentre  tailscale 100.70.107.106  user: mint                                     │
+│                                                                                       │
+│   :8767/:8768 ─ Docker: alpaca_cloud_proxy.py (Alpaca + ThetaData upstream)          │
+│           Tailscale Funnel exposes port 8768 on https://leandata.tail5a8dea.ts.net    │
+│           Reads /app/users.json (volume-mounted from host)                            │
+│           Disk cache: /var/cache/alpaca/ (NVMe L2 hot cache)                          │
+└───────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Key rule:** "the proxy" = **ThinkCentre proxy** (public-facing). EC2 is just the front door (registration + Caddy reverse proxy).
+**Key rule:** "the proxy" = **ThinkCentre proxy** (public-facing). During migration, both path 1 (EC2) and path 2 (Direct Funnel) are live and interchangeable.
 
 ---
 

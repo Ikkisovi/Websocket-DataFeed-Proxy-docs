@@ -25,9 +25,17 @@ from typing import Optional, Dict, Any
 from functools import partial
 
 # --- Configuration ---
-CACHE_BASE_DIR = os.getenv("DISK_CACHE_DIR", "/mnt/data/cache")
-CACHE_MAX_GB = float(os.getenv("DISK_CACHE_MAX_GB", "100"))
+# Hot tier: NVMe-backed, 30G LRU. Archive tier (HDD, human-readable) lives in
+# archive_writer.py and is written async after each successful hot-tier put.
+CACHE_BASE_DIR = os.getenv("DISK_CACHE_DIR", "/var/cache/alpaca")
+CACHE_MAX_GB = float(os.getenv("DISK_CACHE_MAX_GB", "30"))
 CACHE_CLEANUP_INTERVAL = int(os.getenv("DISK_CACHE_CLEANUP_INTERVAL", "3600"))  # seconds
+
+try:
+    from archive_writer import archive_write as _archive_write
+except Exception:
+    async def _archive_write(*_a, **_kw):
+        return None
 
 # TTL tiers (seconds)
 TTL_HISTORICAL = 7 * 86400     # 7 days — past market data is immutable
@@ -105,16 +113,37 @@ def compute_ttl(endpoint: str, params: dict) -> int:
     return TTL_HISTORICAL
 
 
-def generate_disk_key(endpoint: str, params: dict) -> str:
-    """Deterministic cache key from endpoint + normalized params.
-    
+# Endpoints where SIP and IEX bars converge for closed-market data and the
+# picker is already allowed to route to free keys (end ≤ now − 16min). For
+# these we share one cache namespace across feeds — the nightly warmer
+# reconciles any drift by overwriting IEX-served entries with SIP.
+# Live endpoints (snapshots, latest, options indicative) stay namespaced.
+SHARED_CACHE_FEED_ENDPOINTS = {
+    "/v1/history/bars",
+    "/v2/stocks/bars",
+    "/v1/history/news",
+    "/v1beta1/news",
+}
+
+
+def generate_disk_key(endpoint: str, params: dict, feed_class: str = "unknown") -> str:
+    """Deterministic cache key from endpoint + normalized params + feed_class.
+
     Strips user-specific fields (token, user_id, auth).
+
+    feed_class identifies which Alpaca feed served this data — "sip" / "iex" /
+    "delayed_sip" / "indicative" / "opra". For most endpoints SIP and IEX
+    have meaningfully different bid/ask values and must not collide. For the
+    historical-bars/news family (SHARED_CACHE_FEED_ENDPOINTS) we collapse the
+    namespace — see note above.
     """
     cacheable = {
         k: v for k, v in sorted(params.items())
         if k not in ("token", "user_id", "auth", "api_key", "api_secret")
     }
     payload = f"{endpoint}:{json.dumps(cacheable, sort_keys=True, separators=(',', ':'))}"
+    if endpoint not in SHARED_CACHE_FEED_ENDPOINTS and feed_class and feed_class != "unknown":
+        payload = f"{payload}:feed={feed_class}"
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
@@ -128,24 +157,27 @@ def _meta_path(key: str) -> Path:
     return Path(CACHE_BASE_DIR) / key[:2] / f"{key}.meta"
 
 
-def _write_cache_sync(key: str, data: bytes, ttl: int):
+def _write_cache_sync(key: str, data: bytes, ttl: int, served_by: str = "unknown"):
     """Synchronous write — called via run_in_executor."""
     import gzip
     path = _cache_path(key)
     meta = _meta_path(key)
     path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Write compressed data
     with open(path, "wb") as f:
-        f.write(gzip.compress(data, compresslevel=6))
-    
-    # Write metadata
+        f.write(gzip.compress(data, compresslevel=1))
+
+    # Write metadata — `served_by` records which Alpaca feed produced the
+    # cached bytes (sip/iex/...). The warmer reads this to find IEX-served
+    # historical bars and overwrite them with the SIP version overnight.
     meta_data = {
         "created_at": time.time(),
         "expires_at": time.time() + ttl,
         "ttl": ttl,
         "size_bytes": len(data),
         "compressed_bytes": path.stat().st_size,
+        "served_by": served_by,
     }
     with open(meta, "w") as f:
         json.dump(meta_data, f)
@@ -247,9 +279,9 @@ class DiskCache:
         self._cleanup_task = None
         self._stats = {"hits": 0, "misses": 0, "writes": 0, "errors": 0}
     
-    async def get(self, endpoint: str, params: dict) -> Optional[dict]:
+    async def get(self, endpoint: str, params: dict, feed_class: str = "unknown") -> Optional[dict]:
         """Get cached response. Returns None on miss."""
-        key = generate_disk_key(endpoint, params)
+        key = generate_disk_key(endpoint, params, feed_class)
         loop = asyncio.get_event_loop()
         try:
             data = await loop.run_in_executor(None, _read_cache_sync, key)
@@ -263,23 +295,25 @@ class DiskCache:
             print(f"[DiskCache] Get error: {e}")
             return None
     
-    async def put(self, endpoint: str, params: dict, response: dict):
-        """Store response in disk cache (non-blocking)."""
-        key = generate_disk_key(endpoint, params)
+    async def put(self, endpoint: str, params: dict, response: dict, feed_class: str = "unknown"):
+        """Store response in hot disk cache (non-blocking) + schedule async archive write."""
+        key = generate_disk_key(endpoint, params, feed_class)
         ttl = compute_ttl(endpoint, params)
         data = json.dumps(response, separators=(",", ":")).encode()
         loop = asyncio.get_event_loop()
         try:
-            await loop.run_in_executor(None, _write_cache_sync, key, data, ttl)
+            await loop.run_in_executor(None, _write_cache_sync, key, data, ttl, feed_class)
             self._stats["writes"] += 1
         except Exception as e:
             self._stats["errors"] += 1
             print(f"[DiskCache] Put error: {e}")
+        # Fire-and-forget archive dual-write (HDD, human-readable, durable)
+        loop.create_task(_archive_write(endpoint, params, response))
     
-    def put_nowait(self, endpoint: str, params: dict, response: dict):
+    def put_nowait(self, endpoint: str, params: dict, response: dict, feed_class: str = "unknown"):
         """Fire-and-forget cache write."""
         loop = asyncio.get_event_loop()
-        loop.create_task(self.put(endpoint, params, response))
+        loop.create_task(self.put(endpoint, params, response, feed_class))
     
     def get_stats(self) -> dict:
         """Return cache stats."""

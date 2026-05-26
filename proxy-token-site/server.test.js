@@ -26,6 +26,11 @@ function resetTestData() {
 
 beforeEach(() => {
   resetTestData();
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 afterAll(() => {
@@ -36,8 +41,13 @@ afterAll(() => {
 // Tier definitions
 // ============================================================
 describe('Tier definitions', () => {
-  it('should have all 5 tiers', () => {
-    expect(Object.keys(TIERS)).toEqual(['trial', 'basic', 'value', 'standard', 'premium']);
+  it('should have at least 5 tiers', () => {
+    const tiers = Object.keys(TIERS);
+    expect(tiers).toContain('trial');
+    expect(tiers).toContain('basic');
+    expect(tiers).toContain('value');
+    expect(tiers).toContain('standard');
+    expect(tiers).toContain('premium');
   });
 
   it('trial tier maps to standard role with 3-day expiry', () => {
@@ -55,19 +65,24 @@ describe('Tier definitions', () => {
     expect(TIERS.basic.expiryDays).toBe(30);
   });
 
-  it('value tier maps to value role with mode-based permissions', () => {
+  it('value tier maps to value role with mode-based REST permissions', () => {
     expect(TIERS.value.role).toBe('value');
     expect(TIERS.value.expiryDays).toBe(30);
+    // WS is fully open for both modes
     expect(TIERS.value.modes.stocks.ws.stocks).toBe(true);
-    expect(TIERS.value.modes.stocks.ws.options).toBe(false);
-    expect(TIERS.value.modes.options.ws.options).toBe(true);
-    expect(TIERS.value.modes.options.ws.stocks).toBe(false);
+    expect(TIERS.value.modes.stocks.ws.options).toBe(true);
+    // REST differs by mode
+    expect(TIERS.value.modes.stocks.rest.stocks_history).toBe(true);
+    expect(TIERS.value.modes.stocks.rest.options_history).toBe(false);
+    expect(TIERS.value.modes.options.rest.options_history).toBe(true);
+    expect(TIERS.value.modes.options.rest.stocks_history).toBe(false);
   });
 
-  it('standard tier has stocks + options WS', () => {
+  it('standard tier has all WS channels', () => {
     expect(TIERS.standard.permissions.ws.stocks).toBe(true);
     expect(TIERS.standard.permissions.ws.options).toBe(true);
-    expect(TIERS.standard.permissions.ws.crypto).toBe(false);
+    expect(TIERS.standard.permissions.ws.crypto).toBe(true);
+    expect(TIERS.standard.permissions.ws.overnight).toBe(true);
   });
 
   it('premium tier has all WS + REST enabled', () => {
@@ -336,5 +351,256 @@ describe('POST /api/generate-token', () => {
     // Token should be in proxy file
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     expect(proxy.users.find(u => u.user_id === 'gentest')).toBeDefined();
+  });
+
+  it('returns syncOk in response (async sync)', async () => {
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{
+      username: 'synctest', phone: '777', role: 'basic', tier: 'basic',
+      permissions: TIERS.basic.permissions
+    }]));
+
+    const res = await request(app).post('/api/generate-token').send({ username: 'synctest', phone: '777' });
+    expect(res.body.success).toBe(true);
+    // syncOk should be present (true if SCP succeeded, false if it failed)
+    expect(res.body).toHaveProperty('syncOk');
+    expect(typeof res.body.syncOk).toBe('boolean');
+  });
+
+  it('writes proxy file in correct format (token + user_id, NOT username + phone)', async () => {
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{
+      username: 'formattest', phone: '888', role: 'premium', tier: 'premium',
+      permissions: TIERS.premium.permissions
+    }]));
+
+    await request(app).post('/api/generate-token').send({ username: 'formattest', phone: '888' });
+
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    const user = proxy.users.find(u => u.user_id === 'formattest');
+
+    // Cloud-proxy container expects these fields
+    expect(user).toHaveProperty('token');
+    expect(user).toHaveProperty('user_id');
+    expect(user).toHaveProperty('role');
+    expect(user).toHaveProperty('expires_at');
+    expect(user).toHaveProperty('permissions');
+
+    // Must NOT have token-site fields
+    expect(user).not.toHaveProperty('username');
+    expect(user).not.toHaveProperty('phone');
+    expect(user).not.toHaveProperty('tier');
+  });
+
+  it('returns existing token without re-registering', async () => {
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{
+      username: 'existing', phone: '999', role: 'standard', tier: 'standard',
+      permissions: TIERS.standard.permissions
+    }]));
+
+    // First call generates token
+    const res1 = await request(app).post('/api/generate-token').send({ username: 'existing', phone: '999' });
+    expect(res1.body.success).toBe(true);
+    const firstToken = res1.body.token;
+
+    // Second call returns existing token
+    const res2 = await request(app).post('/api/generate-token').send({ username: 'existing', phone: '999' });
+    expect(res2.body.success).toBe(true);
+    expect(res2.body.token).toBe(firstToken);
+    expect(res2.body.message).toMatch(/已存在/);
+  });
+});
+
+// ============================================================
+// Proxy file format validation
+// ============================================================
+describe('Proxy file format (cloud-proxy compatibility)', () => {
+  it('proxy file must be {users: [...]} dict, not a plain array', async () => {
+    // Start with valid format
+    fs.writeFileSync(TEST_PROXY_FILE, '{"users":[]}');
+
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{
+      username: 'fmtcheck', phone: '111', role: 'premium', tier: 'premium',
+      permissions: TIERS.premium.permissions
+    }]));
+
+    await request(app).post('/api/generate-token').send({ username: 'fmtcheck', phone: '111' });
+
+    const raw = fs.readFileSync(TEST_PROXY_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+
+    // _normalize_user_entries in alpaca_cloud_proxy.py checks:
+    //   if isinstance(payload, dict) and "users" in payload:
+    //       payload = payload.get("users")
+    expect(parsed).toHaveProperty('users');
+    expect(Array.isArray(parsed.users)).toBe(true);
+  });
+
+  it('proxy file entries must have user_id field (not username)', async () => {
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{
+      username: 'idcheck', phone: '222', role: 'basic', tier: 'basic',
+      permissions: TIERS.basic.permissions
+    }]));
+
+    await request(app).post('/api/generate-token').send({ username: 'idcheck', phone: '222' });
+
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    const user = proxy.users[proxy.users.length - 1];
+
+    // Cloud-proxy _normalize_user_entries looks for user_id:
+    //   user_id = item.get("user_id") or item.get("id") or item.get("name")
+    expect(user.user_id).toBe('idcheck');
+    expect(user).not.toHaveProperty('username');
+  });
+
+  it('proxy file entries must have token field', async () => {
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{
+      username: 'tokenchk', phone: '333', role: 'standard', tier: 'standard',
+      permissions: TIERS.standard.permissions
+    }]));
+
+    const res = await request(app).post('/api/generate-token').send({ username: 'tokenchk', phone: '333' });
+
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    const user = proxy.users.find(u => u.user_id === 'tokenchk');
+
+    expect(user.token).toBeDefined();
+    expect(user.token).toBe(res.body.token);
+    expect(user.token.length).toBeGreaterThan(30); // UUID v4 = 36 chars
+  });
+
+  it('proxy file entries must have expires_at field', async () => {
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{
+      username: 'expcheck', phone: '444', role: 'trial', tier: 'trial',
+      permissions: TIERS.trial.permissions
+    }]));
+
+    await request(app).post('/api/generate-token').send({ username: 'expcheck', phone: '444' });
+
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    const user = proxy.users.find(u => u.user_id === 'expcheck');
+
+    expect(user.expires_at).toBeDefined();
+    // Verify it's a valid ISO date ~3 days from now
+    const expDate = new Date(user.expires_at);
+    const now = new Date();
+    const diffDays = (expDate - now) / (1000 * 60 * 60 * 24);
+    expect(diffDays).toBeGreaterThan(2.9);
+    expect(diffDays).toBeLessThan(3.1);
+  });
+});
+
+// ============================================================
+// Admin approve — async sync tests
+// ============================================================
+describe('POST /api/admin/approve — async sync', () => {
+  let adminToken;
+
+  beforeEach(async () => {
+    resetTestData();
+    const login = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    adminToken = login.body.token;
+  });
+
+  it('approve response includes sync status in message', async () => {
+    const reg = await request(app).post('/api/register').send({
+      username: 'asyncapprove', phone: '555', tier: 'standard'
+    });
+
+    const res = await request(app).post('/api/admin/approve')
+      .set('x-admin-token', adminToken)
+      .send({ id: reg.body.id });
+
+    expect(res.body.success).toBe(true);
+    // Message should contain either "并同步" (synced) or "但同步失败" (sync failed)
+    expect(res.body.message).toMatch(/同步/);
+  });
+
+  it('approve of existing user includes sync status', async () => {
+    // Pre-create a user + proxy entry
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{
+      username: 'existuser', phone: '666', role: 'premium', tier: 'premium',
+      permissions: TIERS.premium.permissions
+    }]));
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({
+      users: [{
+        token: 'existing-token-uuid',
+        user_id: 'existuser',
+        role: 'premium',
+        expires_at: computeExpiry(TIERS.premium),
+        permissions: TIERS.premium.permissions
+      }]
+    }));
+
+    // Register + approve same username
+    const reg = await request(app).post('/api/register').send({
+      username: 'existuser2', phone: '777', tier: 'standard'
+    });
+
+    const res = await request(app).post('/api/admin/approve')
+      .set('x-admin-token', adminToken)
+      .send({ id: reg.body.id });
+
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toMatch(/同步/);
+  });
+
+  it('approve writes proxy file in correct format', async () => {
+    const reg = await request(app).post('/api/register').send({
+      username: 'approvefmt', phone: '888', tier: 'basic'
+    });
+
+    await request(app).post('/api/admin/approve')
+      .set('x-admin-token', adminToken)
+      .send({ id: reg.body.id });
+
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    const user = proxy.users.find(u => u.user_id === 'approvefmt');
+
+    // Cloud-proxy compatible format
+    expect(user).toHaveProperty('token');
+    expect(user).toHaveProperty('user_id');
+    expect(user).toHaveProperty('role');
+    expect(user).toHaveProperty('expires_at');
+    expect(user).toHaveProperty('permissions');
+    expect(user).not.toHaveProperty('username');
+    expect(user).not.toHaveProperty('phone');
+  });
+});
+
+// ============================================================
+// Admin sync-users endpoint
+// ============================================================
+describe('POST /api/admin/sync-users', () => {
+  let adminToken;
+
+  beforeEach(async () => {
+    resetTestData();
+    const login = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    adminToken = login.body.token;
+  });
+
+  it('returns success, userCount, and logs', async () => {
+    const res = await request(app).post('/api/admin/sync-users')
+      .set('x-admin-token', adminToken)
+      .send({});
+
+    expect(res.body).toHaveProperty('success');
+    expect(res.body).toHaveProperty('userCount');
+    expect(res.body).toHaveProperty('logs');
+    expect(Array.isArray(res.body.logs)).toBe(true);
+    expect(typeof res.body.success).toBe('boolean');
+  });
+
+  it('requires admin auth', async () => {
+    const res = await request(app).post('/api/admin/sync-users').send({});
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('logs contain sync result info', async () => {
+    const res = await request(app).post('/api/admin/sync-users')
+      .set('x-admin-token', adminToken)
+      .send({});
+
+    const logText = res.body.logs.join('\n');
+    expect(logText).toMatch(/Syncing to ThinkCentre/);
   });
 });

@@ -26,9 +26,10 @@ const THINKCENTRE_USERS_PATH = process.env.THINKCENTRE_USERS_PATH || '/home/mint
 
 // --- Service tier definitions ---
 // Roles map to cloud proxy RateLimiter:
-//   basic:    REST 10/min, WS 10 symbols
-//   standard: REST 60/min, WS 100 symbols  (was "limited_premium")
-//   premium:  REST 300/min, WS 500 symbols
+//   basic:    REST 600/min  (10 req/s),  WS 10 symbols
+//   value:    REST 1800/min (30 req/s),  WS 30 symbols  (REST-heavy mid-tier)
+//   standard: REST 1800/min (30 req/s),  WS 100 symbols  (was "limited_premium")
+//   premium:  REST 6000/min (100 req/s), WS 500 symbols
 const TIERS = {
   trial: {
     role: 'standard',
@@ -80,6 +81,16 @@ const TIERS = {
       ws: { stocks: true, options: true, overnight: true, crypto: true, news: true, boats: true, test: true },
       rest: { stocks_history: true, options_history: true, options_contracts: true, options_snapshots: true, options_snapshots_expiry: true, crypto_orderbooks: true, admin_token_lookup: false, news_history: true }
     }
+  },
+  // Internal load-test tier — short expiry, high per-user limits. Marked
+  // with test_user:true so the warmer/analytics filter these out of audit.
+  test: {
+    role: 'test',
+    expiryDays: 1,
+    permissions: {
+      ws: { stocks: true, options: true, overnight: true, crypto: true, news: true, boats: true, test: true },
+      rest: { stocks_history: true, options_history: true, options_contracts: true, options_snapshots: true, options_snapshots_expiry: true, crypto_orderbooks: true, admin_token_lookup: false, news_history: true }
+    }
   }
 };
 
@@ -110,6 +121,10 @@ function requireAdmin(req, res, next) {
  * Fire-and-forget: logs errors but does not block the response.
  */
 function syncToThinkCentre() {
+  if (THINKCENTRE_HOST === 'localhost' || THINKCENTRE_HOST === '127.0.0.1' || process.env.BYPASS_SYNC === 'true') {
+    console.log('[Sync] Bypass SCP sync because we are on localhost or BYPASS_SYNC=true');
+    return;
+  }
   execFile('scp', [
     '-o', 'StrictHostKeyChecking=no',
     '-o', 'ConnectTimeout=5',
@@ -128,6 +143,10 @@ function syncToThinkCentre() {
  * Promise-based sync to ThinkCentre. Returns {ok, message}.
  */
 function syncToThinkCentreAsync() {
+  if (THINKCENTRE_HOST === 'localhost' || THINKCENTRE_HOST === '127.0.0.1' || process.env.BYPASS_SYNC === 'true') {
+    console.log('[Sync] Bypass SCP sync because we are on localhost or BYPASS_SYNC=true');
+    return Promise.resolve({ ok: true, message: 'Bypassed sync (running locally)' });
+  }
   return new Promise((resolve) => {
     execFile('scp', [
       '-o', 'StrictHostKeyChecking=no',
@@ -152,6 +171,12 @@ function syncToThinkCentreAsync() {
 function writeProxyUsersAndSync(data) {
   writeJSON(PROXY_USERS_FILE, data);
   syncToThinkCentre();
+}
+
+async function writeProxyUsersAndSyncAsync(data) {
+  writeJSON(PROXY_USERS_FILE, data);
+  const result = await syncToThinkCentreAsync();
+  return result;
 }
 
 /**
@@ -292,7 +317,7 @@ app.get('/api/admin/all', requireAdmin, (req, res) => {
 // ============================================================
 // ADMIN: Approve a registration
 // ============================================================
-app.post('/api/admin/approve', requireAdmin, (req, res) => {
+app.post('/api/admin/approve', requireAdmin, async (req, res) => {
   const { id } = req.body;
   if (!id) return res.status(400).json({ success: false, message: 'Missing id.' });
 
@@ -331,8 +356,8 @@ app.post('/api/admin/approve', requireAdmin, (req, res) => {
 
     const existing = proxyData.users.find(u => u.user_id === entry.username);
     if (existing) {
-      syncToThinkCentre();
-      return res.json({ success: true, message: `已批准 ${entry.username}，Token 已存在。`, token: existing.token, expiry: existing.expires_at });
+      const syncResult = await syncToThinkCentreAsync();
+      return res.json({ success: true, message: `已批准 ${entry.username}，Token 已存在${syncResult.ok ? '并已同步' : '但同步失败: ' + syncResult.message}。`, token: existing.token, expiry: existing.expires_at });
     }
 
     const token = crypto.randomUUID();
@@ -344,14 +369,15 @@ app.post('/api/admin/approve', requireAdmin, (req, res) => {
       user_id: entry.username,
       role: tierConfig.role,
       expires_at: expiresAt,
-      permissions: perms
+      permissions: perms,
+      ...(entry.tier === 'test' && { test_user: true })
     });
 
-    writeProxyUsersAndSync(proxyData);
+    const syncResult = await writeProxyUsersAndSyncAsync(proxyData);
 
     return res.json({
       success: true,
-      message: `已批准 ${entry.username}，Token 已注册并同步到数据服务。`,
+      message: `已批准 ${entry.username}，Token 已注册${syncResult.ok ? '并同步到数据服务' : '但同步失败: ' + syncResult.message}。`,
       token,
       expiry: expiresAt
     });
@@ -458,9 +484,9 @@ app.post('/api/generate-token', async (req, res) => {
     proxyData.users = proxyData.users.filter(u => u.user_id !== validCustomer.username);
     proxyData.users.push(newProxyUser);
 
-    writeProxyUsersAndSync(proxyData);
+    const syncResult = await writeProxyUsersAndSyncAsync(proxyData);
 
-    return res.json({ success: true, token, expiry: expiresAt, role: newProxyUser.role });
+    return res.json({ success: true, token, expiry: expiresAt, role: newProxyUser.role, syncOk: syncResult.ok });
   } catch (err) {
     console.error('Error updating proxy registry:', err);
     return res.status(500).json({ success: false, message: 'Failed to register token on the data proxy server.' });

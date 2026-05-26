@@ -1,4 +1,41 @@
 services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: timescaledb
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    volumes:
+      # NVMe-backed database storage for low-latency queries
+      - /var/lib/postgresql/timescale:/var/lib/postgresql/data:rw
+      - ./init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
+    environment:
+      POSTGRES_USER: proxy
+      POSTGRES_PASSWORD: ${TIMESCALEDB_PASSWORD:-proxy123}
+      POSTGRES_DB: marketdata
+      # Performance tuning for single-node NVMe deployment
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    command: >
+      postgres
+      -c shared_buffers=2GB
+      -c effective_cache_size=6GB
+      -c maintenance_work_mem=512MB
+      -c work_mem=64MB
+      -c max_connections=200
+      -c max_wal_size=4GB
+      -c checkpoint_completion_target=0.9
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c autovacuum_max_workers=4
+      -c autovacuum_naptime=30s
+      -c max_parallel_workers_per_gather=4
+      -c max_parallel_workers=8
+      -c max_parallel_maintenance_workers=4
+    networks:
+      - proxy-net
+
   alpaca-cloud-proxy:
     build:
       context: .
@@ -10,18 +47,46 @@ services:
       - ./audit.jsonl:/app/audit.jsonl:rw
       - ./users.json:/app/users.json:rw
       - ./alpaca_cloud_proxy.py:/app/alpaca_cloud_proxy.py:ro
-      - /mnt/data/cache:/mnt/data/cache:rw
+      - ./alpaca_key_pool.py:/app/alpaca_key_pool.py:ro
+      - ./disk_cache.py:/app/disk_cache.py:ro
+      - ./archive_writer.py:/app/archive_writer.py:ro
+      - ./db_manager.py:/app/db_manager.py:ro
+      # Hot tier: NVMe, 30G LRU, opaque keys
+      - /var/cache/alpaca:/var/cache/alpaca:rw
+      # Archive tier: HDD, human-readable, durable (subdir of legacy /mnt/data/cache mount)
+      - /mnt/data/cache/archive:/mnt/data/archive:rw
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
+    depends_on:
+      - timescaledb
+    networks:
+      - proxy-net
     environment:
       - IS_LIVE=false
       - IS_PRO=true
       - ALPACA_MASTER_KEY=${ALPACA_MASTER_KEY}
       - ALPACA_MASTER_SECRET=${ALPACA_MASTER_SECRET}
+      - ALPACA_FREE_KEY_1=${ALPACA_FREE_KEY_1}
+      - ALPACA_FREE_SECRET_1=${ALPACA_FREE_SECRET_1}
+      - ALPACA_FREE_KEY_1_LIMIT=200
+      - ALPACA_FREE_KEY_2=${ALPACA_FREE_KEY_2}
+      - ALPACA_FREE_SECRET_2=${ALPACA_FREE_SECRET_2}
+      - ALPACA_FREE_KEY_2_LIMIT=200
+      - ALPACA_FREE_KEY_3=${ALPACA_FREE_KEY_3}
+      - ALPACA_FREE_SECRET_3=${ALPACA_FREE_SECRET_3}
+      - ALPACA_FREE_KEY_3_LIMIT=200
+      - ALPACA_FREE_KEY_4=${ALPACA_FREE_KEY_4}
+      - ALPACA_FREE_SECRET_4=${ALPACA_FREE_SECRET_4}
+      - ALPACA_FREE_KEY_4_LIMIT=200
+      - ALPACA_FREE_KEY_5=${ALPACA_FREE_KEY_5}
+      - ALPACA_FREE_SECRET_5=${ALPACA_FREE_SECRET_5}
+      - ALPACA_FREE_KEY_5_LIMIT=200
       - ALPACA_PROXY_TOKEN=${ALPACA_PROXY_TOKEN}
       - PROXY_USERS_PATH=/app/users.json
       - ALLOW_SINGLE_TENANT_FALLBACK=${ALLOW_SINGLE_TENANT_FALLBACK:-true}
       - ALPACA_OPTIONS_FEED=${ALPACA_OPTIONS_FEED:-opra}
-      - ALPACA_TEST_STREAM_URL=${ALPACA_TEST_STREAM_URL:-wss://stream.data.alpaca.markets/v2/test}
+      - ALPACA_TEST_STREAM_URL=${ALPACA_TEST_STREAM_URL:-ws://host.docker.internal:8790}
       - ALPACA_CRYPTO_STREAM_URL=${ALPACA_CRYPTO_STREAM_URL:-wss://stream.data.alpaca.markets/v1beta3/crypto/us}
       - ALPACA_BOATS_STREAM_URL=${ALPACA_BOATS_STREAM_URL:-wss://stream.data.alpaca.markets/v1beta1/boats}
       - ALPACA_OVERNIGHT_STREAM_URL=${ALPACA_OVERNIGHT_STREAM_URL:-wss://stream.data.alpaca.markets/v1beta1/overnight}
@@ -30,5 +95,18 @@ services:
       - DEBUG_LOG_PATH=/tmp/cloud-proxy-debug.log
       - USAGE_LOG_PATH=/app/audit.jsonl
       - USAGE_LOG_REQUIRED=true
-      - DISK_CACHE_DIR=/mnt/data/cache
-      - DISK_CACHE_MAX_GB=100
+      - DISK_CACHE_DIR=/var/cache/alpaca
+      - DISK_CACHE_MAX_GB=30
+      - ARCHIVE_DIR=/mnt/data/archive
+      - ARCHIVE_ENABLED=true
+      # TimescaleDB connection
+      - TIMESCALEDB_HOST=timescaledb
+      - TIMESCALEDB_PORT=5432
+      - TIMESCALEDB_USER=proxy
+      - TIMESCALEDB_PASSWORD=${TIMESCALEDB_PASSWORD:-proxy123}
+      - TIMESCALEDB_DB=marketdata
+      - DB_ENABLED=${DB_ENABLED:-false}
+
+networks:
+  proxy-net:
+    driver: bridge

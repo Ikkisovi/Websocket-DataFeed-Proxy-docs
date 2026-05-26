@@ -1,6 +1,21 @@
 import asyncio
 import json
 import os
+try:
+    import orjson as _orjson
+    # orjson is 3-10x faster than stdlib json; used in hot paths only.
+    # Returns bytes from dumps and accepts bytes/str/memoryview in loads.
+    def _fast_loads(data):
+        if isinstance(data, str):
+            return _orjson.loads(data.encode())
+        return _orjson.loads(data)
+    def _fast_dumps_str(obj) -> str:
+        return _orjson.dumps(obj).decode()
+except Exception:
+    _orjson = None
+    _fast_loads = json.loads
+    def _fast_dumps_str(obj) -> str:
+        return json.dumps(obj, separators=(",", ":"))
 import secrets
 import time
 from pathlib import Path
@@ -28,6 +43,28 @@ try:
 except ImportError:
     get_disk_cache = None
     _disk_cache = None
+
+# === TimescaleDB Manager (数据库优先架构) ===
+try:
+    from db_manager import (
+        get_db_pool, close_db_pool, query_bars, query_options_bars,
+        insert_bars_batch, insert_options_bars_batch,
+        upsert_latest_quote, upsert_latest_options_quote,
+        check_bars_coverage, get_db_stats,
+    )
+    DB_MANAGER_AVAILABLE = True
+except ImportError:
+    DB_MANAGER_AVAILABLE = False
+    get_db_pool = None
+    close_db_pool = None
+    query_bars = None
+    query_options_bars = None
+    insert_bars_batch = None
+    insert_options_bars_batch = None
+    upsert_latest_quote = None
+    upsert_latest_options_quote = None
+    check_bars_coverage = None
+    get_db_stats = None
 
 async def get_disk_cache_instance():
     global _disk_cache
@@ -303,6 +340,7 @@ SEND_TIMEOUT_SECONDS = float(os.getenv("SEND_TIMEOUT_SECONDS", "1.5"))
 SEND_QUEUE_MAX = int(os.getenv("SEND_QUEUE_MAX", "200"))
 OPTIONS_FEED = os.getenv("ALPACA_OPTIONS_FEED", "opra" if IS_PRO else "indicative").lower()
 DEBUG_LOG_PATH = os.getenv("DEBUG_LOG_PATH", "/tmp/cloud-proxy-debug.log")
+DEBUG_LOG_ENABLED = os.getenv("DEBUG_LOG_ENABLED", "false").lower() in ("1", "true", "yes")
 
 if IS_LIVE:
     TRADING_URL = "https://api.alpaca.markets"
@@ -669,8 +707,41 @@ def _normalize_user_entries(payload):
     raise RuntimeError("Invalid users payload")
 
 
+_last_registry_mtime = 0.0
+_user_registry_lock = asyncio.Lock()
+
+async def watch_user_registry_loop():
+    """Background task that checks users.json for external modifications asynchronously."""
+    global _last_registry_mtime, token_to_principal
+    users_path = (os.getenv("PROXY_USERS_PATH") or "").strip()
+    if not users_path:
+        return
+        
+    loop = asyncio.get_event_loop()
+    while True:
+        await asyncio.sleep(5)  # Check every 5 seconds
+        try:
+            # Check file mtime in the background thread executor (fully non-blocking)
+            mtime = await loop.run_in_executor(None, os.path.getmtime, users_path)
+            
+            async with _user_registry_lock:
+                if mtime != _last_registry_mtime:
+                    print(f"[Auth] users.json modified externally, reloading registry (mtime={mtime})", flush=True)
+                    def read_and_parse():
+                        with open(users_path, "r", encoding="utf-8") as handle:
+                            return json.load(handle)
+                            
+                    payload = await loop.run_in_executor(None, read_and_parse)
+                    token_to_principal = _normalize_user_entries(payload)
+                    _last_registry_mtime = mtime
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            # Ignore and retry (e.g. if file is temporarily locked or not yet created)
+            pass
+
 def load_user_registry():
-    global token_to_principal, user_registry_source, user_registry_path
+    global token_to_principal, user_registry_source, user_registry_path, _last_registry_mtime
 
     users_json = (os.getenv("PROXY_USERS_JSON") or "").strip()
     users_path = (os.getenv("PROXY_USERS_PATH") or "").strip()
@@ -678,6 +749,8 @@ def load_user_registry():
         print("[Cloud] PROXY_USERS_JSON set; ignoring PROXY_USERS_PATH", flush=True)
 
     if users_json:
+        if token_to_principal and user_registry_source == "PROXY_USERS_JSON":
+            return token_to_principal
         try:
             payload = json.loads(users_json)
         except Exception as exc:
@@ -693,35 +766,43 @@ def load_user_registry():
         return token_to_principal
 
     if users_path:
-        try:
-            with open(users_path, "r", encoding="utf-8") as handle:
-                payload = json.load(handle)
-        except Exception as exc:
-            if is_fallback_enabled() and _ignore_users_and_fallback():
-                token_to_principal = {}
-                user_registry_source = "fallback"
-                user_registry_path = None
-                return token_to_principal
-            raise RuntimeError("Invalid PROXY_USERS_PATH") from exc
-        token_to_principal = _normalize_user_entries(payload)
-        user_registry_source = "PROXY_USERS_PATH"
-        user_registry_path = users_path
+        # Initial synchronous load on startup if not already loaded
+        if not token_to_principal or user_registry_source != "PROXY_USERS_PATH":
+            try:
+                with open(users_path, "r", encoding="utf-8") as handle:
+                    payload = json.load(handle)
+                token_to_principal = _normalize_user_entries(payload)
+                user_registry_source = "PROXY_USERS_PATH"
+                user_registry_path = users_path
+                _last_registry_mtime = os.path.getmtime(users_path)
+            except Exception as exc:
+                if is_fallback_enabled() and _ignore_users_and_fallback():
+                    token_to_principal = {}
+                    user_registry_source = "fallback"
+                    user_registry_path = None
+                    return token_to_principal
+                raise RuntimeError("Invalid PROXY_USERS_PATH") from exc
+        
+        # Subsequent calls are 100% in-memory and super fast
         return token_to_principal
 
     token_to_principal = {}
     user_registry_source = None
     user_registry_path = None
+    _last_registry_mtime = 0.0
     return token_to_principal
 
 
 def reset_user_registry_state():
-    global token_to_principal, user_registry_source, user_registry_path
+    global token_to_principal, user_registry_source, user_registry_path, _last_registry_mtime
     token_to_principal = {}
     user_registry_source = None
     user_registry_path = None
+    _last_registry_mtime = 0.0
 
 
 def persist_user_registry():
+    global _last_registry_mtime
     if not user_registry_path:
         raise RuntimeError("User registry is not file-backed")
     registry_path = Path(user_registry_path)
@@ -743,6 +824,12 @@ def persist_user_registry():
         encoding="utf-8",
     )
     temp_path.replace(registry_path)
+    
+    # Safely update _last_registry_mtime to bypass the background reloader
+    try:
+        _last_registry_mtime = os.path.getmtime(user_registry_path)
+    except Exception:
+        _last_registry_mtime = time.time()
 
 
 def find_token_for_user_id(user_id: str):
@@ -842,6 +929,24 @@ def log_http_usage(endpoint: str, user_id, status: int, start_time: float, extra
         event.update(extra)
     enqueue_usage_event(event)
 
+
+def respond_cached_raw(cached, endpoint, user_id, start_time, extra=None, cache_status="HIT"):
+    """Return a cached JSON payload (already serialized) as the HTTP response
+    without parse+re-encode. Major win on cache HIT hot path."""
+    log_http_usage(endpoint, user_id, 200, start_time, extra)
+    if isinstance(cached, bytes):
+        body = cached
+    elif isinstance(cached, str):
+        body = cached.encode()
+    else:
+        body = _fast_dumps_str(cached).encode()
+    return web.Response(
+        body=body,
+        status=200,
+        content_type="application/json",
+        headers={"X-Cache": cache_status},
+    )
+
 usage_log_queue: asyncio.Queue | None = None
 usage_log_task: asyncio.Task | None = None
 usage_log_dropped = 0
@@ -898,10 +1003,14 @@ class RateLimiter:
         if not user_id:
             return True, 0, 0
         limits = {
-            "basic": 10,
-            "value": 30,
-            "standard": 60,
-            "premium": 300,
+            "basic": 600,        # 10 req/s
+            "value": 1800,       # 30 req/s — REST-heavy mid tier (above standard, below premium)
+            "standard": 1800,    # 30 req/s
+            "premium": 6000,     # 100 req/s
+            "test": 5000,       # internal load-test role — lifted so 18 test
+                                # users × 5000/min = 90k/min can saturate the
+                                # paid key's 10k/min Alpaca limit and exercise
+                                # the multi-key pool's free overflow capacity
             "default": 30,
             "legacy": 60,
             "fallback": 1000,
@@ -930,6 +1039,7 @@ class RateLimiter:
             "value": 30,
             "standard": 100,
             "premium": 500,
+            "test": 200,        # internal load-test role
             "default": 50,
             "legacy": 100,
             "fallback": 1000,
@@ -1010,15 +1120,24 @@ async def _rest_exit():
         _rest_active_count = max(0, _rest_active_count - 1)
 
 
+_load_status_cache = {"ts": 0.0, "value": (False, False, {})}
+
 def get_rest_load_status():
-    """Returns (overloaded, critical, stats)."""
+    """Returns (overloaded, critical, stats). Cached for 1s to avoid syscall
+    storm on every REST request (psutil reads /proc/* each call)."""
+    now = time.time()
+    if now - _load_status_cache["ts"] < 1.0:
+        return _load_status_cache["value"]
     stats = get_system_stats()
     mem = stats.get("memory_percent", 0)
     load1 = stats.get("load_1min", 0)
     cpu = stats.get("cpu_percent", 0)
     critical = mem > 92 or load1 > 4.0 or cpu > 95
     overloaded = mem > 85 or load1 > 2.0 or cpu > 80
-    return overloaded, critical, stats
+    value = (overloaded, critical, stats)
+    _load_status_cache["ts"] = now
+    _load_status_cache["value"] = value
+    return value
 
 
 async def _extract_token(request) -> str | None:
@@ -1067,6 +1186,7 @@ async def stream_priority_middleware(request, handler):
                             "value": 3,
                             "standard": 5,
                             "premium": 10,
+                            "test": 200,        # internal load-test role — lifted for stress testing
                             "default": 3,
                             "legacy": 5,
                             "fallback": 100,
@@ -1123,9 +1243,13 @@ async def stream_priority_middleware(request, handler):
 
         await _rest_enter()
         try:
-            if critical:
+            # Only apply throttle sleep when there is real REST queuing —
+            # otherwise mem/load signals punish cache hits with 500ms latency
+            # for no concurrency-reduction benefit.
+            queue_pressure = current_active > max(1, REST_CONCURRENT_MAX // 2)
+            if critical and queue_pressure:
                 await asyncio.sleep(REST_CRITICAL_LATENCY_SEC)
-            elif overloaded:
+            elif overloaded and queue_pressure:
                 await asyncio.sleep(REST_OVERLOAD_LATENCY_SEC)
 
             response = await handler(request)
@@ -1203,7 +1327,11 @@ def get_system_stats() -> dict:
             "load_1min": load1,
             "load_5min": load5,
             "load_15min": load15,
-            "cpu_percent": psutil.cpu_percent(interval=0.1),
+            # interval=None: non-blocking, returns delta since last call.
+            # interval>0 calls time.sleep() and freezes the asyncio event loop —
+            # under N concurrent REST requests this serializes to N×interval of
+            # pure blocking. Seeded at startup so first call isn't 0.0.
+            "cpu_percent": psutil.cpu_percent(interval=None),
         }
     except Exception:
         return {}
@@ -1274,17 +1402,37 @@ def validate_usage_log_path_or_fail():
 async def usage_log_writer():
     if usage_log_queue is None:
         init_usage_logger()
+    # Drain the queue in batches: open() + close() per event is a syscall
+    # storm that blocks the event loop under load. Keep the file open and
+    # flush after each batch.
+    path = usage_log_path()
     while True:
         event = await usage_log_queue.get()
         if event is None:
             break
+        batch = [event]
+        # Greedy drain — collect anything else already queued (non-blocking)
+        for _ in range(255):
+            try:
+                nxt = usage_log_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            if nxt is None:
+                batch.append(None)
+                break
+            batch.append(nxt)
         try:
-            with open(usage_log_path(), "a", encoding="utf-8") as handle:
-                handle.write(json.dumps(event) + "\n")
+            with open(path, "a", encoding="utf-8") as handle:
+                for ev in batch:
+                    if ev is None:
+                        continue
+                    handle.write(json.dumps(ev) + "\n")
         except Exception as exc:
             handle_usage_log_error(exc, "writer_failed")
             if usage_log_required():
                 break
+        if batch and batch[-1] is None:
+            break
 
 
 def _is_token_expired(principal) -> bool:
@@ -1453,21 +1601,11 @@ class MemoryRedisClient:
     async def get(self, key):
         async with self._lock:
             if key not in self._cache:
-                try:
-                    with open("/tmp/cache_debug.log", "a") as f:
-                        f.write(f"[CACHE MISS] key={key[:50]}...\n")
-                except:
-                    pass
                 return None
             value, expire_at = self._cache[key]
             if time.time() > expire_at:
                 del self._cache[key]
                 return None
-            try:
-                with open("/tmp/cache_debug.log", "a") as f:
-                    f.write(f"[CACHE HIT] key={key[:50]}... len={len(value)}\n")
-            except:
-                pass
             return value
 
     async def set(self, key, value, ex=None):
@@ -1488,10 +1626,23 @@ async def get_redis_client():
     global _memory_redis_client
     if _memory_redis_client is not None:
         return _memory_redis_client
+
+    redis_url = os.getenv("REDIS_URL")
+    if redis_async is not None and redis_url:
+        try:
+            # Dynamically connect to the real running Redis container on EC2!
+            client = redis_async.from_url(redis_url, decode_responses=True)
+            await client.ping()
+            print(f"[Cache] Connected to actual Redis container at {redis_url}", flush=True)
+            _memory_redis_client = client
+            return _memory_redis_client
+        except Exception as e:
+            print(f"[Cache] Failed to connect to Redis container at {redis_url}: {e}. Falling back to MemoryRedis...", flush=True)
+
     max_size = int(os.getenv("CACHE_MAX_ENTRIES", "500"))
     ttl = int(os.getenv("CACHE_TTL_SECONDS", "300"))
     _memory_redis_client = MemoryRedisClient(max_size=max_size, default_ttl=ttl)
-    print(f"[Cache] MemoryRedis initialized: max_size={max_size}, ttl={ttl}s")
+    print(f"[Cache] MemoryRedis initialized: max_size={max_size}, ttl={ttl}s", flush=True)
     return _memory_redis_client
 
 
@@ -1512,6 +1663,8 @@ def unpack_message(message):
 
 
 def debug_log(message, data, hypothesis_id, run_id="run1"):
+    if not DEBUG_LOG_ENABLED:
+        return
     payload = {
         "sessionId": "debug-session",
         "runId": run_id,
@@ -1826,19 +1979,23 @@ async def connect_alpaca_overnight():
         return ws
 
 
-async def connect_alpaca_options():
+async def connect_alpaca_options(key: str = None, secret: str = None, label: str = "paid"):
     global alpaca_options_ws
-    if alpaca_options_ws is not None:
-        return alpaca_options_ws
+    
+    key = key or ALPACA_MASTER_KEY
+    secret = secret or ALPACA_MASTER_SECRET
 
-    if not ALPACA_MASTER_KEY or not ALPACA_MASTER_SECRET:
-        raise RuntimeError("Missing ALPACA_MASTER_KEY/ALPACA_MASTER_SECRET for cloud collector.")
+    if label == "paid" and alpaca_options_ws is not None:
+        return alpaca_options_ws, label
+
+    if not key or not secret:
+        raise RuntimeError(f"Missing key/secret for Alpaca Options WS (label={label}).")
 
     async with alpaca_options_lock:
-        if alpaca_options_ws is not None:
-            return alpaca_options_ws
+        if label == "paid" and alpaca_options_ws is not None:
+            return alpaca_options_ws, label
 
-        print(f"[Cloud] Connecting to Alpaca Options: {OPTIONS_STREAM_URL}")
+        print(f"[Cloud] Connecting to Alpaca Options ({label}): {OPTIONS_STREAM_URL}")
         ws = await websockets.connect(
             OPTIONS_STREAM_URL,
             compression=None,
@@ -1847,17 +2004,18 @@ async def connect_alpaca_options():
 
         msg = await ws.recv()
         data = unpack_message(msg)
-        print(f"[Cloud] Alpaca options welcome: {data}")
+        print(f"[Cloud] Alpaca options ({label}) welcome: {data}")
 
-        auth_msg = {"action": "auth", "key": ALPACA_MASTER_KEY, "secret": ALPACA_MASTER_SECRET}
+        auth_msg = {"action": "auth", "key": key, "secret": secret}
         await ws.send(msgpack.packb(auth_msg, use_bin_type=True))
 
         auth_resp = await ws.recv()
         auth_data = unpack_message(auth_resp)
-        print(f"[Cloud] Alpaca options auth response: {auth_data}")
+        print(f"[Cloud] Alpaca options ({label}) auth response: {auth_data}")
 
-        alpaca_options_ws = ws
-        return ws
+        if label == "paid":
+            alpaca_options_ws = ws
+        return ws, label
 
 
 async def connect_alpaca_crypto():
@@ -2760,6 +2918,7 @@ async def handle_relay_message(websocket, data, mode: str):
                 "value": 2,
                 "standard": 3,
                 "premium": float("inf"),
+                "test": 5,          # internal load-test role
                 "default": 3,
                 "legacy": 5,
                 "fallback": 100,
@@ -3258,6 +3417,42 @@ async def forward_alpaca_messages():
                 if data.get("T") in ("subscription", "success", "error"):
                     print(f"[Cloud] Alpaca control msg: {data}", flush=True)
             fanout_to_subscribers(data, relay_authed, relay_subscriptions, relay_send_queues, is_options=False)
+
+            # --- TimescaleDB: 实时写入最新报价 (fire-and-forget) ---
+            if DB_MANAGER_AVAILABLE and upsert_latest_quote is not None:
+                try:
+                    msgs = data if isinstance(data, list) else [data] if isinstance(data, dict) else []
+                    for msg in msgs:
+                        if not isinstance(msg, dict):
+                            continue
+                        msg_type = msg.get("T")
+                        sym = msg.get("S", "")
+                        if msg_type == "q" and sym:  # quote message
+                            asyncio.create_task(
+                                upsert_latest_quote(
+                                    symbol=sym,
+                                    bid_price=msg.get("bp"),
+                                    bid_size=msg.get("bs"),
+                                    ask_price=msg.get("ap"),
+                                    ask_size=msg.get("as"),
+                                    timestamp=msg.get("t"),
+                                    source="alpaca_ws",
+                                )
+                            )
+                        elif msg_type == "t" and sym:  # trade message
+                            asyncio.create_task(
+                                upsert_latest_quote(
+                                    symbol=sym,
+                                    last_price=msg.get("p"),
+                                    last_size=msg.get("s"),
+                                    timestamp=msg.get("t"),
+                                    source="alpaca_ws",
+                                )
+                            )
+                except Exception as e:
+                    # WS 数据写入失败不能影响主流程
+                    pass
+
             now = time.time()
             if now - alpaca_last_log >= 10:
                 alpaca_last_log = now
@@ -3398,6 +3593,36 @@ async def forward_alpaca_options_messages():
             if data is None:
                 continue
             fanout_to_subscribers(data, options_relay_authed, options_relay_subscriptions, options_relay_send_queues, is_options=True)
+
+            # --- TimescaleDB: 实时写入期权最新报价 (fire-and-forget) ---
+            if DB_MANAGER_AVAILABLE and upsert_latest_options_quote is not None:
+                try:
+                    msgs = data if isinstance(data, list) else [data] if isinstance(data, dict) else []
+                    for msg in msgs:
+                        if not isinstance(msg, dict):
+                            continue
+                        msg_type = msg.get("T")
+                        occ_sym = msg.get("S", "")
+                        if msg_type in ("q", "t") and occ_sym:
+                            # 从 OCC symbol 提取 root symbol
+                            parsed = _parse_occ_symbol_theta(occ_sym)
+                            root = parsed[0] if parsed else occ_sym
+                            asyncio.create_task(
+                                upsert_latest_options_quote(
+                                    symbol=occ_sym,
+                                    root_symbol=root,
+                                    bid_price=msg.get("bp") if msg_type == "q" else None,
+                                    bid_size=msg.get("bs") if msg_type == "q" else None,
+                                    ask_price=msg.get("ap") if msg_type == "q" else None,
+                                    ask_size=msg.get("as") if msg_type == "q" else None,
+                                    last_price=msg.get("p") if msg_type == "t" else None,
+                                    timestamp=msg.get("t"),
+                                    source="alpaca_ws",
+                                )
+                            )
+                except Exception:
+                    pass
+
             now = time.time()
             if now - alpaca_options_last_log >= 10:
                 alpaca_options_last_log = now
@@ -3501,7 +3726,29 @@ async def handle_history_request(request):
 
     def _log_and_return(payload, status, cache_status="MISS"):
         log_http_usage(endpoint, user_id, status, start_time, {"symbol": data.get("symbol"), "timeframe": data.get("timeframe")})
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        # web.json_response uses stdlib json.dumps which dominates CPU under
+        # load; pre-serialize with orjson and return raw text instead.
+        return web.Response(
+            body=_fast_dumps_str(payload),
+            status=status,
+            content_type="application/json",
+            headers={"X-Cache": cache_status},
+        )
+
+    def _return_cached_raw(cached, cache_status):
+        # Cache stores already-serialized JSON; skip the parse+re-encode
+        # round-trip on the HIT hot path.
+        log_http_usage(endpoint, user_id, 200, start_time, {"symbol": data.get("symbol"), "timeframe": data.get("timeframe")})
+        if isinstance(cached, bytes):
+            body = cached
+        else:
+            body = cached.encode() if isinstance(cached, str) else _fast_dumps_str(cached).encode()
+        return web.Response(
+            body=body,
+            status=200,
+            content_type="application/json",
+            headers={"X-Cache": cache_status},
+        )
 
     # region agent log
     agent_log(
@@ -3548,9 +3795,17 @@ async def handle_history_request(request):
     start = data.get("start")
     end = data.get("end")
     timeframe = data.get("timeframe", "1Min")
-    feed = data.get("feed", "sip" if IS_PRO else "iex")
+    user_explicit_feed = data.get("feed")  # None if user didn't specify; picker uses this
+    feed = user_explicit_feed or ("sip" if IS_PRO else "iex")
     limit = data.get("limit", 10000)
     max_pages = data.get("max_pages", 100)
+    # Warmer reconciliation: when force_refresh=true, skip cache lookup and
+    # force the request through paid/SIP. The fresh response overwrites any
+    # IEX-served entry from intraday traffic. Used by smart_warmer_v2.
+    force_refresh = bool(data.get("force_refresh"))
+    if force_refresh:
+        user_explicit_feed = "sip"
+        feed = "sip"
 
     if not all([symbol, start, end]):
         return _log_and_return({"error": "Missing required fields"}, 400)
@@ -3567,15 +3822,24 @@ async def handle_history_request(request):
         max_pages = 100
     max_pages = max(1, max_pages)
 
-    cache_key = f"bars:{symbol}:{start}:{end}:{timeframe}:{feed}:{limit}:{max_pages}"
+    # In-memory cache key intentionally drops `feed` for historical bars —
+    # SIP and IEX converge on closed-market data, so we share the namespace
+    # to avoid duplicate entries. Live/recent data is routed to paid by the
+    # picker's end_recent rule, so cache writes still come from SIP for that.
+    cache_key = f"bars:{symbol}:{start}:{end}:{timeframe}:{limit}:{max_pages}"
     redis_conn = await get_redis_client()
-    if redis_conn is not None:
+    if redis_conn is not None and not force_refresh:
         cached = await redis_conn.get(cache_key)
         if cached:
-            return _log_and_return(json.loads(cached), 200, cache_status="HIT")
+            return _return_cached_raw(cached, cache_status="HIT")
 
     # --- Disk cache check ---
     try:
+        from alpaca_key_pool import get_key_pool, alpaca_get
+        pool = get_key_pool()
+        entry, _ = pool.pick("/v1/history/bars", {"end": end, "feed": user_explicit_feed or ""})
+        expected_feed_class = "sip" if entry and entry.tier == "paid" else "iex"
+
         disk = await get_disk_cache_instance()
         if disk is not None:
             disk_params = {
@@ -3587,18 +3851,62 @@ async def handle_history_request(request):
                 "limit": limit,
                 "max_pages": max_pages
             }
-            disk_hit = await disk.get("/v1/history/bars", disk_params)
-            if disk_hit is not None:
-                if redis_conn is not None:
-                    await redis_conn.set(cache_key, json.dumps(disk_hit), ex=CACHE_TTL_SECONDS)
-                return _log_and_return(disk_hit, 200, cache_status="DISK_HIT")
+            if not force_refresh:
+                disk_hit = await disk.get("/v1/history/bars", disk_params, feed_class=expected_feed_class)
+                if disk_hit is not None:
+                    if redis_conn is not None:
+                        await redis_conn.set(cache_key, _fast_dumps_str(disk_hit), ex=CACHE_TTL_SECONDS)
+                    return _log_and_return(disk_hit, 200, cache_status="DISK_HIT")
     except Exception as e:
         print(f"[DiskCache] bars get error: {e}")
 
-    if not ALPACA_MASTER_KEY or not ALPACA_MASTER_SECRET:
-        return _log_and_return({"error": "Cloud missing Alpaca master keys"}, 500)
+    # --- TimescaleDB query (数据库优先) ---
+    # 在请求上游之前，先查询本地 TimescaleDB。如果数据完整，直接返回。
+    # 这是数据库优先架构的核心：本地 DB 成为主要数据源，上游仅用于回填。
+    if DB_MANAGER_AVAILABLE and query_bars is not None and not force_refresh:
+        try:
+            db_result = await query_bars(symbol, timeframe, start, end, limit)
+            if db_result is not None:
+                # DB 命中 — 写入 Redis 缓存后返回
+                if redis_conn is not None:
+                    await redis_conn.set(cache_key, _fast_dumps_str(db_result), ex=CACHE_TTL_SECONDS)
+                # 同时写入 Disk cache
+                try:
+                    if disk is not None:
+                        await disk.put("/v1/history/bars", disk_params, db_result, feed_class="db")
+                except Exception:
+                    pass
+                return _log_and_return(db_result, 200, cache_status="DB_HIT")
+        except Exception as e:
+            print(f"[DB] query_bars error: {e}", flush=True)
 
-    url = f"{DATA_URL}/v2/stocks/bars"
+    # --- In-flight coalescing ---
+    # When many concurrent clients request the same (symbol, start, end, timeframe)
+    # we collapse them into a single upstream call. The leader fetches + populates
+    # the cache; followers wait on the leader's future and return the same payload
+    # with X-Cache: COALESCED. This is the biggest win for stress-test patterns
+    # where N workers share a small symbol pool.
+    inflight_key = _make_inflight_key("bars", {
+        "symbol": symbol, "start": start, "end": end,
+        "timeframe": timeframe, "limit": limit, "max_pages": max_pages
+    })
+    leader_future = None
+    async with _inflight_lock:
+        existing = _inflight_requests.get(inflight_key)
+        if existing is not None:
+            leader_future = existing
+        else:
+            leader_future = asyncio.get_event_loop().create_future()
+            _inflight_requests[inflight_key] = leader_future
+            leader_future = None  # marker: we are the leader
+
+    if leader_future is not None:
+        try:
+            leader_result = await leader_future
+            return _log_and_return(leader_result["payload"], leader_result["status"], cache_status="COALESCED")
+        except Exception:
+            pass  # leader failed → fall through and do our own fetch
+
     params = {
         "symbols": symbol,
         "start": start,
@@ -3608,70 +3916,97 @@ async def handle_history_request(request):
         "feed": feed,
         "limit": limit
     }
-    headers = {
-        "APCA-API-KEY-ID": ALPACA_MASTER_KEY,
-        "APCA-API-SECRET-KEY": ALPACA_MASTER_SECRET,
-        "Accept": "application/json"
-    }
+
+    all_bars = []
+    next_page_token = None
+    pages = 0
+    actual_feed_class = "unknown"
 
     async with aiohttp.ClientSession() as session:
-        all_bars = []
-        next_page_token = None
-        pages = 0
-
         while True:
             if next_page_token:
                 params["page_token"] = next_page_token
             elif "page_token" in params:
                 del params["page_token"]
 
-            async with session.get(url, params=params, headers=headers) as resp:
-                if resp.status != 200:
-                    error_text = await resp.text()
-                    print(f"[Cloud] Alpaca history error {resp.status}: {error_text[:200]}")
-                    error_payload = {"error": f"Alpaca returned {resp.status}"}
-                    # Signal followers on error
-                    if future is None:
-                        result = {"payload": error_payload, "status": resp.status}
-                        async with _inflight_lock:
-                            f = _inflight_requests.pop(inflight_key, None)
-                        if f is not None and not f.done():
-                            f.set_result(result)
-                    return _log_and_return(error_payload, resp.status, cache_status="MISS")
+            # Note: the upstream URL is /v2/stocks/bars for the proxy to Alpaca
+            # picker_params only includes user-explicit feed (not the default "sip")
+            # so the picker can correctly route old-data requests to free keys
+            _picker = {"end": end, "feed": user_explicit_feed or ""}
+            status, headers, body, feed_class_used = await alpaca_get(
+                session, "/v2/stocks/bars", params, end_hint=end,
+                routing_endpoint="/v1/history/bars",
+                picker_params=_picker
+            )
+            actual_feed_class = feed_class_used
 
-                result = await resp.json()
-                bars = result.get("bars", {}).get(symbol, [])
-                if bars:
-                    all_bars.extend(bars)
+            if status != 200:
+                error_text = body.decode('utf-8', errors='replace')
+                print(f"[Cloud] Alpaca history error {status}: {error_text[:200]}")
+                error_payload = {"error": f"Alpaca returned {status}"}
+                resp_headers = {"X-Cache": "MISS"}
+                if status == 429 and "Retry-After" in headers:
+                    resp_headers["Retry-After"] = headers["Retry-After"]
+                # Signal followers with same error so they get a fast 429 too
+                async with _inflight_lock:
+                    f = _inflight_requests.pop(inflight_key, None)
+                if f is not None and not f.done():
+                    f.set_result({"payload": error_payload, "status": status})
+                return web.json_response(error_payload, status=status, headers=resp_headers)
 
-                next_page_token = result.get("next_page_token")
-                pages += 1
-                if not next_page_token or pages >= max_pages:
-                    break
+            try:
+                result = _fast_loads(body)
+            except Exception:
+                async with _inflight_lock:
+                    f = _inflight_requests.pop(inflight_key, None)
+                if f is not None and not f.done():
+                    f.set_result({"payload": {"error": "Invalid JSON from Alpaca"}, "status": 500})
+                return _log_and_return({"error": "Invalid JSON from Alpaca"}, 500, cache_status="MISS")
+
+            bars = result.get("bars", {}).get(symbol, [])
+            if bars:
+                all_bars.extend(bars)
+
+            next_page_token = result.get("next_page_token")
+            pages += 1
+            if not next_page_token or pages >= max_pages:
+                break
 
     response_payload = {"bars": {symbol: all_bars}, "pages": pages}
     if next_page_token:
         response_payload["next_page_token"] = next_page_token
 
     if redis_conn is not None:
-        await redis_conn.set(cache_key, json.dumps(response_payload), ex=CACHE_TTL_SECONDS)
+        await redis_conn.set(cache_key, _fast_dumps_str(response_payload), ex=CACHE_TTL_SECONDS)
 
     # --- Disk cache save ---
     try:
-        disk = await get_disk_cache_instance()
         if disk is not None:
-            disk_params = {
-                "symbol": symbol,
-                "start": start,
-                "end": end,
-                "timeframe": timeframe,
-                "feed": feed,
-                "limit": limit,
-                "max_pages": max_pages
-            }
-            await disk.put("/v1/history/bars", disk_params, response_payload)
+            await disk.put("/v1/history/bars", disk_params, response_payload, feed_class=actual_feed_class)
     except Exception as e:
         print(f"[DiskCache] bars put error: {e}")
+
+    # --- TimescaleDB save (数据库优先: 上游数据写入本地 DB) ---
+    if DB_MANAGER_AVAILABLE and insert_bars_batch is not None and all_bars:
+        try:
+            # fire-and-forget: 不阻塞响应，后台写入 DB
+            asyncio.create_task(
+                insert_bars_batch(
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    bars=all_bars,
+                    feed=actual_feed_class,
+                    source="alpaca",
+                )
+            )
+        except Exception as e:
+            print(f"[DB] insert_bars_batch error: {e}", flush=True)
+
+    # Signal followers with success payload
+    async with _inflight_lock:
+        f = _inflight_requests.pop(inflight_key, None)
+    if f is not None and not f.done():
+        f.set_result({"payload": response_payload, "status": 200})
 
     # region agent log
     agent_log(
@@ -3710,7 +4045,7 @@ async def handle_options_history_request(request):
     def _log_and_return(payload, status, cache_status="MISS"):
         symbols_log = data.get("symbols") or data.get("symbol")
         log_http_usage(endpoint, user_id, status, start_time, {"symbols": symbols_log, "timeframe": data.get("timeframe")})
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        return web.Response(body=_fast_dumps_str(payload), status=status, content_type="application/json", headers={"X-Cache": cache_status})
 
     if not principal:
         return _log_and_return({"error": "Invalid token"}, 401)
@@ -3742,6 +4077,7 @@ async def handle_options_history_request(request):
     # Auto-resolve stock symbol to option chain
     symbol_list = symbols if isinstance(symbols, list) else [s.strip() for s in str(symbols).split(",")]
     occ_symbols = []
+    has_unresolved_stock = False
     for sym in symbol_list:
         parsed = _parse_occ_symbol_theta(sym)
         if parsed is not None:
@@ -3753,8 +4089,14 @@ async def handle_options_history_request(request):
                 occ_symbols.extend(chain)
                 print(f"[OptionChain] Resolved {sym} to {len(chain)} contracts")
             else:
+                has_unresolved_stock = True
                 print(f"[OptionChain] No contracts found for {sym}")
     
+    if has_unresolved_stock and not occ_symbols:
+        # If we failed to resolve any stock symbols, and there are no valid OCC symbols,
+        # return empty bars instead of forwarding invalid stock symbols to upstream API.
+        return _log_and_return({"bars": {}, "next_page_token": None}, 200, cache_status="MISS")
+
     if occ_symbols:
         symbols = ",".join(occ_symbols)
     
@@ -3778,7 +4120,7 @@ async def handle_options_history_request(request):
     if redis_conn is not None:
         cached = await redis_conn.get(cache_key)
         if cached:
-            return _log_and_return(json.loads(cached), 200, cache_status="HIT")
+            return respond_cached_raw(cached, endpoint, user_id, start_time)
 
     # --- Disk cache check ---
     try:
@@ -3796,10 +4138,30 @@ async def handle_options_history_request(request):
             disk_hit = await disk.get("/v1/history/options/bars", disk_params)
             if disk_hit is not None:
                 if redis_conn is not None:
-                    await redis_conn.set(cache_key, json.dumps(disk_hit), ex=CACHE_TTL_SECONDS)
+                    await redis_conn.set(cache_key, _fast_dumps_str(disk_hit), ex=CACHE_TTL_SECONDS)
                 return _log_and_return(disk_hit, 200, cache_status="DISK_HIT")
     except Exception as e:
         print(f"[DiskCache] options_bars get error: {e}")
+
+    # --- TimescaleDB query (数据库优先) ---
+    # 对期权 bars，先查询本地 DB。注意: 期权支持多 symbols，我们逐个查询合并结果。
+    if DB_MANAGER_AVAILABLE and query_options_bars is not None:
+        try:
+            db_all_bars = {}
+            db_has_data = False
+            for occ_sym in occ_symbols:
+                db_result = await query_options_bars(occ_sym, timeframe, start, end, limit)
+                if db_result and db_result.get("bars"):
+                    db_has_data = True
+                    for sym, bars in db_result["bars"].items():
+                        db_all_bars[sym] = bars
+            if db_has_data:
+                db_payload = {"bars": db_all_bars, "pages": 1, "provider": "timescaledb", "db_source": True}
+                if redis_conn is not None:
+                    await redis_conn.set(cache_key, _fast_dumps_str(db_payload), ex=CACHE_TTL_SECONDS)
+                return _log_and_return(db_payload, 200, cache_status="DB_HIT")
+        except Exception as e:
+            print(f"[DB] query_options_bars error: {e}", flush=True)
 
     # --- In-flight coalescing ---
     inflight_key = _make_inflight_key("options_bars", data)
@@ -3829,7 +4191,7 @@ async def handle_options_history_request(request):
                 response_payload = theta_result
                 response_payload["provider"] = "thetadata"
                 if redis_conn is not None:
-                    await redis_conn.set(cache_key, json.dumps(response_payload), ex=CACHE_TTL_SECONDS)
+                    await redis_conn.set(cache_key, _fast_dumps_str(response_payload), ex=CACHE_TTL_SECONDS)
 
                 # --- Disk cache save ---
                 try:
@@ -3848,6 +4210,34 @@ async def handle_options_history_request(request):
                 except Exception as e:
                     print(f"[DiskCache] options_bars put error (theta): {e}")
                 agent_log("P3O", "alpaca_cloud_proxy.py:handle_options_history_request", "theta_options_history_ok", {"symbols": symbols, "bars": sum(len(v) for v in response_payload.get("bars", {}).values()), "elapsed_ms": int((time.time() - start_time) * 1000)})
+
+                # --- TimescaleDB save (ThetaData 数据写入本地 DB) ---
+                if DB_MANAGER_AVAILABLE and insert_options_bars_batch is not None:
+                    try:
+                        for occ_sym, bars in response_payload.get("bars", {}).items():
+                            if bars:
+                                parsed = _parse_occ_symbol_theta(occ_sym)
+                                root = parsed[0] if parsed else occ_sym
+                                exp = parsed[1] if parsed else None
+                                strike = parsed[3] if parsed else None
+                                right = parsed[2] if parsed else None
+                                opt_type = "call" if right in ("C", "CALL") else "put" if right in ("P", "PUT") else None
+                                asyncio.create_task(
+                                    insert_options_bars_batch(
+                                        symbol=occ_sym,
+                                        root_symbol=root,
+                                        expiration_date=exp,
+                                        strike_price=strike,
+                                        option_type=opt_type,
+                                        timeframe=timeframe,
+                                        bars=bars,
+                                        feed="opra",
+                                        source="thetadata",
+                                    )
+                                )
+                    except Exception as e:
+                        print(f"[DB] insert_options_bars_batch error: {e}", flush=True)
+
                 # Signal followers
                 if future is None:
                     result = {"payload": response_payload, "status": 200}
@@ -3926,7 +4316,7 @@ async def handle_options_history_request(request):
         response_payload["next_page_token"] = next_page_token
 
     if redis_conn is not None:
-        await redis_conn.set(cache_key, json.dumps(response_payload), ex=CACHE_TTL_SECONDS)
+        await redis_conn.set(cache_key, _fast_dumps_str(response_payload), ex=CACHE_TTL_SECONDS)
 
     # --- Disk cache save ---
     try:
@@ -3944,6 +4334,33 @@ async def handle_options_history_request(request):
             await disk.put("/v1/history/options/bars", disk_params, response_payload)
     except Exception as e:
         print(f"[DiskCache] options_bars put error (alpaca): {e}")
+
+    # --- TimescaleDB save (Alpaca 期权数据写入本地 DB) ---
+    if DB_MANAGER_AVAILABLE and insert_options_bars_batch is not None:
+        try:
+            for occ_sym, bars in response_payload.get("bars", {}).items():
+                if bars:
+                    parsed = _parse_occ_symbol_theta(occ_sym)
+                    root = parsed[0] if parsed else occ_sym
+                    exp = parsed[1] if parsed else None
+                    strike = parsed[3] if parsed else None
+                    right = parsed[2] if parsed else None
+                    opt_type = "call" if right in ("C", "CALL") else "put" if right in ("P", "PUT") else None
+                    asyncio.create_task(
+                        insert_options_bars_batch(
+                            symbol=occ_sym,
+                            root_symbol=root,
+                            expiration_date=exp,
+                            strike_price=strike,
+                            option_type=opt_type,
+                            timeframe=timeframe,
+                            bars=bars,
+                            feed="opra",
+                            source="alpaca",
+                        )
+                    )
+        except Exception as e:
+            print(f"[DB] insert_options_bars_batch error (alpaca): {e}", flush=True)
 
     # Signal followers
     if future is None:
@@ -4009,7 +4426,7 @@ async def handle_option_open_interest_request(request):
 
     def _log_and_return(payload, status, cache_status="MISS"):
         log_http_usage(endpoint, user_id, status, start_time)
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        return web.Response(body=_fast_dumps_str(payload), status=status, content_type="application/json", headers={"X-Cache": cache_status})
 
     if not principal:
         return _log_and_return({"error": "Invalid token"}, 401)
@@ -4110,7 +4527,7 @@ async def handle_option_history_trade_quote_request(request):
 
     def _log_and_return(payload, status, cache_status="MISS"):
         log_http_usage(endpoint, user_id, status, start_time)
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        return web.Response(body=_fast_dumps_str(payload), status=status, content_type="application/json", headers={"X-Cache": cache_status})
 
     if not principal:
         return _log_and_return({"error": "Invalid token"}, 401)
@@ -4179,6 +4596,34 @@ async def handle_option_history_trade_quote_request(request):
         parsed_start_time = _parse_time(start_time_val) if start_time_val else None
         parsed_end_time = _parse_time(end_time_val) if end_time_val else None
 
+        # Canonical cache endpoint (alias-independent) so both /v1/history/options/trade_quote
+        # and /v1/options/history/trade_quote share entries
+        cache_endpoint = "/v1/history/options/trade_quote"
+        cache_params = {
+            "symbol": symbol,
+            "date": str(parsed_date) if parsed_date else "",
+            "start_date": str(parsed_start_date) if parsed_start_date else "",
+            "end_date": str(parsed_end_date) if parsed_end_date else "",
+            "start_time": str(parsed_start_time) if parsed_start_time else "",
+            "end_time": str(parsed_end_time) if parsed_end_time else "",
+            "exclusive": bool(exclusive),
+        }
+        cache_key = (
+            f"opt_tq:{symbol}:{cache_params['date']}:{cache_params['start_date']}:"
+            f"{cache_params['end_date']}:{cache_params['start_time']}:{cache_params['end_time']}:"
+            f"{cache_params['exclusive']}"
+        )
+        redis_conn = await get_redis_client()
+        if redis_conn is not None:
+            cached = await redis_conn.get(cache_key)
+            if cached:
+                return respond_cached_raw(cached, endpoint, user_id, start_time)
+        disk_hit = await _get_disk_cached_response(cache_endpoint, cache_params)
+        if disk_hit is not None:
+            if redis_conn is not None:
+                await redis_conn.set(cache_key, _fast_dumps_str(disk_hit), ex=CACHE_TTL_SECONDS)
+            return _log_and_return(disk_hit, 200, cache_status="DISK_HIT")
+
         loop = asyncio.get_event_loop()
         kwargs = {
             "symbol": root,
@@ -4236,7 +4681,11 @@ async def handle_option_history_trade_quote_request(request):
                     rec[col] = val
                 records.append(rec)
 
-        return _log_and_return({"data": records, "count": len(records)}, 200)
+        response_payload = {"data": records, "count": len(records)}
+        if redis_conn is not None:
+            await redis_conn.set(cache_key, _fast_dumps_str(response_payload), ex=CACHE_TTL_SECONDS)
+        await _put_disk_cached_response(cache_endpoint, cache_params, response_payload)
+        return _log_and_return(response_payload, 200)
     except Exception as e:
         print(f"[ThetaData] Option history trade_quote error: {e}")
         return _log_and_return({"error": str(e)}, 500)
@@ -4274,7 +4723,7 @@ async def handle_stock_history_trade_quote_request(request):
 
     def _log_and_return(payload, status, cache_status="MISS"):
         log_http_usage(endpoint, user_id, status, start_time, {"symbol": data.get("symbol")})
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        return web.Response(body=_fast_dumps_str(payload), status=status, content_type="application/json", headers={"X-Cache": cache_status})
 
     if not principal:
         return _log_and_return({"error": "Invalid token"}, 401)
@@ -4303,6 +4752,25 @@ async def handle_stock_history_trade_quote_request(request):
     except (TypeError, ValueError):
         limit = 1000
     limit = max(1, min(limit, 10000))
+
+    cache_params = {
+        "symbol": symbol,
+        "start": start,
+        "end": end,
+        "limit": limit,
+        "feed": feed,
+    }
+    cache_key = f"stock_tq:{symbol}:{start}:{end}:{limit}:{feed}"
+    redis_conn = await get_redis_client()
+    if redis_conn is not None:
+        cached = await redis_conn.get(cache_key)
+        if cached:
+            return respond_cached_raw(cached, endpoint, user_id, start_time)
+    disk_hit = await _get_disk_cached_response(endpoint, cache_params)
+    if disk_hit is not None:
+        if redis_conn is not None:
+            await redis_conn.set(cache_key, _fast_dumps_str(disk_hit), ex=CACHE_TTL_SECONDS)
+        return _log_and_return(disk_hit, 200, cache_status="DISK_HIT")
 
     if not ALPACA_MASTER_KEY or not ALPACA_MASTER_SECRET:
         return _log_and_return({"error": "Cloud missing Alpaca master keys"}, 500)
@@ -4409,6 +4877,11 @@ async def handle_stock_history_trade_quote_request(request):
             "quotes_error": response_payload.get("quotes_error")
         }, 500)
 
+    # Only cache when both legs succeeded — partial responses are misleading on replay
+    if trades_status == 200 and quotes_status == 200:
+        if redis_conn is not None:
+            await redis_conn.set(cache_key, _fast_dumps_str(response_payload), ex=CACHE_TTL_SECONDS)
+        await _put_disk_cached_response(endpoint, cache_params, response_payload)
     return _log_and_return(response_payload, 200)
 
 
@@ -4439,7 +4912,7 @@ async def handle_option_eod_request(request):
 
     def _log_and_return(payload, status, cache_status="MISS"):
         log_http_usage(endpoint, user_id, status, start_time)
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        return web.Response(body=_fast_dumps_str(payload), status=status, content_type="application/json", headers={"X-Cache": cache_status})
 
     if not principal:
         return _log_and_return({"error": "Invalid token"}, 401)
@@ -4549,7 +5022,7 @@ async def handle_options_history_trades_request(request):
     def _log_and_return(payload, status, cache_status="MISS"):
         symbols_log = get_param("symbols") or get_param("symbol")
         log_http_usage(endpoint, user_id, status, start_time, {"symbols": symbols_log})
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        return web.Response(body=_fast_dumps_str(payload), status=status, content_type="application/json", headers={"X-Cache": cache_status})
 
     if not principal:
         return _log_and_return({"error": "Invalid token"}, 401)
@@ -4583,6 +5056,27 @@ async def handle_options_history_trades_request(request):
     else:
         symbol_list = [s.strip().upper() for s in str(symbols).split(",") if s.strip()]
         symbols = ",".join(symbol_list)
+
+    cache_endpoint = "/v1/history/options/trades"
+    cache_params = {
+        "symbols": symbols,
+        "start": start or "",
+        "end": end or "",
+        "limit": limit,
+        "page_token": page_token or "",
+        "sort": sort,
+    }
+    cache_key = f"opt_trades:{symbols}:{start}:{end}:{limit}:{page_token or ''}:{sort}"
+    redis_conn = await get_redis_client()
+    if redis_conn is not None:
+        cached = await redis_conn.get(cache_key)
+        if cached:
+            return respond_cached_raw(cached, endpoint, user_id, start_time)
+    disk_hit = await _get_disk_cached_response(cache_endpoint, cache_params)
+    if disk_hit is not None:
+        if redis_conn is not None:
+            await redis_conn.set(cache_key, _fast_dumps_str(disk_hit), ex=CACHE_TTL_SECONDS)
+        return _log_and_return(disk_hit, 200, cache_status="DISK_HIT")
 
     def _with_alpaca_options_history_notice(payload):
         if not isinstance(payload, dict):
@@ -4651,10 +5145,15 @@ async def handle_options_history_trades_request(request):
             alpaca_failed = True
 
     # If Alpaca failed or returned empty response, gracefully return {"trades": {}, "next_page_token": null}
+    # — do NOT cache empty/failed responses so a later success can populate
     if alpaca_failed or not alpaca_trades_resp or "trades" not in alpaca_trades_resp:
         return _log_and_return(_with_alpaca_options_history_notice({"trades": {}, "next_page_token": None}), 200)
 
-    return _log_and_return(_with_alpaca_options_history_notice(alpaca_trades_resp), 200)
+    response_payload = _with_alpaca_options_history_notice(alpaca_trades_resp)
+    if redis_conn is not None:
+        await redis_conn.set(cache_key, _fast_dumps_str(response_payload), ex=CACHE_TTL_SECONDS)
+    await _put_disk_cached_response(cache_endpoint, cache_params, response_payload)
+    return _log_and_return(response_payload, 200)
 
 
 def _theta_get_param(params, *names, default=None):
@@ -5030,7 +5529,7 @@ async def handle_option_contracts_request(request):
 
     def _log_and_return(payload, status, cache_status="MISS"):
         log_http_usage(endpoint, user_id, status, start_time)
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        return web.Response(body=_fast_dumps_str(payload), status=status, content_type="application/json", headers={"X-Cache": cache_status})
 
     if not principal:
         return _log_and_return({"error": "Invalid token"}, 401)
@@ -5619,7 +6118,7 @@ async def handle_option_snapshots_request(request):
 
     def _log_and_return(payload, status, cache_status="MISS"):
         log_http_usage(endpoint, user_id, status, start_time)
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        return web.Response(body=_fast_dumps_str(payload), status=status, content_type="application/json", headers={"X-Cache": cache_status})
 
     if not principal:
         return _log_and_return({"error": "Invalid token"}, 401)
@@ -5647,8 +6146,20 @@ async def handle_option_snapshots_request(request):
         "limit": limit,
         "subcommand": subcommand,
     }
+
+    # 1. Check Tier 1 In-Memory Cache first
+    cache_key = f"options_snapshots:{symbols}:{feed}:{limit}:{subcommand}"
+    redis_conn = await get_redis_client()
+    if redis_conn is not None:
+        cached = await redis_conn.get(cache_key)
+        if cached:
+            return respond_cached_raw(cached, endpoint, user_id, start_time)
+
+    # 2. Check Tier 2 Disk Cache
     disk_hit = await _get_disk_cached_response(endpoint, cache_params)
     if disk_hit is not None:
+        if redis_conn is not None:
+            await redis_conn.set(cache_key, _fast_dumps_str(disk_hit))
         return _log_and_return(disk_hit, 200, cache_status="DISK_HIT")
 
     if str(feed).strip().lower() == "thetadata":
@@ -5663,6 +6174,8 @@ async def handle_option_snapshots_request(request):
             snapshots = {sym: res for sym, res in results if res}
             payload = {"snapshots": snapshots}
             await _put_disk_cached_response(endpoint, cache_params, payload)
+            if redis_conn is not None:
+                await redis_conn.set(cache_key, json.dumps(payload))
             return _log_and_return(payload, 200)
         except Exception as e:
             print(f"[Cloud] ThetaData options snapshots unhandled error: {e}")
@@ -5753,6 +6266,8 @@ async def handle_option_snapshots_request(request):
     # Return merged/successful snapshots
     payload = {"snapshots": alpaca_snapshots}
     await _put_disk_cached_response(endpoint, cache_params, payload)
+    if redis_conn is not None:
+        await redis_conn.set(cache_key, json.dumps(payload))
     return _log_and_return(payload, 200)
 
 
@@ -5770,7 +6285,7 @@ async def handle_crypto_latest_orderbooks_request(request):
 
     def _log_and_return(payload, status, cache_status="MISS"):
         log_http_usage(endpoint, user_id, status, start_time)
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        return web.Response(body=_fast_dumps_str(payload), status=status, content_type="application/json", headers={"X-Cache": cache_status})
 
     if not principal:
         return _log_and_return({"error": "Invalid token"}, 401)
@@ -5828,7 +6343,7 @@ async def handle_option_snapshots_by_expiry_request(request):
 
     def _log_and_return(payload, status, cache_status="MISS"):
         log_http_usage(endpoint, user_id, status, start_time)
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        return web.Response(body=_fast_dumps_str(payload), status=status, content_type="application/json", headers={"X-Cache": cache_status})
 
     if not principal:
         return _log_and_return({"error": "Invalid token"}, 401)
@@ -5850,6 +6365,14 @@ async def handle_option_snapshots_by_expiry_request(request):
     if not api_key or not api_secret:
         return _log_and_return({"error": "Cloud missing Alpaca master keys"}, 500)
 
+    # Memory-only short-TTL cache: live snapshots, no disk archive
+    cache_key = f"snap_expiry:{underlying}:{expiry}:{feed}"
+    redis_conn = await get_redis_client()
+    if redis_conn is not None:
+        cached = await redis_conn.get(cache_key)
+        if cached:
+            return respond_cached_raw(cached, endpoint, user_id, start_time)
+
     headers = {
         "APCA-API-KEY-ID": api_key,
         "APCA-API-SECRET-KEY": api_secret,
@@ -5870,13 +6393,13 @@ async def handle_option_snapshots_by_expiry_request(request):
             if resp.status != 200:
                 error_text = await resp.text()
                 print(f"[Cloud] Options contracts error {resp.status}: {error_text[:200]}")
-                return web.json_response({"error": f"Alpaca returned {resp.status}", "details": error_text}, status=resp.status)
+                return _log_and_return({"error": f"Alpaca returned {resp.status}", "details": error_text}, resp.status)
             contracts_resp = await resp.json()
 
         contracts = contracts_resp.get("option_contracts") or []
         symbols = [c.get("symbol") for c in contracts if c.get("symbol")]
         if not symbols:
-            return web.json_response({"contracts": [], "snapshots": {}, "count": 0})
+            return _log_and_return({"contracts": [], "snapshots": {}, "count": 0}, 200)
 
         snapshots = {}
         batch_size = 100
@@ -5891,13 +6414,16 @@ async def handle_option_snapshots_by_expiry_request(request):
                 if resp.status != 200:
                     error_text = await resp.text()
                     print(f"[Cloud] Options snapshots error {resp.status}: {error_text[:200]}")
-                    return web.json_response({"error": f"Alpaca returned {resp.status}", "details": error_text}, status=resp.status)
+                    return _log_and_return({"error": f"Alpaca returned {resp.status}", "details": error_text}, resp.status)
                 snap_resp = await resp.json()
                 snap_map = snap_resp.get("snapshots") or snap_resp
                 if isinstance(snap_map, dict):
                     snapshots.update(snap_map)
 
-    return web.json_response({"contracts": contracts, "snapshots": snapshots, "count": len(contracts)})
+    response_payload = {"contracts": contracts, "snapshots": snapshots, "count": len(contracts)}
+    if redis_conn is not None:
+        await redis_conn.set(cache_key, json.dumps(response_payload))  # default TTL (300s)
+    return _log_and_return(response_payload, 200)
 
 
 async def handle_option_snapshots_underlying_request(request):
@@ -5923,7 +6449,7 @@ async def handle_option_snapshots_underlying_request(request):
 
     def _log_and_return(payload, status, cache_status="MISS"):
         log_http_usage(endpoint, user_id, status, start_time)
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        return web.Response(body=_fast_dumps_str(payload), status=status, content_type="application/json", headers={"X-Cache": cache_status})
 
     if not principal:
         return _log_and_return({"error": "Invalid token"}, 401)
@@ -5937,6 +6463,14 @@ async def handle_option_snapshots_underlying_request(request):
         return web.Response(status=429, text=f'Rate limit exceeded: {req_count}/{req_limit} req/min')
 
     feed = data.get("feed") or request.query.get("feed") or OPTIONS_FEED
+
+    # Memory-only short-TTL cache: live chain snapshot, no disk archive
+    cache_key = f"snap_chain:{underlying}:{feed}"
+    redis_conn = await get_redis_client()
+    if redis_conn is not None:
+        cached = await redis_conn.get(cache_key)
+        if cached:
+            return respond_cached_raw(cached, endpoint, user_id, start_time)
 
     # First, try querying Alpaca for the option chain snapshot
     alpaca_snapshots = {}
@@ -6008,7 +6542,10 @@ async def handle_option_snapshots_underlying_request(request):
     if alpaca_failed:
         return _log_and_return({"error": f"Alpaca returned {alpaca_error_status}", "details": alpaca_error_text}, alpaca_error_status)
 
-    return _log_and_return({"snapshots": alpaca_snapshots}, 200)
+    response_payload = {"snapshots": alpaca_snapshots}
+    if redis_conn is not None:
+        await redis_conn.set(cache_key, json.dumps(response_payload))  # default TTL (300s)
+    return _log_and_return(response_payload, 200)
 
 
 async def handle_news_history_request(request):
@@ -6025,7 +6562,7 @@ async def handle_news_history_request(request):
 
     def _log_and_return(payload, status, cache_status="MISS"):
         log_http_usage(endpoint, user_id, status, start_time, {"symbols": data.get("symbols") or data.get("symbol"), "limit": data.get("limit")})
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        return web.Response(body=_fast_dumps_str(payload), status=status, content_type="application/json", headers={"X-Cache": cache_status})
 
     if not principal:
         return _log_and_return({"error": "Invalid token"}, 401)
@@ -6066,6 +6603,29 @@ async def handle_news_history_request(request):
     except (TypeError, ValueError):
         max_pages = 1
     max_pages = max(1, min(max_pages, 100))
+
+    cache_params = {
+        "symbols": symbols or "",
+        "start": start or "",
+        "end": end or "",
+        "limit": limit,
+        "sort": sort,
+        "include_content": include_content,
+        "exclude_contentless": exclude_contentless,
+        "page_token": page_token or "",
+        "max_pages": max_pages,
+    }
+    cache_key = f"news:{symbols or '*'}:{start}:{end}:{limit}:{sort}:{page_token or ''}:{max_pages}"
+    redis_conn = await get_redis_client()
+    if redis_conn is not None:
+        cached = await redis_conn.get(cache_key)
+        if cached:
+            return respond_cached_raw(cached, endpoint, user_id, start_time)
+    disk_hit = await _get_disk_cached_response(endpoint, cache_params)
+    if disk_hit is not None:
+        if redis_conn is not None:
+            await redis_conn.set(cache_key, _fast_dumps_str(disk_hit), ex=CACHE_TTL_SECONDS)
+        return _log_and_return(disk_hit, 200, cache_status="DISK_HIT")
 
     headers = {
         "APCA-API-KEY-ID": api_key,
@@ -6118,6 +6678,10 @@ async def handle_news_history_request(request):
     response_payload = {"news": all_news, "pages": pages}
     if next_page_token:
         response_payload["next_page_token"] = next_page_token
+
+    if redis_conn is not None:
+        await redis_conn.set(cache_key, _fast_dumps_str(response_payload), ex=CACHE_TTL_SECONDS)
+    await _put_disk_cached_response(endpoint, cache_params, response_payload)
     return _log_and_return(response_payload, 200)
 
 
@@ -6143,7 +6707,7 @@ async def handle_token_lookup_request(request):
 
     def _log_and_return(payload, status, cache_status="MISS"):
         log_http_usage(endpoint, wechat_id, status, start_time, {"created": bool(payload.get("created")) if isinstance(payload, dict) else False})
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        return web.Response(body=_fast_dumps_str(payload), status=status, content_type="application/json", headers={"X-Cache": cache_status})
 
     token = find_token_for_user_id(wechat_id)
     created = False
@@ -6183,7 +6747,7 @@ async def handle_audit_request(request):
 
     def _log_and_return(payload, status, cache_status="MISS"):
         log_http_usage(endpoint, user_id, status, start_time)
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        return web.Response(body=_fast_dumps_str(payload), status=status, content_type="application/json", headers={"X-Cache": cache_status})
 
     if not principal:
         return _log_and_return({"error": "Invalid token"}, 401)
@@ -6264,7 +6828,7 @@ async def handle_stats_request(request):
 
     def _log_and_return(payload, status, cache_status="MISS"):
         log_http_usage(endpoint, user_id, status, start_time)
-        return web.json_response(payload, status=status, headers={"X-Cache": cache_status})
+        return web.Response(body=_fast_dumps_str(payload), status=status, content_type="application/json", headers={"X-Cache": cache_status})
 
     if not principal:
         return _log_and_return({"error": "Invalid token"}, 401)
@@ -6295,6 +6859,78 @@ async def handle_stats_request(request):
         "all_user_stats": all_user_stats,
         "system": system_stats,
     }, 200)
+
+
+async def handle_admin_pool_request(request):
+    """Toggle free-key routing at runtime for A/B tests.
+    POST /v1/admin/pool with {"free_disabled": true|false}.
+    """
+    try:
+        from alpaca_key_pool import get_key_pool
+        pool = get_key_pool()
+        data = await request.json()
+        if "free_disabled" in data:
+            pool.free_disabled = bool(data["free_disabled"])
+        return web.json_response({
+            "free_disabled": pool.free_disabled,
+            "free_keys": [e.label for e in pool.free],
+        })
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def handle_admin_cache_clear_request(request):
+    """Clear in-memory cache + optionally disk cache for A/B test isolation.
+    POST /v1/admin/cache/clear with {"clear_disk": true|false}.
+    """
+    try:
+        data = await request.json() if request.body_exists else {}
+        cleared = {"memory": 0, "disk_files": 0}
+        client = await get_redis_client()
+        if isinstance(client, MemoryRedisClient):
+            cleared["memory"] = len(client._cache)
+            client._cache.clear()
+        if data.get("clear_disk"):
+            import shutil, os as _os
+            base = _os.getenv("DISK_CACHE_DIR", "/var/cache/alpaca")
+            if _os.path.isdir(base):
+                for sub in _os.listdir(base):
+                    p = _os.path.join(base, sub)
+                    if _os.path.isdir(p):
+                        shutil.rmtree(p, ignore_errors=True)
+                        cleared["disk_files"] += 1
+        return web.json_response({"cleared": cleared})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def handle_health_request(request):
+    try:
+        from alpaca_key_pool import get_key_pool
+        pool = get_key_pool()
+        pool_stats = {}
+        now = time.time()
+        cutoff = now - 60.0
+        for entry in pool.entries:
+            # Prune stale timestamps so count_1min reflects the actual
+            # sliding-window count (not raw deque length).
+            while entry.timestamps and entry.timestamps[0] < cutoff:
+                entry.timestamps.popleft()
+            count = len(entry.timestamps)
+            pool_stats[entry.label] = {
+                "count_1min": count,
+                "remaining": entry.remaining_from_header if entry.remaining_from_header is not None else max(0, entry.limit_per_min - count)
+            }
+        # DB stats
+        db_stats = {"enabled": False}
+        if DB_MANAGER_AVAILABLE and get_db_stats is not None:
+            try:
+                db_stats = await get_db_stats()
+            except Exception as e:
+                db_stats = {"enabled": True, "error": str(e)}
+        return web.json_response({"status": "OK", "pool": pool_stats, "db": db_stats})
+    except Exception as e:
+        return web.json_response({"status": "OK", "pool": {"error": str(e)}})
 
 
 async def start_http_server():
@@ -6343,7 +6979,9 @@ async def start_http_server():
     for pattern in native_provider_patterns:
         app.router.add_get(pattern, handle_provider_proxy)
         app.router.add_post(pattern, handle_provider_proxy)
-    app.router.add_get("/health", lambda r: web.Response(text="OK"))
+    app.router.add_get("/health", handle_health_request)
+    app.router.add_post("/v1/admin/pool", handle_admin_pool_request)
+    app.router.add_post("/v1/admin/cache/clear", handle_admin_cache_clear_request)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", HTTP_PORT)
@@ -6369,6 +7007,31 @@ async def main():
     print(f"  Mode: {'LIVE' if IS_LIVE else 'PAPER'}")
     print(f"  Feed: {'SIP (Pro)' if IS_PRO else 'IEX (Free)'}")
     print("=" * 60)
+    # Seed psutil's CPU sampler so the first non-blocking call in the REST
+    # middleware returns a real delta instead of 0.0.
+    try:
+        import psutil
+        psutil.cpu_percent(interval=None)
+    except Exception:
+        pass
+    # Disk I/O executor: default pool (min(32, cpu+4) ≈ 6-8) is too small for
+    # concurrent cache reads/writes, causing cache-hit p95 to exceed miss p95.
+    import concurrent.futures
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(concurrent.futures.ThreadPoolExecutor(max_workers=32))
+    # 初始化 TimescaleDB 连接池 (数据库优先架构)
+    if DB_MANAGER_AVAILABLE:
+        try:
+            db_pool = await get_db_pool()
+            if db_pool:
+                print("[DB] Database-first mode: REST queries will hit TimescaleDB before upstream", flush=True)
+            else:
+                print("[DB] DB pool not available, falling back to cache-only mode", flush=True)
+        except Exception as e:
+            print(f"[DB] Initialization error: {e}, continuing without DB", flush=True)
+    else:
+        print("[DB] db_manager not available, DB features disabled", flush=True)
+
     http_runner = await start_http_server()
     ws_server = await start_websocket_server()
     forwarder = asyncio.create_task(forward_alpaca_messages())
@@ -6382,6 +7045,10 @@ async def main():
     init_usage_logger()
     global usage_log_task
     usage_log_task = asyncio.create_task(usage_log_writer())
+    
+    # Start background users.json watcher
+    watcher_task = asyncio.create_task(watch_user_registry_loop())
+    
     forwarders = [
         forwarder,
         test_forwarder,
@@ -6391,6 +7058,7 @@ async def main():
         crypto_forwarder,
         news_forwarder,
         usage_log_task,
+        watcher_task,
     ]
 
     try:
@@ -6404,6 +7072,12 @@ async def main():
         await http_runner.cleanup()
         ws_server.close()
         await ws_server.wait_closed()
+        # 关闭 TimescaleDB 连接池
+        if DB_MANAGER_AVAILABLE:
+            try:
+                await close_db_pool()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
