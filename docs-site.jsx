@@ -66,7 +66,7 @@ function DocsSite() {
           <Tab id="ws" tab={tab} setTab={setTab} label="WS usage" count="6 channels" />
           <div style={{ flex: 1 }}></div>
           <div style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
-            last sync · 2026-05-25 ThinkCentre migration
+            last sync · 2026-05-25 migration to author's host
           </div>
         </div>
       </div>
@@ -308,7 +308,7 @@ const PROXY_HOST = "52.37.182.24";
 const REST_BASE  = `http://${PROXY_HOST}:8768`;
 const TOKEN_BASE = `http://${PROXY_HOST}:3000`;
 
-// ThinkCentre direct (Tailscale mesh — same network only)
+// Author's host direct (Tailscale mesh — same network only)
 const TC_HOST    = "100.70.107.106";
 const TC_REST    = `http://${TC_HOST}:8768`;
 const TC_FUNNEL  = "leandata.tail5a8dea.ts.net";
@@ -617,10 +617,10 @@ function ProxyApiBody() {
         </tbody>
       </table>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13 }}>
-        <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Migration in progress</strong> — The data proxy is migrating from EC2 to <strong>ThinkCentre</strong> via Tailscale.
-        EC2 forwards all data traffic to ThinkCentre through Caddy reverse proxy. On the same Tailscale network, connect to ThinkCentre directly for lower latency.
+        <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Migration in progress</strong> — The data proxy is migrating from EC2 to <strong>Author's Host</strong> via Tailscale.
+        EC2 forwards all data traffic to the Author's Host through Caddy reverse proxy. On the same Tailscale network, connect to the Author's Host directly for lower latency.
         Both addresses are live and interchangeable.
-        <br/><span style={{ color: "var(--ink-soft)" }}>数据代理正在从 EC2 迁移到 ThinkCentre。EC2 通过 Caddy 反代转发所有流量到 ThinkCentre。同一 Tailscale 网络内直连 ThinkCentre 延迟更低。两个地址均可用。</span>
+        <br/><span style={{ color: "var(--ink-soft)" }}>数据代理正在从 EC2 迁移到作者的主机。EC2 通过 Caddy 反代转发所有流量到作者的主机。同一 Tailscale 网络内直连作者的主机延迟更低。两个地址均可用。</span>
       </div>
 
       <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Authentication</h2>
