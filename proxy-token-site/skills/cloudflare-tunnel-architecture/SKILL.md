@@ -40,8 +40,8 @@ description: Explains the Cloudflare Zero Trust Tunnel setup replacing EC2+Caddy
 
 | 公网域名 | → ThinkCentre 目标 | 用途 |
 |---|---|---|
-| `leandata.uk` | `http://localhost:8768` | REST API 代理 |
-| `token.leandata.uk` | `http://localhost:3000` | Token 注册门户 |
+| `api.leandata.uk` | `http://localhost:8768` | REST API 代理 |
+| `leandata.uk` | `http://localhost:3000` | 主站（docs + register + admin + token API + status） |
 | Catch-all | `http_status:404` | 默认返回 404 |
 
 **注意**: `ws.leandata.uk` 已删除。WS 直接连 EC2 (`ws://52.37.182.24:8767/*`)，不走 Cloudflare Tunnel。原因：EC2 到 Alpaca 的 AWS 内网延迟更低（p50 33.5ms vs TC 的 58.6ms）。
@@ -122,3 +122,17 @@ EC2 不再退役 — 它在混合架构中承担 WS 代理角色（AWS 内网到
 - ✅ EC2 只运行 WS-only Docker proxy（端口 8767）
 - ✅ users.json 从 ThinkCentre SCP 同步到 EC2（方向已反转）
 - EC2 成本保留（WS 实时流需要低延迟）
+
+---
+
+## 6. Status API
+
+Token portal (port 3000) 暴露 Status API，前端 `status-body.jsx` 消费：
+
+| Endpoint | 说明 |
+|---|---|
+| `GET /api/status` | 探测 REST proxy `/health` + WS TCP 连接，返回 `overall` + 各组件 `status`/`latencyMs` |
+| `GET /api/uptime` | 90 天每日可用性百分比数组 |
+| `GET /api/latency?range=24h\|7d\|30d` | 分桶延迟时序（1h 桶，每桶 p50） |
+
+数据持久化到 `data/status.json`。无需认证。

@@ -174,6 +174,28 @@ GET https://api.leandata.uk/health
 → OK
 ```
 
+### Status API（Token Portal）
+
+无需认证，通过主站 `https://leandata.uk` 访问：
+
+```
+GET /api/status        — 实时探测 REST proxy + WS 端口，返回 overall + 各组件 status/latencyMs
+GET /api/uptime        — 90 天每日可用性百分比数组 (rest + ws)
+GET /api/latency?range=24h|7d|30d — 分桶延迟时序 (1h 桶, p50)
+```
+
+示例：
+```bash
+curl https://leandata.uk/api/status
+# {"overall":"operational","components":{"rest":{"status":"operational","latencyMs":5282},"ws":{"status":"operational","latencyMs":15}},...}
+
+curl https://leandata.uk/api/uptime
+# {"rest":[100,100,...,50],"ws":[100,100,...,100]}  (90 elements each)
+
+curl "https://leandata.uk/api/latency?range=24h"
+# {"range":"24h","rest":[92,88,...],"ws":[6,7,...]}
+```
+
 ### 股票历史 K 线
 
 ```

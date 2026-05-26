@@ -228,7 +228,19 @@ Rate limits are enforced by the cloud proxy's `RateLimiter` class based on the `
 
 Admin: `POST /api/admin/login` with `ADMIN_PASSWORD` (default `admin123`), then `X-Admin-Token` header. Sessions are in-memory — die on restart.
 
-**Tests:** `server.test.js` uses isolated temp dirs via `DATA_DIR` and `PROXY_USERS_FILE` env vars. Safe to run anywhere.
+**Status API** (no auth required, on ThinkCentre via `https://leandata.uk`):
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/status` | GET | Live probe: REST proxy `/health` + WS TCP connect. Returns `overall` + per-component `status`, `latencyMs` |
+| `/api/uptime` | GET | 90-day daily aggregated uptime `%` arrays (rest + ws) |
+| `/api/latency?range=24h\|7d\|30d` | GET | Bucketed latency time series (1h buckets, p50 per bucket) |
+
+Status data persisted to `data/status.json`. REST probe hits `http://localhost:8768/health` (10s timeout). WS probe does TCP connect to `52.37.182.24:8767`.
+
+Frontend: `public/status-body.jsx` renders the Status tab in the docs site (`public/docs-site.jsx`).
+
+**Tests:** `server.test.js` uses isolated temp dirs via `DATA_DIR` and `PROXY_USERS_FILE` env vars. Safe to run anywhere. Status tests: 7 tests covering `/api/status`, `/api/uptime`, `/api/latency`.
 
 ---
 
@@ -314,12 +326,15 @@ python3 smart_warmer_v2.py --token test123 --audit-file audit.jsonl --dry-run  #
 
 ## 8. Docs site
 
-- Repo: `ikkisovi/Websocket-DataFeed-Proxy-docs` (branch `gh-pages`)
+- Repo: `ikkisovi/Websocket-DataFeed-Proxy-docs` (branches: `gh-pages` = docs, `main` = full codebase)
 - Local clone: `/home/kai/product-apim/` (this is the docs repo root)
 - Source: `/home/kai/product-apim/docs-site.jsx` (React CDN, Babel in-browser)
+- Status page: `status-body.jsx` (uptime grid, latency chart, incident log — uses `/api/status`, `/api/uptime`, `/api/latency`)
 - HTML shell: `/home/kai/product-apim/index.html` (loads docs-site.jsx)
+- Docs HTML: `public/docs/index.html` (loads status-body.jsx + docs-site.jsx)
 - GitHub Pages: `https://ikkisovi.github.io/Websocket-DataFeed-Proxy-docs/`
-- Token portal links to docs site; they are separate deployments
+- Token portal (TC): `https://leandata.uk` serves the same docs via `public/docs/`
+- Codebase pushed to both `gh-pages` and `main` branches
 
 ---
 
@@ -367,7 +382,7 @@ Route changes are made in Cloudflare Dashboard → Zero Trust → Networks → T
 - ThinkCentre SSH via Tailscale: `ssh mint@100.70.107.106`
 - EC2 SSH: `ssh -i /tmp/ec2_ed25519.pem ec2-user@52.37.182.24`
 - `cloudflared` is a systemd service — survives reboots automatically
-- `server.js` exports `{ app, TIERS, syncToThinkCentre, computeExpiry, readJSON, writeJSON }`
+- `server.js` exports `{ app, TIERS, syncToEC2, computeExpiry, readJSON, writeJSON }`
 - ThinkCentre proxy runs `REST_ONLY=true` — no WS upstream connections
 - EC2 proxy runs WS-only — port 8767 exposed, no REST port
 - users.json sync: TC → EC2 (token-site on TC is source of truth)
