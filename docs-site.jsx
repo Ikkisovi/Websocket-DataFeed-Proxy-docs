@@ -618,9 +618,8 @@ function ProxyApiBody() {
       </table>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13 }}>
         <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Migration in progress</strong> — The data proxy is migrating from EC2 to <strong>Author's Host</strong> via Tailscale.
-        EC2 forwards all data traffic to the Author's Host through Caddy reverse proxy. On the same Tailscale network, connect to the Author's Host directly for lower latency.
-        Both addresses are live and interchangeable.
-        <br/><span style={{ color: "var(--ink-soft)" }}>数据代理正在从 EC2 迁移到作者的主机。EC2 通过 Caddy 反代转发所有流量到作者的主机。同一 Tailscale 网络内直连作者的主机延迟更低。两个地址均可用。</span>
+        EC2 forwards all data traffic to the Author's Host through Caddy reverse proxy. Connect directly for lower latency. Both addresses are live and interchangeable.
+        <br/><span style={{ color: "var(--ink-soft)" }}>数据代理正在从 EC2 迁移到作者的主机。EC2 通过 Caddy 反代转发所有流量。直连延迟更低。两个地址均可用。</span>
       </div>
 
       <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Authentication</h2>
