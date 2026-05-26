@@ -165,18 +165,10 @@ function Stat({ label, value, unit, size = "md" }) {
   );
 }
 
-// ── multi-series latency chart ──────────────────────────────────────────
+// ── multi-series latency chart — uses real data from props ─────────────
 function LatencyChart({ rest, ws, range }) {
-  // For ranges other than 24h, generate longer series
-  const len = range === "24h" ? 24 : range === "7d" ? 7 * 24 : 30 * 24;
-  const restSeries = useStatusMemo(() => makeLatency(101 + len, 92, 28).concat(Array.from({ length: len - 24 }, (_, i) => {
-    const r = seeded(202 + i)();
-    return Math.round(92 + (r - 0.5) * 36);
-  })).slice(0, len), [len]);
-  const wsSeries = useStatusMemo(() => makeLatency(303 + len, 6.5, 2).concat(Array.from({ length: len - 24 }, (_, i) => {
-    const r = seeded(404 + i)();
-    return Math.round((6.5 + (r - 0.5) * 3) * 10) / 10;
-  })).slice(0, len), [len]);
+  const restSeries = rest.length > 0 ? rest : [0];
+  const wsSeries = ws.length > 0 ? ws : [0];
 
   const W = 720, H = 200, PAD_L = 44, PAD_R = 12, PAD_T = 16, PAD_B = 28;
   const plotW = W - PAD_L - PAD_R;
@@ -224,32 +216,55 @@ function LatencyChart({ rest, ws, range }) {
   );
 }
 
-// ── data hook ──────────────────────────────────────────────────────────
+// ── data hook — fetches real data from /api/status, /api/uptime, /api/latency ──
 function useStatusData() {
-  return useStatusMemo(() => {
-    const restUptime = makeUptime(7, 0.997);
-    const wsUptime = makeUptime(11, 0.999);
-    // Force last 30d to look healthy
-    for (let i = 60; i < 90; i++) {
-      if (Math.random() < 0.95) restUptime[i] = restUptime[i] === 2 ? 1 : restUptime[i];
+  const [data, setData] = useStatusState(null);
+
+  useStatusEffect(() => {
+    let cancelled = false;
+
+    async function fetchAll() {
+      try {
+        const [statusRes, uptimeRes, latencyRes] = await Promise.all([
+          fetch('/api/status').then(r => r.json()),
+          fetch('/api/uptime').then(r => r.json()),
+          fetch('/api/latency?range=24h').then(r => r.json()),
+        ]);
+        if (cancelled) return;
+        setData({
+          rest: {
+            name: statusRes.components.rest.name,
+            route: statusRes.components.rest.route,
+            status: statusRes.components.rest.status,
+            uptime90: uptimeRes.rest.map(pct => pct >= 99.9 ? 0 : pct >= 99 ? 1 : 2),
+            latency24h: latencyRes.rest.filter(v => v !== null),
+          },
+          ws: {
+            name: statusRes.components.ws.name,
+            route: statusRes.components.ws.route,
+            status: statusRes.components.ws.status,
+            uptime90: uptimeRes.ws.map(pct => pct >= 99.9 ? 0 : pct >= 99 ? 1 : 2),
+            latency24h: latencyRes.ws.filter(v => v !== null),
+          },
+        });
+      } catch (_) {
+        // Silently keep previous data
+      }
     }
-    return {
-      rest: {
-        name: "REST API",
-        route: "api.leandata.uk · Cloudflare → ThinkCentre",
-        status: "operational",
-        uptime90: restUptime,
-        latency24h: makeLatency(2026, 92, 24), // ms
-      },
-      ws: {
-        name: "WebSocket stream",
-        route: "ws://52.37.182.24:8767 · EC2 direct",
-        status: "operational",
-        uptime90: wsUptime,
-        latency24h: makeLatency(2027, 6.5, 2).map(v => Math.round(v * 10) / 10), // ms with 1 decimal
-      },
-    };
+
+    fetchAll();
+    const interval = setInterval(fetchAll, 30000); // refresh every 30s
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
+
+  // Show loading state until first fetch completes
+  if (!data) {
+    return {
+      rest: { name: "REST API", route: "api.leandata.uk · Cloudflare → ThinkCentre", status: "operational", uptime90: Array(90).fill(0), latency24h: [0] },
+      ws: { name: "WebSocket stream", route: "ws://52.37.182.24:8767 · EC2 direct", status: "operational", uptime90: Array(90).fill(0), latency24h: [0] },
+    };
+  }
+  return data;
 }
 
 // ── incidents — fetched from /api/incidents ────────────────────────────
@@ -281,6 +296,7 @@ function StatusBody() {
   const data = useStatusData();
   const [range, setRange] = useStatusState("24h");
   const [incidents, setIncidents] = useStatusState([]);
+  const [latencyData, setLatencyData] = useStatusState({ rest: [], ws: [] });
 
   useStatusEffect(() => {
     fetch('/api/incidents')
@@ -288,6 +304,13 @@ function StatusBody() {
       .then(d => setIncidents(d.incidents || []))
       .catch(() => {});
   }, []);
+
+  useStatusEffect(() => {
+    fetch(`/api/latency?range=${range}`)
+      .then(r => r.json())
+      .then(d => setLatencyData({ rest: (d.rest || []).filter(v => v !== null), ws: (d.ws || []).filter(v => v !== null) }))
+      .catch(() => {});
+  }, [range]);
 
   const overall = (data.rest.status === "operational" && data.ws.status === "operational")
     ? "operational"
@@ -379,7 +402,7 @@ function StatusBody() {
             {range} · ms · client → response
           </span>
         </div>
-        <LatencyChart rest={data.rest.latency24h} ws={data.ws.latency24h} range={range}/>
+        <LatencyChart rest={latencyData.rest} ws={latencyData.ws} range={range}/>
       </div>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         REST latency includes Cloudflare edge → ThinkCentre origin round-trip plus server processing.
