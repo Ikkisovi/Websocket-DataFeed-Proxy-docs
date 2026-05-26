@@ -388,7 +388,7 @@ function StatusBody() {
 
       {/* ── Uptime grid ── */}
       <h2 id="uptime" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>90-day uptime</h2>
-      <div className="card" style={{ padding: 20, marginBottom: 12 }}>
+      <div className="card" style={{ padding: 20, marginBottom: 12, borderLeft: "none", borderRight: "none", borderRadius: 0 }}>
         <UptimeBlock label="REST API" data={data.rest.uptime90} />
         <hr style={{ border: 0, borderTop: "1px solid var(--rule)", margin: "18px 0" }}/>
         <UptimeBlock label="WebSocket stream" data={data.ws.uptime90} />
