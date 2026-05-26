@@ -575,13 +575,19 @@ function DocsSite({ initialTab = "proxy" } = {}) {
       </div>
 
       {/* Content */}
-      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 220px", flex: 1 }}>
-        <SideNav tab={tab} />
-        <main style={{ padding: "40px 56px", background: "var(--bg-canvas)" }}>
-          {tab === "proxy" ? <ProxyApiBody /> : tab === "ws" ? <WsUsageBody /> : (React.createElement(StatusBody))}
+      {tab === "status" ? (
+        <main style={{ padding: "40px 56px", background: "var(--bg-canvas)", display: "flex", justifyContent: "center" }}>
+          <StatusBody />
         </main>
-        <OnThisPage tab={tab} />
-      </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 220px", flex: 1 }}>
+          <SideNav tab={tab} />
+          <main style={{ padding: "40px 56px", background: "var(--bg-canvas)" }}>
+            {tab === "proxy" ? <ProxyApiBody /> : <WsUsageBody />}
+          </main>
+          <OnThisPage tab={tab} />
+        </div>
+      )}
     </div>
   );
 }
