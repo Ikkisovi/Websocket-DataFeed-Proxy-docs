@@ -528,6 +528,195 @@ app.post('/api/generate-token', async (req, res) => {
   }
 });
 
+// ============================================================
+// Status API — serves real-time health + historical uptime/latency
+// Data file: data/status.json (auto-created, persisted across restarts)
+// ============================================================
+
+const STATUS_FILE = path.join(DATA_DIR, 'status.json');
+const PROXY_REST_URL = process.env.PROXY_REST_URL || 'http://localhost:8768';
+const PROXY_WS_HOST  = process.env.PROXY_WS_HOST  || '52.37.182.24';
+const PROXY_WS_PORT  = process.env.PROXY_WS_PORT  || 8767;
+
+function readStatusData() {
+  try {
+    if (fs.existsSync(STATUS_FILE)) return JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8'));
+  } catch (_) {}
+  return { uptime: { rest: [], ws: [] }, latency: { rest: [], ws: [] }, incidents: [] };
+}
+
+function writeStatusData(data) {
+  try { fs.writeFileSync(STATUS_FILE, JSON.stringify(data, null, 2)); } catch (_) {}
+}
+
+// Probe REST proxy health — returns { ok, latencyMs }
+async function probeRest() {
+  const start = Date.now();
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const resp = await fetch(`${PROXY_REST_URL}/health`, { signal: controller.signal });
+    clearTimeout(timer);
+    return { ok: resp.ok, latencyMs: Date.now() - start };
+  } catch (_) {
+    return { ok: false, latencyMs: Date.now() - start };
+  }
+}
+
+// Probe WS proxy — TCP connect to check port is open
+async function probeWs() {
+  const net = require('net');
+  const start = Date.now();
+  return new Promise(resolve => {
+    const sock = new net.Socket();
+    sock.setTimeout(5000);
+    sock.once('connect', () => { sock.destroy(); resolve({ ok: true, latencyMs: Date.now() - start }); });
+    sock.once('timeout', () => { sock.destroy(); resolve({ ok: false, latencyMs: Date.now() - start }); });
+    sock.once('error', () => { sock.destroy(); resolve({ ok: false, latencyMs: Date.now() - start }); });
+    sock.connect(PROXY_WS_PORT, PROXY_WS_HOST);
+  });
+}
+
+// GET /api/status — overall + per-component live status
+app.get('/api/status', async (_req, res) => {
+  try {
+    const [restProbe, wsProbe] = await Promise.all([probeRest(), probeWs()]);
+    const statusData = readStatusData();
+
+    // Append current sample (keep last 1440 = 24h at 1/min)
+    const now = Date.now();
+    statusData.latency.rest.push({ t: now, ms: restProbe.latencyMs });
+    statusData.latency.ws.push({ t: now, ms: wsProbe.latencyMs });
+    if (statusData.latency.rest.length > 1440) statusData.latency.rest = statusData.latency.rest.slice(-1440);
+    if (statusData.latency.ws.length > 1440) statusData.latency.ws = statusData.latency.ws.slice(-1440);
+
+    // Append uptime sample (1 = up, 0 = down)
+    statusData.uptime.rest.push({ t: now, up: restProbe.ok ? 1 : 0 });
+    statusData.uptime.ws.push({ t: now, up: wsProbe.ok ? 1 : 0 });
+    // Keep 90 days of minute samples (129600) but cap at 100k to avoid bloat
+    const maxUptime = 100000;
+    if (statusData.uptime.rest.length > maxUptime) statusData.uptime.rest = statusData.uptime.rest.slice(-maxUptime);
+    if (statusData.uptime.ws.length > maxUptime) statusData.uptime.ws = statusData.uptime.ws.slice(-maxUptime);
+
+    writeStatusData(statusData);
+
+    const restStatus = restProbe.ok ? 'operational' : 'outage';
+    const wsStatus = wsProbe.ok ? 'operational' : 'outage';
+    const overall = (restProbe.ok && wsProbe.ok) ? 'operational' : (!restProbe.ok && !wsProbe.ok) ? 'outage' : 'degraded';
+
+    res.json({
+      overall,
+      components: {
+        rest: {
+          name: 'REST API',
+          route: 'api.leandata.uk · Cloudflare → ThinkCentre',
+          status: restStatus,
+          latencyMs: restProbe.latencyMs,
+        },
+        ws: {
+          name: 'WebSocket stream',
+          route: `ws://${PROXY_WS_HOST}:${PROXY_WS_PORT} · EC2 direct`,
+          status: wsStatus,
+          latencyMs: wsProbe.latencyMs,
+        },
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('Status probe error:', err);
+    res.status(500).json({ error: 'Status probe failed' });
+  }
+});
+
+// GET /api/uptime — 90-day uptime data per component
+// Returns arrays of daily aggregated uptime percentages
+app.get('/api/uptime', (_req, res) => {
+  try {
+    const statusData = readStatusData();
+    const now = Date.now();
+    const ms90d = 90 * 24 * 60 * 60 * 1000;
+
+    function aggregateDaily(samples) {
+      const recent = samples.filter(s => s.t > now - ms90d);
+      if (recent.length === 0) return Array.from({ length: 90 }, () => 100);
+
+      const days = {};
+      for (const s of recent) {
+        const day = new Date(s.t).toISOString().slice(0, 10);
+        if (!days[day]) days[day] = { up: 0, total: 0 };
+        days[day].up += s.up;
+        days[day].total += 1;
+      }
+
+      // Fill last 90 days, defaulting to 100% for missing days
+      const result = [];
+      for (let i = 89; i >= 0; i--) {
+        const d = new Date(now - i * 86400000).toISOString().slice(0, 10);
+        const entry = days[d];
+        result.push(entry ? Math.round((entry.up / entry.total) * 10000) / 100 : 100);
+      }
+      return result;
+    }
+
+    res.json({
+      rest: aggregateDaily(statusData.uptime.rest),
+      ws: aggregateDaily(statusData.uptime.ws),
+    });
+  } catch (err) {
+    console.error('Uptime data error:', err);
+    res.status(500).json({ error: 'Failed to load uptime data' });
+  }
+});
+
+// GET /api/latency?range=24h|7d|30d — latency time series per component
+app.get('/api/latency', (req, res) => {
+  try {
+    const range = req.query.range || '24h';
+    const statusData = readStatusData();
+    const now = Date.now();
+
+    const rangeMs = range === '7d' ? 7 * 86400000 : range === '30d' ? 30 * 86400000 : 86400000;
+    const bucketMs = range === '24h' ? 3600000 : range === '7d' ? 3600000 : 3600000; // 1h buckets
+    const cutoff = now - rangeMs;
+
+    function bucketize(samples) {
+      const recent = samples.filter(s => s.t > cutoff);
+      if (recent.length === 0) return [];
+
+      const buckets = {};
+      for (const s of recent) {
+        const key = Math.floor(s.t / bucketMs);
+        if (!buckets[key]) buckets[key] = [];
+        buckets[key].push(s.ms);
+      }
+
+      // Fill gaps and compute p50
+      const result = [];
+      const startBucket = Math.floor(cutoff / bucketMs);
+      const endBucket = Math.floor(now / bucketMs);
+      for (let b = startBucket; b <= endBucket; b++) {
+        const vals = buckets[b];
+        if (vals && vals.length > 0) {
+          vals.sort((a, b) => a - b);
+          result.push(vals[Math.floor(vals.length * 0.5)]);
+        } else {
+          result.push(null);
+        }
+      }
+      return result;
+    }
+
+    res.json({
+      range,
+      rest: bucketize(statusData.latency.rest),
+      ws: bucketize(statusData.latency.ws),
+    });
+  } catch (err) {
+    console.error('Latency data error:', err);
+    res.status(500).json({ error: 'Failed to load latency data' });
+  }
+});
+
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);

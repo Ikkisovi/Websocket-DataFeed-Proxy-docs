@@ -22,6 +22,9 @@ function resetTestData() {
   fs.writeFileSync(USERS_FILE, '[]');
   fs.writeFileSync(PENDING_FILE, '[]');
   fs.writeFileSync(TEST_PROXY_FILE, '{"users":[]}');
+  // Clean status data so status/uptime/latency tests start fresh
+  const statusFile = path.join(TEST_DATA_DIR, 'status.json');
+  if (fs.existsSync(statusFile)) fs.unlinkSync(statusFile);
 }
 
 beforeEach(() => {
@@ -602,5 +605,117 @@ describe('POST /api/admin/sync-users', () => {
 
     const logText = res.body.logs.join('\n');
     expect(logText).toMatch(/Syncing to ThinkCentre/);
+  });
+});
+
+// ============================================================
+// Status API
+// ============================================================
+describe('GET /api/status', () => {
+  it('returns overall status with two components', async () => {
+    const res = await request(app).get('/api/status');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('overall');
+    expect(['operational', 'degraded', 'outage']).toContain(res.body.overall);
+    expect(res.body).toHaveProperty('components.rest');
+    expect(res.body).toHaveProperty('components.ws');
+    expect(res.body).toHaveProperty('timestamp');
+  });
+
+  it('each component has name, route, status, latencyMs', async () => {
+    const res = await request(app).get('/api/status');
+    for (const key of ['rest', 'ws']) {
+      const comp = res.body.components[key];
+      expect(comp).toHaveProperty('name');
+      expect(comp).toHaveProperty('route');
+      expect(comp).toHaveProperty('status');
+      expect(['operational', 'degraded', 'outage']).toContain(comp.status);
+      expect(comp).toHaveProperty('latencyMs');
+      expect(typeof comp.latencyMs).toBe('number');
+    }
+  });
+
+  it('overall is operational only when both components are up', async () => {
+    const res = await request(app).get('/api/status');
+    const { rest, ws } = res.body.components;
+    if (rest.status === 'operational' && ws.status === 'operational') {
+      expect(res.body.overall).toBe('operational');
+    }
+  });
+
+  it('persists samples to status.json', async () => {
+    await request(app).get('/api/status');
+    const statusFile = path.join(TEST_DATA_DIR, 'status.json');
+    expect(fs.existsSync(statusFile)).toBe(true);
+    const data = JSON.parse(fs.readFileSync(statusFile, 'utf8'));
+    expect(data).toHaveProperty('uptime.rest');
+    expect(data).toHaveProperty('uptime.ws');
+    expect(data).toHaveProperty('latency.rest');
+    expect(data).toHaveProperty('latency.ws');
+    expect(data.uptime.rest.length).toBeGreaterThanOrEqual(1);
+    expect(data.latency.rest.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('GET /api/uptime', () => {
+  it('returns 90-element arrays for rest and ws', async () => {
+    // Seed some data first
+    await request(app).get('/api/status');
+    const res = await request(app).get('/api/uptime');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('rest');
+    expect(res.body).toHaveProperty('ws');
+    expect(res.body.rest).toHaveLength(90);
+    expect(res.body.ws).toHaveLength(90);
+  });
+
+  it('uptime values are percentages between 0 and 100', async () => {
+    await request(app).get('/api/status');
+    const res = await request(app).get('/api/uptime');
+    for (const val of [...res.body.rest, ...res.body.ws]) {
+      expect(typeof val).toBe('number');
+      expect(val).toBeGreaterThanOrEqual(0);
+      expect(val).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it('defaults to 100% when no data exists', async () => {
+    // Don't seed any data
+    const res = await request(app).get('/api/uptime');
+    expect(res.body.rest.every(v => v === 100)).toBe(true);
+    expect(res.body.ws.every(v => v === 100)).toBe(true);
+  });
+});
+
+describe('GET /api/latency', () => {
+  it('returns latency arrays with default 24h range', async () => {
+    await request(app).get('/api/status');
+    const res = await request(app).get('/api/latency');
+    expect(res.statusCode).toBe(200);
+    expect(res.body.range).toBe('24h');
+    expect(res.body).toHaveProperty('rest');
+    expect(res.body).toHaveProperty('ws');
+    expect(Array.isArray(res.body.rest)).toBe(true);
+    expect(Array.isArray(res.body.ws)).toBe(true);
+  });
+
+  it('accepts range=7d and range=30d', async () => {
+    await request(app).get('/api/status');
+    for (const range of ['7d', '30d']) {
+      const res = await request(app).get(`/api/latency?range=${range}`);
+      expect(res.statusCode).toBe(200);
+      expect(res.body.range).toBe(range);
+    }
+  });
+
+  it('latency values are positive numbers or null', async () => {
+    await request(app).get('/api/status');
+    const res = await request(app).get('/api/latency');
+    for (const val of [...res.body.rest, ...res.body.ws]) {
+      if (val !== null) {
+        expect(typeof val).toBe('number');
+        expect(val).toBeGreaterThanOrEqual(0);
+      }
+    }
   });
 });
