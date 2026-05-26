@@ -49,15 +49,14 @@ function DocsSite() {
         position: "relative",
         overflow: "hidden",
       }}>
-        <div className="eyebrow" style={{ marginBottom: 14 }}>Reference · static site</div>
+        <div className="eyebrow" style={{ marginBottom: 14 }}>Reference · live docs</div>
         <h1 className="display-title" style={{ fontSize: 64, margin: "0 0 14px" }}>
           Stock Options Proxy <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>API</span>
         </h1>
         <p style={{ color: "var(--ink-muted)", maxWidth: 640, fontSize: 15, margin: 0 }}>
-          Rendered from the repository markdown sources and published as a static GitHub Pages site.
-          Two surfaces: the <strong style={{ color: "var(--ink-strong)" }}>Proxy API</strong> covers token
-          provisioning and tier management; <strong style={{ color: "var(--ink-strong)" }}>WS usage</strong> covers
-          the realtime feed contract.
+          Real-time US equities, options, crypto and news — one token, no Alpaca key needed.
+          The <strong style={{ color: "var(--ink-strong)" }}>Proxy API</strong> covers REST endpoints and tier management;
+          <strong style={{ color: "var(--ink-strong)" }}>WS usage</strong> covers the 6 realtime streaming channels.
         </p>
 
         {/* Tab strip */}
@@ -66,7 +65,7 @@ function DocsSite() {
           <Tab id="ws" tab={tab} setTab={setTab} label="WS usage" count="6 channels" />
           <div style={{ flex: 1 }}></div>
           <div style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
-            last sync · 2026-05-25 migration to author's host
+            last sync · 2026-05-25 hybrid architecture (CF REST + EC2 WS)
           </div>
         </div>
       </div>
@@ -148,7 +147,7 @@ function SideNav({ tab }) {
     ]},
     { title: "Options Data", items: ["provider model", "contracts"], children: [
       { title: "Snapshots", items: ["snapshots", "quote", "snapshot trade", "open interest", "expiry", "snapshot ohlc"] },
-      { title: "History", items: ["bars", "eod", "history open interest", "trades", "history ohlc"] },
+      { title: "History", items: ["bars", "eod", "history open interest", "trades", "latest trades", "history ohlc", "history quote", "at time"] },
       { title: "ThetaData Value", items: ["direct endpoints"] },
     ]},
     { title: "Crypto Data", items: ["orderbooks"] },
@@ -181,7 +180,7 @@ function SideNav({ tab }) {
     const indent      = BASE_PAD + depth * INDENT_STEP;
 
     // Map sidebar labels to actual document IDs
-    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
+    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-snapshot-ohlc', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'latest trades': 'post-v1beta1-options-trades-latest', 'history ohlc': 'post-v3-option-history-ohlc', 'history quote': 'post-v3-option-history-quote', 'at time': 'post-v3-option-at-time-quote', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
     const getId = (label) => ID_MAP[label] || slugify(label);
 
     return (
@@ -285,35 +284,90 @@ function OnThisPage({ tab }) {
         ))}
       </ul>
 
-      <div style={{
-        marginTop: 28,
-        padding: 14,
-        borderRadius: 8,
-        background: "var(--bg-paper)",
-        border: "1px solid var(--rule)",
-      }}>
-        <div className="eyebrow" style={{ marginBottom: 6, color: "var(--ink-soft)" }}>Try it</div>
-        <p style={{ margin: "0 0 10px", color: "var(--ink-muted)", fontSize: 12 }}>
-          Open the live token portal to test your credentials.
-        </p>
-        <a href="register.html" className="btn" style={{ width: "100%", justifyContent: "center", fontSize: 12, textDecoration: "none" }}>
-          Open portal →
-        </a>
-      </div>
+      <TokenCard />
     </aside>
   );
 }
 
-const PROXY_HOST = "52.37.182.24";
-const REST_BASE  = `http://${PROXY_HOST}:8768`;
-const TOKEN_BASE = `http://${PROXY_HOST}:3000`;
+function TokenCard() {
+  const [user, setUser] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [errorMsg, setErrorMsg] = React.useState("");
+  const [tokenData, setTokenData] = React.useState(null);
 
-// Author's host direct (Tailscale mesh — same network only)
-const TC_HOST    = "100.70.107.106";
-const TC_REST    = `http://${TC_HOST}:8768`;
-const TC_FUNNEL  = "leandata.tail5a8dea.ts.net";
-const TC_FUNNEL_REST  = `https://${TC_FUNNEL}`;
-const TC_FUNNEL_TOKEN = `https://${TC_FUNNEL}:8443`;
+  const handleGenerate = async () => {
+    if (!user || !phone) { setErrorMsg("Please enter both fields."); return; }
+    setLoading(true); setErrorMsg(""); setTokenData(null);
+    try {
+      const res = await fetch('/api/generate-token', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user, phone })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTokenData({ token: data.token, expiry: new Date(data.expiry).toLocaleString(), role: data.role || "standard" });
+      } else { setErrorMsg(data.message); }
+    } catch (e) { setErrorMsg("Network error."); }
+    finally { setLoading(false); }
+  };
+
+  const handleCopy = () => { navigator.clipboard.writeText(tokenData.token); };
+
+  return (
+    <div style={{ marginTop: 28, padding: 14, borderRadius: 8, background: "var(--bg-paper)", border: "1px solid var(--rule)" }}>
+      <div className="eyebrow" style={{ marginBottom: 8, color: "var(--ink-soft)" }}>Generate token</div>
+      {!tokenData ? (
+        <>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <input className="input mono" placeholder="Username" value={user} onChange={e => setUser(e.target.value)}
+              style={{ fontSize: 12, padding: "8px 10px" }} />
+            <input className="input mono" placeholder="Phone" value={phone} onChange={e => setPhone(e.target.value)}
+              style={{ fontSize: 12, padding: "8px 10px" }} />
+            <button className="btn" onClick={handleGenerate} disabled={loading}
+              style={{ width: "100%", justifyContent: "center", fontSize: 12, padding: "8px 10px" }}>
+              {loading ? "..." : "Generate →"}
+            </button>
+          </div>
+          {errorMsg && <p style={{ margin: "8px 0 0", color: "#d9534f", fontSize: 11 }}>{errorMsg}</p>}
+          <div style={{ marginTop: 12, fontSize: 11, color: "var(--ink-muted)", display: "flex", justifyContent: "space-between" }}>
+            <span>New user?</span>
+            <a href="/register" style={{ color: "var(--accent-ink)", textDecoration: "none" }}>Register →</a>
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-rule)", borderRadius: 6, padding: "6px 10px", fontSize: 11, color: "var(--accent-ink)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--ok)" }}></span>
+            Token issued
+          </div>
+          <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
+            <input className="input mono" readOnly value={tokenData.token} style={{ fontSize: 10, flex: 1, padding: "6px 8px" }} />
+            <button className="btn" style={{ padding: "0 10px", fontSize: 11 }} onClick={handleCopy}>Copy</button>
+          </div>
+          <div style={{ marginTop: 8, fontSize: 11, color: "var(--ink-muted)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>Expires</span><span style={{ fontFamily: "var(--f-mono)" }}>{tokenData.expiry}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+              <span>Role</span><span className={"tier " + tokenData.role}>{tokenData.role}</span>
+            </div>
+          </div>
+          <button className="btn ghost" onClick={() => { setTokenData(null); setUser(""); setPhone(""); }}
+            style={{ width: "100%", justifyContent: "center", fontSize: 11, padding: "6px", marginTop: 8 }}>
+            Generate another
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Hybrid architecture: REST via Cloudflare→ThinkCentre, WS via EC2 direct
+const REST_BASE  = "https://api.leandata.uk";
+const TOKEN_BASE = "https://leandata.uk";
+const WS_HOST    = "52.37.182.24";
+const WS_BASE    = `ws://${WS_HOST}:8767`;
 
 function ParamRow({ name, type, required, desc }) {
   return (
@@ -602,24 +656,34 @@ function ProxyApiBody() {
       {/* ── Getting started ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Getting started</div>
       <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>Overview</h2>
+      <div style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-rule)", borderRadius: 8, padding: "16px 20px", margin: "16px 0 24px", fontSize: 13.5, color: "var(--accent-ink)", lineHeight: 1.6 }}>
+        <strong style={{ display: "block", marginBottom: 6, fontSize: 14.5 }}>📢 系统维护与权益延期公告 (Service Update & Plan Extension Notice)</strong>
+        由于最近系统进行优化与调试，为了给各位量化交易者提供更稳定、更优质的行情转发服务和数据表现，
+        <strong>所有 non-REST-only 套餐 (包括 Trial, Value, Standard, Premium) 用户的订阅有效期均已自动延长 5 日</strong>。
+        如有任何数据调用疑问，请随时联系管理员。
+        <br/>
+        <span style={{ display: "block", marginTop: 4, fontSize: 12, opacity: 0.8 }}>
+          * Notice: Due to recent system debugging and enhancements for better reliability, all non-REST-only tier active plans have been automatically extended by 5 days.
+        </span>
+      </div>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 16px", maxWidth: 640 }}>
-        The Stock Options Proxy has two surfaces: a <strong style={{ color: "var(--ink-strong)" }}>token portal</strong> (port 3000) for registration and token issuance,
-        and a <strong style={{ color: "var(--ink-strong)" }}>data proxy</strong> (port 8768 REST / 8767 WS) for market data.
+        The Stock Options Proxy has two surfaces: a <strong style={{ color: "var(--ink-strong)" }}>token portal</strong> for registration and token issuance,
+        and a <strong style={{ color: "var(--ink-strong)" }}>data proxy</strong> for market data (REST via Cloudflare, WS via EC2 direct).
         Once you have a token, use it to call historical and realtime endpoints without managing your own Alpaca / ThetaData credentials.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>股票期权代理包含两个服务面：Token 门户（3000端口）用于注册和签发，数据代理（8768 REST / 8767 WS）用于行情数据。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>股票期权代理包含两个服务面：Token 门户用于注册和签发，数据代理用于行情数据（REST 走 Cloudflare，WS 走 EC2 直连）。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
-        <thead><tr><th>Surface</th><th>Public (EC2 legacy)</th><th>Public HTTPS (Tailscale Funnel)</th><th>Tailscale direct (Mesh)</th><th>Auth</th></tr></thead>
+        <thead><tr><th>Surface</th><th>Public URL</th><th>Auth</th></tr></thead>
         <tbody>
-          <tr><td>Token portal</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TOKEN_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TC_FUNNEL_TOKEN}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>http://{TC_HOST}:3000</td><td style={{ fontSize: 12 }}>username + phone</td></tr>
-          <tr><td>REST data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{REST_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TC_FUNNEL_REST}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TC_REST}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
-          <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{`ws://${PROXY_HOST}:8767`}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, color: "var(--ink-soft)" }}>n/a (Funnel is HTTPS-only)</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{`ws://${TC_HOST}:8767`}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
+          <tr><td>Token portal</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TOKEN_BASE}</td><td style={{ fontSize: 12 }}>username + phone</td></tr>
+          <tr><td>REST data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{REST_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
+          <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{WS_BASE}/*</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
         </tbody>
       </table>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13 }}>
-        <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Migration in progress</strong> — The data proxy is migrating from EC2 to <strong>Author's Host</strong> via Tailscale.
-        EC2 forwards all data traffic to the Author's Host through Caddy reverse proxy. Connect directly for lower latency. Both addresses are live and interchangeable.
-        <br/><span style={{ color: "var(--ink-soft)" }}>数据代理正在从 EC2 迁移到作者的主机。EC2 通过 Caddy 反代转发所有流量。直连延迟更低。两个地址均可用。</span>
+        <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Hybrid architecture</strong> — REST historical data is served via <strong>Cloudflare</strong> global edge (leandata.uk),
+        while realtime <strong>WebSocket</strong> streams connect directly to EC2 for lowest latency to Alpaca.
+        <br/><span style={{ color: "var(--ink-soft)" }}>REST 历史数据通过 Cloudflare 全球边缘节点提供（leandata.uk），WebSocket 实时流直连 EC2 以获得最低 Alpaca 延迟。</span>
       </div>
 
       <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Authentication</h2>
@@ -945,7 +1009,7 @@ Authorization: Bearer c88662...720a
         <thead><tr><th>Surface</th><th>Route</th><th>Routing behavior</th></tr></thead>
         <tbody>
           {[
-            ["Alpaca options (native)",       "/v1beta1/options/*",                                            "Bars, historical trades, latest quotes/trades, snapshots, chain snapshots. Historical option data starts 2024-02-01."],
+            ["Alpaca options (native)",       "/v1beta1/options/*",                                            "Historical trades, latest trades, bars, snapshots, chain snapshots. Historical option data starts 2024-02-01. No history quotes — use /v3/option/history/quote (ThetaData)."],
             ["Option bars (wrapper)",         "/v1/history/options/bars",                                      "ThetaData OHLC first; Alpaca bars fallback. provider=thetadata|alpaca to pin."],
             ["Contracts (wrapper)",           "/v1/options/contracts",                                         "Alpaca contracts first; ThetaData Value contracts fallback. provider=thetadata requires underlying_symbols."],
             ["Full snapshots / greeks / IV",  "/v1/options/snapshots",                                         "Alpaca only — ThetaData Value lacks greeks, IV, market value."],
@@ -967,19 +1031,60 @@ Authorization: Bearer c88662...720a
         ThetaData Value does <strong>not</strong> expose direct option trades, trade_quote, market value, implied volatility, or greeks.
       </p>
       <h3 id="alpaca-native-examples" style={{ fontSize: 16, fontWeight: 500, margin: "0 0 8px", color: "var(--ink-strong)" }}>Native Alpaca examples</h3>
-      <pre className="code" style={{ marginBottom: 40 }}>
-{`# Latest stock quote (Alpaca native)
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`# ── Stock trade + quote (Alpaca native /v2/stocks) ───────────────────
+# Latest stock quote (single symbol)
 curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v2/stocks/quotes/latest?symbols=AAPL&feed=sip"
+  "${REST_BASE}/v2/stocks/AAPL/quotes/latest?feed=sip"
 
-# Latest crypto quote (Alpaca native)
+# Latest stock quotes (multi symbol batch)
 curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v1beta3/crypto/us/latest/quotes?symbols=BTC%2FUSD"
+  "${REST_BASE}/v2/stocks/quotes/latest?symbols=AAPL,MSFT,NVDA&feed=sip"
 
-# Historical stock quotes (Alpaca native)
+# Latest stock trade (single symbol)
 curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v2/stocks/quotes?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&feed=sip"`}
+  "${REST_BASE}/v2/stocks/AAPL/trades/latest?feed=sip"
+
+# Latest stock trades (multi symbol batch)
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v2/stocks/trades/latest?symbols=AAPL,MSFT,NVDA&feed=sip"
+
+# Historical stock quotes
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v2/stocks/quotes?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&feed=sip"
+
+# Historical stock trades
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v2/stocks/trades?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&feed=sip"
+
+# ── Options trade (Alpaca native /v1beta1/options) ───────────────────
+# Historical options trades — data available from 2024-02-01
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1beta1/options/trades?symbols=AAPL260620C00200000&start=2025-01-02T09:30:00Z&end=2025-01-02T16:00:00Z"
+
+# Latest options trades (multi symbol, up to 100 symbols)
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1beta1/options/trades/latest?symbols=AAPL260620C00200000,AAPL260620P00200000&feed=opra"
+
+# Latest options quotes (multi symbol — for quotes use the snapshot/quote endpoint)
+# Note: Alpaca does NOT expose /v1beta1/options/quotes/latest.
+# Use /v1/options/snapshots/quote (POST, proxy) instead.
+
+# ── Crypto ───────────────────────────────────────────────────────────
+# Latest crypto trades
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1beta3/crypto/us/latest/trades?symbols=BTC%2FUSD"
+
+# Latest crypto quotes
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1beta3/crypto/us/latest/quotes?symbols=BTC%2FUSD"`}
       </pre>
+      <div style={{ background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 8, padding: "10px 14px", margin: "0 0 40px", fontSize: 12 }}>
+        <strong>{"⚠️"} Options trade coverage:</strong> Alpaca historical option trades (<code>/v1beta1/options/trades</code>) is available from <strong>2024-02-01</strong> onward.
+        Requests with <code>start</code> before that date will return empty results. The proxy adds a <code>data_availability</code> notice automatically.
+        Alpaca does <strong>not</strong> expose a <code>/v1beta1/options/quotes</code> history endpoint — use <code>/v3/option/history/quote</code> (ThetaData-backed) for historical option quotes.
+        <br/><span style={{ color: "var(--ink-soft)" }}>Alpaca 历史期权成交数据从 2024-02-01 起可用。早于此日期将返回空结果。Alpaca 不提供历史期权报价接口，需用 /v3/option/history/quote（ThetaData 数据源）。</span>
+      </div>
 
       <h2 id="post-v1-options-contracts" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/contracts</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -1242,6 +1347,43 @@ for row in data["data"][:5]:
 }`}
       </pre>
 
+      <h2 id="post-v1beta1-options-trades-latest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET /v1beta1/options/trades/latest</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Latest trade for each given option contract symbol. Native Alpaca endpoint — the proxy passes through with auth, caching, and rate limiting.
+        Results are keyed by OCC symbol with a single trade object per symbol. Use <code>feed=opra</code> for real-time data (requires OPRA entitlement) or <code>feed=indicative</code> for the free indicative feed.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>每个期权合约的最新一笔成交。原生 Alpaca 接口，代理透传并附加鉴权/缓存/限速。可选 feed=opra（实时，需 OPRA 权益）或 feed=indicative（免费）。</span>
+      </p>
+      <EndpointBadge method="GET" path={`${REST_BASE}/v1beta1/options/trades/latest`} />
+      <ParamTable rows={[
+        { name: "symbols", type: "string", required: true,  desc: "Comma-separated OCC option symbols (max 100 per request)" },
+        { name: "feed",    type: "string", required: false, desc: "opra | indicative (default: opra with OPRA subscription, indicative otherwise)" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1beta1/options/trades/latest?symbols=AAPL260620C00200000,AAPL260620P00200000&feed=opra"`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`// Response — one trade per symbol, keyed by OCC
+{
+  "trades": {
+    "AAPL260620C00200000": {
+      "t": "2025-01-02T15:26:12.728701696Z",
+      "x": "B",
+      "p": 17.15,
+      "s": 900,
+      "c": "e"
+    },
+    "AAPL260620P00200000": {
+      "t": "2025-01-02T15:59:59.123456789Z",
+      "x": "A",
+      "p": 8.40,
+      "s": 200,
+      "c": "I"
+    }
+  }
+}`}
+      </pre>
+
       {/* ── Not Supported ── */}
       <div style={{ background: "#f8d7da", border: "1px solid #f5c6cb", borderRadius: 8, padding: "14px 18px", margin: "48px 0 24px", fontSize: 13 }}>
         <h3 id="not-supported-value" style={{ fontSize: 16, fontWeight: 600, margin: "0 0 8px", color: "#721c24" }}>Not supported on ThetaData Value plan</h3>
@@ -1468,9 +1610,12 @@ for sym, snap in data["snapshots"].items():
     print(f"  {sym}  delta={g.get('delta','—')}  bid={q.get('bp','—')}  ask={q.get('ap','—')}")`}
       </pre>
 
-      {/* ── ThetaData Value direct endpoints ── */}
-      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · ThetaData Value</div>
-      <h2 id="post-v3-option-direct-value" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/* (ThetaData Value)</h2>
+      {/* ── ThetaData Value direct endpoints (Deprecated) ── */}
+      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · ThetaData Value · Legacy</div>
+      <h2 id="post-v3-option-direct-value" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/* (ThetaData Value) <span style={{ color: "#d9534f", fontSize: 16, fontWeight: 600 }}>(Deprecated Soon / 建议弃用)</span></h2>
+      <div style={{ background: "#fff3cd", border: "1px solid #ffeeba", borderRadius: 8, padding: "12px 16px", margin: "16px 0", fontSize: 13, color: "#856404" }}>
+        <strong>⚠️ 弃用提示 (Notice):</strong> 此通用直连接口即将被弃用 (Deprecated Soon)。为提高回测效率与网络开销的清晰度，请按左侧侧边栏导航，改用下方各独立的期权专有接口。
+      </div>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Authenticated proxy for ThetaData Value option endpoints included in the subscription.
         Supports both <code>GET</code> query parameters and <code>POST</code> JSON bodies, strips proxy credentials before execution, and caches successful JSON responses server-side.
@@ -1478,7 +1623,7 @@ for sym, snap in data["snapshots"].items():
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>ThetaData Value 期权白名单代理，仅开放 Value 订阅允许的端点。支持 GET/POST，成功 JSON 响应写入服务端缓存。</span>
       </p>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/...`} />
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
+      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 32 }}>
         <thead><tr><th>Endpoint</th><th>Required access</th><th>Notes</th></tr></thead>
         <tbody>
           {[
@@ -1506,19 +1651,87 @@ for sym, snap in data["snapshots"].items():
           ))}
         </tbody>
       </table>
-      <h3 id="post-v3-option-history-ohlc" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Historical OHLC example</h3>
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`# GET — query parameters forwarded to ThetaData
-curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v3/option/history/ohlc?root=AAPL&exp=260620&strike=200.0&right=C&start_date=20250102&end_date=20250103"
 
-# POST — JSON body forwarded to ThetaData
+      {/* ── Option Quote Endpoints Comparative Guide ── */}
+      <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "16px 20px", margin: "24px 0", fontSize: 14 }}>
+        <strong style={{ color: "var(--ink-strong)", display: "block", marginBottom: 8, fontSize: 15 }}>💡 期权行情接口对比与选型指南（Snapshot vs. At-Time vs. History Quote）</strong>
+        <p style={{ margin: "0 0 12px", fontSize: 13, lineHeight: 1.5, color: "var(--ink-base)" }}>
+          为了保证量化回测与实盘交易时的数据获取效率，避免因误用全量历史数据导致服务器超时或带宽超载，请务必根据以下特性精准选型：
+        </p>
+        <ul style={{ margin: "0 0 8px", paddingLeft: 20, fontSize: 13, lineHeight: 1.6, color: "var(--ink-muted)" }}>
+          <li>
+            <strong style={{ color: "var(--ink-strong)" }}>1. Snapshot (最新快照报价)</strong>: 获取<strong>当前最新一瞬间</strong>的 NBBO 盘口。不带历史时间维度，数据量极小（每次请求返回 1 条记录）。推荐用于实盘盯盘与即时核价。
+          </li>
+          <li style={{ marginTop: 8 }}>
+            <strong style={{ color: "var(--ink-strong)" }}>2. At-Time (历史定点抽样)</strong>: 获取<strong>过去某段日期内，每天特定时刻（如 10:00:00）</strong>那一瞬间的盘口快照。服务端直接抽样，返回一天一行数据，开销极小。**回测推荐！**
+          </li>
+          <li style={{ marginTop: 8 }}>
+            <strong style={{ color: "var(--ink-strong)" }}>3. History Quote (历史全量/序列)</strong>: 获取<strong>特定历史时间段内以指定间隔（如 1s / 1h）</strong>输出的全部盘口数据，返回连续的时间序列数组。适合高频或需要连续回测的场景。
+          </li>
+        </ul>
+      </div>
+
+      {/* ── GET/POST /v3/option/snapshot/ohlc ── */}
+      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · ThetaData Value · Snapshots</div>
+      <h2 id="post-v3-option-snapshot-ohlc" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/snapshot/ohlc</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Get the latest OHLC (Open, High, Low, Close) snapshot of an option contract. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约最新 OHLC 快照报价。数据源 ThetaData Value，包含服务端缓存。</span>
+      </p>
+      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/snapshot/ohlc`} />
+      <ParamTable rows={[
+        { name: "root",       type: "string",  required: true,  desc: "Root ticker (e.g. AAPL)" },
+        { name: "exp",        type: "string",  required: true,  desc: "Expiration date YYYYMMDD (e.g. 20260529)" },
+        { name: "strike",     type: "number",  required: true,  desc: "Strike price (e.g. 180)" },
+        { name: "right",      type: "string",  required: true,  desc: "C | P | both (default: both)" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`# GET
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v3/option/snapshot/ohlc?root=AAPL&exp=20260529&strike=180&right=C"
+
+# POST
+curl -X POST ${REST_BASE}/v3/option/snapshot/ohlc \\
+  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"root":"AAPL","exp":"20260529","strike":180,"right":"C"}'`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`// Response — ThetaData native format
+{
+  "ohlc": { "open": 14.50, "high": 15.20, "low": 14.10, "close": 14.85, "volume": 320 }
+}`}
+      </pre>
+
+      {/* ── GET/POST /v3/option/history/ohlc ── */}
+      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · ThetaData Value · History</div>
+      <h2 id="post-v3-option-history-ohlc" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/history/ohlc</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Get historical OHLC bars for an option contract over a specified date range. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取期权合约的历史 OHLC K线。数据源 ThetaData Value，包含服务端缓存。</span>
+      </p>
+      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/history/ohlc`} />
+      <ParamTable rows={[
+        { name: "root",       type: "string",  required: true,  desc: "Root ticker (e.g. AAPL)" },
+        { name: "exp",        type: "string",  required: true,  desc: "Expiration date YYYYMMDD (e.g. 20260529)" },
+        { name: "strike",     type: "number",  required: true,  desc: "Strike price (e.g. 180)" },
+        { name: "right",      type: "string",  required: true,  desc: "C | P | both (default: both)" },
+        { name: "start_date", type: "string",  required: true,  desc: "Start date YYYYMMDD (e.g. 20250102)" },
+        { name: "end_date",   type: "string",  required: true,  desc: "End date YYYYMMDD (e.g. 20250103)" },
+        { name: "interval",   type: "string",  required: false, desc: "Bar interval, e.g. 1d (default: 1d)" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`# GET
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v3/option/history/ohlc?root=AAPL&exp=20260529&strike=180&right=C&start_date=20250102&end_date=20250103"
+
+# POST
 curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
-  -d '{"root":"AAPL","exp":260620,"strike":200.0,"right":"C","start_date":20250102,"end_date":20250103}'`}
+  -d '{"root":"AAPL","exp":"20260529","strike":180,"right":"C","start_date":"20250102","end_date":"20250103"}'`}
       </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      <pre className="code" style={{ marginBottom: 48 }}>
 {`// Response — ThetaData native format
 {
   "ohlc": [
@@ -1526,34 +1739,81 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
   ]
 }`}
       </pre>
-      <h3 id="post-v3-option-snapshot-ohlc" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Snapshot OHLC example</h3>
-      <pre className="code" style={{ marginBottom: 48 }}>
-{`curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v3/option/snapshot/ohlc?root=AAPL&exp=260620&strike=200.0&right=C"
 
-// Response — ThetaData native format
+      {/* ── GET/POST /v3/option/history/quote ── */}
+      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · ThetaData Value · History</div>
+      <h2 id="post-v3-option-history-quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/history/quote</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Fetch a continuous time series of historical quotes (NBBO) for an option contract. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取期权合约的历史报价（NBBO）连续时间序列。数据源 ThetaData Value，包含服务端缓存。</span>
+      </p>
+      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/history/quote`} />
+      <ParamTable rows={[
+        { name: "root",       type: "string",  required: true,  desc: "Root ticker (e.g. AAPL)" },
+        { name: "exp",        type: "string",  required: true,  desc: "Expiration date YYYYMMDD (e.g. 20260529)" },
+        { name: "strike",     type: "number",  required: true,  desc: "Strike price (e.g. 180)" },
+        { name: "right",      type: "string",  required: true,  desc: "C | P | both (default: both)" },
+        { name: "start_date", type: "string",  required: false, desc: "Start date YYYYMMDD (e.g. 20260520)" },
+        { name: "end_date",   type: "string",  required: false, desc: "End date YYYYMMDD (e.g. 20260522)" },
+        { name: "interval",   type: "string",  required: false, desc: "Bar interval, e.g. 1s, 1m, 1h (default: 1s)" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`# GET
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v3/option/history/quote?root=AAPL&exp=20260529&strike=180&right=C&start_date=20260520&end_date=20260522&interval=1h"
+
+# POST
+curl -X POST ${REST_BASE}/v3/option/history/quote \\
+  -H "Authorization: Bearer <TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"root":"AAPL","exp":"20260529","strike":180,"right":"C","start_date":"20260520","end_date":"20260522","interval":"1h"}'`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`// Response
 {
-  "ohlc": { "open": 14.50, "high": 15.20, "low": 14.10, "close": 14.85, "volume": 320 }
+  "endpoint": "/v3/option/history/quote",
+  "data": [
+    { "timestamp": "2026-05-20T09:30:00-04:00", "bid": null, "bid_size": 0, "ask": null, "ask_size": 0 },
+    { "timestamp": "2026-05-20T10:30:00-04:00", "bid": 118.90, "bid_size": 5, "ask": 119.80, "ask_size": 5 }
+  ]
 }`}
       </pre>
 
-      <h3 id="post-v3-option-at-time-quote" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Quote at time example</h3>
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`# GET — quote at a specific time of day
+      {/* ── GET/POST /v3/option/at_time/quote ── */}
+      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · ThetaData Value · History</div>
+      <h2 id="post-v3-option-at-time-quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/at_time/quote</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Fetch historical quotes (NBBO) at a specific time of day across multiple dates. Highly optimized to avoid retrieving bulky full-day tick streams.
+        Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取历史上多天内在每日特定时间点（如 10:00:00）那一瞬间的定点报价快照。量化低频抽样回测首选，速度极快且节省带宽。</span>
+      </p>
+      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/at_time/quote`} />
+      <ParamTable rows={[
+        { name: "root",        type: "string",  required: true,  desc: "Root ticker (e.g. AAPL)" },
+        { name: "exp",         type: "string",  required: true,  desc: "Expiration date YYYYMMDD (e.g. 20260529)" },
+        { name: "strike",      type: "number",  required: true,  desc: "Strike price (e.g. 180)" },
+        { name: "right",       type: "string",  required: true,  desc: "C | P | both (default: both)" },
+        { name: "start_date",  type: "string",  required: true,  desc: "Start date YYYYMMDD (e.g. 20260520)" },
+        { name: "end_date",    type: "string",  required: true,  desc: "End date YYYYMMDD (e.g. 20260522)" },
+        { name: "time_of_day", type: "string",  required: false, desc: "HH:MM:SS format (default: 09:30:00)" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`# GET
 curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v3/option/at_time/quote?root=AAPL&exp=260620&strike=200.0&right=C&start_date=20250102&end_date=20250102&time_of_day=14:30:00"
+  "${REST_BASE}/v3/option/at_time/quote?root=AAPL&exp=20260529&strike=180&right=C&start_date=20260520&end_date=20260522&time_of_day=10:00:00"
 
-# POST — JSON body
+# POST
 curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
-  -d '{"root":"AAPL","exp":260620,"strike":200.0,"right":"C","start_date":20250102,"end_date":20250102,"time_of_day":"14:30:00"}'`}
+  -d '{"root":"AAPL","exp":"20260529","strike":180,"right":"C","start_date":"20260520","end_date":"20260522","time_of_day":"10:00:00"}'`}
       </pre>
       <pre className="code" style={{ marginBottom: 48 }}>
-{`// Response — ThetaData native format
+{`// Response
 {
-  "quotes": [
-    { "date": 20250102, "ms_of_day": 52200000, "bid": 14.80, "bid_size": 10, "ask": 14.90, "ask_size": 15 }
+  "endpoint": "/v3/option/at_time/quote",
+  "data": [
+    { "timestamp": "2026-05-20T09:59:59.796000-04:00", "bid": 118.50, "bid_size": 8, "ask": 119.50, "ask_size": 10 }
   ]
 }`}
       </pre>
@@ -1786,7 +2046,6 @@ Rate limit exceeded: 301/300 req/min
 }
 
 function WsUsageBody() {
-  const WS_BASE = `ws://${PROXY_HOST}:8767`;
   const H3 = ({ children }) => (
     <h3 style={{ fontFamily: "var(--f-sans)", fontWeight: 500, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--ink-muted)", margin: "32px 0 12px" }}>{children}</h3>
   );
