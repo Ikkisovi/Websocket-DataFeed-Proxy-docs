@@ -232,15 +232,23 @@ Admin: `POST /api/admin/login` with `ADMIN_PASSWORD` (default `admin123`), then 
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/api/status` | GET | Live probe: REST proxy `/health` + WS TCP connect. Returns `overall` + per-component `status`, `latencyMs` |
+| `/api/status` | GET | Live probe: REST proxy `/health` + WS TCP connect. Returns `overall` + per-component `status`, `latencyMs`. **Auto-detects outages** and logs incidents on state transitions. |
 | `/api/uptime` | GET | 90-day daily aggregated uptime `%` arrays (rest + ws) |
 | `/api/latency?range=24h\|7d\|30d` | GET | Bucketed latency time series (1h buckets, p50 per bucket) |
+| `/api/incidents` | GET | List all recorded incidents (newest first, max 100) |
+| `/api/incidents` | POST | Manually log an incident `{component, severity?, title, summary?, duration?}` |
 
-Status data persisted to `data/status.json`. REST probe hits `http://localhost:8768/health` (10s timeout). WS probe does TCP connect to `52.37.182.24:8767`.
+Status data + incidents persisted to `data/status.json`. REST probe hits `http://localhost:8768/health` (10s timeout). WS probe does TCP connect to `52.37.182.24:8767`.
 
-Frontend: `public/status-body.jsx` renders the Status tab in the docs site (`public/docs-site.jsx`).
+**Incident auto-detection** (runs inside `/api/status` probe):
+- Server boot → logs `resolved` "Service restart"
+- REST/WS probe transitions `up→down` → logs `major` outage incident
+- REST/WS probe transitions `down→up` → logs `resolved` recovery incident
+- Manual: `POST /api/incidents` for planned maintenance, custom events
 
-**Tests:** `server.test.js` uses isolated temp dirs via `DATA_DIR` and `PROXY_USERS_FILE` env vars. Safe to run anywhere. Status tests: 7 tests covering `/api/status`, `/api/uptime`, `/api/latency`.
+Frontend: StatusBody is inlined in `public/docs-site.jsx` (the Status tab). Fetches `/api/incidents` on mount.
+
+**Tests:** `server.test.js` — 14 status+incident tests covering `/api/status`, `/api/uptime`, `/api/latency`, `/api/incidents` (GET/POST, validation, cap at 100).
 
 ---
 
@@ -298,29 +306,86 @@ Auth: `{"action":"auth","token":"..."}`. Stocks/options/overnight/boats use msgp
 
 ---
 
-## 6. Cache architecture
+## 6. Cache architecture (4-layer)
 
-Disk cache in `disk_cache.py`, wired into all REST endpoints (ThinkCentre only):
+All REST endpoints on ThinkCentre hit layers in order:
 
 ```
-Request → L1 (in-memory, 500 entries, 300s TTL) → L2 (gzip on disk, /mnt/data/cache) → Upstream
+Request
+  → L1: in-process Python dict (MemoryRedisClient, 500 entries, 300s TTL)
+  → L2: gzip JSON on NVMe (/var/cache/alpaca, 30GB budget, tiered TTL via disk_cache.py)
+      archive dual-write → /mnt/data/cache/archive/{stocks,options}/{type}/{symbol}/date.json.gz
+  → L3: TimescaleDB (local PostgreSQL 16 + TimescaleDB 2.27.1)
+      query_bars / query_options_bars — returns X-Cache: DB_HIT
+  → Upstream: Alpaca REST / ThetaData SDK
+In-flight coalescing (asyncio.Future) prevents duplicate upstream calls.
 ```
 
-In-flight coalescing prevents duplicate upstream calls.
+**TTL tiers** (disk_cache.py `ENDPOINT_TTL`):
+- `/v1/options/eod`, `/v1/history/options/bars` historical: **7 days**
+- Same endpoints with `end=today`: **60s**
+- `/v1/options/snapshots[/*]`: **300s**
+- `/v1/options/contracts`, `/v1/options/open_interest`: **3600s**
+- `/v1/history/news`: **300s**
+
+**EOD alias fix** (2026-05-26): `/v1/options/eod` and `/v1/history/options/eod` now share a single cache namespace (canonical key = `/v1/options/eod`).
+
+**TimescaleDB tables** (DB-first mode active, `DB_ENABLED=true`):
+| Table | Rows | Coverage |
+|---|---|---|
+| `bars` | ~134M | 2021-01-04 → present |
+| `options_bars` | ~34M | 2024-05-27 → present |
+| `option_contracts` | ~9K | — |
+| `latest_quotes` | — | realtime upsert |
+| `news` | — | not yet populated |
+
+**DB connection** (from host): `localhost:5432`, user `proxy`, db `marketdata`. From Docker network: hostname `timescaledb`.
 
 ---
 
-## 7. Cache warmer
+## 7. Cache warmers
+
+Two separate tools with different purposes:
+
+### smart_warmer_v2.py — Nightly HTTP cache warmer (CURRENTLY IN CRONTAB)
+
+Warms the **disk cache** (L2) by replaying hot pairs from audit.jsonl + baseline tickers via HTTP proxy calls. Does NOT write to DB directly.
 
 ```bash
 cd ~/Websocket-DataFeed-Proxy/ec2-primary-backup
 python3 smart_warmer_v2.py --token test123 --audit-file audit.jsonl --rate 3.0
-python3 smart_warmer_v2.py --token test123 --audit-file audit.jsonl --dry-run  # preview
+python3 smart_warmer_v2.py --token test123 --audit-file audit.jsonl --dry-run
 ```
 
-- `tickers.json`: S&P 500 + NASDAQ-100 + ETFs
-- `refresh_tickers.py`: pulls current constituents from Wikipedia
-- ThinkCentre cron runs warmer daily at 23:00
+Cron: `0 23 * * *` daily — `warmer_v2.log`
+
+### smart_warmer_v4.py — Full universe DB backfill (run manually / on-demand)
+
+Backfills **TimescaleDB directly** — bars (Alpaca API), quotes (proxy→ThetaData), options bars (proxy→ThetaData). Checks existing DB coverage and only fetches missing date ranges. Does NOT warm disk cache.
+
+```bash
+cd ~/Websocket-DataFeed-Proxy/ec2-primary-backup
+# bars only (all lean+ndx100+sp500 symbols, 2yr):
+TIMESCALEDB_HOST=localhost python3 smart_warmer_v4.py --token test123 --data-types bars --dry-run
+
+# options backfill:
+TIMESCALEDB_HOST=localhost python3 smart_warmer_v4.py --token test123 \
+  --data-types options --options-underlyings SPX,NDX,QQQ,SPY --options-max-dte 730
+
+# full backfill (bars + quotes + options):
+TIMESCALEDB_HOST=localhost python3 smart_warmer_v4.py --token test123 --data-types bars,quotes,options
+```
+
+**Note:** v4 uses `TIMESCALEDB_HOST=localhost` when run from host (outside Docker). Symbol sources: lean universe (73 symbols, highest priority) + NASDAQ-100 + S&P 500.
+
+### eod_from_bars.py — CPU-side EOD cache synthesizer
+
+Transforms a `/v1/history/options/bars?timeframe=1Day` response into `/v1/options/eod` disk cache entries — eliminates the separate ThetaData call during warming.
+
+```python
+from eod_from_bars import bars_to_eod_cache
+stats = bars_to_eod_cache(occ_symbols, start, end, bars_response, cache_dir="/var/cache/alpaca")
+```
 
 ---
 
@@ -374,7 +439,15 @@ Route changes are made in Cloudflare Dashboard → Zero Trust → Networks → T
 | `server.js` / `server.test.js` | `/home/kai/product-apim/proxy-token-site/` | `/home/mint/proxy-token-site/` | — |
 | Cloud proxy code | `remote_proxy/alpaca_cloud_proxy.py` | `~/Websocket-DataFeed-Proxy/ec2-primary-backup/` | `~/cloud-proxy/` |
 | Token registry (proxy) | — | `~/Websocket-DataFeed-Proxy/ec2-primary-backup/users.json` | `~/cloud-proxy/users.json` |
-| Disk cache | — | `/mnt/data/cache/` | — |
+| Hot disk cache | — | `/var/cache/alpaca/` (NVMe, 30GB) | — |
+| Archive (durable) | — | `/mnt/data/cache/archive/` | — |
+| TimescaleDB data | — | `/home/mint/postgresql-data/` | — |
+| DB init schema | — | `~/Websocket-DataFeed-Proxy/ec2-primary-backup/init_db.sql` | — |
+| Nightly warmer | — | `ec2-primary-backup/smart_warmer_v2.py` (cron 23:00) | — |
+| Full backfill | — | `ec2-primary-backup/smart_warmer_v4.py` (manual) | — |
+| EOD synthesizer | — | `ec2-primary-backup/eod_from_bars.py` | — |
+| Archive migrator | — | `ec2-primary-backup/archive_to_db.py` | — |
+| Options cache tests | — | `ec2-primary-backup/test_options_cache.py` | — |
 | EC2 SSH key | `/tmp/ec2_ed25519.pem` | — | — |
 
 ## 11. Important Notes
@@ -389,3 +462,8 @@ Route changes are made in Cloudflare Dashboard → Zero Trust → Networks → T
 - EC2 uses `docker-compose` (hyphenated legacy), TC uses `docker compose` (plugin)
 - Tests use isolated temp dirs — safe to run anywhere
 - Domain `leandata.uk` DNS is managed by Cloudflare (nameservers pointed to CF)
+- **DB_ENABLED=true** in `ec2-primary-backup/.env` — proxy is in DB-first mode (`X-Cache: DB_HIT`)
+- TimescaleDB container: `timescaledb` (same Docker network as proxy, hostname `timescaledb`)
+- From host outside Docker: `TIMESCALEDB_HOST=localhost` for warmer/migration scripts
+- smart_warmer_v2 = HTTP disk cache warmer (nightly cron); smart_warmer_v4 = direct DB backfill (manual)
+- **crontab still runs v2** — v4 is not yet scheduled; run v4 manually for full DB gap fills

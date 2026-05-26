@@ -125,14 +125,21 @@ EC2 不再退役 — 它在混合架构中承担 WS 代理角色（AWS 内网到
 
 ---
 
-## 6. Status API
+## 6. Status & Incident API
 
-Token portal (port 3000) 暴露 Status API，前端 `status-body.jsx` 消费：
+Token portal (port 3000) 暴露 Status + Incident API，前端 StatusBody（内嵌 `docs-site.jsx`）消费：
 
 | Endpoint | 说明 |
 |---|---|
-| `GET /api/status` | 探测 REST proxy `/health` + WS TCP 连接，返回 `overall` + 各组件 `status`/`latencyMs` |
+| `GET /api/status` | 探测 REST proxy `/health` + WS TCP 连接。返回 `overall` + 各组件状态。**自动检测故障并记录事件。** |
 | `GET /api/uptime` | 90 天每日可用性百分比数组 |
 | `GET /api/latency?range=24h\|7d\|30d` | 分桶延迟时序（1h 桶，每桶 p50） |
+| `GET /api/incidents` | 事件列表（最新在前，上限 100 条） |
+| `POST /api/incidents` | 手动记录事件 `{component, severity?, title, summary?, duration?}` |
+
+**自动事件触发**（在 `/api/status` 探测内运行）：
+- 服务器启动 → `resolved` "Service restart"
+- REST/WS 探测 up→down → `major` 故障事件
+- REST/WS 探测 down→up → `resolved` 恢复事件
 
 数据持久化到 `data/status.json`。无需认证。

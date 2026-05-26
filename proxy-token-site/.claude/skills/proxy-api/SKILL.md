@@ -179,18 +179,33 @@ GET https://api.leandata.uk/health
 无需认证，通过主站 `https://leandata.uk` 访问：
 
 ```
-GET /api/status        — 实时探测 REST proxy + WS 端口，返回 overall + 各组件 status/latencyMs
-GET /api/uptime        — 90 天每日可用性百分比数组 (rest + ws)
-GET /api/latency?range=24h|7d|30d — 分桶延迟时序 (1h 桶, p50)
+GET  /api/status         — 实时探测 REST proxy + WS 端口，返回 overall + 各组件 status/latencyMs
+     ⚡ 自动检测: up→down 记录 major incident，down→up 记录 resolved incident
+GET  /api/uptime         — 90 天每日可用性百分比数组 (rest + ws)
+GET  /api/latency?range=24h|7d|30d — 分桶延迟时序 (1h 桶, p50)
+GET  /api/incidents      — 事件列表（最新在前，上限 100 条）
+POST /api/incidents      — 手动记录事件 {component, severity?, title, summary?, duration?}
 ```
+
+**自动事件触发：**
+- 服务器启动 → `resolved` "Service restart"
+- REST/WS 探测从 up→down → `major` 故障事件
+- REST/WS 探测从 down→up → `resolved` 恢复事件
 
 示例：
 ```bash
 curl https://leandata.uk/api/status
-# {"overall":"operational","components":{"rest":{"status":"operational","latencyMs":5282},"ws":{"status":"operational","latencyMs":15}},...}
+# {"overall":"operational","components":{"rest":{"status":"operational","latencyMs":5282},...},...}
+
+curl https://leandata.uk/api/incidents
+# {"incidents":[{"date":"2026-05-26T20:51:00Z","severity":"resolved","component":"REST API","title":"REST proxy recovered",...},...]}
+
+curl -X POST https://leandata.uk/api/incidents \
+  -H "Content-Type: application/json" \
+  -d '{"component":"WebSocket","severity":"minor","title":"Planned EC2 maintenance","summary":"Security patch","duration":"3 min"}'
 
 curl https://leandata.uk/api/uptime
-# {"rest":[100,100,...,50],"ws":[100,100,...,100]}  (90 elements each)
+# {"rest":[100,100,...],"ws":[100,100,...]}  (90 elements each)
 
 curl "https://leandata.uk/api/latency?range=24h"
 # {"range":"24h","rest":[92,88,...],"ws":[6,7,...]}
