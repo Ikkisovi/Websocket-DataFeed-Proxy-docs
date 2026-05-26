@@ -1,7 +1,7 @@
 // ── StatusBody component (inlined from status-body.jsx) ──
 
 // status-body.jsx — Status page for the Public Docs Site
-// Two components: REST API (Cloudflare → EC2) and WebSocket (direct → EC2)
+// Two components: REST API (Cloudflare → ThinkCentre) and WebSocket (direct → EC2)
 // Surfaces: overall status header, per-component cards (uptime + latency p50/p95/p99 + sparkline),
 //           90-day uptime grid, latency chart with range toggle, and incident log.
 //
@@ -236,7 +236,7 @@ function useStatusData() {
     return {
       rest: {
         name: "REST API",
-        route: "api.leandata.uk · Cloudflare → EC2 (us-west-2)",
+        route: "api.leandata.uk · Cloudflare → ThinkCentre",
         status: "operational",
         uptime90: restUptime,
         latency24h: makeLatency(2026, 92, 24), // ms
@@ -322,9 +322,9 @@ function StatusBody() {
       <div className="eyebrow" style={{ marginBottom: 10 }}>System</div>
       <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>Status</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 24px", maxWidth: 620 }}>
-        Live health of the REST API (Cloudflare → EC2) and WebSocket stream (EC2 direct).
+        Live health of the REST API (Cloudflare → ThinkCentre) and WebSocket stream (EC2 direct).
         Uptime is sampled every minute; latency percentiles are computed over a rolling 60-minute window.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>REST API（Cloudflare → EC2）与 WebSocket 流（EC2 直连）的实时健康指标。可用性按分钟采样，延迟分位数按 60 分钟滚动窗口计算。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>REST API（Cloudflare → ThinkCentre）与 WebSocket 流（EC2 直连）的实时健康指标。可用性按分钟采样，延迟分位数按 60 分钟滚动窗口计算。</span>
       </p>
 
       {/* Hero status banner */}
@@ -396,7 +396,7 @@ function StatusBody() {
         <LatencyChart rest={data.rest.latency24h} ws={data.ws.latency24h} range={range}/>
       </div>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
-        REST latency includes Cloudflare edge → EC2 origin round-trip plus server processing.
+        REST latency includes Cloudflare edge → ThinkCentre origin round-trip plus server processing.
         WebSocket latency is the auth-response round-trip after socket open; message delivery has near-zero added latency once the stream is warm.
       </p>
 
