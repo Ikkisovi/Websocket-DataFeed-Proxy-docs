@@ -312,6 +312,8 @@ const TOKEN_BASE = `http://${PROXY_HOST}:3000`;
 const TC_HOST    = "100.70.107.106";
 const TC_REST    = `http://${TC_HOST}:8768`;
 const TC_FUNNEL  = "leandata.tail5a8dea.ts.net";
+const TC_FUNNEL_REST  = `https://${TC_FUNNEL}`;
+const TC_FUNNEL_TOKEN = `https://${TC_FUNNEL}:8443`;
 
 function ParamRow({ name, type, required, desc }) {
   return (
@@ -607,11 +609,11 @@ function ProxyApiBody() {
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>股票期权代理包含两个服务面：Token 门户（3000端口）用于注册和签发，数据代理（8768 REST / 8767 WS）用于行情数据。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
-        <thead><tr><th>Surface</th><th>Public (EC2 legacy)</th><th>Tailscale direct (ThinkCentre)</th><th>Auth</th></tr></thead>
+        <thead><tr><th>Surface</th><th>Public (EC2 legacy)</th><th>Public HTTPS (Tailscale Funnel)</th><th>Tailscale direct (Mesh)</th><th>Auth</th></tr></thead>
         <tbody>
-          <tr><td>Token portal</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TOKEN_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, color: "var(--ink-soft)" }}>same (EC2 only for now)</td><td style={{ fontSize: 12 }}>username + phone</td></tr>
-          <tr><td>REST data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{REST_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TC_REST}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
-          <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{`ws://${PROXY_HOST}:8767`}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{`ws://${TC_HOST}:8767`}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
+          <tr><td>Token portal</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TOKEN_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TC_FUNNEL_TOKEN}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>http://{TC_HOST}:3000</td><td style={{ fontSize: 12 }}>username + phone</td></tr>
+          <tr><td>REST data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{REST_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TC_FUNNEL_REST}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TC_REST}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
+          <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{`ws://${PROXY_HOST}:8767`}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, color: "var(--ink-soft)" }}>n/a (Funnel is HTTPS-only)</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{`ws://${TC_HOST}:8767`}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
         </tbody>
       </table>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13 }}>
