@@ -600,6 +600,21 @@ app.get('/api/status', async (_req, res) => {
 
     writeStatusData(statusData);
 
+    // Auto-detect outages: log incident on transition from up → down, auto-resolve on recovery
+    const prevRest = statusData.uptime.rest.length >= 2 ? statusData.uptime.rest[statusData.uptime.rest.length - 2] : null;
+    const prevWs = statusData.uptime.ws.length >= 2 ? statusData.uptime.ws[statusData.uptime.ws.length - 2] : null;
+
+    if (prevRest && prevRest.up === 1 && !restProbe.ok) {
+      addIncident('REST API', 'major', 'REST proxy unreachable', `Health probe failed after ${restProbe.latencyMs}ms. Cloudflare → ThinkCentre path affected.`);
+    } else if (prevRest && prevRest.up === 0 && restProbe.ok) {
+      addIncident('REST API', 'resolved', 'REST proxy recovered', `Health probe succeeded in ${restProbe.latencyMs}ms.`);
+    }
+    if (prevWs && prevWs.up === 1 && !wsProbe.ok) {
+      addIncident('WebSocket', 'major', 'WebSocket proxy unreachable', `TCP connect to ${PROXY_WS_HOST}:${PROXY_WS_PORT} failed.`);
+    } else if (prevWs && prevWs.up === 0 && wsProbe.ok) {
+      addIncident('WebSocket', 'resolved', 'WebSocket proxy recovered', `TCP connect to ${PROXY_WS_HOST}:${PROXY_WS_PORT} succeeded in ${wsProbe.latencyMs}ms.`);
+    }
+
     const restStatus = restProbe.ok ? 'operational' : 'outage';
     const wsStatus = wsProbe.ok ? 'operational' : 'outage';
     const overall = (restProbe.ok && wsProbe.ok) ? 'operational' : (!restProbe.ok && !wsProbe.ok) ? 'outage' : 'degraded';
@@ -716,6 +731,62 @@ app.get('/api/latency', (req, res) => {
     res.status(500).json({ error: 'Failed to load latency data' });
   }
 });
+
+// ── Incident system ──
+
+function addIncident(component, severity, title, summary, duration) {
+  const data = readStatusData();
+  if (!data.incidents) data.incidents = [];
+  data.incidents.unshift({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    date: new Date().toISOString(),
+    component,
+    severity,
+    title,
+    summary,
+    duration: duration || null,
+    resolved: severity === 'resolved',
+  });
+  // Keep last 100 incidents
+  if (data.incidents.length > 100) data.incidents = data.incidents.slice(0, 100);
+  writeStatusData(data);
+  return data.incidents[0];
+}
+
+// GET /api/incidents — list all recorded incidents
+app.get('/api/incidents', (_req, res) => {
+  try {
+    const data = readStatusData();
+    res.json({ incidents: data.incidents || [] });
+  } catch (err) {
+    console.error('Incidents read error:', err);
+    res.status(500).json({ error: 'Failed to load incidents' });
+  }
+});
+
+// POST /api/incidents — manually log an incident (admin/internal use)
+app.post('/api/incidents', (req, res) => {
+  try {
+    const { component, severity, title, summary, duration } = req.body || {};
+    if (!component || !title) {
+      return res.status(400).json({ error: 'Missing required fields: component, title' });
+    }
+    const incident = addIncident(
+      component,
+      severity || 'minor',
+      title,
+      summary || '',
+      duration || null
+    );
+    res.json({ success: true, incident });
+  } catch (err) {
+    console.error('Incident write error:', err);
+    res.status(500).json({ error: 'Failed to write incident' });
+  }
+});
+
+// Auto-log startup incident
+addIncident('Token Portal', 'resolved', 'Service restart', `token-site server started on port ${PORT}`);
 
 if (require.main === module) {
   app.listen(PORT, () => {

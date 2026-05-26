@@ -252,29 +252,7 @@ function useStatusData() {
   }, []);
 }
 
-// ── incidents (mock) ─────────────────────────────────────────────────────
-const INCIDENTS = [
-  {
-    date: "2026-05-12", component: "REST API", severity: "minor", duration: "12 min",
-    title: "Cache layer eviction backlog",
-    summary: "Disk cache compactor stalled on a long-running snapshot; new writes queued. p99 latency spiked from 220ms → 1.4s on /v1/options/snapshots. Resolved by restarting the compactor process; no data loss.",
-  },
-  {
-    date: "2026-04-28", component: "WebSocket stream", severity: "minor", duration: "47 min",
-    title: "Upstream SIP feed delay",
-    summary: "Alpaca SIP feed reported 200–400 ms delay on stocks channel between 14:08–14:55 UTC. Proxy continued to deliver messages; only end-to-end timing affected. Resolved upstream.",
-  },
-  {
-    date: "2026-04-19", component: "REST API", severity: "minor", duration: "8 min",
-    title: "Cloudflare cache purge",
-    summary: "Scheduled cache purge during low-traffic window caused brief X-Cache: MISS spike. p95 latency rose from 142ms → 380ms while warm cache rebuilt. Expected behavior.",
-  },
-  {
-    date: "2026-03-30", component: "WebSocket stream", severity: "major", duration: "3 min",
-    title: "EC2 instance reboot",
-    summary: "Security patch required full reboot. All active WS connections dropped with code 1013 and reconnected automatically within 90 seconds. REST unaffected (CF edge).",
-  },
-];
+// ── incidents — fetched from /api/incidents ────────────────────────────
 
 function SeverityChip({ s }) {
   const map = {
@@ -302,6 +280,14 @@ function SeverityChip({ s }) {
 function StatusBody() {
   const data = useStatusData();
   const [range, setRange] = useStatusState("24h");
+  const [incidents, setIncidents] = useStatusState([]);
+
+  useStatusEffect(() => {
+    fetch('/api/incidents')
+      .then(r => r.json())
+      .then(d => setIncidents(d.incidents || []))
+      .catch(() => {});
+  }, []);
 
   const overall = (data.rest.status === "operational" && data.ws.status === "operational")
     ? "operational"
@@ -422,20 +408,31 @@ function StatusBody() {
       {/* ── Incidents ── */}
       <h2 id="incidents" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Recent incidents</h2>
       <div style={{ borderTop: "1px solid var(--rule)" }}>
-        {INCIDENTS.map((inc, i) => (
-          <div key={i} style={{ padding: "16px 0", borderBottom: "1px solid var(--rule)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-              <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{inc.date}</span>
-              <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>·</span>
-              <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>{inc.component}</span>
-              <span style={{ flex: 1 }}/>
-              <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{inc.duration}</span>
-              <SeverityChip s={inc.severity}/>
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-strong)", marginBottom: 4 }}>{inc.title}</div>
-            <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: 0, lineHeight: 1.55 }}>{inc.summary}</p>
+        {incidents.length === 0 && (
+          <div style={{ padding: "24px 0", color: "var(--ink-soft)", fontSize: 13, textAlign: "center" }}>
+            No incidents recorded yet. Outages and restarts are logged automatically.
           </div>
-        ))}
+        )}
+        {incidents.map((inc, i) => {
+          const d = inc.date ? new Date(inc.date) : null;
+          const dateStr = d ? d.toISOString().slice(0, 10) : '—';
+          const timeStr = d ? d.toISOString().slice(11, 16) + ' UTC' : '';
+          return (
+            <div key={inc.id || i} style={{ padding: "16px 0", borderBottom: "1px solid var(--rule)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{dateStr}</span>
+                <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{timeStr}</span>
+                <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>·</span>
+                <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>{inc.component}</span>
+                <span style={{ flex: 1 }}/>
+                {inc.duration && <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{inc.duration}</span>}
+                <SeverityChip s={inc.severity}/>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-strong)", marginBottom: 4 }}>{inc.title}</div>
+              {inc.summary && <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: 0, lineHeight: 1.55 }}>{inc.summary}</p>}
+            </div>
+          );
+        })}
       </div>
 
       {/* ── Methodology ── */}

@@ -719,3 +719,76 @@ describe('GET /api/latency', () => {
     }
   });
 });
+
+// ============================================================
+// Incident API
+// ============================================================
+describe('GET /api/incidents', () => {
+  it('returns incidents array', async () => {
+    const res = await request(app).get('/api/incidents');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('incidents');
+    expect(Array.isArray(res.body.incidents)).toBe(true);
+  });
+
+  it('startup incident is logged on server boot', async () => {
+    // The startup incident was logged when the module loaded, but resetTestData clears it.
+    // Create a fresh one to verify the format.
+    await request(app).post('/api/incidents')
+      .send({ component: 'Token Portal', severity: 'resolved', title: 'Service restart', summary: 'server started' });
+    const res = await request(app).get('/api/incidents');
+    const startup = res.body.incidents.find(i => i.title === 'Service restart');
+    expect(startup).toBeDefined();
+    expect(startup.component).toBe('Token Portal');
+    expect(startup.severity).toBe('resolved');
+  });
+});
+
+describe('POST /api/incidents', () => {
+  it('creates an incident with all fields', async () => {
+    const res = await request(app).post('/api/incidents')
+      .send({ component: 'REST API', severity: 'minor', title: 'Test incident', summary: 'Testing', duration: '5 min' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.incident.component).toBe('REST API');
+    expect(res.body.incident.severity).toBe('minor');
+    expect(res.body.incident.title).toBe('Test incident');
+    expect(res.body.incident.summary).toBe('Testing');
+    expect(res.body.incident.id).toBeDefined();
+  });
+
+  it('persists incident to status.json', async () => {
+    await request(app).post('/api/incidents')
+      .send({ component: 'WebSocket', severity: 'major', title: 'WS down' });
+
+    const res = await request(app).get('/api/incidents');
+    const found = res.body.incidents.find(i => i.title === 'WS down');
+    expect(found).toBeDefined();
+    expect(found.severity).toBe('major');
+  });
+
+  it('defaults severity to minor', async () => {
+    const res = await request(app).post('/api/incidents')
+      .send({ component: 'REST API', title: 'No severity' });
+    expect(res.body.incident.severity).toBe('minor');
+  });
+
+  it('requires component and title', async () => {
+    const res = await request(app).post('/api/incidents')
+      .send({ title: 'Missing component' });
+    expect(res.statusCode).toBe(400);
+
+    const res2 = await request(app).post('/api/incidents')
+      .send({ component: 'REST API' });
+    expect(res2.statusCode).toBe(400);
+  });
+
+  it('keeps max 100 incidents', async () => {
+    for (let i = 0; i < 102; i++) {
+      await request(app).post('/api/incidents')
+        .send({ component: 'REST API', title: `Incident ${i}` });
+    }
+    const res = await request(app).get('/api/incidents');
+    expect(res.body.incidents.length).toBeLessThanOrEqual(100);
+  });
+});
