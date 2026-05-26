@@ -1,0 +1,15 @@
+{
+  "tasks": [
+    {
+      "id": "81086c7f",
+      "cron": "7 * * * *",
+      "prompt": "Check NDX100+SP500 backfill progress on ThinkCentre. Run: ssh mint@100.70.107.106 \"docker exec ec2-primary-backup-alpaca-cloud-proxy-1 tail -5 /tmp/warmer_ndx_sp500.log 2>/dev/null; echo '---DB stats---'; docker exec -e PGPASSWORD=proxy123 timescaledb psql -U proxy -d marketdata -c \\\"SELECT timeframe, COUNT(DISTINCT symbol) as symbols, COUNT(*) as bars FROM bars GROUP BY timeframe ORDER BY timeframe;\\\" 2>/dev/null\"",
+      "createdAt": 1779755988201,
+      "lastFiredAt": 1779819727809,
+      "recurring": true,
+      "createdBySessionId": "19237cc1-4f9e-448a-b9c7-099a05e8a8da",
+      "createdByPid": 29683,
+      "createdByProcStart": "43206828"
+    }
+  ]
+}

@@ -322,6 +322,7 @@ HTTP_PORT = int(os.getenv("HTTP_PORT", "8766"))
 # Force paper mode (no live trading account)
 IS_LIVE = False
 IS_PRO = os.getenv("IS_PRO", "false").lower() in ("true", "1", "yes")
+REST_ONLY = os.getenv("REST_ONLY", "false").lower() in ("true", "1", "yes")
 
 ALPACA_MASTER_KEY = (
     os.getenv("ALPACA_MASTER_KEY")
@@ -7033,33 +7034,31 @@ async def main():
         print("[DB] db_manager not available, DB features disabled", flush=True)
 
     http_runner = await start_http_server()
-    ws_server = await start_websocket_server()
-    forwarder = asyncio.create_task(forward_alpaca_messages())
-    test_forwarder = asyncio.create_task(forward_alpaca_test_messages())
-    boats_forwarder = asyncio.create_task(forward_alpaca_boats_messages())
-    overnight_forwarder = asyncio.create_task(forward_alpaca_overnight_messages())
-    options_forwarder = asyncio.create_task(forward_alpaca_options_messages())
-    crypto_forwarder = asyncio.create_task(forward_alpaca_crypto_messages())
-    news_forwarder = asyncio.create_task(forward_alpaca_news_messages())
+    forwarders = []
+
+    if REST_ONLY:
+        print("[Cloud] REST_ONLY mode: skipping all WS upstream connections", flush=True)
+    else:
+        ws_server = await start_websocket_server()
+        forwarders += [
+            asyncio.create_task(forward_alpaca_messages()),
+            asyncio.create_task(forward_alpaca_test_messages()),
+            asyncio.create_task(forward_alpaca_boats_messages()),
+            asyncio.create_task(forward_alpaca_overnight_messages()),
+            asyncio.create_task(forward_alpaca_options_messages()),
+            asyncio.create_task(forward_alpaca_crypto_messages()),
+            asyncio.create_task(forward_alpaca_news_messages()),
+        ]
+
     # Start usage log writer
     init_usage_logger()
     global usage_log_task
     usage_log_task = asyncio.create_task(usage_log_writer())
-    
+
     # Start background users.json watcher
     watcher_task = asyncio.create_task(watch_user_registry_loop())
-    
-    forwarders = [
-        forwarder,
-        test_forwarder,
-        boats_forwarder,
-        overnight_forwarder,
-        options_forwarder,
-        crypto_forwarder,
-        news_forwarder,
-        usage_log_task,
-        watcher_task,
-    ]
+
+    forwarders += [usage_log_task, watcher_task]
 
     try:
         await asyncio.Future()
@@ -7070,8 +7069,9 @@ async def main():
             task.cancel()
         await asyncio.gather(*forwarders, return_exceptions=True)
         await http_runner.cleanup()
-        ws_server.close()
-        await ws_server.wait_closed()
+        if not REST_ONLY:
+            ws_server.close()
+            await ws_server.wait_closed()
         # 关闭 TimescaleDB 连接池
         if DB_MANAGER_AVAILABLE:
             try:

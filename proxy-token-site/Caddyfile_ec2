@@ -1,0 +1,40 @@
+# REST API reverse proxy (with CORS & OPTIONS handling)
+:8768 {
+    @options method OPTIONS
+    respond @options 204
+
+    reverse_proxy 100.70.107.106:8768 {
+        transport http {
+            # Keep a pool of persistent connections over Tailscale.
+            # Without this, every proxied request dials a new Tailscale TCP connection,
+            # which saturates under ~30 concurrent users and produces "i/o timeout" 502s.
+            keepalive 60s
+            keepalive_idle_conns 64
+            dial_timeout 10s
+        }
+    }
+
+    header Access-Control-Allow-Origin "*"
+    header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    header Access-Control-Allow-Headers "*"
+    header Access-Control-Max-Age "86400"
+}
+
+# WebSocket reverse proxy (with CORS & OPTIONS handling)
+:8767 {
+    @options method OPTIONS
+    respond @options 204
+
+    reverse_proxy 100.70.107.106:8767 {
+        transport http {
+            keepalive 60s
+            keepalive_idle_conns 64
+            dial_timeout 10s
+        }
+    }
+
+    header Access-Control-Allow-Origin "*"
+    header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    header Access-Control-Allow-Headers "*"
+    header Access-Control-Max-Age "86400"
+}

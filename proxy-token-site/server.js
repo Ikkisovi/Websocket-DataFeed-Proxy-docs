@@ -14,15 +14,20 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Clean URL routes (no .html suffix needed)
+app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'public', 'register.html')));
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+
 // --- Data paths (overridable for tests via env) ---
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const PENDING_FILE = path.join(DATA_DIR, 'pending.json');
-const PROXY_USERS_FILE = process.env.PROXY_USERS_FILE || '/home/ec2-user/cloud-proxy/users.json';
+const PROXY_USERS_FILE = process.env.PROXY_USERS_FILE || '/home/mint/Websocket-DataFeed-Proxy/ec2-primary-backup/users.json';
 
-// --- ThinkCentre sync config ---
-const THINKCENTRE_HOST = process.env.THINKCENTRE_HOST || 'mint@100.70.107.106';
-const THINKCENTRE_USERS_PATH = process.env.THINKCENTRE_USERS_PATH || '/home/mint/Websocket-DataFeed-Proxy/ec2-primary-backup/users.json';
+// --- EC2 sync config (token-site on TC → SCP users.json to EC2 for WS auth) ---
+const EC2_HOST = process.env.EC2_HOST || 'ec2-user@52.37.182.24';
+const EC2_USERS_PATH = process.env.EC2_USERS_PATH || '/home/ec2-user/cloud-proxy/users.json';
+const EC2_SSH_KEY = process.env.EC2_SSH_KEY || '/home/mint/.ssh/ec2_ed25519.pem';
 
 // --- Service tier definitions ---
 // Roles map to cloud proxy RateLimiter:
@@ -117,65 +122,67 @@ function requireAdmin(req, res, next) {
 }
 
 /**
- * SCP users.json to ThinkCentre so the cloud proxy picks up changes.
+ * SCP users.json to EC2 so the WS proxy picks up changes.
  * Fire-and-forget: logs errors but does not block the response.
  */
-function syncToThinkCentre() {
-  if (THINKCENTRE_HOST === 'localhost' || THINKCENTRE_HOST === '127.0.0.1' || process.env.BYPASS_SYNC === 'true') {
-    console.log('[Sync] Bypass SCP sync because we are on localhost or BYPASS_SYNC=true');
+function syncToEC2() {
+  if (process.env.BYPASS_SYNC === 'true') {
+    console.log('[Sync] Bypass SCP sync (BYPASS_SYNC=true)');
     return;
   }
   execFile('scp', [
+    '-i', EC2_SSH_KEY,
     '-o', 'StrictHostKeyChecking=no',
     '-o', 'ConnectTimeout=5',
     PROXY_USERS_FILE,
-    `${THINKCENTRE_HOST}:${THINKCENTRE_USERS_PATH}`
+    `${EC2_HOST}:${EC2_USERS_PATH}`
   ], { timeout: 15000 }, (err, stdout, stderr) => {
     if (err) {
-      console.error('[Sync] SCP to ThinkCentre failed:', err.message, stderr);
+      console.error('[Sync] SCP to EC2 failed:', err.message, stderr);
     } else {
-      console.log('[Sync] users.json synced to ThinkCentre');
+      console.log('[Sync] users.json synced to EC2');
     }
   });
 }
 
 /**
- * Promise-based sync to ThinkCentre. Returns {ok, message}.
+ * Promise-based sync to EC2. Returns {ok, message}.
  */
-function syncToThinkCentreAsync() {
-  if (THINKCENTRE_HOST === 'localhost' || THINKCENTRE_HOST === '127.0.0.1' || process.env.BYPASS_SYNC === 'true') {
-    console.log('[Sync] Bypass SCP sync because we are on localhost or BYPASS_SYNC=true');
-    return Promise.resolve({ ok: true, message: 'Bypassed sync (running locally)' });
+function syncToEC2Async() {
+  if (process.env.BYPASS_SYNC === 'true') {
+    console.log('[Sync] Bypass SCP sync (BYPASS_SYNC=true)');
+    return Promise.resolve({ ok: true, message: 'Bypassed sync (BYPASS_SYNC=true)' });
   }
   return new Promise((resolve) => {
     execFile('scp', [
+      '-i', EC2_SSH_KEY,
       '-o', 'StrictHostKeyChecking=no',
       '-o', 'ConnectTimeout=10',
       PROXY_USERS_FILE,
-      `${THINKCENTRE_HOST}:${THINKCENTRE_USERS_PATH}`
+      `${EC2_HOST}:${EC2_USERS_PATH}`
     ], { timeout: 20000 }, (err, stdout, stderr) => {
       if (err) {
-        console.error('[Sync] SCP to ThinkCentre failed:', err.message, stderr);
+        console.error('[Sync] SCP to EC2 failed:', err.message, stderr);
         resolve({ ok: false, message: `SCP failed: ${err.message}` });
       } else {
-        console.log('[Sync] users.json synced to ThinkCentre');
-        resolve({ ok: true, message: 'Synced to ThinkCentre' });
+        console.log('[Sync] users.json synced to EC2');
+        resolve({ ok: true, message: 'Synced to EC2' });
       }
     });
   });
 }
 
 /**
- * Write proxy users file and sync to ThinkCentre.
+ * Write proxy users file and sync to EC2.
  */
 function writeProxyUsersAndSync(data) {
   writeJSON(PROXY_USERS_FILE, data);
-  syncToThinkCentre();
+  syncToEC2();
 }
 
 async function writeProxyUsersAndSyncAsync(data) {
   writeJSON(PROXY_USERS_FILE, data);
-  const result = await syncToThinkCentreAsync();
+  const result = await syncToEC2Async();
   return result;
 }
 
@@ -262,14 +269,42 @@ app.post('/api/check-status', (req, res) => {
 
   if (!entry) {
     const users = readJSON(USERS_FILE);
-    const approved = users.find(u => u.username === username.trim() && u.phone === phone.trim());
+    const approved = users.find(u => u.username === username.trim() && (!u.phone || u.phone === phone.trim()));
     if (approved) {
-      return res.json({ success: true, status: 'approved', message: '已通过审核！请到首页生成 Token。' });
+      // Look up proxy users.json for token + expiry
+      let maskedToken = null, expiresAt = null, role = null;
+      try {
+        const proxyData = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
+        const proxyUser = (proxyData.users || []).find(u => u.user_id === approved.username);
+        if (proxyUser) {
+          const t = proxyUser.token;
+          maskedToken = t.slice(0, 6) + '····' + t.slice(-4);
+          expiresAt = proxyUser.expires_at;
+          role = proxyUser.role;
+        }
+      } catch (_) {}
+      return res.json({ success: true, status: 'approved', message: '已通过！', token: maskedToken, expiry: expiresAt, role });
     }
     return res.json({ success: true, status: 'not_found', message: '未找到注册记录。' });
   }
 
-  return res.json({ success: true, status: entry.status, message: entry.status === 'pending' ? '审核中，请耐心等待。' : entry.status === 'rejected' ? (entry.reject_reason || '审核未通过，请联系卖家。') : '已通过！' });
+  const result = { success: true, status: entry.status, message: entry.status === 'pending' ? '审核中，请耐心等待。' : entry.status === 'rejected' ? (entry.reject_reason || '审核未通过，请联系卖家。') : '已通过！' };
+
+  // If approved, look up token + expiry from proxy users.json
+  if (entry.status === 'approved') {
+    try {
+      const proxyData = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
+      const proxyUser = (proxyData.users || []).find(u => u.user_id === entry.username);
+      if (proxyUser) {
+        const t = proxyUser.token;
+        result.token = t.slice(0, 6) + '····' + t.slice(-4);
+        result.expiry = proxyUser.expires_at;
+        result.role = proxyUser.role;
+      }
+    } catch (_) {}
+  }
+
+  return res.json(result);
 });
 
 // ============================================================
@@ -356,7 +391,7 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
 
     const existing = proxyData.users.find(u => u.user_id === entry.username);
     if (existing) {
-      const syncResult = await syncToThinkCentreAsync();
+      const syncResult = await syncToEC2Async();
       return res.json({ success: true, message: `已批准 ${entry.username}，Token 已存在${syncResult.ok ? '并已同步' : '但同步失败: ' + syncResult.message}。`, token: existing.token, expiry: existing.expires_at });
     }
 
@@ -428,7 +463,7 @@ app.post('/api/admin/sync-users', requireAdmin, async (req, res) => {
 
   // 2. Sync to ThinkCentre
   log('Syncing to ThinkCentre...');
-  const syncResult = await syncToThinkCentreAsync();
+  const syncResult = await syncToEC2Async();
   log(syncResult.ok ? '✓ ' + syncResult.message : '✗ ' + syncResult.message);
 
   return res.json({
@@ -444,12 +479,12 @@ app.post('/api/admin/sync-users', requireAdmin, async (req, res) => {
 app.post('/api/generate-token', async (req, res) => {
   const { username, phone } = req.body;
 
-  if (!username || !phone) {
-    return res.status(400).json({ success: false, message: 'Username and phone are required.' });
+  if (!username) {
+    return res.status(400).json({ success: false, message: 'Username is required.' });
   }
 
   const localUsers = readJSON(USERS_FILE);
-  const validCustomer = localUsers.find(u => u.username === username && u.phone === phone);
+  const validCustomer = localUsers.find(u => u.username === username && (!u.phone || u.phone === phone));
 
   if (!validCustomer) {
     return res.status(401).json({ success: false, message: 'User not found or payment pending.' });
@@ -499,4 +534,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { app, TIERS, syncToThinkCentre, computeExpiry, readJSON, writeJSON };
+module.exports = { app, TIERS, syncToEC2, computeExpiry, readJSON, writeJSON };

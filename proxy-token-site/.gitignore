@@ -1,0 +1,34 @@
+# Secrets
+remote_proxy/.env
+data/users.json
+data/pending.json
+
+# Python
+remote_proxy/__pycache__/
+remote_proxy/.pytest_cache/
+remote_proxy/tests/__pycache__/
+.pytest_cache/
+venv/
+*.pyc
+
+# Node
+node_modules/
+
+# Logs
+remote_proxy/*.log
+*.log
+
+# Test artifacts
+remote_proxy/test_tokens.json
+
+# Claude / agent state
+.claude/scheduled_tasks.lock
+.playwright-mcp/
+.agents
+.codex
+
+# Misc
+PYEOF
+EOF
+ENDOFFILE
+XXX
