@@ -22,12 +22,13 @@ app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'adm
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const PENDING_FILE = path.join(DATA_DIR, 'pending.json');
-const PROXY_USERS_FILE = process.env.PROXY_USERS_FILE || '/home/mint/Websocket-DataFeed-Proxy/ec2-primary-backup/users.json';
+const PROXY_USERS_FILE = process.env.PROXY_USERS_FILE || path.join(__dirname, 'remote_proxy', 'users.json');
 
 // --- EC2 sync config (token-site on TC → SCP users.json to EC2 for WS auth) ---
 const EC2_HOST = process.env.EC2_HOST || 'ec2-user@52.37.182.24';
 const EC2_USERS_PATH = process.env.EC2_USERS_PATH || '/home/ec2-user/cloud-proxy/users.json';
-const EC2_SSH_KEY = process.env.EC2_SSH_KEY || '/home/mint/.ssh/ec2_ed25519.pem';
+const EC2_SSH_KEY = process.env.EC2_SSH_KEY || '/home/kai/.ssh/id_ed25519';
+
 
 // --- Service tier definitions ---
 // Roles map to cloud proxy RateLimiter:
@@ -535,6 +536,7 @@ app.post('/api/generate-token', async (req, res) => {
 
 const STATUS_FILE = path.join(DATA_DIR, 'status.json');
 const PROXY_REST_URL = process.env.PROXY_REST_URL || 'http://localhost:8768';
+const PROXY_RT_URL   = process.env.PROXY_RT_URL   || 'https://rt-api.leandata.uk';
 const PROXY_WS_HOST  = process.env.PROXY_WS_HOST  || '52.37.182.24';
 const PROXY_WS_PORT  = process.env.PROXY_WS_PORT  || 8767;
 
@@ -542,7 +544,7 @@ function readStatusData() {
   try {
     if (fs.existsSync(STATUS_FILE)) return JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8'));
   } catch (_) {}
-  return { uptime: { rest: [], ws: [] }, latency: { rest: [], ws: [] }, incidents: [] };
+  return { uptime: { rest: [], ws: [], rt: [] }, latency: { rest: [], ws: [], rt: [] }, incidents: [] };
 }
 
 function writeStatusData(data) {
@@ -577,26 +579,48 @@ async function probeWs() {
   });
 }
 
+// Probe RT API (EC2 via Cloudflare) — returns { ok, latencyMs }
+async function probeRt() {
+  const start = Date.now();
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const resp = await fetch(`${PROXY_RT_URL}/health`, { signal: controller.signal });
+    clearTimeout(timer);
+    return { ok: resp.ok, latencyMs: Date.now() - start };
+  } catch (_) {
+    return { ok: false, latencyMs: Date.now() - start };
+  }
+}
+
 // GET /api/status — overall + per-component live status
 app.get('/api/status', async (_req, res) => {
   try {
-    const [restProbe, wsProbe] = await Promise.all([probeRest(), probeWs()]);
+    const [restProbe, wsProbe, rtProbe] = await Promise.all([probeRest(), probeWs(), probeRt()]);
     const statusData = readStatusData();
 
-    // Append current sample (keep last 1440 = 24h at 1/min)
+    // Ensure rt arrays exist (migration from 2-component to 3-component)
+    if (!statusData.latency.rt) statusData.latency.rt = [];
+    if (!statusData.uptime.rt) statusData.uptime.rt = [];
+
+    // Append latency sample ONLY on success (avoids timeout spikes: 5000ms WS, 10000ms REST)
     const now = Date.now();
-    statusData.latency.rest.push({ t: now, ms: restProbe.latencyMs });
-    statusData.latency.ws.push({ t: now, ms: wsProbe.latencyMs });
+    if (restProbe.ok) statusData.latency.rest.push({ t: now, ms: restProbe.latencyMs });
+    if (wsProbe.ok) statusData.latency.ws.push({ t: now, ms: wsProbe.latencyMs });
+    if (rtProbe.ok) statusData.latency.rt.push({ t: now, ms: rtProbe.latencyMs });
     if (statusData.latency.rest.length > 1440) statusData.latency.rest = statusData.latency.rest.slice(-1440);
     if (statusData.latency.ws.length > 1440) statusData.latency.ws = statusData.latency.ws.slice(-1440);
+    if (statusData.latency.rt.length > 1440) statusData.latency.rt = statusData.latency.rt.slice(-1440);
 
     // Append uptime sample (1 = up, 0 = down)
     statusData.uptime.rest.push({ t: now, up: restProbe.ok ? 1 : 0 });
     statusData.uptime.ws.push({ t: now, up: wsProbe.ok ? 1 : 0 });
+    statusData.uptime.rt.push({ t: now, up: rtProbe.ok ? 1 : 0 });
     // Keep 90 days of minute samples (129600) but cap at 100k to avoid bloat
     const maxUptime = 100000;
     if (statusData.uptime.rest.length > maxUptime) statusData.uptime.rest = statusData.uptime.rest.slice(-maxUptime);
     if (statusData.uptime.ws.length > maxUptime) statusData.uptime.ws = statusData.uptime.ws.slice(-maxUptime);
+    if (statusData.uptime.rt.length > maxUptime) statusData.uptime.rt = statusData.uptime.rt.slice(-maxUptime);
 
     writeStatusData(statusData);
 
@@ -614,10 +638,19 @@ app.get('/api/status', async (_req, res) => {
     } else if (prevWs && prevWs.up === 0 && wsProbe.ok) {
       addIncident('WebSocket', 'resolved', 'WebSocket proxy recovered', `TCP connect to ${PROXY_WS_HOST}:${PROXY_WS_PORT} succeeded in ${wsProbe.latencyMs}ms.`);
     }
+    const prevRt = statusData.uptime.rt.length >= 2 ? statusData.uptime.rt[statusData.uptime.rt.length - 2] : null;
+    if (prevRt && prevRt.up === 1 && !rtProbe.ok) {
+      addIncident('RT API', 'major', 'RT API proxy unreachable', `Health probe to rt-api.leandata.uk failed after ${rtProbe.latencyMs}ms.`);
+    } else if (prevRt && prevRt.up === 0 && rtProbe.ok) {
+      addIncident('RT API', 'resolved', 'RT API proxy recovered', `Health probe succeeded in ${rtProbe.latencyMs}ms.`);
+    }
 
     const restStatus = restProbe.ok ? 'operational' : 'outage';
     const wsStatus = wsProbe.ok ? 'operational' : 'outage';
-    const overall = (restProbe.ok && wsProbe.ok) ? 'operational' : (!restProbe.ok && !wsProbe.ok) ? 'outage' : 'degraded';
+    const rtStatus = rtProbe.ok ? 'operational' : 'outage';
+    const allOk = restProbe.ok && wsProbe.ok && rtProbe.ok;
+    const allDown = !restProbe.ok && !wsProbe.ok && !rtProbe.ok;
+    const overall = allOk ? 'operational' : allDown ? 'outage' : 'degraded';
 
     res.json({
       overall,
@@ -627,6 +660,12 @@ app.get('/api/status', async (_req, res) => {
           route: 'api.leandata.uk · Cloudflare → ThinkCentre',
           status: restStatus,
           latencyMs: restProbe.latencyMs,
+        },
+        rt: {
+          name: 'RT API',
+          route: 'rt-api.leandata.uk · Cloudflare → EC2',
+          status: rtStatus,
+          latencyMs: rtProbe.latencyMs,
         },
         ws: {
           name: 'WebSocket stream',
@@ -675,6 +714,7 @@ app.get('/api/uptime', (_req, res) => {
 
     res.json({
       rest: aggregateDaily(statusData.uptime.rest),
+      rt: aggregateDaily(statusData.uptime.rt || []),
       ws: aggregateDaily(statusData.uptime.ws),
     });
   } catch (err) {
@@ -724,6 +764,7 @@ app.get('/api/latency', (req, res) => {
     res.json({
       range,
       rest: bucketize(statusData.latency.rest),
+      rt: bucketize(statusData.latency.rt || []),
       ws: bucketize(statusData.latency.ws),
     });
   } catch (err) {
@@ -782,6 +823,69 @@ app.post('/api/incidents', (req, res) => {
   } catch (err) {
     console.error('Incident write error:', err);
     res.status(500).json({ error: 'Failed to write incident' });
+  }
+});
+
+// ── Usage proxy — forwards to cloud proxy audit/stats on localhost:8768 ──
+
+const PROXY_LOCAL = process.env.PROXY_REST_URL || 'http://localhost:8768';
+
+// Resolve username → token from proxy users.json
+function resolveUserToken(username) {
+  try {
+    const proxyData = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
+    const user = (proxyData.users || []).find(u => u.user_id === username);
+    return user ? user.token : null;
+  } catch (_) { return null; }
+}
+
+// GET/POST /api/usage/audit — proxy to cloud proxy audit endpoint (auth by username)
+app.all('/api/usage/audit', async (req, res) => {
+  try {
+    const username = req.query.username || req.body?.username || '';
+    if (!username) return res.status(400).json({ error: 'username required' });
+    const token = resolveUserToken(username);
+    if (!token) return res.status(404).json({ error: 'User not found' });
+
+    const params = new URLSearchParams(req.query);
+    params.delete('username');
+    const qs = params.toString();
+    const url = `${PROXY_LOCAL}/v1/admin/audit${qs ? '?' + qs : ''}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    const data = await resp.json();
+    res.status(resp.status).json(data);
+  } catch (err) {
+    console.error('Usage audit proxy error:', err);
+    res.status(502).json({ error: 'Failed to reach proxy' });
+  }
+});
+
+// GET/POST /api/usage/stats — proxy to cloud proxy stats endpoint (auth by username)
+app.all('/api/usage/stats', async (req, res) => {
+  try {
+    const username = req.query.username || req.body?.username || '';
+    if (!username) return res.status(400).json({ error: 'username required' });
+    const token = resolveUserToken(username);
+    if (!token) return res.status(404).json({ error: 'User not found' });
+
+    const params = new URLSearchParams(req.query);
+    params.delete('username');
+    const qs = params.toString();
+    const url = `${PROXY_LOCAL}/v1/admin/stats${qs ? '?' + qs : ''}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    const data = await resp.json();
+    res.status(resp.status).json(data);
+  } catch (err) {
+    console.error('Usage stats proxy error:', err);
+    res.status(502).json({ error: 'Failed to reach proxy' });
   }
 });
 

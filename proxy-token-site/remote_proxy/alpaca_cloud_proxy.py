@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+from datetime import date
 try:
     import orjson as _orjson
     # orjson is 3-10x faster than stdlib json; used in hot paths only.
@@ -109,6 +110,28 @@ async def get_theta_client():
             print(f"[ThetaData] Failed to initialize: {e}")
             return None
 
+
+# --- Persistent HTTP session (connection pool for Alpaca/ThetaData upstream) ---
+_http_session: "aiohttp.ClientSession | None" = None
+
+async def get_http_session() -> "aiohttp.ClientSession":
+    """Return a shared aiohttp session with connection pooling."""
+    global _http_session
+    if _http_session is None or _http_session.closed:
+        connector = aiohttp.TCPConnector(
+            limit=100,           # total connections
+            limit_per_host=30,   # per upstream host
+            ttl_dns_cache=300,   # cache DNS 5min
+            enable_cleanup_closed=True,
+        )
+        _http_session = aiohttp.ClientSession(
+            connector=connector,
+            timeout=aiohttp.ClientTimeout(total=30),
+        )
+        print("[HTTP] Persistent session created (pool: 100 total / 30 per host)")
+    return _http_session
+
+
 def _parse_occ_symbol_theta(symbol):
     import re
     m = re.match(r'^([A-Z]{1,6})(\d{6})([CP])(\d{6,8})$', symbol.strip().upper())
@@ -173,9 +196,7 @@ def _theta_row_to_alpaca_contract(row, default_symbol=None):
 
 
 async def fetch_theta_option_contracts(underlying_symbols, date_value=None, request_type="quote", max_dte=None, limit=1000):
-    client = await get_theta_client()
-    if client is None:
-        return None
+    global theta_client
     try:
         import datetime
         if date_value:
@@ -199,7 +220,24 @@ async def fetch_theta_option_contracts(underlying_symbols, date_value=None, requ
             kwargs["max_dte"] = int(max_dte)
 
         loop = asyncio.get_event_loop()
-        df = await loop.run_in_executor(None, lambda: client.option_list_contracts(**kwargs))
+        df = None
+        for attempt in range(2):
+            client = await get_theta_client()
+            if client is None:
+                return None
+            try:
+                df = await loop.run_in_executor(None, lambda: client.option_list_contracts(**kwargs))
+                break
+            except Exception as e:
+                err_str = str(e).lower()
+                if attempt == 0 and ("unauthenticated" in err_str or "session" in err_str or "conflict" in err_str or "connection" in err_str):
+                    print(f"[ThetaData] Resetting client in fetch_theta_option_contracts due to error: {e}")
+                    async with theta_client_lock:
+                        theta_client = None
+                    continue
+                else:
+                    raise
+
         if df is None or len(df) == 0:
             return {"option_contracts": [], "source": "thetadata"}
         df = df.to_pandas() if hasattr(df, "to_pandas") else df
@@ -214,17 +252,15 @@ async def fetch_theta_option_contracts(underlying_symbols, date_value=None, requ
     except Exception as e:
         print(f"[ThetaData] Contracts error: {e}")
         if "session" in str(e).lower() or "unauthenticated" in str(e).lower() or "rpc" in str(e).lower():
-            global theta_client
-            theta_client = None
+            async with theta_client_lock:
+                theta_client = None
         return None
 
 
 
 async def fetch_option_chain_for_symbol(symbol, expiration_date=None, limit=10):
     """Fetch option chain for a stock symbol using ThetaData. Returns list of OCC symbols."""
-    client = await get_theta_client()
-    if client is None:
-        return None
+    global theta_client
     try:
         import datetime
         if expiration_date is None:
@@ -233,10 +269,27 @@ async def fetch_option_chain_for_symbol(symbol, expiration_date=None, limit=10):
             expiration_date = datetime.datetime.strptime(str(expiration_date).split("T")[0], "%Y-%m-%d").date()
         
         loop = asyncio.get_event_loop()
-        df = await loop.run_in_executor(
-            None,
-            lambda s=symbol, e=expiration_date: client.option_list_contracts(request_type="QUOTE", date=e, symbol=[s])
-        )
+        df = None
+        for attempt in range(2):
+            client = await get_theta_client()
+            if client is None:
+                return None
+            try:
+                df = await loop.run_in_executor(
+                    None,
+                    lambda s=symbol, e=expiration_date: client.option_list_contracts(request_type="QUOTE", date=e, symbol=[s])
+                )
+                break
+            except Exception as e:
+                err_str = str(e).lower()
+                if attempt == 0 and ("unauthenticated" in err_str or "session" in err_str or "conflict" in err_str or "connection" in err_str):
+                    print(f"[ThetaData] Resetting client in fetch_option_chain due to error: {e}")
+                    async with theta_client_lock:
+                        theta_client = None
+                    continue
+                else:
+                    raise
+
         if df is None or len(df) == 0:
             return None
         df = df.to_pandas() if hasattr(df, "to_pandas") else df
@@ -257,16 +310,14 @@ async def fetch_option_chain_for_symbol(symbol, expiration_date=None, limit=10):
     except Exception as e:
         print(f"[OptionChain] Error fetching chain for {symbol}: {e}")
         if "session" in str(e).lower() or "unauthenticated" in str(e).lower() or "rpc" in str(e).lower():
-            global theta_client
-            theta_client = None
+            async with theta_client_lock:
+                theta_client = None
         return None
 
 _TF_TO_IVL = {"1Min": "1m", "5Min": "5m", "15Min": "15m", "30Min": "30m", "1Hour": "1h", "1D": "1d"}
 
 async def fetch_theta_option_bars(symbols, start, end, timeframe="1Min"):
-    client = await get_theta_client()
-    if client is None:
-        return None
+    global theta_client
     try:
         import datetime
         start_date = datetime.datetime.strptime(start.split("T")[0], "%Y-%m-%d").date()
@@ -282,35 +333,50 @@ async def fetch_theta_option_bars(symbols, start, end, timeframe="1Min"):
             all_bars[symbol] = []  # Initialize empty list to ensure 100% coverage in the response
             root, exp_str, right, strike_dollars = parsed
             exp_date = datetime.datetime.strptime(exp_str, "%Y%m%d").date()
-            try:
-                df = await loop.run_in_executor(
-                    None,
-                    lambda r=root, e=exp_date, iv=interval, s=start_date, en=end_date, st=strike_dollars, ri=right:
-                        client.option_history_ohlc(symbol=r, expiration=e, interval=iv, start_date=s, end_date=en, strike=str(st), right=ri)
-                )
-                if df is not None and len(df) > 0:
-                    df = df.to_pandas() if hasattr(df, "to_pandas") else df
-                    bars = []
-                    for _, row in df.iterrows():
-                        # ThetaData SDK returns: symbol, expiration, strike, right, timestamp, open, high, low, close, volume, count, vwap
-                        ts_val = row.get("timestamp", row.get("date", ""))
-                        if hasattr(ts_val, "strftime"):
-                            ts = ts_val.strftime("%Y-%m-%dT%H:%M:%SZ")
-                        elif isinstance(ts_val, (int, float)):
-                            # ms_of_day format
-                            total_ms = int(ts_val)
-                            hh, mm, ss = total_ms // 3600000, (total_ms % 3600000) // 60000, (total_ms % 60000) // 1000
-                            ts = f"T{hh:02d}:{mm:02d}:{ss:02d}Z"
-                        else:
-                            ts = str(ts_val)
-                        bars.append({"t": ts, "o": float(row.get("open", 0)), "h": float(row.get("high", 0)), "l": float(row.get("low", 0)), "c": float(row.get("close", 0)), "v": int(row.get("volume", 0)), "n": int(row.get("count", 0))})
-                    all_bars[symbol] = bars
-            except Exception as e:
-                print(f"[ThetaData] Error {symbol}: {e}")
-                if "session" in str(e).lower() or "unauthenticated" in str(e).lower() or "rpc" in str(e).lower():
-                    global theta_client
-                    theta_client = None
-                continue
+            
+            df = None
+            for attempt in range(2):
+                client = await get_theta_client()
+                if client is None:
+                    break
+                try:
+                    df = await loop.run_in_executor(
+                        None,
+                        lambda r=root, e=exp_date, iv=interval, s=start_date, en=end_date, st=strike_dollars, ri=right:
+                            client.option_history_ohlc(symbol=r, expiration=e, interval=iv, start_date=s, end_date=en, strike=str(st), right=ri)
+                    )
+                    break
+                except Exception as e:
+                    err_str = str(e).lower()
+                    if attempt == 0 and ("unauthenticated" in err_str or "session" in err_str or "conflict" in err_str or "connection" in err_str):
+                        print(f"[ThetaData] Resetting client in fetch_theta_option_bars for {symbol} due to error: {e}")
+                        async with theta_client_lock:
+                            theta_client = None
+                        continue
+                    else:
+                        print(f"[ThetaData] Error {symbol}: {e}")
+                        if "session" in err_str or "unauthenticated" in err_str or "rpc" in err_str:
+                            async with theta_client_lock:
+                                theta_client = None
+                        break
+
+            if df is not None and len(df) > 0:
+                df = df.to_pandas() if hasattr(df, "to_pandas") else df
+                bars = []
+                for _, row in df.iterrows():
+                    # ThetaData SDK returns: symbol, expiration, strike, right, timestamp, open, high, low, close, volume, count, vwap
+                    ts_val = row.get("timestamp", row.get("date", ""))
+                    if hasattr(ts_val, "strftime"):
+                        ts = ts_val.strftime("%Y-%m-%dT%H:%M:%SZ")
+                    elif isinstance(ts_val, (int, float)):
+                        # ms_of_day format
+                        total_ms = int(ts_val)
+                        hh, mm, ss = total_ms // 3600000, (total_ms % 3600000) // 60000, (total_ms % 60000) // 1000
+                        ts = f"T{hh:02d}:{mm:02d}:{ss:02d}Z"
+                    else:
+                        ts = str(ts_val)
+                    bars.append({"t": ts, "o": float(row.get("open", 0)), "h": float(row.get("high", 0)), "l": float(row.get("low", 0)), "c": float(row.get("close", 0)), "v": int(row.get("volume", 0)), "n": int(row.get("count", 0))})
+                all_bars[symbol] = bars
         return {"bars": all_bars, "pages": 1} if all_bars else None
     except Exception as e:
         print(f"[ThetaData] Provider error: {e}")
@@ -921,6 +987,7 @@ def resolve_http_user_id(token: str, request):
 def log_http_usage(endpoint: str, user_id, status: int, start_time: float, extra: dict | None = None):
     event = {
         "event": "http_request",
+        "timestamp": time.time(),
         "endpoint": endpoint,
         "user_id": user_id,
         "status": status,
@@ -931,7 +998,7 @@ def log_http_usage(endpoint: str, user_id, status: int, start_time: float, extra
     enqueue_usage_event(event)
 
 
-def respond_cached_raw(cached, endpoint, user_id, start_time, extra=None, cache_status="HIT"):
+def respond_cached_raw(cached, endpoint, user_id, start_time, extra=None, cache_status="HIT", cdn_max_age=3600):
     """Return a cached JSON payload (already serialized) as the HTTP response
     without parse+re-encode. Major win on cache HIT hot path."""
     log_http_usage(endpoint, user_id, 200, start_time, extra)
@@ -945,7 +1012,12 @@ def respond_cached_raw(cached, endpoint, user_id, start_time, extra=None, cache_
         body=body,
         status=200,
         content_type="application/json",
-        headers={"X-Cache": cache_status},
+        headers={
+            "X-Cache": cache_status,
+            "Cache-Control": f"public, max-age={cdn_max_age}, stale-while-revalidate=3600",
+            "CDN-Cache-Control": f"public, max-age={cdn_max_age}",
+            "Vary": "Accept-Encoding",
+        },
     )
 
 usage_log_queue: asyncio.Queue | None = None
@@ -3710,10 +3782,15 @@ async def forward_alpaca_news_messages():
 
 async def handle_history_request(request):
     start_time = time.time()
-    try:
-        data = await request.json()
-    except Exception:
-        return web.json_response({"error": "Invalid JSON"}, status=400)
+    # Support both POST (JSON body) and GET (query params).
+    # GET enables Cloudflare edge caching (CF doesn't cache POST by default).
+    if request.method == "GET":
+        data = dict(request.rel_url.query)
+    else:
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"error": "Invalid JSON"}, status=400)
 
     token = data.get("token", "")
     if not token:
@@ -3725,15 +3802,45 @@ async def handle_history_request(request):
     user_id = principal.get("user_id") if principal else None
     endpoint = "/v1/history/bars"
 
+    # --- CDN cache headers (Vector C: Edge caching) ---
+    # Historical bar data is immutable — cache aggressively at the CDN edge.
+    # Intraday data (timeframe ≤ 1min AND today in range) changes frequently.
+    def _is_today_ds(ds: str) -> bool:
+        if not ds:
+            return False
+        try:
+            return ds.split("T")[0] == date.today().isoformat()
+        except Exception:
+            return False
+
+    end_date = data.get("end") or data.get("end_date") or ""
+    start_date = data.get("start") or data.get("start_date") or ""
+    _tf = (data.get("timeframe") or "1Min").lower()
+    _is_daily = _tf in ("1day", "1d", "day", "daily", "1week", "1w", "week", "1month", "1mo", "month")
+    _end_is_today = _is_today_ds(end_date)
+    _start_is_past = bool(start_date) and not _is_today_ds(start_date)
+    # Historical if: daily/weekly/monthly bars, OR start is in the past
+    # (even if end is today — historical portion is immutable).
+    _is_historical = _is_daily or (_start_is_past and not _end_is_today)
+    _cdn_max_age = 604800 if _is_historical else 60  # 7 days vs 60s
+    _cdn_cache_headers = {
+        "Cache-Control": f"public, max-age={_cdn_max_age}, stale-while-revalidate=3600",
+        "CDN-Cache-Control": f"public, max-age={_cdn_max_age}",
+        "Vary": "Accept-Encoding",
+    }
+
     def _log_and_return(payload, status, cache_status="MISS"):
         log_http_usage(endpoint, user_id, status, start_time, {"symbol": data.get("symbol"), "timeframe": data.get("timeframe")})
         # web.json_response uses stdlib json.dumps which dominates CPU under
         # load; pre-serialize with orjson and return raw text instead.
+        resp_headers = {"X-Cache": cache_status}
+        if status == 200:
+            resp_headers.update(_cdn_cache_headers)
         return web.Response(
             body=_fast_dumps_str(payload),
             status=status,
             content_type="application/json",
-            headers={"X-Cache": cache_status},
+            headers=resp_headers,
         )
 
     def _return_cached_raw(cached, cache_status):
@@ -3744,11 +3851,13 @@ async def handle_history_request(request):
             body = cached
         else:
             body = cached.encode() if isinstance(cached, str) else _fast_dumps_str(cached).encode()
+        resp_headers = {"X-Cache": cache_status}
+        resp_headers.update(_cdn_cache_headers)
         return web.Response(
             body=body,
             status=200,
             content_type="application/json",
-            headers={"X-Cache": cache_status},
+            headers=resp_headers,
         )
 
     # region agent log
@@ -3923,55 +4032,55 @@ async def handle_history_request(request):
     pages = 0
     actual_feed_class = "unknown"
 
-    async with aiohttp.ClientSession() as session:
-        while True:
-            if next_page_token:
-                params["page_token"] = next_page_token
-            elif "page_token" in params:
-                del params["page_token"]
+    session = await get_http_session()
+    while True:
+        if next_page_token:
+            params["page_token"] = next_page_token
+        elif "page_token" in params:
+            del params["page_token"]
 
-            # Note: the upstream URL is /v2/stocks/bars for the proxy to Alpaca
-            # picker_params only includes user-explicit feed (not the default "sip")
-            # so the picker can correctly route old-data requests to free keys
-            _picker = {"end": end, "feed": user_explicit_feed or ""}
-            status, headers, body, feed_class_used = await alpaca_get(
-                session, "/v2/stocks/bars", params, end_hint=end,
-                routing_endpoint="/v1/history/bars",
-                picker_params=_picker
-            )
-            actual_feed_class = feed_class_used
+        # Note: the upstream URL is /v2/stocks/bars for the proxy to Alpaca
+        # picker_params only includes user-explicit feed (not the default "sip")
+        # so the picker can correctly route old-data requests to free keys
+        _picker = {"end": end, "feed": user_explicit_feed or ""}
+        status, headers, body, feed_class_used = await alpaca_get(
+            session, "/v2/stocks/bars", params, end_hint=end,
+            routing_endpoint="/v1/history/bars",
+            picker_params=_picker
+        )
+        actual_feed_class = feed_class_used
 
-            if status != 200:
-                error_text = body.decode('utf-8', errors='replace')
-                print(f"[Cloud] Alpaca history error {status}: {error_text[:200]}")
-                error_payload = {"error": f"Alpaca returned {status}"}
-                resp_headers = {"X-Cache": "MISS"}
-                if status == 429 and "Retry-After" in headers:
-                    resp_headers["Retry-After"] = headers["Retry-After"]
-                # Signal followers with same error so they get a fast 429 too
-                async with _inflight_lock:
-                    f = _inflight_requests.pop(inflight_key, None)
-                if f is not None and not f.done():
-                    f.set_result({"payload": error_payload, "status": status})
-                return web.json_response(error_payload, status=status, headers=resp_headers)
+        if status != 200:
+            error_text = body.decode('utf-8', errors='replace')
+            print(f"[Cloud] Alpaca history error {status}: {error_text[:200]}")
+            error_payload = {"error": f"Alpaca returned {status}"}
+            resp_headers = {"X-Cache": "MISS"}
+            if status == 429 and "Retry-After" in headers:
+                resp_headers["Retry-After"] = headers["Retry-After"]
+            # Signal followers with same error so they get a fast 429 too
+            async with _inflight_lock:
+                f = _inflight_requests.pop(inflight_key, None)
+            if f is not None and not f.done():
+                f.set_result({"payload": error_payload, "status": status})
+            return web.json_response(error_payload, status=status, headers=resp_headers)
 
-            try:
-                result = _fast_loads(body)
-            except Exception:
-                async with _inflight_lock:
-                    f = _inflight_requests.pop(inflight_key, None)
-                if f is not None and not f.done():
-                    f.set_result({"payload": {"error": "Invalid JSON from Alpaca"}, "status": 500})
-                return _log_and_return({"error": "Invalid JSON from Alpaca"}, 500, cache_status="MISS")
+        try:
+            result = _fast_loads(body)
+        except Exception:
+            async with _inflight_lock:
+                f = _inflight_requests.pop(inflight_key, None)
+            if f is not None and not f.done():
+                f.set_result({"payload": {"error": "Invalid JSON from Alpaca"}, "status": 500})
+            return _log_and_return({"error": "Invalid JSON from Alpaca"}, 500, cache_status="MISS")
 
-            bars = result.get("bars", {}).get(symbol, [])
-            if bars:
-                all_bars.extend(bars)
+        bars = result.get("bars", {}).get(symbol, [])
+        if bars:
+            all_bars.extend(bars)
 
-            next_page_token = result.get("next_page_token")
-            pages += 1
-            if not next_page_token or pages >= max_pages:
-                break
+        next_page_token = result.get("next_page_token")
+        pages += 1
+        if not next_page_token or pages >= max_pages:
+            break
 
     response_payload = {"bars": {symbol: all_bars}, "pages": pages}
     if next_page_token:
@@ -4028,10 +4137,13 @@ async def handle_history_request(request):
 
 async def handle_options_history_request(request):
     start_time = time.time()
-    try:
-        data = await request.json()
-    except Exception:
-        return web.json_response({"error": "Invalid JSON"}, status=400)
+    if request.method == "GET":
+        data = dict(request.rel_url.query)
+    else:
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"error": "Invalid JSON"}, status=400)
 
     token = data.get("token", "")
     if not token:
@@ -4271,45 +4383,45 @@ async def handle_options_history_request(request):
         "Accept": "application/json"
     }
 
-    async with aiohttp.ClientSession() as session:
-        all_bars = {}
-        next_page_token = None
-        pages = 0
+    session = await get_http_session()
+    all_bars = {}
+    next_page_token = None
+    pages = 0
 
-        while True:
-            if next_page_token:
-                params["page_token"] = next_page_token
-            elif "page_token" in params:
-                del params["page_token"]
+    while True:
+        if next_page_token:
+            params["page_token"] = next_page_token
+        elif "page_token" in params:
+            del params["page_token"]
 
-            async with session.get(url, params=params, headers=headers) as resp:
-                if resp.status != 200:
-                    error_text = await resp.text()
-                    print(f"[Cloud] Alpaca options history error {resp.status}: {error_text[:200]}")
-                    error_payload = {"error": f"Alpaca returned {resp.status}"}
-                    # Signal followers on error
-                    if future is None:
-                        result = {"payload": error_payload, "status": resp.status}
-                        async with _inflight_lock:
-                            f = _inflight_requests.pop(inflight_key, None)
-                        if f is not None and not f.done():
-                            f.set_result(result)
-                    return _log_and_return(error_payload, resp.status, cache_status="MISS")
+        async with session.get(url, params=params, headers=headers) as resp:
+            if resp.status != 200:
+                error_text = await resp.text()
+                print(f"[Cloud] Alpaca options history error {resp.status}: {error_text[:200]}")
+                error_payload = {"error": f"Alpaca returned {resp.status}"}
+                # Signal followers on error
+                if future is None:
+                    result = {"payload": error_payload, "status": resp.status}
+                    async with _inflight_lock:
+                        f = _inflight_requests.pop(inflight_key, None)
+                    if f is not None and not f.done():
+                        f.set_result(result)
+                return _log_and_return(error_payload, resp.status, cache_status="MISS")
 
-                result = await resp.json()
-                bars = result.get("bars", {})
-                if isinstance(bars, list):
-                    all_bars = bars
-                elif isinstance(bars, dict):
-                    for key, value in bars.items():
-                        if key not in all_bars:
-                            all_bars[key] = []
-                        all_bars[key].extend(value or [])
+            result = await resp.json()
+            bars = result.get("bars", {})
+            if isinstance(bars, list):
+                all_bars = bars
+            elif isinstance(bars, dict):
+                for key, value in bars.items():
+                    if key not in all_bars:
+                        all_bars[key] = []
+                    all_bars[key].extend(value or [])
 
-                next_page_token = result.get("next_page_token")
-                pages += 1
-                if not next_page_token or pages >= max_pages:
-                    break
+            next_page_token = result.get("next_page_token")
+            pages += 1
+            if not next_page_token or pages >= max_pages:
+                break
 
     response_payload = {"bars": all_bars, "pages": pages}
     response_payload["provider"] = "alpaca"
@@ -4401,6 +4513,7 @@ def _extract_http_request_auth(data, request):
 
 
 async def handle_option_open_interest_request(request):
+    global theta_client
     start_time = time.time()
     data = {}
     if request.method == "POST":
@@ -4466,10 +4579,6 @@ async def handle_option_open_interest_request(request):
     if disk_hit is not None:
         return _log_and_return(disk_hit, 200, cache_status="DISK_HIT")
 
-    client = await get_theta_client()
-    if client is None:
-        return _log_and_return({"error": "ThetaData not available"}, 503)
-
     try:
         import datetime
         start_date = datetime.datetime.strptime(start.split("T")[0], "%Y-%m-%d").date()
@@ -4482,7 +4591,24 @@ async def handle_option_open_interest_request(request):
         if strike_range is not None:
             kwargs["strike_range"] = int(strike_range)
 
-        df = await loop.run_in_executor(None, lambda: client.option_history_open_interest(**kwargs))
+        df = None
+        for attempt in range(2):
+            client = await get_theta_client()
+            if client is None:
+                return _log_and_return({"error": "ThetaData not available"}, 503)
+            try:
+                df = await loop.run_in_executor(None, lambda: client.option_history_open_interest(**kwargs))
+                break
+            except Exception as e:
+                err_str = str(e).lower()
+                if attempt == 0 and ("unauthenticated" in err_str or "session" in err_str or "conflict" in err_str or "connection" in err_str):
+                    print(f"[ThetaData] Resetting client in OI request due to error: {e}")
+                    async with theta_client_lock:
+                        theta_client = None
+                    continue
+                else:
+                    raise
+
         if hasattr(df, "to_pandas"):
             df = df.to_pandas()
 
@@ -4506,15 +4632,23 @@ async def handle_option_open_interest_request(request):
         return _log_and_return(response_payload, 200)
     except Exception as e:
         print(f"[ThetaData] OI error: {e}")
+        err_str = str(e).lower()
+        if "session" in err_str or "unauthenticated" in err_str or "rpc" in err_str or "conflict" in err_str:
+            async with theta_client_lock:
+                theta_client = None
         return _log_and_return({"error": str(e)}, 500)
 
 
 async def handle_option_history_trade_quote_request(request):
+    global theta_client
     start_time = time.time()
-    try:
-        data = await request.json()
-    except Exception:
-        return web.json_response({"error": "Invalid JSON"}, status=400)
+    if request.method == "GET":
+        data = dict(request.rel_url.query)
+    else:
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"error": "Invalid JSON"}, status=400)
 
     token = data.get("token", "")
     if not token:
@@ -4657,7 +4791,6 @@ async def handle_option_history_trade_quote_request(request):
                 err_str = str(e).lower()
                 if attempt == 0 and ("unauthenticated" in err_str or "session" in err_str or "conflict" in err_str or "connection" in err_str):
                     print(f"[ThetaData] Resetting client due to error: {e}")
-                    global theta_client
                     async with theta_client_lock:
                         theta_client = None
                     continue
@@ -4707,10 +4840,13 @@ async def handle_stock_history_trade_quote_request(request):
     - feed: sip/iex (default sip)
     """
     start_time = time.time()
-    try:
-        data = await request.json()
-    except Exception:
-        return web.json_response({"error": "Invalid JSON"}, status=400)
+    if request.method == "GET":
+        data = dict(request.rel_url.query)
+    else:
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"error": "Invalid JSON"}, status=400)
 
     token = data.get("token", "")
     if not token:
@@ -4790,45 +4926,45 @@ async def handle_stock_history_trade_quote_request(request):
         pages = 0
         max_pages = 100
 
-        async with aiohttp.ClientSession() as session:
-            while True:
-                if next_page_token:
-                    params["page_token"] = next_page_token
-                elif "page_token" in params:
-                    del params["page_token"]
+        session = await get_http_session()
+        while True:
+            if next_page_token:
+                params["page_token"] = next_page_token
+            elif "page_token" in params:
+                del params["page_token"]
 
-                async with session.get(url, params=params, headers=headers) as resp:
-                    if resp.status != 200:
-                        error_text = await resp.text()
-                        print(f"[Cloud] Alpaca {url_path} error {resp.status}: {error_text[:200]}")
-                        return None, resp.status, error_text
+            async with session.get(url, params=params, headers=headers) as resp:
+                if resp.status != 200:
+                    error_text = await resp.text()
+                    print(f"[Cloud] Alpaca {url_path} error {resp.status}: {error_text[:200]}")
+                    return None, resp.status, error_text
 
-                    result = await resp.json()
-                    # Alpaca returns trades/quotes as dict keyed by symbol, e.g. {"trades": {"AAPL": [...]}}
-                    records = []
-                    if "trades" in result:
-                        trades_by_sym = result.get("trades", {})
-                        if isinstance(trades_by_sym, dict):
-                            for sym_records in trades_by_sym.values():
-                                if isinstance(sym_records, list):
-                                    records.extend(sym_records)
-                        elif isinstance(trades_by_sym, list):
-                            records.extend(trades_by_sym)
-                    elif "quotes" in result:
-                        quotes_by_sym = result.get("quotes", {})
-                        if isinstance(quotes_by_sym, dict):
-                            for sym_records in quotes_by_sym.values():
-                                if isinstance(sym_records, list):
-                                    records.extend(sym_records)
-                        elif isinstance(quotes_by_sym, list):
-                            records.extend(quotes_by_sym)
-                    if records:
-                        all_records.extend(records)
+                result = await resp.json()
+                # Alpaca returns trades/quotes as dict keyed by symbol, e.g. {"trades": {"AAPL": [...]}}
+                records = []
+                if "trades" in result:
+                    trades_by_sym = result.get("trades", {})
+                    if isinstance(trades_by_sym, dict):
+                        for sym_records in trades_by_sym.values():
+                            if isinstance(sym_records, list):
+                                records.extend(sym_records)
+                    elif isinstance(trades_by_sym, list):
+                        records.extend(trades_by_sym)
+                elif "quotes" in result:
+                    quotes_by_sym = result.get("quotes", {})
+                    if isinstance(quotes_by_sym, dict):
+                        for sym_records in quotes_by_sym.values():
+                            if isinstance(sym_records, list):
+                                records.extend(sym_records)
+                    elif isinstance(quotes_by_sym, list):
+                        records.extend(quotes_by_sym)
+                if records:
+                    all_records.extend(records)
 
-                    next_page_token = result.get("next_page_token")
-                    pages += 1
-                    if not next_page_token or pages >= max_pages:
-                        break
+                next_page_token = result.get("next_page_token")
+                pages += 1
+                if not next_page_token or pages >= max_pages:
+                    break
 
         return all_records, 200, None
 
@@ -4887,6 +5023,7 @@ async def handle_stock_history_trade_quote_request(request):
 
 
 async def handle_option_eod_request(request):
+    global theta_client
     start_time = time.time()
     data = {}
     if request.method == "POST":
@@ -4952,10 +5089,6 @@ async def handle_option_eod_request(request):
     if disk_hit is not None:
         return _log_and_return(disk_hit, 200, cache_status="DISK_HIT")
 
-    client = await get_theta_client()
-    if client is None:
-        return _log_and_return({"error": "ThetaData not available"}, 503)
-
     try:
         import datetime
         start_date = datetime.datetime.strptime(start.split("T")[0], "%Y-%m-%d").date()
@@ -4968,7 +5101,24 @@ async def handle_option_eod_request(request):
         if strike_range is not None:
             kwargs["strike_range"] = int(strike_range)
 
-        df = await loop.run_in_executor(None, lambda: client.option_history_eod(**kwargs))
+        df = None
+        for attempt in range(2):
+            client = await get_theta_client()
+            if client is None:
+                return _log_and_return({"error": "ThetaData not available"}, 503)
+            try:
+                df = await loop.run_in_executor(None, lambda: client.option_history_eod(**kwargs))
+                break
+            except Exception as e:
+                err_str = str(e).lower()
+                if attempt == 0 and ("unauthenticated" in err_str or "session" in err_str or "conflict" in err_str or "connection" in err_str):
+                    print(f"[ThetaData] Resetting client in EOD request due to error: {e}")
+                    async with theta_client_lock:
+                        theta_client = None
+                    continue
+                else:
+                    raise
+
         if hasattr(df, "to_pandas"):
             df = df.to_pandas()
 
@@ -4992,6 +5142,10 @@ async def handle_option_eod_request(request):
         return _log_and_return(response_payload, 200)
     except Exception as e:
         print(f"[ThetaData] EOD error: {e}")
+        err_str = str(e).lower()
+        if "session" in err_str or "unauthenticated" in err_str or "rpc" in err_str or "conflict" in err_str:
+            async with theta_client_lock:
+                theta_client = None
         return _log_and_return({"error": str(e)}, 500)
 
 
@@ -5133,14 +5287,14 @@ async def handle_options_history_trades_request(request):
                 params["page_token"] = page_token
 
             print(f"[Cloud] Querying Alpaca historical options trades for: {symbols}")
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, params=params, headers=headers) as resp:
-                    if resp.status != 200:
-                        alpaca_failed = True
-                        err_txt = await resp.text()
-                        print(f"[Cloud] Alpaca option trades returned error status {resp.status}: {err_txt[:200]}")
-                    else:
-                        alpaca_trades_resp = await resp.json()
+            session = await get_http_session()
+            async with session.get(url, params=params, headers=headers) as resp:
+                if resp.status != 200:
+                    alpaca_failed = True
+                    err_txt = await resp.text()
+                    print(f"[Cloud] Alpaca option trades returned error status {resp.status}: {err_txt[:200]}")
+                else:
+                    alpaca_trades_resp = await resp.json()
         except Exception as e:
             print(f"[Cloud] Alpaca option trades request exception: {e}")
             alpaca_failed = True
@@ -5420,16 +5574,35 @@ def _theta_build_sdk_call(endpoint, params):
 
 
 async def _execute_thetadata_value_proxy(endpoint: str, params: dict):
-    client = await get_theta_client()
-    if client is None:
-        return {"error": "ThetaData not available"}, 503
+    global theta_client
     method_name, kwargs = _theta_build_sdk_call(endpoint, params)
     print(f"[ProviderProxy] ThetaData SDK {method_name} for {endpoint} with params {kwargs}")
     loop = asyncio.get_event_loop()
-    result = await asyncio.wait_for(
-        loop.run_in_executor(None, lambda: getattr(client, method_name)(**kwargs)),
-        timeout=THETADATA_SDK_TIMEOUT_SECONDS,
-    )
+    
+    result = None
+    for attempt in range(2):
+        client = await get_theta_client()
+        if client is None:
+            return {"error": "ThetaData not available"}, 503
+        try:
+            result = await asyncio.wait_for(
+                loop.run_in_executor(None, lambda: getattr(client, method_name)(**kwargs)),
+                timeout=THETADATA_SDK_TIMEOUT_SECONDS,
+            )
+            break
+        except Exception as e:
+            err_str = str(e).lower()
+            if attempt == 0 and ("unauthenticated" in err_str or "session" in err_str or "conflict" in err_str or "connection" in err_str):
+                print(f"[ThetaData] Resetting client in ProviderProxy due to error: {e}")
+                async with theta_client_lock:
+                    theta_client = None
+                continue
+            else:
+                if "session" in err_str or "unauthenticated" in err_str or "rpc" in err_str or "conflict" in err_str:
+                    async with theta_client_lock:
+                        theta_client = None
+                raise
+
     return _theta_result_to_payload(endpoint, method_name, result), 200
 
 
@@ -5443,14 +5616,14 @@ async def _execute_alpaca_native_proxy(endpoint: str, params: dict, api_key: str
         "Accept": "application/json",
     }
     print(f"[ProviderProxy] Alpaca GET {url} params={params}")
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, params=params, headers=headers) as resp:
-            body = await resp.read()
-            try:
-                payload = json.loads(body)
-            except Exception:
-                payload = body.decode("utf-8", "ignore")
-            return payload, resp.status
+    session = await get_http_session()
+    async with session.get(url, params=params, headers=headers) as resp:
+        body = await resp.read()
+        try:
+            payload = json.loads(body)
+        except Exception:
+            payload = body.decode("utf-8", "ignore")
+        return payload, resp.status
 
 
 async def handle_provider_proxy(request):
@@ -5654,28 +5827,28 @@ async def handle_option_contracts_request(request):
 
     print(f"[Cloud] Options contracts request: {underlying_symbols or symbol_or_id}")
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, params=params, headers=headers) as resp:
-            if resp.status != 200:
-                error_text = await resp.text()
-                print(f"[Cloud] Options contracts error {resp.status}: {error_text[:200]}")
-                if provider == "auto" and underlying_symbols and not symbol_or_id:
-                    theta_result = await fetch_theta_option_contracts(
-                        underlying_symbols,
-                        date_value=data.get("date"),
-                        request_type=data.get("request_type", "quote"),
-                        max_dte=data.get("max_dte"),
-                        limit=limit,
-                    )
-                    if theta_result is not None:
-                        await _put_disk_cached_response(endpoint, cache_params, theta_result)
-                        return _log_and_return(theta_result, 200)
-                return _log_and_return({"error": f"Alpaca returned {resp.status}", "details": error_text}, resp.status)
-            result = await resp.json()
-            if isinstance(result, dict):
-                result.setdefault("source", "alpaca")
-            await _put_disk_cached_response(endpoint, cache_params, result)
-            return _log_and_return(result, 200)
+    session = await get_http_session()
+    async with session.get(url, params=params, headers=headers) as resp:
+        if resp.status != 200:
+            error_text = await resp.text()
+            print(f"[Cloud] Options contracts error {resp.status}: {error_text[:200]}")
+            if provider == "auto" and underlying_symbols and not symbol_or_id:
+                theta_result = await fetch_theta_option_contracts(
+                    underlying_symbols,
+                    date_value=data.get("date"),
+                    request_type=data.get("request_type", "quote"),
+                    max_dte=data.get("max_dte"),
+                    limit=limit,
+                )
+                if theta_result is not None:
+                    await _put_disk_cached_response(endpoint, cache_params, theta_result)
+                    return _log_and_return(theta_result, 200)
+            return _log_and_return({"error": f"Alpaca returned {resp.status}", "details": error_text}, resp.status)
+        result = await resp.json()
+        if isinstance(result, dict):
+            result.setdefault("source", "alpaca")
+        await _put_disk_cached_response(endpoint, cache_params, result)
+        return _log_and_return(result, 200)
 
 
 def format_theta_timestamp(date_val, ms_val):
@@ -6079,11 +6252,11 @@ async def _fetch_alpaca_option_latest_snapshot(symbols: str, feed: str, api_key:
     params = {"symbols": symbols, "feed": feed}
     url = f"{DATA_URL}/v1beta1/options/{resource}/latest"
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, params=params, headers=headers) as resp:
-            if resp.status != 200:
-                return {}, True, resp.status, await resp.text()
-            payload = await resp.json()
+    session = await get_http_session()
+    async with session.get(url, params=params, headers=headers) as resp:
+        if resp.status != 200:
+            return {}, True, resp.status, await resp.text()
+        payload = await resp.json()
 
     records = payload.get(resource) or {}
     if not isinstance(records, dict):
@@ -6093,10 +6266,13 @@ async def _fetch_alpaca_option_latest_snapshot(symbols: str, feed: str, api_key:
 
 async def handle_option_snapshots_request(request):
     start_time = time.time()
-    try:
-        data = await request.json()
-    except Exception:
-        return web.json_response({"error": "Invalid JSON"}, status=400)
+    if request.method == "GET":
+        data = dict(request.rel_url.query)
+    else:
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"error": "Invalid JSON"}, status=400)
 
     token, api_key, api_secret = _extract_http_request_auth(data, request)
     principal = resolve_http_principal(token, request)
@@ -6222,18 +6398,18 @@ async def handle_option_snapshots_request(request):
                 }
 
                 print(f"[Cloud] Alpaca options snapshots request: {symbols} feed={feed}")
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, params=params, headers=headers) as resp:
-                        if resp.status != 200:
-                            alpaca_failed = True
-                            alpaca_error_status = resp.status
-                            alpaca_error_text = await resp.text()
-                            print(f"[Cloud] Alpaca options snapshots error {resp.status}: {alpaca_error_text[:200]}")
-                        else:
-                            result = await resp.json()
-                            alpaca_snapshots = result.get("snapshots") or {}
-                            if not isinstance(alpaca_snapshots, dict):
-                                alpaca_snapshots = {}
+                session = await get_http_session()
+                async with session.get(url, params=params, headers=headers) as resp:
+                    if resp.status != 200:
+                        alpaca_failed = True
+                        alpaca_error_status = resp.status
+                        alpaca_error_text = await resp.text()
+                        print(f"[Cloud] Alpaca options snapshots error {resp.status}: {alpaca_error_text[:200]}")
+                    else:
+                        result = await resp.json()
+                        alpaca_snapshots = result.get("snapshots") or {}
+                        if not isinstance(alpaca_snapshots, dict):
+                            alpaca_snapshots = {}
         except Exception as e:
             alpaca_failed = True
             alpaca_error_status = 500
@@ -6274,10 +6450,13 @@ async def handle_option_snapshots_request(request):
 
 async def handle_crypto_latest_orderbooks_request(request):
     start_time = time.time()
-    try:
-        data = await request.json()
-    except Exception:
-        return web.json_response({"error": "Invalid JSON"}, status=400)
+    if request.method == "GET":
+        data = dict(request.rel_url.query)
+    else:
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"error": "Invalid JSON"}, status=400)
 
     token, api_key, api_secret = _extract_http_request_auth(data, request)
     principal = resolve_http_principal(token, request)
@@ -6318,23 +6497,26 @@ async def handle_crypto_latest_orderbooks_request(request):
 
     print(f"[Cloud] Crypto orderbooks request: {symbols}")
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, params=params, headers=headers) as resp:
-            if resp.status != 200:
-                error_text = await resp.text()
-                print(f"[Cloud] Crypto orderbooks error {resp.status}: {error_text[:200]}")
-                return _log_and_return({"error": f"Alpaca returned {resp.status}", "details": error_text}, resp.status)
-            result = await resp.json()
-            return _log_and_return(result, 200)
+    session = await get_http_session()
+    async with session.get(url, params=params, headers=headers) as resp:
+        if resp.status != 200:
+            error_text = await resp.text()
+            print(f"[Cloud] Crypto orderbooks error {resp.status}: {error_text[:200]}")
+            return _log_and_return({"error": f"Alpaca returned {resp.status}", "details": error_text}, resp.status)
+        result = await resp.json()
+        return _log_and_return(result, 200)
 
 
 async def handle_option_snapshots_by_expiry_request(request):
     """Return all option snapshots for an underlying + expiry date (all strikes, calls+puts)."""
     start_time = time.time()
-    try:
-        data = await request.json()
-    except Exception:
-        return web.json_response({"error": "Invalid JSON"}, status=400)
+    if request.method == "GET":
+        data = dict(request.rel_url.query)
+    else:
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"error": "Invalid JSON"}, status=400)
 
     token, api_key, api_secret = _extract_http_request_auth(data, request)
 
@@ -6389,37 +6571,37 @@ async def handle_option_snapshots_by_expiry_request(request):
 
     print(f"[Cloud] Options snapshots by expiry: {underlying} exp={expiry}")
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(contracts_url, params=contracts_params, headers=headers) as resp:
+    session = await get_http_session()
+    async with session.get(contracts_url, params=contracts_params, headers=headers) as resp:
+        if resp.status != 200:
+            error_text = await resp.text()
+            print(f"[Cloud] Options contracts error {resp.status}: {error_text[:200]}")
+            return _log_and_return({"error": f"Alpaca returned {resp.status}", "details": error_text}, resp.status)
+        contracts_resp = await resp.json()
+
+    contracts = contracts_resp.get("option_contracts") or []
+    symbols = [c.get("symbol") for c in contracts if c.get("symbol")]
+    if not symbols:
+        return _log_and_return({"contracts": [], "snapshots": {}, "count": 0}, 200)
+
+    snapshots = {}
+    batch_size = 100
+    snapshots_url = f"{DATA_URL}/v1beta1/options/snapshots"
+    for i in range(0, len(symbols), batch_size):
+        batch = symbols[i:i + batch_size]
+        params = {
+            "symbols": ",".join(batch),
+            "feed": feed,
+        }
+        async with session.get(snapshots_url, params=params, headers=headers) as resp:
             if resp.status != 200:
                 error_text = await resp.text()
-                print(f"[Cloud] Options contracts error {resp.status}: {error_text[:200]}")
+                print(f"[Cloud] Options snapshots error {resp.status}: {error_text[:200]}")
                 return _log_and_return({"error": f"Alpaca returned {resp.status}", "details": error_text}, resp.status)
-            contracts_resp = await resp.json()
-
-        contracts = contracts_resp.get("option_contracts") or []
-        symbols = [c.get("symbol") for c in contracts if c.get("symbol")]
-        if not symbols:
-            return _log_and_return({"contracts": [], "snapshots": {}, "count": 0}, 200)
-
-        snapshots = {}
-        batch_size = 100
-        snapshots_url = f"{DATA_URL}/v1beta1/options/snapshots"
-        for i in range(0, len(symbols), batch_size):
-            batch = symbols[i:i + batch_size]
-            params = {
-                "symbols": ",".join(batch),
-                "feed": feed,
-            }
-            async with session.get(snapshots_url, params=params, headers=headers) as resp:
-                if resp.status != 200:
-                    error_text = await resp.text()
-                    print(f"[Cloud] Options snapshots error {resp.status}: {error_text[:200]}")
-                    return _log_and_return({"error": f"Alpaca returned {resp.status}", "details": error_text}, resp.status)
-                snap_resp = await resp.json()
-                snap_map = snap_resp.get("snapshots") or snap_resp
-                if isinstance(snap_map, dict):
-                    snapshots.update(snap_map)
+            snap_resp = await resp.json()
+            snap_map = snap_resp.get("snapshots") or snap_resp
+            if isinstance(snap_map, dict):
+                snapshots.update(snap_map)
 
     response_payload = {"contracts": contracts, "snapshots": snapshots, "count": len(contracts)}
     if redis_conn is not None:
@@ -6438,14 +6620,14 @@ async def handle_option_snapshots_underlying_request(request):
         if request.method == "POST":
             data = await request.json()
         else:
-            data = {}
+            data = dict(request.rel_url.query)
     except Exception:
         data = {}
 
     token, api_key, api_secret = _extract_http_request_auth(data, request)
     principal = resolve_http_principal(token, request)
     user_id = principal.get("user_id") if principal else None
-    
+
     endpoint = f"/v1/options/snapshots/{underlying}"
 
     def _log_and_return(payload, status, cache_status="MISS"):
@@ -6497,18 +6679,18 @@ async def handle_option_snapshots_underlying_request(request):
                 "feed": feed,
             }
             print(f"[Cloud] Alpaca option chain snapshots request for {underlying} feed={feed}")
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, params=params, headers=headers) as resp:
-                    if resp.status != 200:
-                        alpaca_failed = True
-                        alpaca_error_status = resp.status
-                        alpaca_error_text = await resp.text()
-                        print(f"[Cloud] Alpaca option chain snapshots error {resp.status}: {alpaca_error_text[:200]}")
-                    else:
-                        result = await resp.json()
-                        alpaca_snapshots = result.get("snapshots") or {}
-                        if not isinstance(alpaca_snapshots, dict):
-                            alpaca_snapshots = {}
+            session = await get_http_session()
+            async with session.get(url, params=params, headers=headers) as resp:
+                if resp.status != 200:
+                    alpaca_failed = True
+                    alpaca_error_status = resp.status
+                    alpaca_error_text = await resp.text()
+                    print(f"[Cloud] Alpaca option chain snapshots error {resp.status}: {alpaca_error_text[:200]}")
+                else:
+                    result = await resp.json()
+                    alpaca_snapshots = result.get("snapshots") or {}
+                    if not isinstance(alpaca_snapshots, dict):
+                        alpaca_snapshots = {}
         except Exception as e:
             alpaca_failed = True
             alpaca_error_status = 500
@@ -6653,28 +6835,28 @@ async def handle_news_history_request(request):
     url = f"{DATA_URL}/v1beta1/news"
     print(f"[Cloud] News history request: symbols={symbols or '*'} start={start} end={end} limit={limit} max_pages={max_pages}")
 
-    async with aiohttp.ClientSession() as session:
-        all_news = []
-        next_page_token = page_token
-        pages = 0
-        while True:
-            if next_page_token:
-                params["page_token"] = next_page_token
-            elif "page_token" in params:
-                del params["page_token"]
-            async with session.get(url, params=params, headers=headers) as resp:
-                if resp.status != 200:
-                    error_text = await resp.text()
-                    print(f"[Cloud] News history error {resp.status}: {error_text[:200]}")
-                    return _log_and_return({"error": f"Alpaca returned {resp.status}", "details": error_text}, resp.status)
-                result = await resp.json()
-                news_items = result.get("news") or []
-                if isinstance(news_items, list):
-                    all_news.extend(news_items)
-                next_page_token = result.get("next_page_token")
-                pages += 1
-                if not next_page_token or pages >= max_pages:
-                    break
+    session = await get_http_session()
+    all_news = []
+    next_page_token = page_token
+    pages = 0
+    while True:
+        if next_page_token:
+            params["page_token"] = next_page_token
+        elif "page_token" in params:
+            del params["page_token"]
+        async with session.get(url, params=params, headers=headers) as resp:
+            if resp.status != 200:
+                error_text = await resp.text()
+                print(f"[Cloud] News history error {resp.status}: {error_text[:200]}")
+                return _log_and_return({"error": f"Alpaca returned {resp.status}", "details": error_text}, resp.status)
+            result = await resp.json()
+            news_items = result.get("news") or []
+            if isinstance(news_items, list):
+                all_news.extend(news_items)
+            next_page_token = result.get("next_page_token")
+            pages += 1
+            if not next_page_token or pages >= max_pages:
+                break
 
     response_payload = {"news": all_news, "pages": pages}
     if next_page_token:
@@ -6922,11 +7104,18 @@ async def handle_health_request(request):
                 "count_1min": count,
                 "remaining": entry.remaining_from_header if entry.remaining_from_header is not None else max(0, entry.limit_per_min - count)
             }
-        # DB stats
+        # DB health (lightweight ping, not full stats)
         db_stats = {"enabled": False}
-        if DB_MANAGER_AVAILABLE and get_db_stats is not None:
+        if DB_MANAGER_AVAILABLE:
             try:
-                db_stats = await get_db_stats()
+                from db_manager import get_db_pool
+                pool = await get_db_pool()
+                if pool is not None:
+                    async with pool.acquire() as conn:
+                        await conn.fetchval("SELECT 1")
+                    db_stats = {"enabled": True, "error": ""}
+                else:
+                    db_stats = {"enabled": True, "error": "pool unavailable"}
             except Exception as e:
                 db_stats = {"enabled": True, "error": str(e)}
         return web.json_response({"status": "OK", "pool": pool_stats, "db": db_stats})
@@ -6937,7 +7126,9 @@ async def handle_health_request(request):
 async def start_http_server():
     app = web.Application(middlewares=[stream_priority_middleware])
     app.router.add_post("/v1/history/bars", handle_history_request)
+    app.router.add_get("/v1/history/bars", handle_history_request)
     app.router.add_post("/v1/history/options/bars", handle_options_history_request)
+    app.router.add_get("/v1/history/options/bars", handle_options_history_request)
     app.router.add_post("/v1/options/open_interest", handle_option_open_interest_request)
     app.router.add_get("/v1/options/open_interest", handle_option_open_interest_request)
     app.router.add_post("/v1/options/eod", handle_option_eod_request)
@@ -6950,23 +7141,36 @@ async def start_http_server():
         app.router.add_post(pattern, handle_provider_proxy)
         app.router.add_get(pattern, handle_provider_proxy)
     app.router.add_post("/v1/history/news", handle_news_history_request)
+    app.router.add_get("/v1/history/news", handle_news_history_request)
     app.router.add_post("/v1/options/contracts", handle_option_contracts_request)
+    app.router.add_get("/v1/options/contracts", handle_option_contracts_request)
     app.router.add_post("/v1/options/snapshots", handle_option_snapshots_request)
+    app.router.add_get("/v1/options/snapshots", handle_option_snapshots_request)
     app.router.add_post("/v1/options/snapshots/ohlc", handle_option_snapshots_request)
+    app.router.add_get("/v1/options/snapshots/ohlc", handle_option_snapshots_request)
     app.router.add_post("/v1/options/snapshots/trade", handle_option_snapshots_request)
+    app.router.add_get("/v1/options/snapshots/trade", handle_option_snapshots_request)
     app.router.add_post("/v1/options/snapshots/quote", handle_option_snapshots_request)
+    app.router.add_get("/v1/options/snapshots/quote", handle_option_snapshots_request)
     app.router.add_post("/v1/options/snapshots/market_value", handle_option_snapshots_request)
+    app.router.add_get("/v1/options/snapshots/market_value", handle_option_snapshots_request)
     app.router.add_post("/v1/options/snapshots/open_interest", handle_option_snapshots_request)
+    app.router.add_get("/v1/options/snapshots/open_interest", handle_option_snapshots_request)
     app.router.add_post("/v1/options/snapshots/expiry", handle_option_snapshots_by_expiry_request)
+    app.router.add_get("/v1/options/snapshots/expiry", handle_option_snapshots_by_expiry_request)
     app.router.add_post("/v1/options/snapshots/{underlying_symbol}", handle_option_snapshots_underlying_request)
     app.router.add_get("/v1/options/snapshots/{underlying_symbol}", handle_option_snapshots_underlying_request)
     app.router.add_post("/v1/crypto/us/latest/orderbooks", handle_crypto_latest_orderbooks_request)
+    app.router.add_get("/v1/crypto/us/latest/orderbooks", handle_crypto_latest_orderbooks_request)
     app.router.add_post("/v1/admin/token/lookup", handle_token_lookup_request)
     app.router.add_post("/v1/admin/audit", handle_audit_request)
     app.router.add_post("/v1/admin/stats", handle_stats_request)
     app.router.add_post("/v1/history/options/trade_quote", handle_option_history_trade_quote_request)
+    app.router.add_get("/v1/history/options/trade_quote", handle_option_history_trade_quote_request)
     app.router.add_post("/v1/options/history/trade_quote", handle_option_history_trade_quote_request)
+    app.router.add_get("/v1/options/history/trade_quote", handle_option_history_trade_quote_request)
     app.router.add_post("/v1/stock/history/trade_quote", handle_stock_history_trade_quote_request)
+    app.router.add_get("/v1/stock/history/trade_quote", handle_stock_history_trade_quote_request)
     native_provider_patterns = (
         "/v2/stocks/{tail:.*}",
         "/v1beta3/crypto/{tail:.*}",
@@ -6983,6 +7187,14 @@ async def start_http_server():
     app.router.add_get("/health", handle_health_request)
     app.router.add_post("/v1/admin/pool", handle_admin_pool_request)
     app.router.add_post("/v1/admin/cache/clear", handle_admin_cache_clear_request)
+
+    async def _cleanup_http_session(app_ref):
+        global _http_session
+        if _http_session and not _http_session.closed:
+            await _http_session.close()
+            print("[HTTP] Persistent session closed")
+    app.on_cleanup.append(_cleanup_http_session)
+
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", HTTP_PORT)

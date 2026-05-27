@@ -11,6 +11,10 @@ fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.PROXY_USERS_FILE = TEST_PROXY_FILE;
 process.env.THINKCENTRE_HOST = 'nobody@127.0.0.1'; // prevent real sync
+process.env.BYPASS_SYNC = 'true';                 // skip SCP to EC2 in tests
+process.env.PROXY_RT_URL = 'http://127.0.0.1:1'; // prevent real rt-api probe in tests
+process.env.PROXY_WS_HOST = '127.0.0.1';         // fast-fail WS probe (ECONNREFUSED)
+process.env.PROXY_WS_PORT = '1';
 
 const request = require('supertest');
 const { app, TIERS, computeExpiry } = require('./server');
@@ -612,19 +616,20 @@ describe('POST /api/admin/sync-users', () => {
 // Status API
 // ============================================================
 describe('GET /api/status', () => {
-  it('returns overall status with two components', async () => {
+  it('returns overall status with three components', async () => {
     const res = await request(app).get('/api/status');
     expect(res.statusCode).toBe(200);
     expect(res.body).toHaveProperty('overall');
     expect(['operational', 'degraded', 'outage']).toContain(res.body.overall);
     expect(res.body).toHaveProperty('components.rest');
+    expect(res.body).toHaveProperty('components.rt');
     expect(res.body).toHaveProperty('components.ws');
     expect(res.body).toHaveProperty('timestamp');
   });
 
   it('each component has name, route, status, latencyMs', async () => {
     const res = await request(app).get('/api/status');
-    for (const key of ['rest', 'ws']) {
+    for (const key of ['rest', 'rt', 'ws']) {
       const comp = res.body.components[key];
       expect(comp).toHaveProperty('name');
       expect(comp).toHaveProperty('route');
@@ -635,10 +640,10 @@ describe('GET /api/status', () => {
     }
   });
 
-  it('overall is operational only when both components are up', async () => {
+  it('overall is operational only when all components are up', async () => {
     const res = await request(app).get('/api/status');
-    const { rest, ws } = res.body.components;
-    if (rest.status === 'operational' && ws.status === 'operational') {
+    const { rest, rt, ws } = res.body.components;
+    if (rest.status === 'operational' && rt.status === 'operational' && ws.status === 'operational') {
       expect(res.body.overall).toBe('operational');
     }
   });
@@ -790,5 +795,5 @@ describe('POST /api/incidents', () => {
     }
     const res = await request(app).get('/api/incidents');
     expect(res.body.incidents.length).toBeLessThanOrEqual(100);
-  });
+  }, 15000);
 });

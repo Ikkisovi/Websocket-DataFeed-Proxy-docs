@@ -1,42 +1,11 @@
-// ── StatusBody component (inlined from status-body.jsx) ──
+// ── StatusBody component ──
+// Fetches live data from /api/status, /api/uptime, /api/latency, /api/incidents.
+// Auto-refreshes every 30 s.
 
-// status-body.jsx — Status page for the Public Docs Site
-// Two components: REST API (Cloudflare → ThinkCentre) and WebSocket (direct → EC2)
-// Surfaces: overall status header, per-component cards (uptime + latency p50/p95/p99 + sparkline),
-//           90-day uptime grid, latency chart with range toggle, and incident log.
-//
-// Data is mocked here (static docs site). To wire to real telemetry, replace `useStatusData`
-// with a fetcher pointed at /api/status, /api/uptime, /api/latency.
-
-const { useState: useStatusState, useMemo: useStatusMemo, useEffect: useStatusEffect } = React;
-
-// ── deterministic pseudo-random for mock data ───────────────────────────
-function seeded(seed) {
-  let s = seed;
-  return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-}
-
-// 90-day uptime: array of 0/1/2 (operational/degraded/outage)
-function makeUptime(seed, baseUptime = 0.998) {
-  const rng = seeded(seed);
-  return Array.from({ length: 90 }, () => {
-    const r = rng();
-    if (r > baseUptime + 0.001) return 2;
-    if (r > baseUptime - 0.01) return 1;
-    return 0;
-  });
-}
-
-// 24h latency (24 points, one per hour). REST higher baseline, WS very low.
-function makeLatency(seed, base, jitter) {
-  const rng = seeded(seed);
-  return Array.from({ length: 24 }, (_, i) => {
-    const hourFactor = 1 + 0.18 * Math.sin((i / 24) * 2 * Math.PI - Math.PI / 2); // market-hours bulge
-    return Math.round(base * hourFactor + (rng() - 0.5) * jitter);
-  });
-}
+const { useState: useStatusState, useEffect: useStatusEffect, useCallback: useStatusCallback, useRef: useStatusRef } = React;
 
 function pctUp(arr) {
+  if (!arr || arr.length === 0) return "—";
   const good = arr.filter(v => v === 0).length;
   return ((good / arr.length) * 100).toFixed(2);
 }
@@ -80,6 +49,7 @@ function UptimeGrid({ data }) {
 
 // ── stats / quantiles helper ────────────────────────────────────────────
 function quantile(arr, q) {
+  if (!arr || arr.length === 0) return 0;
   const sorted = [...arr].sort((a, b) => a - b);
   const pos = (sorted.length - 1) * q;
   const base = Math.floor(pos);
@@ -96,9 +66,9 @@ function ComponentCard({ name, route, status, uptime90, latency24h, unit = "ms",
   const last7 = uptime90.slice(-7);
   const last1 = uptime90.slice(-1);
 
-  const statusLabel = status === "operational" ? "Operational" : status === "degraded" ? "Degraded" : "Outage";
-  const statusColor = status === "operational" ? "var(--ok)" : status === "degraded" ? "var(--warn)" : "var(--danger)";
-  const statusBg    = status === "operational" ? "var(--ok-soft)" : status === "degraded" ? "var(--warn-soft)" : "var(--danger-soft)";
+  const statusLabel = status === "operational" ? "Operational" : status === "degraded" ? "Degraded" : status === "loading" ? "Loading…" : "Outage";
+  const statusColor = status === "operational" ? "var(--ok)" : status === "loading" ? "var(--ink-muted)" : status === "degraded" ? "var(--warn)" : "var(--danger)";
+  const statusBg    = status === "operational" ? "var(--ok-soft)" : status === "loading" ? "var(--bg-canvas)" : status === "degraded" ? "var(--warn-soft)" : "var(--danger-soft)";
 
   return (
     <div className="card" style={{ padding: 20 }}>
@@ -166,49 +136,65 @@ function Stat({ label, value, unit, size = "md" }) {
 }
 
 // ── multi-series latency chart ──────────────────────────────────────────
-function LatencyChart({ rest, ws, range }) {
-  // For ranges other than 24h, generate longer series
-  const len = range === "24h" ? 24 : range === "7d" ? 7 * 24 : 30 * 24;
-  const restSeries = useStatusMemo(() => makeLatency(101 + len, 92, 28).concat(Array.from({ length: len - 24 }, (_, i) => {
-    const r = seeded(202 + i)();
-    return Math.round(92 + (r - 0.5) * 36);
-  })).slice(0, len), [len]);
-  const wsSeries = useStatusMemo(() => makeLatency(303 + len, 6.5, 2).concat(Array.from({ length: len - 24 }, (_, i) => {
-    const r = seeded(404 + i)();
-    return Math.round((6.5 + (r - 0.5) * 3) * 10) / 10;
-  })).slice(0, len), [len]);
+function LatencyChart({ range }) {
+  const [chartData, setChartData] = useStatusState({ rest: [], rt: [], ws: [] });
+
+  useStatusEffect(() => {
+    let cancelled = false;
+    fetch(`/api/latency?range=${range}`)
+      .then(r => r.json())
+      .then(d => {
+        if (!cancelled) setChartData({
+          rest: (d.rest || []).map(v => v ?? 0),
+          rt: (d.rt || []).map(v => v ?? 0),
+          ws: (d.ws || []).map(v => v ?? 0),
+        });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [range]);
+
+  const restSeries = chartData.rest;
+  const rtSeries = chartData.rt;
+  const wsSeries = chartData.ws;
+
+  if (restSeries.length === 0 && rtSeries.length === 0 && wsSeries.length === 0) {
+    return (
+      <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 12 }}>
+        Collecting latency data…
+      </div>
+    );
+  }
 
   const W = 720, H = 200, PAD_L = 44, PAD_R = 12, PAD_T = 16, PAD_B = 28;
   const plotW = W - PAD_L - PAD_R;
   const plotH = H - PAD_T - PAD_B;
 
-  const max = Math.max(...restSeries) * 1.1;
-  const xStep = plotW / (restSeries.length - 1);
+  const allVals = [...restSeries, ...rtSeries, ...wsSeries].filter(v => v > 0);
+  const max = allVals.length > 0 ? Math.max(...allVals) * 1.15 : 100;
 
-  const restPath = restSeries.map((v, i) => `${i === 0 ? "M" : "L"}${PAD_L + i * xStep},${PAD_T + plotH - (v / max) * plotH}`).join(" ");
-  const wsPath = wsSeries.map((v, i) => `${i === 0 ? "M" : "L"}${PAD_L + i * xStep},${PAD_T + plotH - (v / max) * plotH}`).join(" ");
+  function makePath(series) {
+    if (series.length < 2) return "";
+    const step = plotW / (series.length - 1);
+    return series.map((v, i) => `${i === 0 ? "M" : "L"}${PAD_L + i * step},${PAD_T + plotH - (v / max) * plotH}`).join(" ");
+  }
 
-  const gridLines = [0, 50, 100, 150];
+  const gridStep = max <= 20 ? 5 : max <= 100 ? 25 : max <= 500 ? 100 : 250;
+  const gridLines = [];
+  for (let g = 0; g <= max; g += gridStep) gridLines.push(g);
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }}>
-      {/* grid */}
-      {gridLines.filter(g => g <= max).map(g => (
+      {gridLines.map(g => (
         <g key={g}>
           <line x1={PAD_L} x2={W - PAD_R} y1={PAD_T + plotH - (g / max) * plotH} y2={PAD_T + plotH - (g / max) * plotH} stroke="var(--rule)" strokeDasharray="2 3"/>
           <text x={PAD_L - 6} y={PAD_T + plotH - (g / max) * plotH + 3} textAnchor="end" fontSize="9" fontFamily="var(--f-mono)" fill="var(--ink-soft)">{g}ms</text>
         </g>
       ))}
-      {/* axis baseline */}
       <line x1={PAD_L} x2={W - PAD_R} y1={PAD_T + plotH} y2={PAD_T + plotH} stroke="var(--rule-strong)"/>
-      {/* time ticks */}
       {[0, 0.25, 0.5, 0.75, 1].map(p => {
         const x = PAD_L + plotW * p;
-        const label = range === "24h"
-          ? `${Math.round(p * 24)}h`
-          : range === "7d"
-          ? `${Math.round(p * 7)}d`
-          : `${Math.round(p * 30)}d`;
+        const label = range === "24h" ? `${Math.round(p * 24)}h` : range === "7d" ? `${Math.round(p * 7)}d` : `${Math.round(p * 30)}d`;
         return (
           <g key={p}>
             <line x1={x} x2={x} y1={PAD_T + plotH} y2={PAD_T + plotH + 3} stroke="var(--rule-strong)"/>
@@ -216,65 +202,68 @@ function LatencyChart({ rest, ws, range }) {
           </g>
         );
       })}
-      {/* REST series */}
-      <path d={restPath} fill="none" stroke="var(--accent-ink)" strokeWidth="1.5"/>
-      {/* WS series */}
-      <path d={wsPath} fill="none" stroke="oklch(0.55 0.16 295)" strokeWidth="1.5"/>
+      <path d={makePath(restSeries)} fill="none" stroke="var(--accent-ink)" strokeWidth="1.5"/>
+      <path d={makePath(rtSeries)} fill="none" stroke="oklch(0.65 0.18 160)" strokeWidth="1.5"/>
+      <path d={makePath(wsSeries)} fill="none" stroke="oklch(0.55 0.16 295)" strokeWidth="1.5"/>
     </svg>
   );
 }
 
-// ── data hook ──────────────────────────────────────────────────────────
-function useStatusData() {
-  return useStatusMemo(() => {
-    const restUptime = makeUptime(7, 0.997);
-    const wsUptime = makeUptime(11, 0.999);
-    // Force last 30d to look healthy
-    for (let i = 60; i < 90; i++) {
-      if (Math.random() < 0.95) restUptime[i] = restUptime[i] === 2 ? 1 : restUptime[i];
-    }
-    return {
-      rest: {
-        name: "REST API",
-        route: "api.leandata.uk · Cloudflare → ThinkCentre",
-        status: "operational",
-        uptime90: restUptime,
-        latency24h: makeLatency(2026, 92, 24), // ms
-      },
-      ws: {
-        name: "WebSocket stream",
-        route: "ws://52.37.182.24:8767 · EC2 direct",
-        status: "operational",
-        uptime90: wsUptime,
-        latency24h: makeLatency(2027, 6.5, 2).map(v => Math.round(v * 10) / 10), // ms with 1 decimal
-      },
-    };
-  }, []);
+// ── data hook (live) ──────────────────────────────────────────────────
+const EMPTY_STATUS = {
+  rest: { name: "REST API", route: "api.leandata.uk · Cloudflare → ThinkCentre", status: "loading", uptime90: [], latency24h: [] },
+  rt:   { name: "RT API", route: "rt-api.leandata.uk · Cloudflare → EC2", status: "loading", uptime90: [], latency24h: [] },
+  ws:   { name: "WebSocket stream", route: "ws://52.37.182.24:8767 · EC2 direct", status: "loading", uptime90: [], latency24h: [] },
+  incidents: [],
+  timestamp: null,
+};
+
+function uptimePctToGrid(pcts) {
+  return (pcts || []).map(p => p >= 99.9 ? 0 : p >= 95 ? 1 : 2);
 }
 
-// ── incidents (mock) ─────────────────────────────────────────────────────
-const INCIDENTS = [
-  {
-    date: "2026-05-12", component: "REST API", severity: "minor", duration: "12 min",
-    title: "Cache layer eviction backlog",
-    summary: "Disk cache compactor stalled on a long-running snapshot; new writes queued. p99 latency spiked from 220ms → 1.4s on /v1/options/snapshots. Resolved by restarting the compactor process; no data loss.",
-  },
-  {
-    date: "2026-04-28", component: "WebSocket stream", severity: "minor", duration: "47 min",
-    title: "Upstream SIP feed delay",
-    summary: "Alpaca SIP feed reported 200–400 ms delay on stocks channel between 14:08–14:55 UTC. Proxy continued to deliver messages; only end-to-end timing affected. Resolved upstream.",
-  },
-  {
-    date: "2026-04-19", component: "REST API", severity: "minor", duration: "8 min",
-    title: "Cloudflare cache purge",
-    summary: "Scheduled cache purge during low-traffic window caused brief X-Cache: MISS spike. p95 latency rose from 142ms → 380ms while warm cache rebuilt. Expected behavior.",
-  },
-  {
-    date: "2026-03-30", component: "WebSocket stream", severity: "major", duration: "3 min",
-    title: "EC2 instance reboot",
-    summary: "Security patch required full reboot. All active WS connections dropped with code 1013 and reconnected automatically within 90 seconds. REST unaffected (CF edge).",
-  },
-];
+function useStatusData() {
+  const [data, setData] = useStatusState(EMPTY_STATUS);
+
+  const fetchAll = useStatusCallback(async () => {
+    try {
+      const [statusRes, uptimeRes, latencyRes, incidentsRes] = await Promise.all([
+        fetch("/api/status").then(r => r.json()),
+        fetch("/api/uptime").then(r => r.json()),
+        fetch("/api/latency?range=24h").then(r => r.json()),
+        fetch("/api/incidents").then(r => r.json()),
+      ]);
+      const filterNull = arr => (arr || []).filter(v => v !== null);
+      const mapComponent = (key) => ({
+        name: statusRes.components[key]?.name || key,
+        route: statusRes.components[key]?.route || "",
+        status: statusRes.components[key]?.status || "loading",
+        uptime90: uptimePctToGrid(uptimeRes[key]),
+        latency24h: filterNull(latencyRes[key]),
+      });
+      setData({
+        rest: mapComponent("rest"),
+        rt: mapComponent("rt"),
+        ws: mapComponent("ws"),
+        incidents: (incidentsRes.incidents || []).map(inc => ({
+          ...inc,
+          date: inc.date ? inc.date.slice(0, 10) : "",
+        })),
+        timestamp: statusRes.timestamp,
+      });
+    } catch (e) {
+      console.error("Status fetch error:", e);
+    }
+  }, []);
+
+  useStatusEffect(() => {
+    fetchAll();
+    const id = setInterval(fetchAll, 30000);
+    return () => clearInterval(id);
+  }, [fetchAll]);
+
+  return data;
+}
 
 function SeverityChip({ s }) {
   const map = {
@@ -303,28 +292,28 @@ function StatusBody() {
   const data = useStatusData();
   const [range, setRange] = useStatusState("24h");
 
-  const overall = (data.rest.status === "operational" && data.ws.status === "operational")
-    ? "operational"
-    : (data.rest.status === "outage" || data.ws.status === "outage")
-      ? "outage"
-      : "degraded";
+  const isLoading = data.rest.status === "loading" || data.rt.status === "loading" || data.ws.status === "loading";
+  const allOp = data.rest.status === "operational" && data.rt.status === "operational" && data.ws.status === "operational";
+  const anyOutage = data.rest.status === "outage" || data.rt.status === "outage" || data.ws.status === "outage";
+  const overall = isLoading ? "loading" : allOp ? "operational" : anyOutage ? "outage" : "degraded";
 
-  const overallLabel = overall === "operational" ? "All systems operational" : overall === "outage" ? "Service disruption" : "Partial degradation";
-  const overallColor = overall === "operational" ? "var(--ok)" : overall === "outage" ? "var(--danger)" : "var(--warn)";
-  const overallBg    = overall === "operational" ? "var(--ok-soft)" : overall === "outage" ? "var(--danger-soft)" : "var(--warn-soft)";
+  const overallLabel = overall === "loading" ? "Checking systems…" : overall === "operational" ? "All systems operational" : overall === "outage" ? "Service disruption" : "Partial degradation";
+  const overallColor = overall === "loading" ? "var(--ink-muted)" : overall === "operational" ? "var(--ok)" : overall === "outage" ? "var(--danger)" : "var(--warn)";
+  const overallBg    = overall === "loading" ? "var(--bg-canvas)" : overall === "operational" ? "var(--ok-soft)" : overall === "outage" ? "var(--danger-soft)" : "var(--warn-soft)";
 
-  const now = new Date();
-  const lastUpdated = now.toISOString().replace("T", " ").slice(0, 16) + " UTC";
+  const lastUpdated = data.timestamp
+    ? data.timestamp.replace("T", " ").slice(0, 16) + " UTC"
+    : "loading…";
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div>
       {/* ── Overview ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>System</div>
       <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>Status</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 24px", maxWidth: 620 }}>
-        Live health of the REST API (Cloudflare → ThinkCentre) and WebSocket stream (EC2 direct).
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 24px" }}>
+        Live health of the REST API (Cloudflare → ThinkCentre), RT API (Cloudflare → EC2), and WebSocket stream (EC2 direct).
         Uptime is sampled every minute; latency percentiles are computed over a rolling 60-minute window.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>REST API（Cloudflare → ThinkCentre）与 WebSocket 流（EC2 直连）的实时健康指标。可用性按分钟采样，延迟分位数按 60 分钟滚动窗口计算。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>REST API（Cloudflare → ThinkCentre）、RT API（Cloudflare → EC2）与 WebSocket 流（EC2 直连）的实时健康指标。可用性按分钟采样，延迟分位数按 60 分钟滚动窗口计算。</span>
       </p>
 
       {/* Hero status banner */}
@@ -354,8 +343,9 @@ function StatusBody() {
 
       {/* ── Components ── */}
       <h2 id="components" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Components</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 40 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 40 }}>
         <ComponentCard {...data.rest} unit="ms" color="var(--accent-ink)"/>
+        <ComponentCard {...data.rt} unit="ms" color="oklch(0.65 0.18 160)"/>
         <ComponentCard {...data.ws} unit="ms" color="oklch(0.55 0.16 295)"/>
       </div>
 
@@ -386,6 +376,9 @@ function StatusBody() {
             <span style={{ width: 12, height: 2, background: "var(--accent-ink)" }}/> REST API
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--ink-muted)" }}>
+            <span style={{ width: 12, height: 2, background: "oklch(0.65 0.18 160)" }}/> RT API
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--ink-muted)" }}>
             <span style={{ width: 12, height: 2, background: "oklch(0.55 0.16 295)" }}/> WebSocket
           </span>
           <span style={{ flex: 1 }}/>
@@ -393,7 +386,7 @@ function StatusBody() {
             {range} · ms · client → response
           </span>
         </div>
-        <LatencyChart rest={data.rest.latency24h} ws={data.ws.latency24h} range={range}/>
+        <LatencyChart range={range}/>
       </div>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         REST latency includes Cloudflare edge → ThinkCentre origin round-trip plus server processing.
@@ -421,31 +414,36 @@ function StatusBody() {
 
       {/* ── Incidents ── */}
       <h2 id="incidents" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Recent incidents</h2>
-      <div style={{ borderTop: "1px solid var(--rule)" }}>
-        {INCIDENTS.map((inc, i) => (
-          <div key={i} style={{ padding: "16px 0", borderBottom: "1px solid var(--rule)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-              <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{inc.date}</span>
-              <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>·</span>
-              <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>{inc.component}</span>
-              <span style={{ flex: 1 }}/>
-              <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{inc.duration}</span>
-              <SeverityChip s={inc.severity}/>
+      {data.incidents.length === 0 ? (
+        <p style={{ color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 12 }}>No incidents recorded.</p>
+      ) : (
+        <div style={{ borderTop: "1px solid var(--rule)" }}>
+          {data.incidents.map((inc, i) => (
+            <div key={inc.id || i} style={{ padding: "16px 0", borderBottom: "1px solid var(--rule)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{inc.date}</span>
+                <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>·</span>
+                <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>{inc.component}</span>
+                <span style={{ flex: 1 }}/>
+                {inc.duration && <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{inc.duration}</span>}
+                <SeverityChip s={inc.severity}/>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-strong)", marginBottom: 4 }}>{inc.title}</div>
+              {inc.summary && <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: 0, lineHeight: 1.55 }}>{inc.summary}</p>}
             </div>
-            <div style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-strong)", marginBottom: 4 }}>{inc.title}</div>
-            <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: 0, lineHeight: 1.55 }}>{inc.summary}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Methodology ── */}
       <h2 id="methodology" className="display-title" style={{ fontSize: 28, margin: "40px 0 12px" }}>Methodology</h2>
-      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px", maxWidth: 620 }}>
-        Probes run from <code className="ic">us-west-2</code>, <code className="ic">us-east-1</code>, and <code className="ic">eu-west-1</code> every 60 seconds.
-        REST checks: <code className="ic">GET /v2/stocks/quotes/latest?symbols=AAPL</code> with a known token. WebSocket checks: connect, auth, expect <code className="ic">{"{T:\"success\"}"}</code> within 5 s.
-        Uptime is the fraction of checks that completed with HTTP 2xx (REST) or a valid auth response (WS) within the SLO window.
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Probes run on-demand from the token portal when the status page is viewed, and sample on each page refresh (every 30 s).
+        REST checks: <code className="ic">GET /health</code> against the local proxy (<code className="ic">localhost:8768</code>).
+        WebSocket checks: TCP connect to <code className="ic">52.37.182.24:8767</code> (EC2).
+        Uptime is the fraction of probes that returned success within the timeout window, aggregated daily over 90 days.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>
-          探针位于 us-west-2、us-east-1、eu-west-1，每 60 秒采样一次。REST 检查命中已知 token 的最新报价接口；WS 检查建连后等待认证回执。可用性 = 在 SLO 窗口内 HTTP 2xx 或认证成功的探针比例。
+          探针在状态页浏览时按需运行，每 30 秒自动刷新。REST 检查命中本地代理 /health；WS 检查 TCP 连接 EC2 端口。可用性 = 超时窗口内成功探针比例，按天聚合，展示 90 天。
         </span>
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 48px" }}>
@@ -485,7 +483,7 @@ function UptimeBlock({ label, data }) {
 
 const { useState } = React;
 
-function DocsTopbar({ active = "proxy" }) {
+function DocsTopbar({ active = "proxy", onNav }) {
   return (
     <div className="topbar">
       <div className="brand">
@@ -494,9 +492,10 @@ function DocsTopbar({ active = "proxy" }) {
       </div>
       <div className="divider"></div>
       <div className="nav">
-        <a className={active === "proxy" ? "active" : ""}>Proxy API</a>
-        <a className={active === "ws" ? "active" : ""}>WS usage</a>
-        <a className={active === "status" ? "active" : ""}>Status</a>
+        <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>Proxy API</a>
+        <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>WS usage</a>
+        <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>Status</a>
+        <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>Usage</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
@@ -510,19 +509,17 @@ function DocsTopbar({ active = "proxy" }) {
   );
 }
 
-function DocsSite({ initialTab = "proxy" } = {}) {
-  const [tab, setTab] = useState(initialTab);
+function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
+  const validTabs = ["proxy", "ws", "status", "usage"];
+  const hashTab = typeof window !== "undefined" && window.location.hash ? window.location.hash.slice(1) : "";
+  const startTab = validTabs.includes(hashTab) ? hashTab : initialTab;
+  const [tab, setTab] = useState(startTab);
 
-  let isEmbedded = false;
-  try {
-    isEmbedded = window.self !== window.top;
-  } catch (e) {
-    isEmbedded = true;
-  }
+  const showTopbar = !hideTopbar;
 
   return (
     <div className="proxy-app" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      {!isEmbedded && <DocsTopbar active={tab} />}
+      {showTopbar && <DocsTopbar active={tab} onNav={setTab} />}
 
       {/* Hero */}
       <div style={{
@@ -547,6 +544,7 @@ function DocsSite({ initialTab = "proxy" } = {}) {
           <Tab id="proxy" tab={tab} setTab={setTab} label="Proxy API" count="45+ endpoints" />
           <Tab id="ws" tab={tab} setTab={setTab} label="WS usage" count="6 channels" />
           <Tab id="status" tab={tab} setTab={setTab} label="Status" count="live" />
+          <Tab id="usage" tab={tab} setTab={setTab} label="Usage" count="30d" />
           <div style={{ flex: 1 }}></div>
           <div style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
             last sync · 2026-05-25 hybrid architecture (CF REST + EC2 WS)
@@ -555,12 +553,12 @@ function DocsSite({ initialTab = "proxy" } = {}) {
       </div>
 
       {/* Content */}
-      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 220px", flex: 1 }}>
-        <SideNav tab={tab} />
-        <main style={{ padding: "40px 56px", background: "var(--bg-canvas)" }}>
-          {tab === "proxy" ? <ProxyApiBody /> : tab === "ws" ? <WsUsageBody /> : (React.createElement(StatusBody))}
+      <div style={{ display: "grid", gridTemplateColumns: (tab === "status" || tab === "usage") ? "1fr" : "220px 1fr 220px", flex: 1 }}>
+        {tab !== "status" && tab !== "usage" && <SideNav tab={tab} />}
+        <main style={{ padding: (tab === "status" || tab === "usage") ? "36px 32px" : "40px 56px", background: "var(--bg-canvas)" }}>
+          {tab === "proxy" ? <ProxyApiBody /> : tab === "ws" ? <WsUsageBody /> : tab === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…")) : (React.createElement(StatusBody))}
         </main>
-        <OnThisPage tab={tab} />
+        {tab !== "status" && tab !== "usage" && <OnThisPage tab={tab} />}
       </div>
     </div>
   );
@@ -854,6 +852,7 @@ function TokenCard() {
 
 // Hybrid architecture: REST via Cloudflare→ThinkCentre, WS via EC2 direct
 const REST_BASE  = "https://api.leandata.uk";
+const RT_BASE    = "https://rt-api.leandata.uk";
 const TOKEN_BASE = "https://leandata.uk";
 const WS_HOST    = "52.37.182.24";
 const WS_BASE    = `ws://${WS_HOST}:8767`;
@@ -1156,13 +1155,15 @@ function ProxyApiBody() {
         <tbody>
           <tr><td>Token portal</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TOKEN_BASE}</td><td style={{ fontSize: 12 }}>username + phone</td></tr>
           <tr><td>REST data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{REST_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
+          <tr><td>REST real-time proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{RT_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
           <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{WS_BASE}/*</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
         </tbody>
       </table>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13 }}>
-        <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Hybrid architecture</strong> — REST historical data is served via <strong>Cloudflare</strong> global edge (leandata.uk),
-        while realtime <strong>WebSocket</strong> streams connect directly to EC2 for lowest latency to Alpaca.
-        <br/><span style={{ color: "var(--ink-soft)" }}>REST 历史数据通过 Cloudflare 全球边缘节点提供（leandata.uk）；WebSocket 实时流直连 EC2，以降低到 Alpaca 上游的链路延迟。</span>
+        <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Hybrid architecture</strong> — REST historical data is served via <strong>Cloudflare</strong> global edge (<code>api.leandata.uk</code>, 7-day edge cache).
+        Real-time REST endpoints (snapshots, orderbooks) are available at <code>rt-api.leandata.uk</code> (60s edge cache, faster upstream).
+        <strong>WebSocket</strong> streams connect directly to EC2 for lowest latency to Alpaca. All three surfaces accept the same token.
+        <br/><span style={{ color: "var(--ink-soft)" }}>REST 历史数据通过 Cloudflare 全球边缘节点提供（api.leandata.uk，7 天边缘缓存）。实时 REST 端点（快照、订单簿）可用 rt-api.leandata.uk（60 秒边缘缓存，更快的上游）。WebSocket 实时流直连 EC2。三个入口使用同一 Token。</span>
       </div>
 
       <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Authentication</h2>
@@ -2554,6 +2555,84 @@ async def with_reconnect(token, uri, handler, backoff=1):
       </p>
       <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         Best practice: process each message quickly (or offload to a queue) rather than doing heavy work inside the receive loop.
+      </p>
+
+      <h2 id="performance" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Performance tips</h2>
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        The proxy serves cached responses in under 1ms. Most client-perceived latency comes from network round-trips and TLS handshakes. These tips can cut TTFB by 50–80%.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>代理返回缓存响应不到 1ms，客户端感知到的延迟主要来自网络往返和 TLS 握手。以下建议可将 TTFB 降低 50–80%。</span>
+      </p>
+
+      <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Use GET for cacheable endpoints</h3>
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        All data endpoints accept both GET (query params) and POST (JSON body). <strong>GET requests are edge-cached</strong> at the nearest Cloudflare POP — repeat queries are served in ~20ms without hitting the origin server. POST requests always go through the tunnel to origin.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>所有数据端点同时支持 GET（查询参数）和 POST（JSON body）。<strong>GET 请求在最近的 Cloudflare POP 边缘缓存</strong>——重复查询约 20ms 返回，无需到达源站。POST 请求总是通过隧道到达源站。</span>
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`# Slow — POST bypasses edge cache (always hits origin)
+curl -X POST https://api.leandata.uk/v1/history/bars \\
+  -d '{"token":"TOKEN","symbol":"AAPL","start":"2025-01-01","end":"2025-12-31","timeframe":"1Day"}'
+
+# Fast — GET is edge-cached (repeat requests served from POP)
+curl "https://api.leandata.uk/v1/history/bars?token=TOKEN&symbol=AAPL&start=2025-01-01&end=2025-12-31&timeframe=1Day"
+
+# Check cache status in response headers:
+# cf-cache-status: HIT    → served from edge (~20ms)
+# cf-cache-status: MISS   → fetched from origin, now cached for next request`}
+      </pre>
+
+      <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Reuse connections</h3>
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Each new HTTPS request pays ~100ms for TCP + TLS handshake. Use a persistent session (HTTP/2 or keep-alive) to amortize this across all requests.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>每个新 HTTPS 请求需约 100ms 用于 TCP + TLS 握手。使用持久连接（HTTP/2 或 keep-alive）可将此开销分摊到所有请求。</span>
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`# Python — use requests.Session for connection reuse
+import requests
+
+session = requests.Session()
+session.headers["Authorization"] = "Bearer TOKEN"
+
+# First request: ~150ms (TLS handshake + response)
+r1 = session.get("https://api.leandata.uk/v1/history/bars",
+                  params={"symbol": "AAPL", "start": "2025-01-01",
+                          "end": "2025-12-31", "timeframe": "1Day"})
+
+# Subsequent requests: ~20-40ms (connection reused)
+r2 = session.get("https://api.leandata.uk/v1/history/bars",
+                  params={"symbol": "MSFT", "start": "2025-01-01",
+                          "end": "2025-12-31", "timeframe": "1Day"})
+
+# JavaScript — fetch() reuses connections by default
+// Node.js: use undici or node-fetch with keepAlive agent
+import { Agent } from 'undici'
+const agent = new Agent({ keepAliveTimeout: 30000 })`}
+      </pre>
+
+      <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Choose the right endpoint</h3>
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Two REST base URLs are available. Use the one that fits your query type.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>提供两个 REST 基础 URL，根据查询类型选择合适的。</span>
+      </p>
+      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
+        <thead>
+          <tr><th>Base URL</th><th>Best for</th><th>Edge cache TTL</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>api.leandata.uk</td>
+            <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>Historical bars, EOD, contracts, news</td>
+            <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>7 days</td>
+          </tr>
+          <tr>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>rt-api.leandata.uk</td>
+            <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>Snapshots, crypto orderbooks, real-time quotes</td>
+            <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>60 seconds</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
+        Both endpoints return identical data and accept the same authentication. The difference is caching duration and upstream routing.
       </p>
     </div>
   );

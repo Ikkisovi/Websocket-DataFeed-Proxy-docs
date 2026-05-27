@@ -17,41 +17,44 @@ This skill loads the complete architecture context for the proxy stack so you ca
 **REST and WS run on different hosts.** ThinkCentre handles REST (lower cost, Cloudflare global edge). EC2 handles WS (lower latency to Alpaca via AWS internal network). Token portal on ThinkCentre.
 
 ```
-┌───────────────────────────────────────────────────────────────────────────────────────┐
-│ PUBLIC INTERNET                                                                       │
-│                                                                                       │
-│   Main site:    https://leandata.uk        → Cloudflare Tunnel → TC localhost:3000    │
-│     /           docs (API reference)                                                  │
-│     /register   user registration                                                     │
-│     /admin      admin panel                                                           │
-│     /api/*      token API                                                             │
-│   REST API:     https://api.leandata.uk    → Cloudflare Tunnel → TC localhost:8768    │
-│   WebSocket:    ws://52.37.182.24:8767/*   → EC2 proxy direct (AWS internal to Alpaca)│
-└───────────────┬───────────────────────────────────────────────┬───────────────────────┘
-                │                                               │
-                │ Cloudflare Tunnel                             │ Direct TCP
-                ▼                                               ▼
-┌──────────────────────────────────────────┐  ┌────────────────────────────────────────┐
-│ ThinkCentre  tailscale 100.70.107.106    │  │ EC2  ip 52.37.182.24                   │
-│ user: mint                               │  │ user: ec2-user                         │
-│                                          │  │                                        │
-│  :8768 ─ Docker: alpaca_cloud_proxy.py   │  │  :8767 ─ Docker: alpaca_cloud_proxy.py │
-│          REST_ONLY=true (no WS upstream) │  │          WS-only (no REST port exposed) │
-│          Alpaca + ThetaData upstream     │  │          5 free keys + master key       │
-│  :3000 ─ Node: proxy-token-site          │  │          Connects direct to Alpaca WS   │
-│          (Express: docs + register +     │
-│           admin + token API)             │  │                                        │
-│  :5432 ─ Docker: TimescaleDB            │  │  users.json ← SCP from ThinkCentre     │
-│                                          │  │                                        │
-│  cloudflared ─ systemd service           │  │  No Caddy, no Tailscale relay          │
-│  Disk cache: /mnt/data/cache/ (NVMe L2)  │  │  Pure WS forwarding to Alpaca          │
-│  users.json ← token-site writes locally  │  └────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────────────────────────┐
+│ PUBLIC INTERNET                                                                               │
+│                                                                                               │
+│   Main site:    https://leandata.uk        → CF Tunnel → TC localhost:3000                    │
+│     /           docs (API reference)                                                          │
+│     /register   user registration                                                             │
+│     /admin      admin panel                                                                   │
+│     /api/*      token API                                                                     │
+│   REST API:     https://api.leandata.uk    → CF Tunnel → TC localhost:8768  (historical/cache)│
+│   RT REST API:  https://rt-api.leandata.uk → CF Tunnel → EC2 localhost:8768  (real-time)      │
+│   WebSocket:    ws://52.37.182.24:8767/*   → EC2 proxy direct (AWS internal to Alpaca)        │
+└───────────────┬──────────────────────────────────────┬────────────────────────────────────────┘
+                │ CF Tunnels (2)                         │ Direct TCP
+                ▼                                        ▼
+┌──────────────────────────────────────────┐  ┌──────────────────────────────────────────────────┐
+│ ThinkCentre  tailscale 100.70.107.106    │  │ EC2  ip 52.37.182.24  (us-west-2)               │
+│ user: mint                               │  │ user: ec2-user                                   │
+│                                          │  │                                                  │
+│  :8768 ─ Docker: alpaca_cloud_proxy.py   │  │  :8767 ─ Docker: alpaca_cloud_proxy.py           │
+│          REST_ONLY=true (no WS upstream) │  │          WS + REST (real-time endpoints)          │
+│          Alpaca + ThetaData upstream     │  │          5 free keys + master key                 │
+│          Connection pool: 100/30 per host│  │          Connection pool: 100/30 per host         │
+│  :3000 ─ Node: proxy-token-site          │  │          Connects direct to Alpaca WS             │
+│          (Express: docs + register +     │  │          Alpaca upstream: 200ms (vs TC 351ms cold)│
+│           admin + token API)             │  │                                                  │
+│  :5432 ─ Docker: TimescaleDB            │  │  users.json ← SCP from ThinkCentre               │
+│                                          │  │                                                  │
+│  cloudflared ─ systemd (api.leandata.uk) │  │  cloudflared ─ systemd (rt-api.leandata.uk)      │
+│  Disk cache: /mnt/data/cache/ (NVMe L2)  │  │  REST on :8768, WS on :8767                      │
+│  users.json ← token-site writes locally  │  └──────────────────────────────────────────────────┘
 └──────────────────────────────────────────┘
 ```
 
+**Endpoint routing**: `api.leandata.uk` for historical/cacheable data (bars, EOD, contracts, news). `rt-api.leandata.uk` for real-time data (snapshots, crypto orderbooks) when EC2's faster upstream latency matters. Both support GET and POST.
+
 ### Why hybrid?
-- **REST on TC**: Free via Cloudflare, disk cache on NVMe, ThetaData + TimescaleDB local
-- **WS on EC2**: Benchmarked p50 33.5ms vs TC's 58.6ms — AWS internal network to Alpaca is faster and more stable for real-time streaming
+- **REST on TC**: Free via Cloudflare, disk cache on NVMe, ThetaData + TimescaleDB local. **Edge cache** (L0) on CF POP eliminates tunnel round-trip for repeat queries — `override_origin` with 7-day TTL, GET-only.
+- **WS on EC2**: Benchmarked p50 33.5ms vs TC's 58.6ms — AWS internal network to Alpaca is faster and more stable for real-time streaming. **Constraint:** Alpaca keys can only subscribe from 1 endpoint.
 - **REST_ONLY mode**: TC proxy sets `REST_ONLY=true` env var → skips all WS upstream connections, avoids Alpaca's per-key WS connection limit conflict
 
 ### Cloudflare Tunnel Routes (managed in Cloudflare Dashboard → Zero Trust → Networks → Tunnels)
@@ -113,7 +116,7 @@ scp ./server.js mint@100.70.107.106:/home/mint/proxy-token-site/server.js
 scp ./server.test.js mint@100.70.107.106:/home/mint/proxy-token-site/server.test.js
 
 # 2. Run tests (STOP if they fail — do NOT restart)
-ssh mint@100.70.107.106 "cd /home/mint/proxy-token-site && npx jest 2>&1"
+ssh mint@100.70.107.106 "export PATH=/home/mint/.local/opt/node-v22.22.2-linux-x64/bin:\$PATH && cd /home/mint/proxy-token-site && npx jest --no-cache 2>&1"
 
 # 3. Restart token-site
 ssh mint@100.70.107.106 "pm2 restart proxy-token-site 2>/dev/null || (cd /home/mint/proxy-token-site && node server.js &)"
@@ -154,6 +157,17 @@ ssh -i /tmp/ec2_ed25519.pem ec2-user@52.37.182.24 "cd ~/cloud-proxy && docker-co
 ```bash
 scp /home/kai/product-apim/token-page.jsx mint@100.70.107.106:/home/mint/proxy-token-site/public/token-page.jsx
 scp /home/kai/product-apim/tokens.css mint@100.70.107.106:/home/mint/proxy-token-site/public/tokens.css
+```
+
+### Docs/Usage Deploy (no restart needed)
+
+```bash
+# Deploy to public/docs/ (standalone docs site)
+scp ./public/docs/docs-site.jsx mint@100.70.107.106:/home/mint/proxy-token-site/public/docs/docs-site.jsx
+scp ./public/docs/usage-page.jsx mint@100.70.107.106:/home/mint/proxy-token-site/public/docs/usage-page.jsx
+scp ./public/docs/status-body.jsx mint@100.70.107.106:/home/mint/proxy-token-site/public/docs/status-body.jsx
+# ⚠️  MUST sync to public/ root too (token page index.html loads from there):
+ssh mint@100.70.107.106 "cp /home/mint/proxy-token-site/public/docs/{docs-site,usage-page,status-body}.jsx /home/mint/proxy-token-site/public/"
 ```
 
 ### Docs Deploy (GitHub Pages)
@@ -199,7 +213,7 @@ ThinkCentre: `/home/mint/proxy-token-site/` (Node process, serves :3000, exposed
 |---|---|---|---|
 | `server.js`, `server.test.js` | `/home/kai/product-apim/proxy-token-site/` | `/home/mint/proxy-token-site/` | SCP + restart |
 | `token-page.jsx`, `tokens.css` | `/home/kai/product-apim/` (docs repo root) | `/home/mint/proxy-token-site/public/` | SCP (static, no restart) |
-| `docs-site.jsx`, `index.html` | `/home/kai/product-apim/` (docs repo root) | GitHub Pages (not on TC) | git push gh-pages |
+| `docs-site.jsx`, `usage-page.jsx`, `status-body.jsx`, `index.html` | `/home/kai/product-apim/proxy-token-site/public/docs/` | `/home/mint/proxy-token-site/public/docs/` | SCP (static, no restart) |
 | Cloud proxy (`alpaca_cloud_proxy.py`) | `/home/kai/product-apim/proxy-token-site/remote_proxy/` | TC: `~/Websocket-DataFeed-Proxy/ec2-primary-backup/` + EC2: `~/cloud-proxy/` | SCP + docker rebuild |
 
 The parent dir `/home/kai/product-apim/` is the `ikkisovi/Websocket-DataFeed-Proxy-docs` repo (branch `gh-pages`). The `proxy-token-site/` subdir is a separate git repo nested inside it.
@@ -232,23 +246,41 @@ Admin: `POST /api/admin/login` with `ADMIN_PASSWORD` (default `admin123`), then 
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/api/status` | GET | Live probe: REST proxy `/health` + WS TCP connect. Returns `overall` + per-component `status`, `latencyMs`. **Auto-detects outages** and logs incidents on state transitions. |
-| `/api/uptime` | GET | 90-day daily aggregated uptime `%` arrays (rest + ws) |
-| `/api/latency?range=24h\|7d\|30d` | GET | Bucketed latency time series (1h buckets, p50 per bucket) |
+| `/api/status` | GET | Live probe: REST + RT + WS (3 components). Returns `overall` + per-component `status`, `latencyMs`. **Auto-detects outages** on state transitions. |
+| `/api/uptime` | GET | 90-day daily aggregated uptime `%` arrays (rest, rt, ws) |
+| `/api/latency?range=24h\|7d\|30d` | GET | Bucketed latency time series (1h buckets, p50 per bucket) for all 3 components |
 | `/api/incidents` | GET | List all recorded incidents (newest first, max 100) |
 | `/api/incidents` | POST | Manually log an incident `{component, severity?, title, summary?, duration?}` |
 
-Status data + incidents persisted to `data/status.json`. REST probe hits `http://localhost:8768/health` (10s timeout). WS probe does TCP connect to `52.37.182.24:8767`.
+Status probes (3 components):
+- **REST**: `GET http://localhost:8768/health` (10s timeout) — TC proxy
+- **RT**: `GET ${PROXY_RT_URL}/health` (10s timeout) — `rt-api.leandata.uk` (EC2 via CF tunnel)
+- **WS**: TCP connect to `52.37.182.24:8767` (5s timeout) — EC2 direct
+
+Latency is only recorded when probe succeeds (`probe.ok === true`) — prevents timeout durations from polluting latency data.
+
+Status data + incidents persisted to `data/status.json`. Migration guard: `if (!statusData.latency.rt) statusData.latency.rt = [];` for backward compat from 2-component to 3-component.
 
 **Incident auto-detection** (runs inside `/api/status` probe):
 - Server boot → logs `resolved` "Service restart"
-- REST/WS probe transitions `up→down` → logs `major` outage incident
-- REST/WS probe transitions `down→up` → logs `resolved` recovery incident
+- REST/RT/WS probe transitions `up→down` → logs `major` outage incident
+- REST/RT/WS probe transitions `down→up` → logs `resolved` recovery incident
 - Manual: `POST /api/incidents` for planned maintenance, custom events
 
-Frontend: StatusBody is inlined in `public/docs-site.jsx` (the Status tab). Fetches `/api/incidents` on mount.
+Frontend: StatusBody + LatencyChart inlined in `public/docs/docs-site.jsx` (the Status tab). LatencyChart renders 3 series (rest=blue, rt=green-teal, ws=amber). Component grid is 3-column.
 
-**Tests:** `server.test.js` — 14 status+incident tests covering `/api/status`, `/api/uptime`, `/api/latency`, `/api/incidents` (GET/POST, validation, cap at 100).
+**Usage API** (on ThinkCentre via `https://leandata.uk`, auth by username):
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/usage/audit?username=X&limit=N` | GET/POST | Proxies to cloud proxy `/v1/admin/audit`. Resolves username→token from proxy `users.json`, forwards with token in POST body. Returns `{total, returned, events}`. |
+| `/api/usage/stats?username=X` | GET/POST | Proxies to cloud proxy `/v1/admin/stats`. Same username→token resolution. Returns `{user_id, user_stats, all_user_stats, system}`. |
+
+`resolveUserToken(username)` reads `PROXY_USERS_FILE`, finds `user_id === username`, returns the token. The proxy's `handle_audit_request` extracts token from JSON body (NOT Authorization header when body is valid JSON).
+
+Frontend: `public/docs/usage-page.jsx` — the "Usage" tab in docs-site.jsx. User enters their username (persisted in `localStorage` as `usage-username`), fetches from `/api/usage/audit` and `/api/usage/stats`. Aggregates audit events into daily charts (REST volume, cache hit/miss, WS subscriptions) + recent events table. Falls back to mock data when no real events found.
+
+**Tests:** `server.test.js` — 60 tests. Test env sets `PROXY_RT_URL=http://127.0.0.1:1`, `PROXY_WS_HOST=127.0.0.1`, `PROXY_WS_PORT=1`, `BYPASS_SYNC=true` for fast probe failure + no SCP in tests.
 
 ---
 
@@ -306,12 +338,15 @@ Auth: `{"action":"auth","token":"..."}`. Stocks/options/overnight/boats use msgp
 
 ---
 
-## 6. Cache architecture (4-layer)
+## 6. Cache architecture (5-layer)
 
 All REST endpoints on ThinkCentre hit layers in order:
 
 ```
 Request
+  → L0: Cloudflare Edge Cache (POP-level, override_origin, 604800s TTL)
+      cf-cache-status: HIT → response served directly from nearest POP (5-23ms)
+      cf-cache-status: MISS → request proceeds through tunnel to origin
   → L1: in-process Python dict (MemoryRedisClient, 500 entries, 300s TTL)
   → L2: gzip JSON on NVMe (/var/cache/alpaca, 30GB budget, tiered TTL via disk_cache.py)
       archive dual-write → /mnt/data/cache/archive/{stocks,options}/{type}/{symbol}/date.json.gz
@@ -320,6 +355,10 @@ Request
   → Upstream: Alpaca REST / ThetaData SDK
 In-flight coalescing (asyncio.Future) prevents duplicate upstream calls.
 ```
+
+**Edge cache (L0)** is GET-only — CF doesn't cache POST by default. The proxy exposes GET handlers for all data endpoints: `/v1/history/bars`, `/v1/history/options/bars`, `/v1/options/eod`, `/v1/options/snapshots/*`, `/v1/options/contracts`, `/v1/history/news`, `/v1/crypto/us/latest/orderbooks`, `/v1/stock/history/trade_quote`, `/v1/history/options/trade_quote`. Clients should use GET with query params for cacheable endpoints.
+
+**Connection pooling** (added 2026-05-26): All upstream HTTP calls use a shared `aiohttp.ClientSession` via `get_http_session()` with `TCPConnector(limit=100, limit_per_host=30, ttl_dns_cache=300)`. Eliminates per-request TCP+TLS overhead (~200ms savings on warm connections).
 
 **TTL tiers** (disk_cache.py `ENDPOINT_TTL`):
 - `/v1/options/eod`, `/v1/history/options/bars` historical: **7 days**
@@ -394,12 +433,14 @@ stats = bars_to_eod_cache(occ_symbols, start, end, bars_response, cache_dir="/va
 - Repo: `ikkisovi/Websocket-DataFeed-Proxy-docs` (branches: `gh-pages` = docs, `main` = full codebase)
 - Local clone: `/home/kai/product-apim/` (this is the docs repo root)
 - Source: `/home/kai/product-apim/docs-site.jsx` (React CDN, Babel in-browser)
-- Status page: `status-body.jsx` (uptime grid, latency chart, incident log — uses `/api/status`, `/api/uptime`, `/api/latency`)
+- Status page: StatusBody + LatencyChart inlined in `docs-site.jsx` (3-component: REST, RT, WS)
+- Usage page: `usage-page.jsx` — per-user usage dashboard (auth by username, charts + audit table)
 - HTML shell: `/home/kai/product-apim/index.html` (loads docs-site.jsx)
-- Docs HTML: `public/docs/index.html` (loads status-body.jsx + docs-site.jsx)
+- Docs HTML: `public/docs/index.html` (loads status-body.jsx + usage-page.jsx + docs-site.jsx)
 - GitHub Pages: `https://ikkisovi.github.io/Websocket-DataFeed-Proxy-docs/`
 - Token portal (TC): `https://leandata.uk` serves the same docs via `public/docs/`
 - Codebase pushed to both `gh-pages` and `main` branches
+- **Tabs**: Proxy API | WS usage | Status (live 3-component) | Usage (per-user, 30d)
 
 ---
 
@@ -428,12 +469,107 @@ Route changes are made in Cloudflare Dashboard → Zero Trust → Networks → T
 
 ---
 
+## 9b. Latency Optimization (measured 2026-05-26)
+
+### SLA Targets
+- **REST:** TTFB p99 < 100ms for 1yr daily bars
+- **WS:** End-to-end p99 < 20ms (ingestion to client delivery)
+
+### Baseline Measurements (2026-05-26)
+
+| Path | p50 | p95 | p99 | Notes |
+|------|-----|-----|-----|-------|
+| REST localhost:8768 (on TC) | **0.8ms** | 1.1ms | **1.9ms** | Proxy itself is sub-1ms (orjson + uvloop + L1 dict cache) |
+| REST via Cloudflare (pre-cache) | 38ms | 96ms | **636ms** | ❌ Tunnel overhead + spikes |
+| REST via CF edge cache HIT | ~23ms | ~30ms | **<30ms** | ✅ POP-level cached, no tunnel round-trip |
+| WS EC2 proxy (after-hours) | sub-ms/msg | — | — | Proxy overhead negligible |
+
+### Primary Bottleneck: Cloudflare Tunnel (~37ms median)
+
+The proxy returns cache HITs in 0.8ms. All REST latency comes from the Cloudflare Tunnel network round-trip: `Client → CF Edge → Tunnel → TC → response → Tunnel → CF Edge → Client`.
+
+### What Was Implemented
+
+**Proxy-side (alpaca_cloud_proxy.py):**
+1. **Cache-Control headers on REST responses** — `max-age=604800` (7 days) for historical bars, `max-age=60` for intraday. Added to `_log_and_return()`, `_return_cached_raw()`, and global `respond_cached_raw()`.
+2. **GET handlers for ALL data endpoints** — Cloudflare doesn't cache POST. Added `request.method == "GET"` branch + `app.router.add_get()` for: bars, options bars, eod, snapshots (all variants), contracts, news, crypto orderbooks, trade_quote.
+3. **`from datetime import date`** added to top-level imports for CDN TTL computation.
+4. **Connection pooling** — Replaced 12 per-request `aiohttp.ClientSession()` with shared `get_http_session()`. Uses `TCPConnector(limit=100, limit_per_host=30, ttl_dns_cache=300)`. Saves ~200ms per warm upstream call.
+
+**Infrastructure:**
+5. **EC2 REST port exposed** — Docker compose updated: `8768:8766` alongside `8767:8765`.
+6. **Cloudflare tunnel on EC2** — `rt-api.leandata.uk` → EC2 `localhost:8768`. Tunnel ID: `83625723-5d1d-4e41-8358-2f9d5c1bb27d`. Systemd service: `cloudflared`.
+
+**Cloudflare-side (API config):**
+7. **Cache Rule (api.leandata.uk)** — Ruleset `7890ae112a864415b6d5aa5432813bf5`, rule `091d42a7eb6a4983854ebd7ca4676b01`:
+   - `set_cache_settings` with `edge_ttl: override_origin, default: 604800` (7 days)
+   - Matches: `api.leandata.uk` + paths `/v1/history/*`, `/v1/options/*`, `/health`
+   - `cf-cache-status: HIT` verified
+8. **Cache Rule (rt-api.leandata.uk)** — rule `5b129803ec5246bbbf164d861beaddb3`:
+   - `set_cache_settings` with `edge_ttl: override_origin, default: 60` (60 seconds)
+   - Matches: `rt-api.leandata.uk` + paths `/v1/history/*`, `/v1/options/*`, `/v1/crypto/*`, `/v1/stock/*`, `/health`
+   - `cf-cache-status: HIT` verified
+
+### Edge Cache Behavior
+```
+Client → CF POP (nearest) → cached response (~5-10ms from US-East, ~23ms from Vancouver)
+                        ↓ only on MISS (first request or TTL expiry)
+                        Tunnel → TC proxy → DB (TimescaleDB) → response cached at POP
+```
+
+### Upstream Latency (with connection pooling)
+| Host | Cold (new TCP+TLS) | Warm (pooled) | Notes |
+|---|---|---|---|
+| TC → Alpaca | ~351ms | ~150ms | TELUS residential → Alpaca (Virginia) |
+| EC2 → Alpaca | ~200ms | ~100ms | AWS backbone → Alpaca |
+
+### Endpoint Routing (api vs rt-api)
+- **api.leandata.uk** (TC): Historical bars, EOD, contracts, news — edge-cacheable, DB-first
+- **rt-api.leandata.uk** (EC2): Snapshots, crypto orderbooks — real-time, EC2's faster upstream
+- Cache HIT: TC faster (~230ms vs ~270ms due to tunnel overhead difference)
+- Cache MISS: EC2 faster (~850ms vs ~1100ms due to upstream latency)
+
+### Constraints
+- **Alpaca keys can only subscribe from 1 endpoint** → WS must stay on EC2
+- TC runs `REST_ONLY=true` → no WS upstream
+- ThinkCentre behind NAT (TELUS residential) → no direct external access
+- Cloudflare Free plan → Cache Rules available (up to 10)
+- `bypass_by_default` mode still routes through tunnel for freshness checks → use `override_origin`
+- EC2 cloudflared tunnel: separate from TC tunnel, independent lifecycle
+
+### Benchmarks
+```bash
+# REST TTFB benchmark (run on ThinkCentre)
+ssh mint@100.70.107.106 "cd /home/mint/proxy-token-site && BENCH_TOKEN=<token> python3 bench_rest.py"
+
+# WS latency benchmark (run on ThinkCentre)
+ssh mint@100.70.107.106 "cd /home/mint/proxy-token-site && ALPACA_KEY=<key> ALPACA_SECRET=<secret> EC2_TOKEN=<token> python3 bench_ws.py"
+
+# Quick CF edge cache verification
+curl -s -D - "https://api.leandata.uk/v1/history/bars?token=TOKEN&symbol=AAPL&start=2025-01-01&end=2025-12-31&timeframe=1Day&limit=10" 2>&1 | grep cf-cache-status
+```
+
+### CF Cache Rule Management
+```bash
+# Verify rule exists
+curl -s "https://api.cloudflare.com/client/v4/zones/e27a171bec65736ad1d24dbc65573bd3/rulesets" \
+  -H "X-Auth-Email: ikkipipii@gmail.com" -H "X-Auth-Key: <GLOBAL_API_KEY>" | python3 -c "import json,sys; [print(r['name'],r['id'],r['phase']) for r in json.load(sys.stdin).get('result',[]) if 'cache' in r.get('phase','')]"
+
+# Purge all cache
+curl -s -X POST "https://api.cloudflare.com/client/v4/zones/e27a171bec65736ad1d24dbc65573bd3/purge_cache" \
+  -H "X-Auth-Email: ikkipipii@gmail.com" -H "X-Auth-Key: <GLOBAL_API_KEY>" \
+  -H "Content-Type: application/json" -d '{"purge_everything":true}'
+```
+
+---
+
 ## 10. Quick reference paths
 
 | Thing | Local | ThinkCentre | EC2 |
 |---|---|---|---|
 | Docs repo root (gh-pages) | `/home/kai/product-apim/` | — | — |
-| `docs-site.jsx` | `/home/kai/product-apim/docs-site.jsx` | — (GitHub Pages) | — |
+| `docs-site.jsx` | `proxy-token-site/public/docs/docs-site.jsx` | `public/docs/docs-site.jsx` | — |
+| `usage-page.jsx` | `proxy-token-site/public/docs/usage-page.jsx` | `public/docs/usage-page.jsx` | — |
 | `token-page.jsx` | `/home/kai/product-apim/token-page.jsx` | `public/token-page.jsx` | — |
 | `tokens.css` | `/home/kai/product-apim/tokens.css` | `public/tokens.css` | — |
 | `server.js` / `server.test.js` | `/home/kai/product-apim/proxy-token-site/` | `/home/mint/proxy-token-site/` | — |
@@ -449,21 +585,37 @@ Route changes are made in Cloudflare Dashboard → Zero Trust → Networks → T
 | Archive migrator | — | `ec2-primary-backup/archive_to_db.py` | — |
 | Options cache tests | — | `ec2-primary-backup/test_options_cache.py` | — |
 | EC2 SSH key | `/tmp/ec2_ed25519.pem` | — | — |
+| Benchmarks | `proxy-token-site/bench_rest.py`, `bench_ws.py` | same (SCP'd) | — |
 
 ## 11. Important Notes
 
 - ThinkCentre SSH via Tailscale: `ssh mint@100.70.107.106`
 - EC2 SSH: `ssh -i /tmp/ec2_ed25519.pem ec2-user@52.37.182.24`
-- `cloudflared` is a systemd service — survives reboots automatically
+- `cloudflared` is a systemd service on BOTH TC and EC2 — survives reboots
+- TC cloudflared tunnel: `api.leandata.uk` → TC:8768 (tunnel ID `5a12e8d8-ca2c-4d9c-9a1c-259f3e849d86`)
+- EC2 cloudflared tunnel: `rt-api.leandata.uk` → EC2:8768 (tunnel ID `83625723-5d1d-4e41-8358-2f9d5c1bb27d`)
 - `server.js` exports `{ app, TIERS, syncToEC2, computeExpiry, readJSON, writeJSON }`
 - ThinkCentre proxy runs `REST_ONLY=true` — no WS upstream connections
-- EC2 proxy runs WS-only — port 8767 exposed, no REST port
+- EC2 proxy runs WS + REST — ports 8767 (WS) and 8768 (REST) exposed
+- **Connection pooling**: All upstream HTTP calls use shared `get_http_session()` with `TCPConnector(limit=100, limit_per_host=30)`. Saves ~200ms per warm Alpaca call.
 - users.json sync: TC → EC2 (token-site on TC is source of truth)
 - EC2 uses `docker-compose` (hyphenated legacy), TC uses `docker compose` (plugin)
 - Tests use isolated temp dirs — safe to run anywhere
 - Domain `leandata.uk` DNS is managed by Cloudflare (nameservers pointed to CF)
-- **DB_ENABLED=true** in `ec2-primary-backup/.env` — proxy is in DB-first mode (`X-Cache: DB_HIT`)
+- **DB_ENABLED=true** on TC — proxy is in DB-first mode (`X-Cache: DB_HIT`). EC2 has no DB.
 - TimescaleDB container: `timescaledb` (same Docker network as proxy, hostname `timescaledb`)
 - From host outside Docker: `TIMESCALEDB_HOST=localhost` for warmer/migration scripts
 - smart_warmer_v2 = HTTP disk cache warmer (nightly cron); smart_warmer_v4 = direct DB backfill (manual)
 - **crontab still runs v2** — v4 is not yet scheduled; run v4 manually for full DB gap fills
+- **CF edge cache active** — Two cache rules: `api.leandata.uk` with 604800s (7d) TTL, `rt-api.leandata.uk` with 60s TTL. Both use `override_origin`. `cf-cache-status: HIT` = served from POP. GET requests required.
+- **GET routes on ALL data endpoints** — snapshots, crypto, trade_quote, news, contracts all support GET for CF edge caching.
+- **CF API auth:** email `ikkipipii@gmail.com`, zone ID `e27a171bec65736ad1d24dbc65573bd3`, Cache Ruleset ID `7890ae112a864415b6d5aa5432813bf5`
+- **Alpaca key constraint:** Keys can only subscribe to WS from 1 endpoint — WS must stay on EC2. REST keys are independent per host (each has own master key).
+- **Usage API**: `/api/usage/audit?username=X` and `/api/usage/stats?username=X` — resolves username→token server-side via `resolveUserToken()` reading `PROXY_USERS_FILE`, then forwards to cloud proxy with token in POST body (NOT Authorization header — proxy reads token from body when JSON is valid)
+- **Usage page**: `public/docs/usage-page.jsx` — "Usage" tab in docs-site.jsx. Auth by username (localStorage key `usage-username`). Shows 30d daily charts + audit events table.
+- **PITFALL — dual docs-site.jsx copies**: `public/docs-site.jsx` (root, loaded by `index.html` for the token page) and `public/docs/docs-site.jsx` (loaded by `docs/index.html` for the standalone docs). **Both must be identical.** After editing `public/docs/docs-site.jsx`, always sync: `cp public/docs/docs-site.jsx public/docs-site.jsx` on TC. Same applies to `usage-page.jsx` and `status-body.jsx` — they exist in both `public/` and `public/docs/`.
+- **PITFALL — DocsSite topbar duplication**: The token page (`index.html`) renders `<TokenTopbar>` + `<DocsSite>`. DocsSite must receive `hideTopbar={true}` when embedded in the token page to avoid a duplicate nav row. The `hideTopbar` prop controls this (not the old `isEmbedded` iframe check).
+- **Status probes (3 components)**: REST (localhost:8768), RT (rt-api.leandata.uk), WS (TCP 52.37.182.24:8767). Latency only recorded on success. Env vars: `PROXY_RT_URL`, `PROXY_WS_HOST`, `PROXY_WS_PORT`.
+- **Test env vars**: `PROXY_RT_URL=http://127.0.0.1:1`, `PROXY_WS_HOST=127.0.0.1`, `PROXY_WS_PORT=1`, `BYPASS_SYNC=true` — ensures all probes fail fast and no SCP runs in tests.
+- **TC node PATH**: `export PATH=/home/mint/.local/opt/node-v22.22.2-linux-x64/bin:$PATH` needed before `npx`/`node` commands via SSH
+- **LAN IP:** ThinkCentre LAN `10.218.77.110` (direct access at <2ms when on same network)

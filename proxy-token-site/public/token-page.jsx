@@ -12,8 +12,9 @@ function TokenTopbar({ portalOpen, setPortalOpen }) {
       </div>
       <div className="divider"></div>
       <div className="nav">
-        <a>Proxy API</a>
-        <a>WS usage</a>
+        <a href="/docs/" style={{ cursor: "pointer" }}>Docs</a>
+        <a href="/docs/#status" style={{ cursor: "pointer" }}>Status</a>
+        <a href="/docs/#usage" style={{ cursor: "pointer" }}>Usage</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
