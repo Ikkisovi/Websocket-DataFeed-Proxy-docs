@@ -87,7 +87,9 @@ def _is_today(date_str: str) -> bool:
 def compute_ttl(endpoint: str, params: dict) -> int:
     """Compute cache TTL based on endpoint and request parameters."""
     ttl_spec = ENDPOINT_TTL.get(endpoint, TTL_DEFAULT)
-    if endpoint.startswith("/v2/stocks/"):
+    if endpoint.startswith("/stable/"):
+        ttl_spec = TTL_CONTRACTS  # 1 hour
+    elif endpoint.startswith("/v2/stocks/"):
         if "/latest" in endpoint or endpoint.endswith("/snapshot") or endpoint.endswith("/snapshots"):
             ttl_spec = TTL_INTRADAY
         elif endpoint.startswith("/v2/stocks/meta/"):
@@ -139,7 +141,7 @@ def generate_disk_key(endpoint: str, params: dict, feed_class: str = "unknown") 
     """
     cacheable = {
         k: v for k, v in sorted(params.items())
-        if k not in ("token", "user_id", "auth", "api_key", "api_secret")
+        if k not in ("token", "user_id", "auth", "api_key", "api_secret", "apikey")
     }
     payload = f"{endpoint}:{json.dumps(cacheable, sort_keys=True, separators=(',', ':'))}"
     if endpoint not in SHARED_CACHE_FEED_ENDPOINTS and feed_class and feed_class != "unknown":

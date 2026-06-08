@@ -77,9 +77,44 @@ function TokenPage() {
 
   const handleCopy = () => {
     if (tokenData && tokenData.token) {
-      navigator.clipboard.writeText(tokenData.token);
-      alert("Token copied to clipboard!");
+      const textToCopy = tokenData.token;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy)
+          .then(() => alert("Token copied to clipboard!"))
+          .catch(() => fallbackCopy(textToCopy));
+      } else {
+        fallbackCopy(textToCopy);
+      }
     }
+  };
+
+  const fallbackCopy = (text) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.width = "2em";
+    textArea.style.height = "2em";
+    textArea.style.padding = "0";
+    textArea.style.border = "none";
+    textArea.style.outline = "none";
+    textArea.style.boxShadow = "none";
+    textArea.style.background = "transparent";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        alert("Token copied to clipboard!");
+      } else {
+        alert("Unable to copy automatically. Please copy it manually.");
+      }
+    } catch (err) {
+      alert("Unable to copy automatically. Please copy it manually.");
+    }
+    document.body.removeChild(textArea);
   };
 
   return (

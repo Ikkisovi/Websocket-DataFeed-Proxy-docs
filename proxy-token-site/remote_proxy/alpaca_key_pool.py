@@ -311,7 +311,18 @@ def _parse_iso_or_date(value) -> Optional[datetime]:
     if isinstance(value, (int, float)):
         return datetime.fromtimestamp(value, tz=timezone.utc)
     s = str(value).strip()
-    # Try ISO 8601 first
+
+    # Handle bare date YYYY-MM-DD (treat as end-of-day UTC) FIRST.
+    # fromisoformat("2026-05-27") succeeds as midnight, which would be
+    # misclassified as "historical" and routed to a free key (causing 403).
+    if len(s) == 10 and s.count("-") == 2:
+        try:
+            dt = datetime.strptime(s, "%Y-%m-%d")
+            return dt.replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+        except ValueError:
+            pass
+
+    # Try ISO 8601
     try:
         dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
         if dt.tzinfo is None:

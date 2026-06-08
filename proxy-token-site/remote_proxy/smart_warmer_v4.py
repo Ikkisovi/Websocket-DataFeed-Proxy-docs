@@ -68,9 +68,7 @@ try:
 except ImportError:
     KEYPOOL_AVAILABLE = False
 
-# ThetaData SDK 是单 session 的，需要全局锁
-_theta_lock = asyncio.Lock()
-_theta_client = None
+# ThetaData SDK calculations are now routed through the proxy REST API.
 
 
 # ============================================================
@@ -344,84 +342,63 @@ def _nearest_trading_day(ref_date=None, max_lookback=5):
     return ref_date - datetime.timedelta(days=ref_date.weekday() - 4)
 
 
-async def _get_theta_client():
-    """获取或重建 ThetaData client（带 session 恢复）."""
-    global _theta_client
-    from thetadata import ThetaClient
-    creds_file = os.getenv("THETADATA_CREDS_FILE", "/app/.thetadata_credentials.txt")
-    if _theta_client is None:
-        _theta_client = ThetaClient(creds_file=creds_file)
-    return _theta_client
-
-
-async def _theta_call(loop, fn, max_retries=2):
-    """串行调用 ThetaData SDK，遇到 session 错误自动重连重试."""
-    global _theta_client
-    async with _theta_lock:
-        for attempt in range(max_retries):
-            try:
-                return await loop.run_in_executor(None, fn)
-            except Exception as e:
-                msg = str(e)
-                if "Invalid session ID" in msg or "UNAUTHENTICATED" in msg:
-                    print(f"[V4] ThetaData session expired, reconnecting...")
-                    _theta_client = None
-                    client = await _get_theta_client()
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(1)
-                        continue
-                raise
-        return None
-
-
 async def fetch_theta_option_chain(
+    session: aiohttp.ClientSession, token: str,
     root_symbol: str, max_dte: int = 730, limit: int = 2000,
 ) -> List[Dict]:
     """获取某股票的 option chain，过滤两年内到期的 contracts."""
     try:
-        creds_file = os.getenv("THETADATA_CREDS_FILE", "/app/.thetadata_credentials.txt")
-        if not Path(creds_file).exists():
-            return []
         import datetime
-        client = await _get_theta_client()
+        url = f"{PROXY_BASE_URL}/v1/options/contracts"
+        
         # 尝试最近几个交易日（数据可能延迟）
+        raw_contracts = []
         for lookback in range(7):
             query_date = _nearest_trading_day(datetime.date.today() - datetime.timedelta(days=lookback))
             max_expiry = query_date + datetime.timedelta(days=max_dte)
-            loop = asyncio.get_event_loop()
+            
+            payload = {
+                "token": token,
+                "underlying_symbols": root_symbol.upper(),
+                "date": query_date.strftime("%Y-%m-%d"),
+                "request_type": "quote",
+                "provider": "thetadata"
+            }
+            
             try:
-                df = await _theta_call(
-                    loop,
-                    lambda d=query_date: client.option_list_contracts(request_type="QUOTE", date=d, symbol=[root_symbol])
-                )
-                if df is not None and len(df) > 0:
-                    break
+                async with session.post(url, json=payload) as resp:
+                    if resp.status != 200:
+                        continue
+                    data = await resp.json()
+                    raw_contracts = data.get("option_contracts", [])
+                    if raw_contracts:
+                        break
             except Exception as inner_e:
-                if "No data found" in str(inner_e) and lookback < 6:
-                    continue
-                raise
+                print(f"[V4] Option chain fetch attempt error: {inner_e}")
+                continue
         else:
             return []
-        df = df.to_pandas() if hasattr(df, "to_pandas") else df
+
         contracts = []
-        for _, row in df.iterrows():
-            exp = row.get("expiration", "")
-            if not exp:
+        for c in raw_contracts:
+            exp_date_str = c.get("expiration_date", "") # ISO format e.g. "2026-06-20"
+            if not exp_date_str:
                 continue
             try:
-                exp_str = str(exp).replace("-", "").strip()
-                exp_date = datetime.datetime.strptime(exp_str, "%Y%m%d").date()
+                exp_clean = exp_date_str.replace("-", "").strip()
+                exp_date = datetime.datetime.strptime(exp_clean, "%Y%m%d").date()
                 if exp_date > max_expiry:
                     continue
             except Exception:
                 continue
+                
             contracts.append({
-                "symbol": row.get("symbol", root_symbol),
+                "symbol": root_symbol,
                 "root": root_symbol,
-                "expiration": str(exp),
-                "strike": row.get("strike", 0),
-                "right": row.get("right", ""),
-                "occ": _format_occ(row.get("symbol", root_symbol), str(exp), row.get("right", ""), row.get("strike", 0)),
+                "expiration": exp_clean,
+                "strike": float(c.get("strike_price", 0)),
+                "right": "call" if c.get("type") == "call" else "put",
+                "occ": c.get("symbol", ""),
             })
         return contracts[:limit]
     except Exception as e:
@@ -449,46 +426,55 @@ def _format_occ(root: str, expiration: str, right: str, strike) -> str:
 
 
 async def fetch_theta_option_eod(
+    session: aiohttp.ClientSession, token: str,
     contract: Dict, start_date, end_date
 ) -> List[Dict]:
-    """获取单个 option contract 的 EOD 历史数据 (串行 ThetaData 调用，按年分批)."""
+    """获取单个 option contract 的 EOD 历史数据 (通过 proxy REST 接口)."""
     import datetime as _dt
     occ = contract.get("occ")
     if not occ:
         return []
     try:
-        client = await _get_theta_client()
-        exp_str = str(contract["expiration"]).replace("-", "").strip()
-        exp_date = _dt.datetime.strptime(exp_str, "%Y%m%d").date()
-        loop = asyncio.get_event_loop()
-
+        url = f"{PROXY_BASE_URL}/v1/history/options/eod"
+        
         all_bars = []
         # ThetaData EOD 限制每次最多 365 天
         current = start_date
         while current <= end_date:
             batch_end = min(current + _dt.timedelta(days=365), end_date)
-            df = await _theta_call(
-                loop,
-                lambda s=current, e=batch_end: client.option_history_eod(
-                    symbol=contract["root"],
-                    expiration=exp_date,
-                    start_date=s,
-                    end_date=e,
-                    strike=str(int(float(contract["strike"]))),
-                    right=contract["right"],
-                )
-            )
-            if df is not None and len(df) > 0:
-                df = df.to_pandas() if hasattr(df, "to_pandas") else df
-                for _, row in df.iterrows():
-                    # EOD 数据的 created 列是带时区的时间戳
-                    ts_val = row.get("created")
-                    if hasattr(ts_val, "astimezone"):
-                        ts = ts_val.astimezone(_dt.timezone.utc)
-                    elif hasattr(ts_val, "strftime"):
-                        ts = _dt.datetime.strptime(ts_val.strftime("%Y-%m-%dT%H:%M:%S"), "%Y-%m-%dT%H:%M:%S").replace(tzinfo=_dt.timezone.utc)
+            
+            payload = {
+                "token": token,
+                "symbol": contract["root"].upper(),
+                "expiration": contract["expiration"],
+                "start": current.strftime("%Y-%m-%d"),
+                "end": batch_end.strftime("%Y-%m-%d"),
+                "strike": str(contract["strike"]),
+                "right": contract["right"]
+            }
+            
+            async with session.post(url, json=payload) as resp:
+                if resp.status != 200:
+                    error_text = await resp.text()
+                    if "No data found" in error_text or "not found" in error_text.lower():
+                        pass
                     else:
-                        ts = _dt.datetime.strptime(str(ts_val).split("+")[0].split(".")[0], "%Y-%m-%d %H:%M:%S").replace(tzinfo=_dt.timezone.utc)
+                        print(f"[V4] Option EOD proxy error {resp.status} for {occ}: {error_text[:200]}")
+                    current = batch_end + _dt.timedelta(days=1)
+                    continue
+                
+                res_data = await resp.json()
+                records = res_data.get("data", [])
+                for row in records:
+                    ts_val = row.get("created") or row.get("date")
+                    if not ts_val:
+                        continue
+                    if hasattr(ts_val, "strftime"):
+                        ts = ts_val.strftime("%Y-%m-%dT%H:%M:%SZ")
+                    elif isinstance(ts_val, (int, float)):
+                        ts = _dt.datetime.fromtimestamp(ts_val, tz=_dt.timezone.utc).isoformat()
+                    else:
+                        ts = str(ts_val)
                     all_bars.append({
                         "t": ts,
                         "o": float(row.get("open", 0)),
@@ -502,11 +488,7 @@ async def fetch_theta_option_eod(
             current = batch_end + _dt.timedelta(days=1)
         return all_bars
     except Exception as e:
-        msg = str(e)
-        if "No data found" in msg or "not found" in msg.lower():
-            pass
-        else:
-            print(f"[V4] Option EOD error {occ}: {e}")
+        print(f"[V4] Option EOD error {occ}: {e}")
         return []
 
 
@@ -707,7 +689,7 @@ async def backfill_options(pool, session: aiohttp.ClientSession, underlyings: Li
                 return
 
             bars = await fetch_theta_option_eod(
-                contract, contract_start, contract_end
+                session, token, contract, contract_start, contract_end
             )
 
             if not bars:
@@ -754,7 +736,7 @@ async def backfill_options(pool, session: aiohttp.ClientSession, underlyings: Li
 
     for underlying in underlyings:
         print(f"  Fetching option chain for {underlying}...")
-        contracts = await fetch_theta_option_chain(underlying, max_dte=days_back, limit=2000)
+        contracts = await fetch_theta_option_chain(session, token, underlying, max_dte=days_back, limit=2000)
         if not contracts:
             print(f"    No contracts found for {underlying}")
             continue

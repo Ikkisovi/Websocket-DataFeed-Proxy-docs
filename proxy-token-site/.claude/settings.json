@@ -1,4 +1,12 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git cherry-pick:*)",
+      "Edit(/.claude/skills/proxy-debug/**)",
+      "Bash(ssh mint@100.70.107.106:*)",
+      "Bash(scp:*)"
+    ]
+  },
   "enabledPlugins": {
     "codex@openai-codex": true
   }

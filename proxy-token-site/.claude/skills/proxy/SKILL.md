@@ -54,7 +54,7 @@ This skill loads the complete architecture context for the proxy stack so you ca
 
 ### Why hybrid?
 - **REST on TC**: Free via Cloudflare, disk cache on NVMe, ThetaData + TimescaleDB local. **Edge cache** (L0) on CF POP eliminates tunnel round-trip for repeat queries — `override_origin` with 7-day TTL, GET-only.
-- **WS on EC2**: Benchmarked p50 33.5ms vs TC's 58.6ms — AWS internal network to Alpaca is faster and more stable for real-time streaming. **Constraint:** Alpaca keys can only subscribe from 1 endpoint.
+- **WS on EC2**: Benchmarked p50 33.5ms vs TC's 58.6ms — AWS internal network to Alpaca is faster and more stable for real-time streaming. Alpaca has **no** single-endpoint limit, so Alpaca snapshots/WS can safely live on EC2. (The single-endpoint subscription constraint is **ThetaData's**, not Alpaca's — see Constraints.)
 - **REST_ONLY mode**: TC proxy sets `REST_ONLY=true` env var → skips all WS upstream connections, avoids Alpaca's per-key WS connection limit conflict
 
 ### Cloudflare Tunnel Routes (managed in Cloudflare Dashboard → Zero Trust → Networks → Tunnels)
@@ -111,6 +111,13 @@ Parse the user's args to determine which operation(s) to run:
 ### Full Deploy Sequence (ThinkCentre — token-site)
 
 ```bash
+# 0. PRE-DEPLOY GUARD: verify no local dev paths leaked into server.js
+grep -n 'PROXY_USERS_FILE\|EC2_SSH_KEY' server.js
+# MUST show TC paths: '/home/mint/Websocket-DataFeed-Proxy/ec2-primary-backup/users.json'
+#                     '/home/mint/.ssh/ec2_ed25519.pem'
+# NOT: 'remote_proxy/users.json' or '/home/kai/.ssh/id_ed25519'
+# ⚠️  Incident 2026-05-27: wrong paths caused 30-user auth outage
+
 # 1. Push server files to ThinkCentre
 scp ./server.js mint@100.70.107.106:/home/mint/proxy-token-site/server.js
 scp ./server.test.js mint@100.70.107.106:/home/mint/proxy-token-site/server.test.js
@@ -183,11 +190,37 @@ git push origin gh-pages
 
 ```bash
 # Push users.json from ThinkCentre to EC2 for WS auth
-ssh mint@100.70.107.106 "scp -i ~/.ssh/ec2_key /home/mint/Websocket-DataFeed-Proxy/ec2-primary-backup/users.json ec2-user@52.37.182.24:/home/ec2-user/cloud-proxy/users.json"
+ssh mint@100.70.107.106 "scp -i /home/mint/.ssh/ec2_ed25519.pem /home/mint/Websocket-DataFeed-Proxy/ec2-primary-backup/users.json ec2-user@52.37.182.24:/home/ec2-user/cloud-proxy/users.json"
 # Or from local machine if TC→EC2 SCP isn't set up:
 ssh mint@100.70.107.106 "cat /home/mint/Websocket-DataFeed-Proxy/ec2-primary-backup/users.json" | ssh -i /tmp/ec2_ed25519.pem ec2-user@52.37.182.24 "cat > /home/ec2-user/cloud-proxy/users.json"
 # Verify on EC2
 ssh -i /tmp/ec2_ed25519.pem ec2-user@52.37.182.24 "python3 -c \"import json;d=json.load(open('/home/ec2-user/cloud-proxy/users.json'));print(len(d['users']),'users synced')\""
+```
+
+### Built-in Prevention Guards & Sync-Verify (Added 2026-05-27)
+
+To ensure high availability and prevent sync/path config anomalies (like writing to dev fallbacks or breaking TC-EC2 connection), we have implemented 4 safeguards and an E2E testing framework:
+
+1. **Startup Path Guard**: On boot, server.js automatically checks if it is running on the ThinkCentre (checks if `/home/mint` exists) and throws a loud warning if `PROXY_USERS_FILE` or `EC2_SSH_KEY` points to a local developer fallback path.
+2. **Post-Write Verification**: After every write to `PROXY_USERS_FILE` via `writeProxyUsersAndSyncAsync()`, the portal reads the file back from disk to verify the active user count exactly matches the in-memory/database registry. Returns `{ ok: false }` if a mismatch is detected.
+3. **Admin User Deletion (`POST /api/admin/delete-user`)**: Completely cleans up a user by removing them from all 3 token portal registries (local `users.json`, `pending.json`, and `PROXY_USERS_FILE`) and triggers an automatic SSH sync to update the EC2 WebSocket registry.
+4. **SSH Sync Verification (`GET /api/admin/sync-verify`)**: Remotely queries the EC2 primary instance via SSH to read its active `/home/ec2-user/cloud-proxy/users.json`, diffs it against the ThinkCentre's database of approved users, and returns lists of `missingOnEC2` and `extraOnEC2` to guarantee total network-wide consistency.
+
+#### End-to-End Test Suite (`test_e2e.js`)
+Verify the entire topology, authentication, key picker routing, and sync operations in 5 phases:
+- **Phase 1: Sync check** — calls `/api/admin/sync-verify` to ensure TC and EC2 registries match.
+- **Phase 2: Token health** — loops through all active approved users, generates tokens, and performs a live query on `/v1/history/bars` to verify the token is accepted.
+- **Phase 3: Registration** — registers 6 test users (representing trial, basic, value/stocks, value/options, standard, premium tiers) and approves them.
+- **Phase 4: Permission Matrix** — runs live validation across 6 distinct REST data routes (stocks/options/crypto/news) for all tiers, asserting correct allow/deny responses based on service limits.
+- **Phase 5: Cleanup** — deletes all generated test users using `/api/admin/delete-user` and verifies no trace of them remains on either TC or EC2.
+
+**Running the E2E Test:**
+```bash
+# From local developer machine (authenticates via SSH to TC):
+node test_e2e.js
+
+# Running directly on the ThinkCentre origin host:
+DIRECT=true node test_e2e.js
 ```
 
 ### Cloudflare Status
@@ -254,10 +287,12 @@ Admin: `POST /api/admin/login` with `ADMIN_PASSWORD` (default `admin123`), then 
 
 Status probes (3 components):
 - **REST**: `GET http://localhost:8768/health` (10s timeout) — TC proxy
-- **RT**: `GET ${PROXY_RT_URL}/health` (10s timeout) — `rt-api.leandata.uk` (EC2 via CF tunnel)
+- **RT**: `GET ${PROXY_RT_URL}/health` via Node `https` + a **shared keep-alive agent** (10s timeout) — `rt-api.leandata.uk` (EC2 via CF tunnel)
 - **WS**: TCP connect to `52.37.182.24:8767` (5s timeout) — EC2 direct
 
 Latency is only recorded when probe succeeds (`probe.ok === true`) — prevents timeout durations from polluting latency data.
+
+**RT probe keep-alive (fixed 2026-06-03):** `probeRt()` uses a shared `https.Agent({keepAlive})` + a 25s background heartbeat (`setInterval` in the `require.main` block, `.unref()`'d). Without it, each periodic probe cold-handshaked a fresh TLS connection to the CF edge → RT showed ~265ms while REST (localhost, no TLS) and WS (bare TCP) showed single/tens of ms — a pure measurement artifact, NOT EC2/upstream slowness (CF edge is always `cf-cache-status: HIT` on `/health`). Warm reused socket → RT measures its real ~30-40ms. **Don't "fix" the high RT number by moving rt-api off EC2** — the EC2 placement wins on cache-MISS upstream latency to Alpaca (~850ms vs TC ~1100ms).
 
 Status data + incidents persisted to `data/status.json`. Migration guard: `if (!statusData.latency.rt) statusData.latency.rt = [];` for backward compat from 2-component to 3-component.
 
@@ -530,7 +565,7 @@ Client → CF POP (nearest) → cached response (~5-10ms from US-East, ~23ms fro
 - Cache MISS: EC2 faster (~850ms vs ~1100ms due to upstream latency)
 
 ### Constraints
-- **Alpaca keys can only subscribe from 1 endpoint** → WS must stay on EC2
+- **ThetaData can only subscribe/connect from 1 endpoint** → ThetaData runs on a single host (TC). Alpaca has NO such limit — Alpaca WS/snapshots stay on EC2 purely for the latency win above, not a key constraint.
 - TC runs `REST_ONLY=true` → no WS upstream
 - ThinkCentre behind NAT (TELUS residential) → no direct external access
 - Cloudflare Free plan → Cache Rules available (up to 10)
@@ -610,7 +645,7 @@ curl -s -X POST "https://api.cloudflare.com/client/v4/zones/e27a171bec65736ad1d2
 - **CF edge cache active** — Two cache rules: `api.leandata.uk` with 604800s (7d) TTL, `rt-api.leandata.uk` with 60s TTL. Both use `override_origin`. `cf-cache-status: HIT` = served from POP. GET requests required.
 - **GET routes on ALL data endpoints** — snapshots, crypto, trade_quote, news, contracts all support GET for CF edge caching.
 - **CF API auth:** email `ikkipipii@gmail.com`, zone ID `e27a171bec65736ad1d24dbc65573bd3`, Cache Ruleset ID `7890ae112a864415b6d5aa5432813bf5`
-- **Alpaca key constraint:** Keys can only subscribe to WS from 1 endpoint — WS must stay on EC2. REST keys are independent per host (each has own master key).
+- **Single-endpoint constraint is ThetaData's, NOT Alpaca's:** ThetaData can only subscribe/connect from one endpoint, so it runs on a single host (TC). Alpaca keys have no such limit — Alpaca WS/snapshots stay on EC2 for latency, not a constraint. REST keys are independent per host (each has own master key).
 - **Usage API**: `/api/usage/audit?username=X` and `/api/usage/stats?username=X` — resolves username→token server-side via `resolveUserToken()` reading `PROXY_USERS_FILE`, then forwards to cloud proxy with token in POST body (NOT Authorization header — proxy reads token from body when JSON is valid)
 - **Usage page**: `public/docs/usage-page.jsx` — "Usage" tab in docs-site.jsx. Auth by username (localStorage key `usage-username`). Shows 30d daily charts + audit events table.
 - **PITFALL — dual docs-site.jsx copies**: `public/docs-site.jsx` (root, loaded by `index.html` for the token page) and `public/docs/docs-site.jsx` (loaded by `docs/index.html` for the standalone docs). **Both must be identical.** After editing `public/docs/docs-site.jsx`, always sync: `cp public/docs/docs-site.jsx public/docs-site.jsx` on TC. Same applies to `usage-page.jsx` and `status-body.jsx` — they exist in both `public/` and `public/docs/`.
@@ -619,3 +654,4 @@ curl -s -X POST "https://api.cloudflare.com/client/v4/zones/e27a171bec65736ad1d2
 - **Test env vars**: `PROXY_RT_URL=http://127.0.0.1:1`, `PROXY_WS_HOST=127.0.0.1`, `PROXY_WS_PORT=1`, `BYPASS_SYNC=true` — ensures all probes fail fast and no SCP runs in tests.
 - **TC node PATH**: `export PATH=/home/mint/.local/opt/node-v22.22.2-linux-x64/bin:$PATH` needed before `npx`/`node` commands via SSH
 - **LAN IP:** ThinkCentre LAN `10.218.77.110` (direct access at <2ms when on same network)
+- **CF traffic accumulator (added 2026-06-03):** `/home/mint/cf-traffic/cf_traffic_log.py` on TC. Daily cron `35 0 * * *` queries CF GraphQL `httpRequests1dGroups` (zone `e27a171...`) for the `bytes` (egress) + `requests` of the **last 7 days** (dedup-append → self-heals if a night's run hits a transient DNS/network blip, as happened 2026-06-04 00:35), writes to `daily.jsonl`, prints rolling-30d GB + **Argo Smart Routing** cost estimate ($5/mo + $0.10/GB) to `cf_traffic.log`. One-shot: `python3 cf_traffic_log.py --backfill 30` (CF free plan retains ~8 days). Creds in `/home/mint/.cf_creds` (600: `CF_EMAIL`/`CF_KEY`) — swap to a scoped Analytics:Read token, script unchanged. Baseline 2026-06-03: ~3.2 GB/mo, ~495k req/mo → Argo ≈ $5.32/mo (per-GB negligible). NOTE: dataset field is `bytes`, NOT `edgeResponseBytes` (latter is adaptive-groups only).

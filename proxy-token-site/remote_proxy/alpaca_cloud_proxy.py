@@ -1255,13 +1255,13 @@ async def stream_priority_middleware(request, handler):
                         max_rest_conns = int(permissions["max_rest_conns"])
                     else:
                         role_limits = {
-                            "basic": 2,
-                            "value": 3,
-                            "standard": 5,
-                            "premium": 10,
+                            "basic": 5,
+                            "value": 10,
+                            "standard": 15,
+                            "premium": 30,
                             "test": 200,        # internal load-test role — lifted for stress testing
-                            "default": 3,
-                            "legacy": 5,
+                            "default": 10,
+                            "legacy": 15,
                             "fallback": 100,
                             "admin": 100,
                         }
@@ -1585,6 +1585,8 @@ def rest_permission_for_endpoint(endpoint: str):
 
 
 def native_provider_for_endpoint(endpoint: str):
+    if endpoint.startswith("/stable/"):
+        return "fmp"
     if endpoint.startswith("/v3/option/"):
         return "thetadata"
     if native_provider_permission(endpoint):
@@ -1593,6 +1595,8 @@ def native_provider_for_endpoint(endpoint: str):
 
 
 def native_provider_permission(endpoint: str):
+    if endpoint.startswith("/stable/"):
+        return "stocks_history"
     if endpoint.startswith("/v2/stocks/"):
         return "stocks_history"
     if endpoint.startswith("/v1beta3/crypto/"):
@@ -1641,6 +1645,9 @@ def _merged_request_params(data: dict, request) -> dict:
 
 async def _get_disk_cached_response(endpoint: str, params: dict):
     try:
+        # Bypass disk caching for real-time options snapshots to keep them fresh and save disk I/O
+        if endpoint.startswith("/v1/options/snapshots"):
+            return None
         disk = await get_disk_cache_instance()
         if disk is None:
             return None
@@ -1654,6 +1661,9 @@ async def _put_disk_cached_response(endpoint: str, params: dict, payload):
     if not isinstance(payload, (dict, list)):
         return
     try:
+        # Bypass disk caching for real-time options snapshots to keep them fresh and save disk I/O
+        if endpoint.startswith("/v1/options/snapshots"):
+            return
         disk = await get_disk_cache_instance()
         if disk is not None:
             await disk.put(endpoint, _cacheable_request_params(params), payload)
@@ -2987,13 +2997,13 @@ async def handle_relay_message(websocket, data, mode: str):
         else:
             role = principal.get("role", "default")
             role_limits = {
-                "basic": 1,
-                "value": 2,
-                "standard": 3,
+                "basic": 2,
+                "value": 5,
+                "standard": 8,
                 "premium": float("inf"),
-                "test": 5,          # internal load-test role
-                "default": 3,
-                "legacy": 5,
+                "test": 20,          # internal load-test role
+                "default": 5,
+                "legacy": 10,
                 "fallback": 100,
                 "admin": 100,
             }
@@ -4583,6 +4593,13 @@ async def handle_option_open_interest_request(request):
         import datetime
         start_date = datetime.datetime.strptime(start.split("T")[0], "%Y-%m-%d").date()
         end_date = datetime.datetime.strptime(end.split("T")[0], "%Y-%m-%d").date()
+        if expiration == "*":
+            from datetime import datetime as dt, timezone, timedelta
+            est_today = (dt.now(timezone.utc) - timedelta(hours=4)).date()
+            if end_date >= est_today:
+                end_date = est_today - timedelta(days=1)
+                if end_date < start_date:
+                    end_date = start_date
         loop = asyncio.get_event_loop()
 
         kwargs = dict(symbol=symbol, expiration=expiration, start_date=start_date, end_date=end_date, strike=strike, right=right)
@@ -5093,6 +5110,13 @@ async def handle_option_eod_request(request):
         import datetime
         start_date = datetime.datetime.strptime(start.split("T")[0], "%Y-%m-%d").date()
         end_date = datetime.datetime.strptime(end.split("T")[0], "%Y-%m-%d").date()
+        if expiration == "*":
+            from datetime import datetime as dt, timezone, timedelta
+            est_today = (dt.now(timezone.utc) - timedelta(hours=4)).date()
+            if end_date >= est_today:
+                end_date = est_today - timedelta(days=1)
+                if end_date < start_date:
+                    end_date = start_date
         loop = asyncio.get_event_loop()
 
         kwargs = dict(symbol=symbol, expiration=expiration, start_date=start_date, end_date=end_date, strike=strike, right=right)
@@ -5439,6 +5463,18 @@ def _theta_build_sdk_call(endpoint, params):
     def wildcard_expiration():
         return _theta_parse_date(expiration_value, allow_yymmdd=True, default="*")
 
+    def parsed_dates(required=False):
+        s = _theta_parse_date(start_date_value, required=required) if (start_date_value or required) else None
+        e = _theta_parse_date(end_date_value, required=required) if (end_date_value or required) else None
+        if wildcard_expiration() == "*" and e:
+            from datetime import datetime as dt, timezone, timedelta
+            est_today = (dt.now(timezone.utc) - timedelta(hours=4)).date()
+            if e >= est_today:
+                e = est_today - timedelta(days=1)
+                if s and e < s:
+                    e = s
+        return s, e
+
     if endpoint == "/v3/option/list/symbols":
         return "option_list_symbols", {}
     if endpoint.startswith("/v3/option/list/dates/"):
@@ -5494,11 +5530,12 @@ def _theta_build_sdk_call(endpoint, params):
     if endpoint == "/v3/option/history/eod":
         if not root:
             raise ValueError("Missing required parameter: root or symbol")
+        s_date, e_date = parsed_dates(required=True)
         return "option_history_eod", {
             "symbol": str(root).upper(),
             "expiration": wildcard_expiration(),
-            "start_date": _theta_parse_date(start_date_value, required=True),
-            "end_date": _theta_parse_date(end_date_value, required=True),
+            "start_date": s_date,
+            "end_date": e_date,
             "strike": strike,
             "right": right,
             "max_dte": max_dte,
@@ -5507,6 +5544,8 @@ def _theta_build_sdk_call(endpoint, params):
     if endpoint == "/v3/option/history/ohlc":
         if not root:
             raise ValueError("Missing required parameter: root or symbol")
+        s_date = _theta_parse_date(start_date_value) if start_date_value else None
+        e_date = _theta_parse_date(end_date_value) if end_date_value else None
         kwargs = {
             "symbol": str(root).upper(),
             "expiration": exact_expiration(),
@@ -5517,13 +5556,14 @@ def _theta_build_sdk_call(endpoint, params):
             "start_time": _theta_parse_time(_theta_get_param(params, "start_time"), default=None),
             "end_time": _theta_parse_time(_theta_get_param(params, "end_time"), default=None),
             "strike_range": strike_range,
-            "start_date": _theta_parse_date(start_date_value) if start_date_value else None,
-            "end_date": _theta_parse_date(end_date_value) if end_date_value else None,
+            "start_date": s_date,
+            "end_date": e_date,
         }
         return "option_history_ohlc", {k: v for k, v in kwargs.items() if v is not None}
     if endpoint == "/v3/option/history/quote":
         if not root:
             raise ValueError("Missing required parameter: root or symbol")
+        s_date, e_date = parsed_dates()
         kwargs = {
             "symbol": str(root).upper(),
             "expiration": wildcard_expiration(),
@@ -5535,13 +5575,14 @@ def _theta_build_sdk_call(endpoint, params):
             "end_time": _theta_parse_time(_theta_get_param(params, "end_time"), default=None),
             "max_dte": max_dte,
             "strike_range": strike_range,
-            "start_date": _theta_parse_date(start_date_value) if start_date_value else None,
-            "end_date": _theta_parse_date(end_date_value) if end_date_value else None,
+            "start_date": s_date,
+            "end_date": e_date,
         }
         return "option_history_quote", {k: v for k, v in kwargs.items() if v is not None}
     if endpoint == "/v3/option/history/open_interest":
         if not root:
             raise ValueError("Missing required parameter: root or symbol")
+        s_date, e_date = parsed_dates()
         kwargs = {
             "symbol": str(root).upper(),
             "expiration": wildcard_expiration(),
@@ -5550,17 +5591,18 @@ def _theta_build_sdk_call(endpoint, params):
             "right": right,
             "max_dte": max_dte,
             "strike_range": strike_range,
-            "start_date": _theta_parse_date(start_date_value) if start_date_value else None,
-            "end_date": _theta_parse_date(end_date_value) if end_date_value else None,
+            "start_date": s_date,
+            "end_date": e_date,
         }
         return "option_history_open_interest", {k: v for k, v in kwargs.items() if v is not None}
     if endpoint == "/v3/option/at_time/quote":
         if not root:
             raise ValueError("Missing required parameter: root or symbol")
+        s_date, e_date = parsed_dates(required=True)
         kwargs = {
             "symbol": str(root).upper(),
-            "start_date": _theta_parse_date(start_date_value, required=True),
-            "end_date": _theta_parse_date(end_date_value, required=True),
+            "start_date": s_date,
+            "end_date": e_date,
             "time_of_day": str(_theta_get_param(params, "time_of_day", "time", "timestamp", default="09:30:00")),
             "expiration": wildcard_expiration(),
             "strike": strike,
@@ -5626,6 +5668,21 @@ async def _execute_alpaca_native_proxy(endpoint: str, params: dict, api_key: str
         return payload, resp.status
 
 
+async def _execute_fmp_proxy(endpoint: str, params: dict):
+    fmp_key = os.getenv("FMP_API_KEY", "TF5KaXljtg1de6GvpeYUS5GtpYRsDsHy")
+    url = f"https://financialmodelingprep.com{endpoint}"
+    fmp_params = {**params, "apikey": fmp_key}
+    print(f"[ProviderProxy] FMP GET {url} params={fmp_params}")
+    session = await get_http_session()
+    async with session.get(url, params=fmp_params) as resp:
+        body = await resp.read()
+        try:
+            payload = json.loads(body)
+        except Exception:
+            payload = body.decode("utf-8", "ignore")
+        return payload, resp.status
+
+
 async def handle_provider_proxy(request):
     start_time = time.time()
     data = {}
@@ -5671,8 +5728,10 @@ async def handle_provider_proxy(request):
     try:
         if provider == "alpaca":
             payload, status = await _execute_alpaca_native_proxy(endpoint, params, api_key, api_secret)
-        else:
+        elif provider == "thetadata":
             payload, status = await _execute_thetadata_value_proxy(endpoint, params)
+        elif provider == "fmp":
+            payload, status = await _execute_fmp_proxy(endpoint, params)
         if status == 200 and isinstance(payload, (dict, list)):
             await _put_disk_cached_response(endpoint, params, payload)
         return _log_and_return(payload, status)
@@ -7172,6 +7231,7 @@ async def start_http_server():
     app.router.add_post("/v1/stock/history/trade_quote", handle_stock_history_trade_quote_request)
     app.router.add_get("/v1/stock/history/trade_quote", handle_stock_history_trade_quote_request)
     native_provider_patterns = (
+        "/stable/{tail:.*}",
         "/v2/stocks/{tail:.*}",
         "/v1beta3/crypto/{tail:.*}",
         "/v1beta1/crypto-perps/{tail:.*}",

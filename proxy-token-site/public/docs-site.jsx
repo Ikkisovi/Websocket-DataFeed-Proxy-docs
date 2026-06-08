@@ -511,20 +511,10 @@ function DocsTopbar({ active = "proxy", onNav }) {
 }
 
 function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
-  const validTabs = ["proxy", "ws", "status", "usage", "fmp"];
+  const validTabs = ["proxy", "ws", "status", "usage"];
   const hashTab = typeof window !== "undefined" && window.location.hash ? window.location.hash.slice(1) : "";
   const startTab = validTabs.includes(hashTab) ? hashTab : initialTab;
   const [tab, setTab] = useState(startTab);
-
-  // Allow deep-linking / banner clicks via #fmp etc. to switch tabs live.
-  React.useEffect(() => {
-    const onHash = () => {
-      const h = window.location.hash ? window.location.hash.slice(1) : "";
-      if (validTabs.includes(h)) setTab(h);
-    };
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, []);
 
   const showTopbar = !hideTopbar;
 
@@ -550,56 +540,12 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
           <strong style={{ color: "var(--ink-strong)" }}>WS usage</strong> covers the 6 realtime streaming channels.
         </p>
 
-        {/* FMP Survey promo banner — temporary, redirects to the FMP Survey tab */}
-        {tab !== "fmp" && (
-          <div
-            onClick={() => setTab("fmp")}
-            style={{
-              marginTop: 28, display: "flex", alignItems: "center", gap: 16,
-              padding: "16px 22px", cursor: "pointer", borderRadius: "var(--radius-lg)",
-              background: "linear-gradient(90deg, var(--accent-soft), var(--bg-paper))",
-              border: "1px solid var(--accent-rule)",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.03)", transition: "transform .12s ease",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.transform = "translateY(-1px)")}
-            onMouseLeave={e => (e.currentTarget.style.transform = "translateY(0)")}
-          >
-            <span style={{
-              display: "inline-flex", alignItems: "center", justifyContent: "center",
-              minWidth: 40, height: 40, borderRadius: "50%", background: "var(--accent)",
-              color: "var(--ink-inverse)",
-            }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="6" y1="20" x2="6" y2="13"/>
-                <line x1="12" y1="20" x2="12" y2="7"/>
-                <line x1="18" y1="20" x2="18" y2="10"/>
-              </svg>
-            </span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 15, color: "var(--ink-strong)" }}>
-                New · FMP Data Coverage Survey
-                <span style={{ marginLeft: 10, fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--accent-ink)", background: "var(--accent-soft)", padding: "2px 8px", borderRadius: 99, border: "1px solid var(--accent-rule)" }}>
-                  263 endpoints
-                </span>
-              </div>
-              <div style={{ fontSize: 13, color: "var(--ink-muted)", marginTop: 3 }}>
-                Help us prioritize which Financial Modeling Prep endpoints to proxy next — pick a plan, see the coverage, take the 30-second survey.
-                <span style={{ color: "var(--ink-soft)" }}> 选择套餐查看覆盖范围并参与调研。</span>
-              </div>
-            </div>
-            <span className="btn primary" style={{ padding: "9px 16px", fontSize: 13, whiteSpace: "nowrap" }}>
-              Take the survey →
-            </span>
-          </div>
-        )}
-
         {/* Tab strip */}
-        <div style={{ marginTop: 24, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
+        <div style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
           <Tab id="proxy" tab={tab} setTab={setTab} label="Proxy API" count="45+ endpoints" />
           <Tab id="ws" tab={tab} setTab={setTab} label="WS usage" count="6 channels" />
           <Tab id="status" tab={tab} setTab={setTab} label="Status" count="live" />
           <Tab id="usage" tab={tab} setTab={setTab} label="Usage" count="30d" />
-          <Tab id="fmp" tab={tab} setTab={setTab} label="FMP Survey" count="endpoints" />
           <div style={{ flex: 1 }}></div>
           <div style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
             last sync · 2026-05-25 hybrid architecture (CF REST + EC2 WS)
@@ -608,12 +554,12 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
       </div>
 
       {/* Content */}
-      <div style={{ display: "grid", gridTemplateColumns: (tab === "status" || tab === "usage" || tab === "fmp") ? "1fr" : "220px 1fr 220px", flex: 1 }}>
-        {tab !== "status" && tab !== "usage" && tab !== "fmp" && <SideNav tab={tab} />}
-        <main style={{ padding: (tab === "status" || tab === "usage" || tab === "fmp") ? "36px 32px" : "40px 56px", background: "var(--bg-canvas)" }}>
-          {tab === "proxy" ? <ProxyApiBody /> : tab === "ws" ? <WsUsageBody /> : tab === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…")) : tab === "fmp" ? (typeof FmpSurveyBody !== "undefined" ? <FmpSurveyBody /> : <div>Loading survey…</div>) : (React.createElement(StatusBody))}
+      <div style={{ display: "grid", gridTemplateColumns: (tab === "status" || tab === "usage") ? "1fr" : "220px 1fr 220px", flex: 1 }}>
+        {tab !== "status" && tab !== "usage" && <SideNav tab={tab} />}
+        <main style={{ padding: (tab === "status" || tab === "usage") ? "36px 32px" : "40px 56px", background: "var(--bg-canvas)" }}>
+          {tab === "proxy" ? <ProxyApiBody /> : tab === "ws" ? <WsUsageBody /> : tab === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…")) : (React.createElement(StatusBody))}
         </main>
-        {tab !== "status" && tab !== "usage" && tab !== "fmp" && <OnThisPage tab={tab} />}
+        {tab !== "status" && tab !== "usage" && <OnThisPage tab={tab} />}
       </div>
     </div>
   );
@@ -633,32 +579,36 @@ function DownloadIcon() {
   );
 }
 
-function GuideDownloadLink({ compact = false }) {
+function GuideDownloadLink({ compact = false, format = "md" }) {
+  const file = `oracle-thetadata-proxy-skill.${format}`;
   return (
     <a
-      href="/thetadata-option-proxy-skill.md"
-      download="thetadata-option-proxy-skill.md"
+      href={`/${file}`}
+      download={file}
       className={compact ? "btn ghost" : "btn"}
       style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: compact ? "6px 10px" : "9px 12px", fontSize: compact ? 12 : 13 }}
     >
       <DownloadIcon />
-      <span>{compact ? "Skill" : "Download user skill"}</span>
+      <span>{compact ? "Skill" : `Download .${format}`}</span>
     </a>
   );
 }
 
 function SkillDownloadCard() {
   return (
-    <div className="card" style={{ padding: 16, margin: "0 0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, background: "var(--bg-paper)" }}>
-      <div>
-        <div className="eyebrow" style={{ marginBottom: 6, color: "var(--ink-soft)" }}>User skill</div>
-        <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 500, color: "var(--ink-strong)" }}>ThetaData Option Proxy quick-start</h3>
+    <div className="card" style={{ padding: 16, margin: "0 0 24px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, background: "var(--bg-paper)" }}>
+      <div style={{ flex: "1 1 300px" }}>
+        <div className="eyebrow" style={{ marginBottom: 6, color: "var(--ink-soft)" }}>User skill & Ops</div>
+        <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 500, color: "var(--ink-strong)" }}>ThetaData Option Proxy Guide</h3>
         <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)" }}>
-          Public usage guide for token auth, REST examples, option-history provider choices, and endpoint smoke tests. No deployment details or secrets are included.
-          <br/><span style={{ color: "var(--ink-soft)" }}>面向用户的使用指南：Token 鉴权、REST 示例、期权数据 provider 选择和端点测试；不包含部署细节或密钥。</span>
+          Comprehensive guide including public usage (token auth, REST examples) and internal operations (Tailscale, Docker, DB queries).
+          <br/><span style={{ color: "var(--ink-soft)" }}>完整指南：包含面向用户的 Token 鉴权、REST 示例，以及内部服务器运维（Docker, TimescaleDB）。</span>
         </p>
       </div>
-      <GuideDownloadLink />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <GuideDownloadLink format="md" />
+        <GuideDownloadLink format="txt" />
+      </div>
     </div>
   );
 }
@@ -2633,7 +2583,8 @@ await ws.send(json.dumps({
 # Updated bar (T: "u"), and Daily bar (T: "d") messages`}
       </pre>
 
-      <h3 id="stocks-trade" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Trade</h3>
+            <div style={{ paddingLeft: 16, borderLeft: "2px solid var(--rule)" }}>
+<h3 id="stocks-trade" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Trade</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>trades</code> on the stocks channel. One message per executed trade.
       </p>
@@ -2658,7 +2609,7 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      <h3 id="stocks-quote" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Quote</h3>
+      <h3 id="stocks-quote" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Quote</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>quotes</code> on the stocks channel. Contains the top-of-book bid and ask.
       </p>
@@ -2682,7 +2633,7 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      <h3 id="stocks-bar" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Bar</h3>
+      <h3 id="stocks-bar" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Bar</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>bars</code> on the stocks channel. One message per minute bar.
       </p>
@@ -2706,7 +2657,7 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      <h3 id="stocks-updated-bar" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Updated bar</h3>
+      <h3 id="stocks-updated-bar" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Updated bar</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>updatedBars</code> on the stocks channel. Emitted when a previously sent minute bar is corrected (e.g., late trade reporting). Same schema as Bar but with <code>"T": "u"</code>.
       </p>
@@ -2730,7 +2681,7 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      <h3 id="stocks-daily-bar" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Daily bar</h3>
+      <h3 id="stocks-daily-bar" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Daily bar</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>dailyBars</code> on the stocks channel. Emitted once per day at market close. Same schema as Bar but with <code>"T": "d"</code> and the timestamp is the trading day open.
       </p>
@@ -2755,7 +2706,8 @@ await ws.send(json.dumps({
       </pre>
 
       {/* options */}
-      <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Options</h2>
+            </div>
+<h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Options</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Live OPRA options feed. Subscribe using OCC symbols in the <code>trades</code>, <code>quotes</code>, and <code>bars</code> lists.
         All tiers except Basic.
@@ -2777,7 +2729,8 @@ await ws.send(json.dumps({
 # You will receive Trade (T: "t"), Quote (T: "q"), and Bar (T: "b") messages`}
       </pre>
 
-      <h3 id="options-trade" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Trade</h3>
+            <div style={{ paddingLeft: 16, borderLeft: "2px solid var(--rule)" }}>
+<h3 id="options-trade" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Trade</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>trades</code> on the options channel. Schema is identical to equity trades.
       </p>
@@ -2802,7 +2755,7 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      <h3 id="options-quote" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Quote</h3>
+      <h3 id="options-quote" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Quote</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>quotes</code> on the options channel. Schema is identical to equity quotes.
       </p>
@@ -2826,7 +2779,7 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      <h3 id="options-bar" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Bar</h3>
+      <h3 id="options-bar" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Bar</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>bars</code> on the options channel. One message per minute bar. Schema is identical to equity bars.
       </p>
@@ -2851,7 +2804,8 @@ await ws.send(json.dumps({
       </pre>
 
       {/* boats */}
-      <h2 id="boats" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Boats</h2>
+            </div>
+<h2 id="boats" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Boats</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Regulatory and market-maker equity data (BOATS feed). Subscribe using <code>trades</code> and/or <code>quotes</code> lists.
         Messages are msgpack. All tiers except Basic.
@@ -2871,7 +2825,8 @@ await ws.send(json.dumps({
 # You will receive Trade (T: "t") and Quote (T: "q") messages`}
       </pre>
 
-      <h3 id="boats-trade" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Trade</h3>
+            <div style={{ paddingLeft: 16, borderLeft: "2px solid var(--rule)" }}>
+<h3 id="boats-trade" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Trade</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>trades</code> on the boats channel. Schema is identical to equity trades.
       </p>
@@ -2896,7 +2851,7 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      <h3 id="boats-quote" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Quote</h3>
+      <h3 id="boats-quote" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Quote</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>quotes</code> on the boats channel. Schema is identical to equity quotes.
       </p>
@@ -2921,7 +2876,8 @@ await ws.send(json.dumps({
       </pre>
 
       {/* overnight */}
-      <h2 id="overnight" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Overnight</h2>
+            </div>
+<h2 id="overnight" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Overnight</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Extended-hours equity data. Same subscribe format as stocks (trades + quotes + bars).
         Messages are msgpack. All tiers except Basic.
@@ -2942,7 +2898,8 @@ await ws.send(json.dumps({
 # You will receive Trade (T: "t"), Quote (T: "q"), and Bar (T: "b") messages`}
       </pre>
 
-      <h3 id="overnight-trade" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Trade</h3>
+            <div style={{ paddingLeft: 16, borderLeft: "2px solid var(--rule)" }}>
+<h3 id="overnight-trade" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Trade</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>trades</code> on the overnight channel. Schema is identical to equity trades.
       </p>
@@ -2967,7 +2924,7 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      <h3 id="overnight-quote" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Quote</h3>
+      <h3 id="overnight-quote" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Quote</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>quotes</code> on the overnight channel. Schema is identical to equity quotes.
       </p>
@@ -2991,7 +2948,7 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      <h3 id="overnight-bar" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Bar</h3>
+      <h3 id="overnight-bar" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Bar</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>bars</code> on the overnight channel. One message per minute bar. Schema is identical to equity bars.
       </p>
@@ -3016,7 +2973,8 @@ await ws.send(json.dumps({
       </pre>
 
       {/* crypto */}
-      <h2 id="crypto" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Crypto</h2>
+            </div>
+<h2 id="crypto" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Crypto</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Live US crypto orderbooks and trades. Subscribe using <code>orderbooks</code> and/or <code>trades</code> lists with pairs like <code>BTC/USD</code>.
         Messages are plain JSON (not msgpack). All tiers except Basic.
@@ -3036,7 +2994,8 @@ await ws.send(json.dumps({
 # You will receive orderbook updates (T: "o") and Trade (T: "t") messages`}
       </pre>
 
-      <h3 id="crypto-orderbook" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Orderbook</h3>
+            <div style={{ paddingLeft: 16, borderLeft: "2px solid var(--rule)" }}>
+<h3 id="crypto-orderbook" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Orderbook</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>orderbooks</code> on the crypto channel. Contains top-of-book bid/ask snapshot.
       </p>
@@ -3058,7 +3017,7 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      <h3 id="crypto-trade" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Trade</h3>
+      <h3 id="crypto-trade" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Trade</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>trades</code> on the crypto channel. Same schema as equity trades.
       </p>
@@ -3083,7 +3042,8 @@ await ws.send(json.dumps({
       </pre>
 
       {/* news */}
-      <h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>News</h2>
+            </div>
+<h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>News</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Realtime news events from Benzinga. Subscribe with a <code>news</code> list of tickers or <code>"*"</code> for all.
         Messages are plain JSON. All tiers except Basic. Historical news is also available via REST <code>/v1/history/news</code>.
@@ -3102,7 +3062,8 @@ await ws.send(json.dumps({
 # You will receive News (T: "n") messages`}
       </pre>
 
-      <h3 id="news-news" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>News</h3>
+            <div style={{ paddingLeft: 16, borderLeft: "2px solid var(--rule)" }}>
+<h3 id="news-news" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>News</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>news</code> on the news channel. One message per news article.
       </p>
@@ -3131,7 +3092,8 @@ await ws.send(json.dumps({
       </pre>
 
       {/* test */}
-      <h2 id="test" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Test</h2>
+            </div>
+<h2 id="test" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Test</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Debug and validation channel. Echoes a small test payload on subscription so you can verify connectivity, auth, and msgpack parsing without consuming market data.
         Messages are msgpack. All tiers.
@@ -3150,7 +3112,8 @@ await ws.send(json.dumps({
 # You will receive a test Trade (T: "t") message for verification`}
       </pre>
 
-      <h3 id="test-trade" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Trade</h3>
+            <div style={{ paddingLeft: 16, borderLeft: "2px solid var(--rule)" }}>
+<h3 id="test-trade" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Trade</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Sent when you subscribe to <code>trades</code> on the test channel. A dummy trade message for testing your parser.
       </p>
@@ -3175,7 +3138,8 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      {/* ── Operations ── */}
+            </div>
+{/* ── Operations ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Operations</div>
 
       <h2 id="reconnect" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Reconnect</h2>
