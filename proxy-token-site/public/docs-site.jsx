@@ -530,23 +530,15 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
         position: "relative",
         overflow: "hidden",
       }}>
-        <div style={{ display: "flex", gap: 32, flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div style={{ flex: "1 1 500px" }}>
-            <div className="eyebrow" style={{ marginBottom: 14 }}>Reference · live docs</div>
-            <h1 className="display-title" style={{ fontSize: 64, margin: "0 0 14px" }}>
-              Stock Options Proxy <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>API</span>
-            </h1>
-            <p style={{ color: "var(--ink-muted)", maxWidth: 640, fontSize: 15, margin: 0 }}>
-              Real-time US equities, options, crypto and news — one token, no Alpaca key needed.
-              The <strong style={{ color: "var(--ink-strong)" }}>Proxy API</strong> covers REST endpoints and tier management;
-              <strong style={{ color: "var(--ink-strong)" }}>WS usage</strong> covers the 6 realtime streaming channels.
-            </p>
-          </div>
-          <div style={{ flex: "0 0 320px", display: "flex", flexDirection: "column", gap: 16 }}>
-            <TokenCard />
-            <SkillDownloadCard />
-          </div>
-        </div>
+        <div className="eyebrow" style={{ marginBottom: 14 }}>Reference · live docs</div>
+        <h1 className="display-title" style={{ fontSize: 64, margin: "0 0 14px" }}>
+          Stock Options Proxy <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>API</span>
+        </h1>
+        <p style={{ color: "var(--ink-muted)", maxWidth: 640, fontSize: 15, margin: 0 }}>
+          Real-time US equities, options, crypto and news — one token, no Alpaca key needed.
+          The <strong style={{ color: "var(--ink-strong)" }}>Proxy API</strong> covers REST endpoints and tier management;
+          <strong style={{ color: "var(--ink-strong)" }}>WS usage</strong> covers the 6 realtime streaming channels.
+        </p>
 
         {/* Tab strip */}
         <div style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
@@ -599,25 +591,6 @@ function GuideDownloadLink({ compact = false, format = "md" }) {
       <DownloadIcon />
       <span>{compact ? "Skill" : `Download .${format}`}</span>
     </a>
-  );
-}
-
-function SkillDownloadCard() {
-  return (
-    <div className="card" style={{ padding: 16, margin: "0 0 24px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, background: "var(--bg-paper)" }}>
-      <div style={{ flex: "1 1 300px" }}>
-        <div className="eyebrow" style={{ marginBottom: 6, color: "var(--ink-soft)" }}>User skill & Ops</div>
-        <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 500, color: "var(--ink-strong)" }}>ThetaData Option Proxy Guide</h3>
-        <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)" }}>
-          Comprehensive guide including public usage (token auth, REST examples) and internal operations (Tailscale, Docker, DB queries).
-          <br/><span style={{ color: "var(--ink-soft)" }}>完整指南：包含面向用户的 Token 鉴权、REST 示例，以及内部服务器运维（Docker, TimescaleDB）。</span>
-        </p>
-      </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <GuideDownloadLink format="md" />
-        <GuideDownloadLink format="txt" />
-      </div>
-    </div>
   );
 }
 
@@ -822,6 +795,8 @@ function OnThisPage({ tab }) {
           </li>
         ))}
       </ul>
+
+      <TokenCard />
     </aside>
   );
 }
@@ -892,7 +867,7 @@ function TokenCard() {
   };
 
   return (
-    <div className="token-card-wrapper" style={{ padding: 14, borderRadius: 8, background: "var(--bg-paper)", border: "1px solid var(--rule)" }}>
+    <div style={{ marginTop: 28, padding: 14, borderRadius: 8, background: "var(--bg-paper)", border: "1px solid var(--rule)" }}>
       <div className="eyebrow" style={{ marginBottom: 8, color: "var(--ink-soft)" }}>Generate token</div>
       {!tokenData ? (
         <>
@@ -936,6 +911,12 @@ function TokenCard() {
           </button>
         </>
       )}
+
+      {/* Skill Download Links */}
+      <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--rule)", display: "flex", gap: 8, alignItems: "center" }}>
+        <GuideDownloadLink format="md" compact />
+        <GuideDownloadLink format="txt" compact />
+      </div>
     </div>
   );
 }
