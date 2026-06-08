@@ -530,15 +530,23 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
         position: "relative",
         overflow: "hidden",
       }}>
-        <div className="eyebrow" style={{ marginBottom: 14 }}>Reference · live docs</div>
-        <h1 className="display-title" style={{ fontSize: 64, margin: "0 0 14px" }}>
-          Stock Options Proxy <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>API</span>
-        </h1>
-        <p style={{ color: "var(--ink-muted)", maxWidth: 640, fontSize: 15, margin: 0 }}>
-          Real-time US equities, options, crypto and news — one token, no Alpaca key needed.
-          The <strong style={{ color: "var(--ink-strong)" }}>Proxy API</strong> covers REST endpoints and tier management;
-          <strong style={{ color: "var(--ink-strong)" }}>WS usage</strong> covers the 6 realtime streaming channels.
-        </p>
+        <div style={{ display: "flex", gap: 32, flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div style={{ flex: "1 1 500px" }}>
+            <div className="eyebrow" style={{ marginBottom: 14 }}>Reference · live docs</div>
+            <h1 className="display-title" style={{ fontSize: 64, margin: "0 0 14px" }}>
+              Stock Options Proxy <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>API</span>
+            </h1>
+            <p style={{ color: "var(--ink-muted)", maxWidth: 640, fontSize: 15, margin: 0 }}>
+              Real-time US equities, options, crypto and news — one token, no Alpaca key needed.
+              The <strong style={{ color: "var(--ink-strong)" }}>Proxy API</strong> covers REST endpoints and tier management;
+              <strong style={{ color: "var(--ink-strong)" }}>WS usage</strong> covers the 6 realtime streaming channels.
+            </p>
+          </div>
+          <div style={{ flex: "0 0 320px", display: "flex", flexDirection: "column", gap: 16 }}>
+            <TokenCard />
+            <SkillDownloadCard />
+          </div>
+        </div>
 
         {/* Tab strip */}
         <div style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
@@ -548,7 +556,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
           <Tab id="usage" tab={tab} setTab={setTab} label="Usage" count="30d" />
           <div style={{ flex: 1 }}></div>
           <div style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
-            last sync · 2026-05-25 hybrid architecture (CF REST + EC2 WS)
+            last sync · 2026-05-25 hybrid architecture (CF REST + Oracle WS)
           </div>
         </div>
       </div>
@@ -814,8 +822,6 @@ function OnThisPage({ tab }) {
           </li>
         ))}
       </ul>
-
-      <TokenCard />
     </aside>
   );
 }
@@ -886,7 +892,7 @@ function TokenCard() {
   };
 
   return (
-    <div style={{ marginTop: 28, padding: 14, borderRadius: 8, background: "var(--bg-paper)", border: "1px solid var(--rule)" }}>
+    <div className="token-card-wrapper" style={{ padding: 14, borderRadius: 8, background: "var(--bg-paper)", border: "1px solid var(--rule)" }}>
       <div className="eyebrow" style={{ marginBottom: 8, color: "var(--ink-soft)" }}>Generate token</div>
       {!tokenData ? (
         <>
@@ -1243,7 +1249,6 @@ function ProxyApiBody() {
           <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{WS_BASE}/*</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
         </tbody>
       </table>
-      <SkillDownloadCard />
 
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13 }}>
         <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Hybrid architecture</strong> — REST historical data is served via <strong>Cloudflare</strong> global edge (<code>api.leandata.uk</code>, 7-day edge cache).
