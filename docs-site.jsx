@@ -1,9 +1,489 @@
+// ── StatusBody component ──
+// Fetches live data from /api/status, /api/uptime, /api/latency, /api/incidents.
+// Auto-refreshes every 30 s.
+
+const { useState: useStatusState, useEffect: useStatusEffect, useCallback: useStatusCallback, useRef: useStatusRef } = React;
+
+function pctUp(arr) {
+  if (!arr || arr.length === 0) return "—";
+  const good = arr.filter(v => v === 0).length;
+  return ((good / arr.length) * 100).toFixed(2);
+}
+
+// ── tiny sparkline ──────────────────────────────────────────────────────
+function Sparkline({ values, width = 220, height = 44, color = "var(--accent-ink)", fill = "var(--accent-soft)" }) {
+  if (!values.length) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const stepX = width / (values.length - 1);
+  const points = values.map((v, i) => [i * stepX, height - 4 - ((v - min) / range) * (height - 12)]);
+  const path = points.map((p, i) => (i === 0 ? `M${p[0]},${p[1]}` : `L${p[0]},${p[1]}`)).join(" ");
+  const area = `${path} L${width},${height} L0,${height} Z`;
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: "block" }}>
+      <path d={area} fill={fill} opacity="0.5"/>
+      <path d={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>
+      <circle cx={points[points.length - 1][0]} cy={points[points.length - 1][1]} r="2.5" fill={color}/>
+    </svg>
+  );
+}
+
+// ── 90-day uptime grid ───────────────────────────────────────────────────
+function UptimeGrid({ data }) {
+  return (
+    <div style={{ display: "flex", gap: 2 }}>
+      {data.map((v, i) => (
+        <div key={i} title={`${90 - i}d ago · ${v === 0 ? "operational" : v === 1 ? "degraded" : "outage"}`}
+          style={{
+            flex: 1, height: 32,
+            borderRadius: 2,
+            background: v === 0 ? "var(--ok)" : v === 1 ? "var(--warn)" : "var(--danger)",
+            opacity: v === 0 ? 0.85 : 1,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── stats / quantiles helper ────────────────────────────────────────────
+function quantile(arr, q) {
+  if (!arr || arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const pos = (sorted.length - 1) * q;
+  const base = Math.floor(pos);
+  const rest = pos - base;
+  return sorted[base + 1] !== undefined ? Math.round(sorted[base] + rest * (sorted[base + 1] - sorted[base])) : sorted[base];
+}
+
+// ── component cards ──────────────────────────────────────────────────────
+function ComponentCard({ name, route, status, uptime90, latency24h, unit = "ms", color = "var(--accent-ink)" }) {
+  const p50 = quantile(latency24h, 0.5);
+  const p95 = quantile(latency24h, 0.95);
+  const p99 = quantile(latency24h, 0.99);
+  const last30 = uptime90.slice(-30);
+  const last7 = uptime90.slice(-7);
+  const last1 = uptime90.slice(-1);
+
+  const statusLabel = status === "operational" ? "Operational" : status === "degraded" ? "Degraded" : status === "loading" ? "Loading…" : "Outage";
+  const statusColor = status === "operational" ? "var(--ok)" : status === "loading" ? "var(--ink-muted)" : status === "degraded" ? "var(--warn)" : "var(--danger)";
+  const statusBg    = status === "operational" ? "var(--ok-soft)" : status === "loading" ? "var(--bg-canvas)" : status === "degraded" ? "var(--warn-soft)" : "var(--danger-soft)";
+
+  return (
+    <div className="card" style={{ padding: 20 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 14 }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: "50%",
+              background: statusColor,
+              boxShadow: `0 0 0 3px ${statusBg}`,
+            }}/>
+            <h3 style={{ fontFamily: "var(--f-sans)", fontWeight: 500, fontSize: 16, margin: 0, color: "var(--ink-strong)" }}>{name}</h3>
+          </div>
+          <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)", paddingLeft: 16 }}>{route}</div>
+        </div>
+        <span style={{
+          padding: "3px 8px",
+          background: statusBg,
+          color: statusColor,
+          fontFamily: "var(--f-mono)",
+          fontSize: 10.5,
+          textTransform: "uppercase",
+          letterSpacing: ".08em",
+          borderRadius: 3,
+          fontWeight: 600,
+          whiteSpace: "nowrap",
+        }}>{statusLabel}</span>
+      </div>
+
+      {/* Latency row */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 16, alignItems: "end", marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid var(--rule)" }}>
+        <Stat label="p50" value={p50} unit={unit}/>
+        <Stat label="p95" value={p95} unit={unit}/>
+        <Stat label="p99" value={p99} unit={unit}/>
+        <Sparkline values={latency24h} width={120} height={36} color={color} fill={color === "var(--accent-ink)" ? "var(--accent-soft)" : "oklch(0.95 0.06 295)"}/>
+      </div>
+
+      {/* Uptime row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+        <Stat label="24h uptime" value={pctUp(last1)} unit="%" size="sm"/>
+        <Stat label="7d uptime" value={pctUp(last7)} unit="%" size="sm"/>
+        <Stat label="30d uptime" value={pctUp(last30)} unit="%" size="sm"/>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, unit, size = "md" }) {
+  return (
+    <div>
+      <div style={{
+        fontFamily: "var(--f-mono)",
+        fontSize: 10,
+        letterSpacing: ".08em",
+        textTransform: "uppercase",
+        color: "var(--ink-soft)",
+        marginBottom: 2,
+      }}>{label}</div>
+      <div style={{ fontFamily: "var(--f-mono)", color: "var(--ink-strong)" }}>
+        <span style={{ fontSize: size === "sm" ? 16 : 20, fontWeight: 500 }}>{value}</span>
+        <span style={{ fontSize: 11, color: "var(--ink-muted)", marginLeft: 2 }}>{unit}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── multi-series latency chart ──────────────────────────────────────────
+function LatencyChart({ range }) {
+  const [chartData, setChartData] = useStatusState({ rest: [], rt: [], ws: [] });
+
+  useStatusEffect(() => {
+    let cancelled = false;
+    fetch(`/api/latency?range=${range}`)
+      .then(r => r.json())
+      .then(d => {
+        if (!cancelled) setChartData({
+          rest: (d.rest || []).map(v => v ?? 0),
+          rt: (d.rt || []).map(v => v ?? 0),
+          ws: (d.ws || []).map(v => v ?? 0),
+        });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [range]);
+
+  const restSeries = chartData.rest;
+  const rtSeries = chartData.rt;
+  const wsSeries = chartData.ws;
+
+  if (restSeries.length === 0 && rtSeries.length === 0 && wsSeries.length === 0) {
+    return (
+      <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 12 }}>
+        Collecting latency data…
+      </div>
+    );
+  }
+
+  const W = 720, H = 200, PAD_L = 44, PAD_R = 12, PAD_T = 16, PAD_B = 28;
+  const plotW = W - PAD_L - PAD_R;
+  const plotH = H - PAD_T - PAD_B;
+
+  const allVals = [...restSeries, ...rtSeries, ...wsSeries].filter(v => v > 0);
+  const max = allVals.length > 0 ? Math.max(...allVals) * 1.15 : 100;
+
+  function makePath(series) {
+    if (series.length < 2) return "";
+    const step = plotW / (series.length - 1);
+    return series.map((v, i) => `${i === 0 ? "M" : "L"}${PAD_L + i * step},${PAD_T + plotH - (v / max) * plotH}`).join(" ");
+  }
+
+  const gridStep = max <= 20 ? 5 : max <= 100 ? 25 : max <= 500 ? 100 : 250;
+  const gridLines = [];
+  for (let g = 0; g <= max; g += gridStep) gridLines.push(g);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }}>
+      {gridLines.map(g => (
+        <g key={g}>
+          <line x1={PAD_L} x2={W - PAD_R} y1={PAD_T + plotH - (g / max) * plotH} y2={PAD_T + plotH - (g / max) * plotH} stroke="var(--rule)" strokeDasharray="2 3"/>
+          <text x={PAD_L - 6} y={PAD_T + plotH - (g / max) * plotH + 3} textAnchor="end" fontSize="9" fontFamily="var(--f-mono)" fill="var(--ink-soft)">{g}ms</text>
+        </g>
+      ))}
+      <line x1={PAD_L} x2={W - PAD_R} y1={PAD_T + plotH} y2={PAD_T + plotH} stroke="var(--rule-strong)"/>
+      {[0, 0.25, 0.5, 0.75, 1].map(p => {
+        const x = PAD_L + plotW * p;
+        const label = range === "24h" ? `${Math.round(p * 24)}h` : range === "7d" ? `${Math.round(p * 7)}d` : `${Math.round(p * 30)}d`;
+        return (
+          <g key={p}>
+            <line x1={x} x2={x} y1={PAD_T + plotH} y2={PAD_T + plotH + 3} stroke="var(--rule-strong)"/>
+            <text x={x} y={PAD_T + plotH + 14} textAnchor="middle" fontSize="9" fontFamily="var(--f-mono)" fill="var(--ink-soft)">−{label}</text>
+          </g>
+        );
+      })}
+      <path d={makePath(restSeries)} fill="none" stroke="var(--accent-ink)" strokeWidth="1.5"/>
+      <path d={makePath(rtSeries)} fill="none" stroke="oklch(0.65 0.18 160)" strokeWidth="1.5"/>
+      <path d={makePath(wsSeries)} fill="none" stroke="oklch(0.55 0.16 295)" strokeWidth="1.5"/>
+    </svg>
+  );
+}
+
+// ── data hook (live) ──────────────────────────────────────────────────
+const EMPTY_STATUS = {
+  rest: { name: "REST API", route: "api.leandata.uk · Cloudflare → ThinkCentre", status: "loading", uptime90: [], latency24h: [] },
+  rt:   { name: "RT API", route: "rt-api.leandata.uk · Cloudflare → EC2", status: "loading", uptime90: [], latency24h: [] },
+  ws:   { name: "WebSocket stream", route: "ws://52.37.182.24:8767 · EC2 direct", status: "loading", uptime90: [], latency24h: [] },
+  incidents: [],
+  timestamp: null,
+};
+
+function uptimePctToGrid(pcts) {
+  return (pcts || []).map(p => p >= 99.9 ? 0 : p >= 95 ? 1 : 2);
+}
+
+function useStatusData() {
+  const [data, setData] = useStatusState(EMPTY_STATUS);
+
+  const fetchAll = useStatusCallback(async () => {
+    try {
+      const [statusRes, uptimeRes, latencyRes, incidentsRes] = await Promise.all([
+        fetch("/api/status").then(r => r.json()),
+        fetch("/api/uptime").then(r => r.json()),
+        fetch("/api/latency?range=24h").then(r => r.json()),
+        fetch("/api/incidents").then(r => r.json()),
+      ]);
+      const filterNull = arr => (arr || []).filter(v => v !== null);
+      const mapComponent = (key) => ({
+        name: statusRes.components[key]?.name || key,
+        route: statusRes.components[key]?.route || "",
+        status: statusRes.components[key]?.status || "loading",
+        uptime90: uptimePctToGrid(uptimeRes[key]),
+        latency24h: filterNull(latencyRes[key]),
+      });
+      setData({
+        rest: mapComponent("rest"),
+        rt: mapComponent("rt"),
+        ws: mapComponent("ws"),
+        incidents: (incidentsRes.incidents || []).map(inc => ({
+          ...inc,
+          date: inc.date ? inc.date.slice(0, 10) : "",
+        })),
+        timestamp: statusRes.timestamp,
+      });
+    } catch (e) {
+      console.error("Status fetch error:", e);
+    }
+  }, []);
+
+  useStatusEffect(() => {
+    fetchAll();
+    const id = setInterval(fetchAll, 30000);
+    return () => clearInterval(id);
+  }, [fetchAll]);
+
+  return data;
+}
+
+function SeverityChip({ s }) {
+  const map = {
+    minor:    { bg: "var(--warn-soft)",   fg: "var(--warn)",   label: "Minor" },
+    major:    { bg: "var(--danger-soft)", fg: "var(--danger)", label: "Major" },
+    resolved: { bg: "var(--ok-soft)",     fg: "var(--ok)",     label: "Resolved" },
+  };
+  const m = map[s] || map.minor;
+  return (
+    <span style={{
+      padding: "2px 7px",
+      background: m.bg,
+      color: m.fg,
+      fontFamily: "var(--f-mono)",
+      fontSize: 10,
+      textTransform: "uppercase",
+      letterSpacing: ".08em",
+      borderRadius: 3,
+      fontWeight: 600,
+    }}>{m.label}</span>
+  );
+}
+
+// ── main component ──────────────────────────────────────────────────────
+function StatusBody() {
+  const data = useStatusData();
+  const [range, setRange] = useStatusState("24h");
+
+  const isLoading = data.rest.status === "loading" || data.rt.status === "loading" || data.ws.status === "loading";
+  const allOp = data.rest.status === "operational" && data.rt.status === "operational" && data.ws.status === "operational";
+  const anyOutage = data.rest.status === "outage" || data.rt.status === "outage" || data.ws.status === "outage";
+  const overall = isLoading ? "loading" : allOp ? "operational" : anyOutage ? "outage" : "degraded";
+
+  const overallLabel = overall === "loading" ? "Checking systems…" : overall === "operational" ? "All systems operational" : overall === "outage" ? "Service disruption" : "Partial degradation";
+  const overallColor = overall === "loading" ? "var(--ink-muted)" : overall === "operational" ? "var(--ok)" : overall === "outage" ? "var(--danger)" : "var(--warn)";
+  const overallBg    = overall === "loading" ? "var(--bg-canvas)" : overall === "operational" ? "var(--ok-soft)" : overall === "outage" ? "var(--danger-soft)" : "var(--warn-soft)";
+
+  const lastUpdated = data.timestamp
+    ? data.timestamp.replace("T", " ").slice(0, 16) + " UTC"
+    : "loading…";
+
+  return (
+    <div>
+      {/* ── Overview ── */}
+      <div className="eyebrow" style={{ marginBottom: 10 }}>System</div>
+      <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>Status</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 24px" }}>
+        Live health of the REST API (Cloudflare → ThinkCentre), RT API (Cloudflare → EC2), and WebSocket stream (EC2 direct).
+        Uptime is sampled every minute; latency percentiles are computed over a rolling 60-minute window.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>REST API（Cloudflare → ThinkCentre）、RT API（Cloudflare → EC2）与 WebSocket 流（EC2 直连）的实时健康指标。可用性按分钟采样，延迟分位数按 60 分钟滚动窗口计算。</span>
+      </p>
+
+      {/* Hero status banner */}
+      <div className="card" style={{
+        padding: "18px 20px",
+        marginBottom: 32,
+        borderLeft: `3px solid ${overallColor}`,
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+      }}>
+        <span style={{
+          width: 12, height: 12, borderRadius: "50%",
+          background: overallColor,
+          boxShadow: `0 0 0 4px ${overallBg}`,
+        }}/>
+        <div style={{ flex: 1 }}>
+          <div className="display-title" style={{ fontSize: 22, color: "var(--ink-strong)" }}>{overallLabel}</div>
+          <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)", marginTop: 2 }}>
+            Last updated · {lastUpdated} · refreshes every 30 s
+          </div>
+        </div>
+        <button className="btn" style={{ fontSize: 12, padding: "6px 12px" }} onClick={() => window.location.reload()}>
+          ↻ Refresh
+        </button>
+      </div>
+
+      {/* ── Components ── */}
+      <h2 id="components" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Components</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 40 }}>
+        <ComponentCard {...data.rest} unit="ms" color="var(--accent-ink)"/>
+        <ComponentCard {...data.rt} unit="ms" color="oklch(0.65 0.18 160)"/>
+        <ComponentCard {...data.ws} unit="ms" color="oklch(0.55 0.16 295)"/>
+      </div>
+
+      {/* ── Latency chart ── */}
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
+        <h2 id="latency" className="display-title" style={{ fontSize: 28, margin: 0 }}>Latency</h2>
+        <div style={{ display: "flex", gap: 0, border: "1px solid var(--rule-strong)", borderRadius: 6, overflow: "hidden", fontFamily: "var(--f-mono)" }}>
+          {["24h", "7d", "30d"].map(r => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              style={{
+                padding: "6px 12px",
+                fontSize: 11,
+                fontFamily: "inherit",
+                border: "none",
+                background: range === r ? "var(--ink-strong)" : "transparent",
+                color: range === r ? "var(--ink-inverse)" : "var(--ink-muted)",
+                cursor: "pointer",
+              }}
+            >{r}</button>
+          ))}
+        </div>
+      </div>
+      <div className="card" style={{ padding: 20, marginBottom: 8 }}>
+        <div style={{ display: "flex", gap: 16, marginBottom: 8, fontSize: 12 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--ink-muted)" }}>
+            <span style={{ width: 12, height: 2, background: "var(--accent-ink)" }}/> REST API
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--ink-muted)" }}>
+            <span style={{ width: 12, height: 2, background: "oklch(0.65 0.18 160)" }}/> RT API
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--ink-muted)" }}>
+            <span style={{ width: 12, height: 2, background: "oklch(0.55 0.16 295)" }}/> WebSocket
+          </span>
+          <span style={{ flex: 1 }}/>
+          <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>
+            {range} · ms · client → response
+          </span>
+        </div>
+        <LatencyChart range={range}/>
+      </div>
+      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
+        REST latency includes Cloudflare edge → ThinkCentre origin round-trip plus server processing.
+        WebSocket latency is the auth-response round-trip after socket open; message delivery has near-zero added latency once the stream is warm.
+      </p>
+
+      {/* ── Uptime grid ── */}
+      <h2 id="uptime" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>90-day uptime</h2>
+      <div className="card" style={{ padding: 20, marginBottom: 12 }}>
+        <UptimeBlock label="REST API" data={data.rest.uptime90} />
+        <hr style={{ border: 0, borderTop: "1px solid var(--rule)", margin: "18px 0" }}/>
+        <UptimeBlock label="WebSocket stream" data={data.ws.uptime90} />
+      </div>
+      <div style={{ display: "flex", gap: 18, fontSize: 11, color: "var(--ink-muted)", marginBottom: 40, fontFamily: "var(--f-mono)" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 10, height: 10, background: "var(--ok)", borderRadius: 2 }}/> operational
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 10, height: 10, background: "var(--warn)", borderRadius: 2 }}/> degraded
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 10, height: 10, background: "var(--danger)", borderRadius: 2 }}/> outage
+        </span>
+      </div>
+
+      {/* ── Incidents ── */}
+      <h2 id="incidents" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Recent incidents</h2>
+      {data.incidents.length === 0 ? (
+        <p style={{ color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 12 }}>No incidents recorded.</p>
+      ) : (
+        <div style={{ borderTop: "1px solid var(--rule)" }}>
+          {data.incidents.map((inc, i) => (
+            <div key={inc.id || i} style={{ padding: "16px 0", borderBottom: "1px solid var(--rule)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{inc.date}</span>
+                <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>·</span>
+                <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>{inc.component}</span>
+                <span style={{ flex: 1 }}/>
+                {inc.duration && <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{inc.duration}</span>}
+                <SeverityChip s={inc.severity}/>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-strong)", marginBottom: 4 }}>{inc.title}</div>
+              {inc.summary && <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: 0, lineHeight: 1.55 }}>{inc.summary}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Methodology ── */}
+      <h2 id="methodology" className="display-title" style={{ fontSize: 28, margin: "40px 0 12px" }}>Methodology</h2>
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Probes run on-demand from the token portal when the status page is viewed, and sample on each page refresh (every 30 s).
+        REST checks: <code className="ic">GET /health</code> against the local proxy (<code className="ic">localhost:8768</code>).
+        WebSocket checks: TCP connect to <code className="ic">52.37.182.24:8767</code> (EC2).
+        Uptime is the fraction of probes that returned success within the timeout window, aggregated daily over 90 days.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>
+          探针在状态页浏览时按需运行，每 30 秒自动刷新。REST 检查命中本地代理 /health；WS 检查 TCP 连接 EC2 端口。可用性 = 超时窗口内成功探针比例，按天聚合，展示 90 天。
+        </span>
+      </p>
+      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 48px" }}>
+        SLO: REST p95 ≤ 250 ms · WS auth ≤ 50 ms · monthly uptime ≥ 99.9 %.
+      </p>
+    </div>
+  );
+}
+
+function UptimeBlock({ label, data }) {
+  const pct = pctUp(data);
+  const num = parseFloat(pct);
+  const color = num >= 99.9 ? "var(--ok)" : num >= 99 ? "var(--warn)" : "var(--danger)";
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+        <div style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-strong)" }}>{label}</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+          <span style={{ fontFamily: "var(--f-mono)", fontSize: 18, fontWeight: 500, color }}>{pct}</span>
+          <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>% uptime · 90 days</span>
+        </div>
+      </div>
+      <UptimeGrid data={data}/>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontFamily: "var(--f-mono)", fontSize: 10, color: "var(--ink-soft)" }}>
+        <span>90 days ago</span>
+        <span>today</span>
+      </div>
+    </div>
+  );
+}
+
+
+// ── DocsSite component ──
+
 // DocsSite.jsx — Public Docs Site redesign
 // Top bar · hero · tabs (Proxy API / WS usage — Reports removed) · 3-col docs layout
 
 const { useState } = React;
 
-function DocsTopbar({ active = "proxy" }) {
+function DocsTopbar({ active = "proxy", onNav }) {
   return (
     <div className="topbar">
       <div className="brand">
@@ -12,12 +492,15 @@ function DocsTopbar({ active = "proxy" }) {
       </div>
       <div className="divider"></div>
       <div className="nav">
-        <a className={active === "proxy" ? "active" : ""}>Proxy API</a>
-        <a className={active === "ws" ? "active" : ""}>WS usage</a>
+        <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>Proxy API</a>
+        <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>WS usage</a>
+        <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>Status</a>
+        <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>Usage</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
-        <span className="pill"><span className="live"></span> v2.6 · live</span>
+        <span className="pill"><span className="live"></span> v2.7 · live</span>
+        <GuideDownloadLink compact />
         <a className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.34c-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.74.54 1.49v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0z"/></svg>
           ikkisovi/Websocket-DataFeed-Proxy-docs
@@ -27,19 +510,17 @@ function DocsTopbar({ active = "proxy" }) {
   );
 }
 
-function DocsSite() {
-  const [tab, setTab] = useState("proxy");
+function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
+  const validTabs = ["proxy", "ws", "status", "usage"];
+  const hashTab = typeof window !== "undefined" && window.location.hash ? window.location.hash.slice(1) : "";
+  const startTab = validTabs.includes(hashTab) ? hashTab : initialTab;
+  const [tab, setTab] = useState(startTab);
 
-  let isEmbedded = false;
-  try {
-    isEmbedded = window.self !== window.top;
-  } catch (e) {
-    isEmbedded = true;
-  }
+  const showTopbar = !hideTopbar;
 
   return (
     <div className="proxy-app" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      {!isEmbedded && <DocsTopbar active={tab} />}
+      {showTopbar && <DocsTopbar active={tab} onNav={setTab} />}
 
       {/* Hero */}
       <div style={{
@@ -63,6 +544,8 @@ function DocsSite() {
         <div style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
           <Tab id="proxy" tab={tab} setTab={setTab} label="Proxy API" count="45+ endpoints" />
           <Tab id="ws" tab={tab} setTab={setTab} label="WS usage" count="6 channels" />
+          <Tab id="status" tab={tab} setTab={setTab} label="Status" count="live" />
+          <Tab id="usage" tab={tab} setTab={setTab} label="Usage" count="30d" />
           <div style={{ flex: 1 }}></div>
           <div style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
             last sync · 2026-05-25 hybrid architecture (CF REST + EC2 WS)
@@ -71,12 +554,12 @@ function DocsSite() {
       </div>
 
       {/* Content */}
-      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 220px", flex: 1 }}>
-        <SideNav tab={tab} />
-        <main style={{ padding: "40px 56px", background: "var(--bg-canvas)" }}>
-          {tab === "proxy" ? <ProxyApiBody /> : <WsUsageBody />}
+      <div style={{ display: "grid", gridTemplateColumns: (tab === "status" || tab === "usage") ? "1fr" : "220px 1fr 220px", flex: 1 }}>
+        {tab !== "status" && tab !== "usage" && <SideNav tab={tab} />}
+        <main style={{ padding: (tab === "status" || tab === "usage") ? "36px 32px" : "40px 56px", background: "var(--bg-canvas)" }}>
+          {tab === "proxy" ? <ProxyApiBody /> : tab === "ws" ? <WsUsageBody /> : tab === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…")) : (React.createElement(StatusBody))}
         </main>
-        <OnThisPage tab={tab} />
+        {tab !== "status" && tab !== "usage" && <OnThisPage tab={tab} />}
       </div>
     </div>
   );
@@ -84,6 +567,46 @@ function DocsSite() {
 
 function slugify(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function DownloadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3v12" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M5 21h14" />
+    </svg>
+  );
+}
+
+function GuideDownloadLink({ compact = false }) {
+  return (
+    <a
+      href="/thetadata-option-proxy-skill.md"
+      download="thetadata-option-proxy-skill.md"
+      className={compact ? "btn ghost" : "btn"}
+      style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: compact ? "6px 10px" : "9px 12px", fontSize: compact ? 12 : 13 }}
+    >
+      <DownloadIcon />
+      <span>{compact ? "Skill" : "Download user skill"}</span>
+    </a>
+  );
+}
+
+function SkillDownloadCard() {
+  return (
+    <div className="card" style={{ padding: 16, margin: "0 0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, background: "var(--bg-paper)" }}>
+      <div>
+        <div className="eyebrow" style={{ marginBottom: 6, color: "var(--ink-soft)" }}>User skill</div>
+        <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 500, color: "var(--ink-strong)" }}>ThetaData Option Proxy quick-start</h3>
+        <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)" }}>
+          Public usage guide for token auth, REST examples, option-history provider choices, and endpoint smoke tests. No deployment details or secrets are included.
+          <br/><span style={{ color: "var(--ink-soft)" }}>面向用户的使用指南：Token 鉴权、REST 示例、期权数据 provider 选择和端点测试；不包含部署细节或密钥。</span>
+        </p>
+      </div>
+      <GuideDownloadLink />
+    </div>
+  );
 }
 
 function Tab({ id, tab, setTab, label, count }) {
@@ -147,17 +670,19 @@ function SideNav({ tab }) {
     ]},
     { title: "Options Data", items: ["provider model", "contracts"], children: [
       { title: "Snapshots", items: ["snapshots", "quote", "snapshot trade", "open interest", "expiry", "snapshot ohlc"] },
-      { title: "History", items: ["bars", "eod", "history open interest", "trades", "latest trades", "history ohlc", "history quote", "at time"] },
+      { title: "History", items: ["bars", "eod", "history open interest", "trades", "history ohlc"] },
       { title: "ThetaData Value", items: ["direct endpoints"] },
     ]},
     { title: "Crypto Data", items: ["orderbooks"] },
     { title: "Admin endpoints", items: ["login", "pending", "approve", "reject"] },
     { title: "Reference", items: ["Error codes", "Rate limits"] },
+  ] : tab === "ws" ? [
+    { title: "Connecting", items: ["WebSocket connection", "Auth message", "Heartbeat", "Error", "Success"] },
+    { title: "Channels", items: ["stocks", "options", "boats", "overnight", "crypto", "news", "test"] },
+    { title: "Operations", items: ["Reconnect", "Backpressure", "Rate limits"] },
   ] : [
-    { title: "Connecting", items: ["Endpoint", "Auth message", "Heartbeat"] },
-    { title: "Channels", items: ["stocks", "options", "crypto", "news", "overnight"] },
-    { title: "Messages", items: ["Subscribe", "Unsubscribe", "Trade", "Quote", "Bar"] },
-    { title: "Operations", items: ["Reconnect", "Backpressure"] },
+    { title: "System", items: ["Overview", "Components", "Latency"] },
+    { title: "History", items: ["Uptime", "Incidents", "Methodology"] },
   ];
 
   function Chevron({ open }) {
@@ -180,7 +705,7 @@ function SideNav({ tab }) {
     const indent      = BASE_PAD + depth * INDENT_STEP;
 
     // Map sidebar labels to actual document IDs
-    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-snapshot-ohlc', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'latest trades': 'post-v1beta1-options-trades-latest', 'history ohlc': 'post-v3-option-history-ohlc', 'history quote': 'post-v3-option-history-quote', 'at time': 'post-v3-option-at-time-quote', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
+    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
     const getId = (label) => ID_MAP[label] || slugify(label);
 
     return (
@@ -268,7 +793,9 @@ function OnThisPage({ tab }) {
   }, [tab]);
   const items = tab === "proxy"
     ? ["Request", "Response", "Validation", "Examples", "Errors"]
-    : ["Connect", "Authenticate", "Subscribe", "Message shapes", "Reconnect"];
+    : tab === "ws"
+    ? ["Connect", "Authenticate", "Subscribe", "Message shapes", "Reconnect"]
+    : ["Overview", "Components", "Latency", "Uptime", "Incidents"];
   return (
     <aside style={{
       padding: "40px 24px",
@@ -312,7 +839,47 @@ function TokenCard() {
     finally { setLoading(false); }
   };
 
-  const handleCopy = () => { navigator.clipboard.writeText(tokenData.token); };
+  const handleCopy = () => {
+    if (tokenData && tokenData.token) {
+      const textToCopy = tokenData.token;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy)
+          .then(() => alert("Token copied to clipboard!"))
+          .catch(() => fallbackCopy(textToCopy));
+      } else {
+        fallbackCopy(textToCopy);
+      }
+    }
+  };
+
+  const fallbackCopy = (text) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.width = "2em";
+    textArea.style.height = "2em";
+    textArea.style.padding = "0";
+    textArea.style.border = "none";
+    textArea.style.outline = "none";
+    textArea.style.boxShadow = "none";
+    textArea.style.background = "transparent";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        alert("Token copied to clipboard!");
+      } else {
+        alert("Unable to copy automatically. Please copy it manually.");
+      }
+    } catch (err) {
+      alert("Unable to copy automatically. Please copy it manually.");
+    }
+    document.body.removeChild(textArea);
+  };
 
   return (
     <div style={{ marginTop: 28, padding: 14, borderRadius: 8, background: "var(--bg-paper)", border: "1px solid var(--rule)" }}>
@@ -365,6 +932,7 @@ function TokenCard() {
 
 // Hybrid architecture: REST via Cloudflare→ThinkCentre, WS via EC2 direct
 const REST_BASE  = "https://api.leandata.uk";
+const RT_BASE    = "https://rt-api.leandata.uk";
 const TOKEN_BASE = "https://leandata.uk";
 const WS_HOST    = "52.37.182.24";
 const WS_BASE    = `ws://${WS_HOST}:8767`;
@@ -656,34 +1224,28 @@ function ProxyApiBody() {
       {/* ── Getting started ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Getting started</div>
       <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>Overview</h2>
-      <div style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-rule)", borderRadius: 8, padding: "16px 20px", margin: "16px 0 24px", fontSize: 13.5, color: "var(--accent-ink)", lineHeight: 1.6 }}>
-        <strong style={{ display: "block", marginBottom: 6, fontSize: 14.5 }}>📢 系统维护与权益延期公告 (Service Update & Plan Extension Notice)</strong>
-        由于最近系统进行优化与调试，为了给各位量化交易者提供更稳定、更优质的行情转发服务和数据表现，
-        <strong>所有 non-REST-only 套餐 (包括 Trial, Value, Standard, Premium) 用户的订阅有效期均已自动延长 5 日</strong>。
-        如有任何数据调用疑问，请随时联系管理员。
-        <br/>
-        <span style={{ display: "block", marginTop: 4, fontSize: 12, opacity: 0.8 }}>
-          * Notice: Due to recent system debugging and enhancements for better reliability, all non-REST-only tier active plans have been automatically extended by 5 days.
-        </span>
-      </div>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 16px", maxWidth: 640 }}>
         The Stock Options Proxy has two surfaces: a <strong style={{ color: "var(--ink-strong)" }}>token portal</strong> for registration and token issuance,
         and a <strong style={{ color: "var(--ink-strong)" }}>data proxy</strong> for market data (REST via Cloudflare, WS via EC2 direct).
         Once you have a token, use it to call historical and realtime endpoints without managing your own Alpaca / ThetaData credentials.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>股票期权代理包含两个服务面：Token 门户用于注册和签发，数据代理用于行情数据（REST 走 Cloudflare，WS 走 EC2 直连）。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Stock Options Proxy 提供两类服务：Token 门户负责账户注册与 Token 签发；数据代理负责行情数据，其中 REST 走 Cloudflare 边缘，WebSocket 直连 EC2。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
         <thead><tr><th>Surface</th><th>Public URL</th><th>Auth</th></tr></thead>
         <tbody>
           <tr><td>Token portal</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TOKEN_BASE}</td><td style={{ fontSize: 12 }}>username + phone</td></tr>
           <tr><td>REST data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{REST_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
+          <tr><td>REST real-time proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{RT_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
           <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{WS_BASE}/*</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
         </tbody>
       </table>
+      <SkillDownloadCard />
+
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13 }}>
-        <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Hybrid architecture</strong> — REST historical data is served via <strong>Cloudflare</strong> global edge (leandata.uk),
-        while realtime <strong>WebSocket</strong> streams connect directly to EC2 for lowest latency to Alpaca.
-        <br/><span style={{ color: "var(--ink-soft)" }}>REST 历史数据通过 Cloudflare 全球边缘节点提供（leandata.uk），WebSocket 实时流直连 EC2 以获得最低 Alpaca 延迟。</span>
+        <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Hybrid architecture</strong> — REST historical data is served via <strong>Cloudflare</strong> global edge (<code>api.leandata.uk</code>, 7-day edge cache).
+        Real-time REST endpoints (snapshots, orderbooks) are available at <code>rt-api.leandata.uk</code> (60s edge cache, faster upstream).
+        <strong>WebSocket</strong> streams connect directly to EC2 for lowest latency to Alpaca. All three surfaces accept the same token.
+        <br/><span style={{ color: "var(--ink-soft)" }}>REST 历史数据通过 Cloudflare 全球边缘节点提供（api.leandata.uk，7 天边缘缓存）。实时 REST 端点（快照、订单簿）可用 rt-api.leandata.uk（60 秒边缘缓存，更快的上游）。WebSocket 实时流直连 EC2。三个入口使用同一 Token。</span>
       </div>
 
       <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Authentication</h2>
@@ -693,10 +1255,10 @@ function ProxyApiBody() {
       </p>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`# Option A — Authorization header (preferred)
-Authorization: Bearer c88662...720a
+Authorization: Bearer <TOKEN>
 
 # Option B — token field in request body
-{ "token": "c886624f-232d-4803-99fa-f8b970e4720a", "symbol": "AAPL", ... }`}
+{ "token":  "<TOKEN>", "symbol": "AAPL", ... }`}
       </pre>
       <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 40px" }}>
         Tokens expire 30 days after issuance (trial: 3 days, non-renewable). The proxy returns <code>401</code> for invalid or expired tokens and <code>403</code> if your tier lacks permission for the endpoint.
@@ -769,7 +1331,7 @@ Authorization: Bearer c88662...720a
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         Per-second equivalents: Basic 10/s · Value 30/s · Standard 30/s · Premium 100/s. Exceeding the per-minute quota or the parallel-request cap returns <strong>HTTP 429</strong>; back off and retry after the 60-second window.
-        <br/>每秒换算：Basic 10/s · Value 30/s · Standard 30/s · Premium 100/s。超过每分钟配额或并发上限会返回 <strong>HTTP 429</strong>，请等候 60 秒窗口刷新后再重试。
+        <br/>每秒换算：Basic 10/s · Value 30/s · Standard 30/s · Premium 100/s。超过每分钟配额或并发上限会返回 <strong>HTTP 429</strong>，请等待 60 秒窗口刷新后再重试。
       </p>
 
       {/* ── Token API ── */}
@@ -777,7 +1339,7 @@ Authorization: Bearer c88662...720a
 
       <h2 id="post-register" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/register</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Submit a new account registration. The request enters a pending queue until approved by an admin.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>提交新账户注册申请，请求将进入待审核队列等待管理员审批。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>提交新账户注册申请；请求会进入待审核队列，由管理员审核后开通。</span>
       </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/register`} />
       <ParamTable rows={[
@@ -802,7 +1364,7 @@ Authorization: Bearer c88662...720a
 
       <h2 id="post-check-status" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/check-status</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Poll approval status before attempting token generation.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>在尝试生成 Token 前查询账户审批状态。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>在尝试生成 Token 之前，查询账户的审核状态。</span>
       </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/check-status`} />
       <ParamTable rows={[
@@ -820,7 +1382,7 @@ Authorization: Bearer c88662...720a
       <h2 id="post-generate-token" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/generate-token</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Exchange approved credentials for a 30-day UUID token. If a token already exists for this user in the active token list it is returned as-is (not regenerated).
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>用已审批的凭据换取 30 天有效期的 UUID Token。若该用户已有 Token 则直接返回，不会重新生成。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>凭已审核通过的账号信息换取 30 天有效期的 UUID Token。该用户已签发的 Token 会原样返回，不会重新生成。</span>
       </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/generate-token`} />
       <ParamTable rows={[
@@ -834,7 +1396,7 @@ Authorization: Bearer c88662...720a
 // Response 200
 {
   "success": true,
-  "token":  "c886624f-232d-4803-99fa-f8b970e4720a",
+  "token":  "<TOKEN>",
   "expiry": "2026-06-19T14:15:57.059704+00:00",
   "role":   "premium"
 }
@@ -864,7 +1426,7 @@ Authorization: Bearer c88662...720a
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/history/bars \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbol":"AAPL","timeframe":"1Day","start":"2024-01-02","end":"2024-01-05","limit":5}'`}
       </pre>
@@ -904,7 +1466,7 @@ Authorization: Bearer c88662...720a
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/history/news \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL","start":"2024-01-02","end":"2024-01-03","limit":3}'`}
       </pre>
@@ -948,7 +1510,7 @@ Authorization: Bearer c88662...720a
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/stock/history/trade_quote \\
-  -H "Authorization: Bearer ***" \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbol":"AAPL","start":"2026-05-20T13:30:00Z","end":"2026-05-20T13:31:00Z","limit":3}'`}
       </pre>
@@ -1009,7 +1571,7 @@ Authorization: Bearer c88662...720a
         <thead><tr><th>Surface</th><th>Route</th><th>Routing behavior</th></tr></thead>
         <tbody>
           {[
-            ["Alpaca options (native)",       "/v1beta1/options/*",                                            "Historical trades, latest trades, bars, snapshots, chain snapshots. Historical option data starts 2024-02-01. No history quotes — use /v3/option/history/quote (ThetaData)."],
+            ["Alpaca options (native)",       "/v1beta1/options/*",                                            "Bars, historical trades, latest quotes/trades, snapshots, chain snapshots. Historical option data starts 2024-02-01."],
             ["Option bars (wrapper)",         "/v1/history/options/bars",                                      "ThetaData OHLC first; Alpaca bars fallback. provider=thetadata|alpaca to pin."],
             ["Contracts (wrapper)",           "/v1/options/contracts",                                         "Alpaca contracts first; ThetaData Value contracts fallback. provider=thetadata requires underlying_symbols."],
             ["Full snapshots / greeks / IV",  "/v1/options/snapshots",                                         "Alpaca only — ThetaData Value lacks greeks, IV, market value."],
@@ -1031,60 +1593,19 @@ Authorization: Bearer c88662...720a
         ThetaData Value does <strong>not</strong> expose direct option trades, trade_quote, market value, implied volatility, or greeks.
       </p>
       <h3 id="alpaca-native-examples" style={{ fontSize: 16, fontWeight: 500, margin: "0 0 8px", color: "var(--ink-strong)" }}>Native Alpaca examples</h3>
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`# ── Stock trade + quote (Alpaca native /v2/stocks) ───────────────────
-# Latest stock quote (single symbol)
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`# Latest stock quote (Alpaca native)
 curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v2/stocks/AAPL/quotes/latest?feed=sip"
+  "${REST_BASE}/v2/stocks/quotes/latest?symbols=AAPL&feed=sip"
 
-# Latest stock quotes (multi symbol batch)
+# Latest crypto quote (Alpaca native)
 curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v2/stocks/quotes/latest?symbols=AAPL,MSFT,NVDA&feed=sip"
+  "${REST_BASE}/v1beta3/crypto/us/latest/quotes?symbols=BTC%2FUSD"
 
-# Latest stock trade (single symbol)
+# Historical stock quotes (Alpaca native)
 curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v2/stocks/AAPL/trades/latest?feed=sip"
-
-# Latest stock trades (multi symbol batch)
-curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v2/stocks/trades/latest?symbols=AAPL,MSFT,NVDA&feed=sip"
-
-# Historical stock quotes
-curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v2/stocks/quotes?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&feed=sip"
-
-# Historical stock trades
-curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v2/stocks/trades?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&feed=sip"
-
-# ── Options trade (Alpaca native /v1beta1/options) ───────────────────
-# Historical options trades — data available from 2024-02-01
-curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v1beta1/options/trades?symbols=AAPL260620C00200000&start=2025-01-02T09:30:00Z&end=2025-01-02T16:00:00Z"
-
-# Latest options trades (multi symbol, up to 100 symbols)
-curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v1beta1/options/trades/latest?symbols=AAPL260620C00200000,AAPL260620P00200000&feed=opra"
-
-# Latest options quotes (multi symbol — for quotes use the snapshot/quote endpoint)
-# Note: Alpaca does NOT expose /v1beta1/options/quotes/latest.
-# Use /v1/options/snapshots/quote (POST, proxy) instead.
-
-# ── Crypto ───────────────────────────────────────────────────────────
-# Latest crypto trades
-curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v1beta3/crypto/us/latest/trades?symbols=BTC%2FUSD"
-
-# Latest crypto quotes
-curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v1beta3/crypto/us/latest/quotes?symbols=BTC%2FUSD"`}
+  "${REST_BASE}/v2/stocks/quotes?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&feed=sip"`}
       </pre>
-      <div style={{ background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 8, padding: "10px 14px", margin: "0 0 40px", fontSize: 12 }}>
-        <strong>{"⚠️"} Options trade coverage:</strong> Alpaca historical option trades (<code>/v1beta1/options/trades</code>) is available from <strong>2024-02-01</strong> onward.
-        Requests with <code>start</code> before that date will return empty results. The proxy adds a <code>data_availability</code> notice automatically.
-        Alpaca does <strong>not</strong> expose a <code>/v1beta1/options/quotes</code> history endpoint — use <code>/v3/option/history/quote</code> (ThetaData-backed) for historical option quotes.
-        <br/><span style={{ color: "var(--ink-soft)" }}>Alpaca 历史期权成交数据从 2024-02-01 起可用。早于此日期将返回空结果。Alpaca 不提供历史期权报价接口，需用 /v3/option/history/quote（ThetaData 数据源）。</span>
-      </div>
 
       <h2 id="post-v1-options-contracts" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/contracts</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -1111,7 +1632,7 @@ curl -H "Authorization: Bearer <TOKEN>" \\
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/contracts \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"underlying_symbols":"AAPL","limit":2,"provider":"auto"}'`}
       </pre>
@@ -1171,7 +1692,7 @@ curl -H "Authorization: Bearer <TOKEN>" \\
       <pre className="code" style={{ marginBottom: 12 }}>
 {`// With explicit OCC symbol
 curl -X POST ${REST_BASE}/v1/history/options/bars \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260620C00200000","start":"2025-05-01","end":"2025-05-15","timeframe":"1Day","provider":"auto"}'
 
@@ -1209,7 +1730,7 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/open_interest \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbol":"AAPL","start":"2025-01-02","end":"2025-01-05"}'`}
       </pre>
@@ -1347,43 +1868,6 @@ for row in data["data"][:5]:
 }`}
       </pre>
 
-      <h2 id="post-v1beta1-options-trades-latest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET /v1beta1/options/trades/latest</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Latest trade for each given option contract symbol. Native Alpaca endpoint — the proxy passes through with auth, caching, and rate limiting.
-        Results are keyed by OCC symbol with a single trade object per symbol. Use <code>feed=opra</code> for real-time data (requires OPRA entitlement) or <code>feed=indicative</code> for the free indicative feed.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>每个期权合约的最新一笔成交。原生 Alpaca 接口，代理透传并附加鉴权/缓存/限速。可选 feed=opra（实时，需 OPRA 权益）或 feed=indicative（免费）。</span>
-      </p>
-      <EndpointBadge method="GET" path={`${REST_BASE}/v1beta1/options/trades/latest`} />
-      <ParamTable rows={[
-        { name: "symbols", type: "string", required: true,  desc: "Comma-separated OCC option symbols (max 100 per request)" },
-        { name: "feed",    type: "string", required: false, desc: "opra | indicative (default: opra with OPRA subscription, indicative otherwise)" },
-      ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v1beta1/options/trades/latest?symbols=AAPL260620C00200000,AAPL260620P00200000&feed=opra"`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
-{`// Response — one trade per symbol, keyed by OCC
-{
-  "trades": {
-    "AAPL260620C00200000": {
-      "t": "2025-01-02T15:26:12.728701696Z",
-      "x": "B",
-      "p": 17.15,
-      "s": 900,
-      "c": "e"
-    },
-    "AAPL260620P00200000": {
-      "t": "2025-01-02T15:59:59.123456789Z",
-      "x": "A",
-      "p": 8.40,
-      "s": 200,
-      "c": "I"
-    }
-  }
-}`}
-      </pre>
-
       {/* ── Not Supported ── */}
       <div style={{ background: "#f8d7da", border: "1px solid #f5c6cb", borderRadius: 8, padding: "14px 18px", margin: "48px 0 24px", fontSize: 13 }}>
         <h3 id="not-supported-value" style={{ fontSize: 16, fontWeight: 600, margin: "0 0 8px", color: "#721c24" }}>Not supported on ThetaData Value plan</h3>
@@ -1424,7 +1908,7 @@ for row in data["data"][:5]:
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260620C00200000","feed":"indicative"}'`}
       </pre>
@@ -1470,7 +1954,7 @@ for row in data["data"][:5]:
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/quote \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260522C00110000","feed":"indicative"}'`}
       </pre>
@@ -1533,7 +2017,7 @@ for sym, snap in resp.json()["snapshots"].items():
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/open_interest \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260522C00110000","feed":"thetadata"}'`}
       </pre>
@@ -1579,7 +2063,7 @@ for sym, snap in resp.json()["snapshots"].items():
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/expiry \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"underlying":"AAPL","expiry":"2026-05-22","feed":"indicative"}'`}
       </pre>
@@ -1610,12 +2094,9 @@ for sym, snap in data["snapshots"].items():
     print(f"  {sym}  delta={g.get('delta','—')}  bid={q.get('bp','—')}  ask={q.get('ap','—')}")`}
       </pre>
 
-      {/* ── ThetaData Value direct endpoints (Deprecated) ── */}
-      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · ThetaData Value · Legacy</div>
-      <h2 id="post-v3-option-direct-value" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/* (ThetaData Value) <span style={{ color: "#d9534f", fontSize: 16, fontWeight: 600 }}>(Deprecated Soon / 建议弃用)</span></h2>
-      <div style={{ background: "#fff3cd", border: "1px solid #ffeeba", borderRadius: 8, padding: "12px 16px", margin: "16px 0", fontSize: 13, color: "#856404" }}>
-        <strong>⚠️ 弃用提示 (Notice):</strong> 此通用直连接口即将被弃用 (Deprecated Soon)。为提高回测效率与网络开销的清晰度，请按左侧侧边栏导航，改用下方各独立的期权专有接口。
-      </div>
+      {/* ── ThetaData Value direct endpoints ── */}
+      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · ThetaData Value</div>
+      <h2 id="post-v3-option-direct-value" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/* (ThetaData Value)</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Authenticated proxy for ThetaData Value option endpoints included in the subscription.
         Supports both <code>GET</code> query parameters and <code>POST</code> JSON bodies, strips proxy credentials before execution, and caches successful JSON responses server-side.
@@ -1623,7 +2104,7 @@ for sym, snap in data["snapshots"].items():
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>ThetaData Value 期权白名单代理，仅开放 Value 订阅允许的端点。支持 GET/POST，成功 JSON 响应写入服务端缓存。</span>
       </p>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/...`} />
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 32 }}>
+      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
         <thead><tr><th>Endpoint</th><th>Required access</th><th>Notes</th></tr></thead>
         <tbody>
           {[
@@ -1651,87 +2132,19 @@ for sym, snap in data["snapshots"].items():
           ))}
         </tbody>
       </table>
-
-      {/* ── Option Quote Endpoints Comparative Guide ── */}
-      <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "16px 20px", margin: "24px 0", fontSize: 14 }}>
-        <strong style={{ color: "var(--ink-strong)", display: "block", marginBottom: 8, fontSize: 15 }}>💡 期权行情接口对比与选型指南（Snapshot vs. At-Time vs. History Quote）</strong>
-        <p style={{ margin: "0 0 12px", fontSize: 13, lineHeight: 1.5, color: "var(--ink-base)" }}>
-          为了保证量化回测与实盘交易时的数据获取效率，避免因误用全量历史数据导致服务器超时或带宽超载，请务必根据以下特性精准选型：
-        </p>
-        <ul style={{ margin: "0 0 8px", paddingLeft: 20, fontSize: 13, lineHeight: 1.6, color: "var(--ink-muted)" }}>
-          <li>
-            <strong style={{ color: "var(--ink-strong)" }}>1. Snapshot (最新快照报价)</strong>: 获取<strong>当前最新一瞬间</strong>的 NBBO 盘口。不带历史时间维度，数据量极小（每次请求返回 1 条记录）。推荐用于实盘盯盘与即时核价。
-          </li>
-          <li style={{ marginTop: 8 }}>
-            <strong style={{ color: "var(--ink-strong)" }}>2. At-Time (历史定点抽样)</strong>: 获取<strong>过去某段日期内，每天特定时刻（如 10:00:00）</strong>那一瞬间的盘口快照。服务端直接抽样，返回一天一行数据，开销极小。**回测推荐！**
-          </li>
-          <li style={{ marginTop: 8 }}>
-            <strong style={{ color: "var(--ink-strong)" }}>3. History Quote (历史全量/序列)</strong>: 获取<strong>特定历史时间段内以指定间隔（如 1s / 1h）</strong>输出的全部盘口数据，返回连续的时间序列数组。适合高频或需要连续回测的场景。
-          </li>
-        </ul>
-      </div>
-
-      {/* ── GET/POST /v3/option/snapshot/ohlc ── */}
-      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · ThetaData Value · Snapshots</div>
-      <h2 id="post-v3-option-snapshot-ohlc" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/snapshot/ohlc</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Get the latest OHLC (Open, High, Low, Close) snapshot of an option contract. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约最新 OHLC 快照报价。数据源 ThetaData Value，包含服务端缓存。</span>
-      </p>
-      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/snapshot/ohlc`} />
-      <ParamTable rows={[
-        { name: "root",       type: "string",  required: true,  desc: "Root ticker (e.g. AAPL)" },
-        { name: "exp",        type: "string",  required: true,  desc: "Expiration date YYYYMMDD (e.g. 20260529)" },
-        { name: "strike",     type: "number",  required: true,  desc: "Strike price (e.g. 180)" },
-        { name: "right",      type: "string",  required: true,  desc: "C | P | both (default: both)" },
-      ]} />
+      <h3 id="post-v3-option-history-ohlc" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Historical OHLC example</h3>
       <pre className="code" style={{ marginBottom: 12 }}>
-{`# GET
+{`# GET — query parameters forwarded to ThetaData
 curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v3/option/snapshot/ohlc?root=AAPL&exp=20260529&strike=180&right=C"
+  "${REST_BASE}/v3/option/history/ohlc?root=AAPL&exp=260620&strike=200.0&right=C&start_date=20250102&end_date=20250103"
 
-# POST
-curl -X POST ${REST_BASE}/v3/option/snapshot/ohlc \\
-  -H "Authorization: Bearer <TOKEN>" \\
-  -H "Content-Type: application/json" \\
-  -d '{"root":"AAPL","exp":"20260529","strike":180,"right":"C"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 48 }}>
-{`// Response — ThetaData native format
-{
-  "ohlc": { "open": 14.50, "high": 15.20, "low": 14.10, "close": 14.85, "volume": 320 }
-}`}
-      </pre>
-
-      {/* ── GET/POST /v3/option/history/ohlc ── */}
-      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · ThetaData Value · History</div>
-      <h2 id="post-v3-option-history-ohlc" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/history/ohlc</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Get historical OHLC bars for an option contract over a specified date range. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取期权合约的历史 OHLC K线。数据源 ThetaData Value，包含服务端缓存。</span>
-      </p>
-      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/history/ohlc`} />
-      <ParamTable rows={[
-        { name: "root",       type: "string",  required: true,  desc: "Root ticker (e.g. AAPL)" },
-        { name: "exp",        type: "string",  required: true,  desc: "Expiration date YYYYMMDD (e.g. 20260529)" },
-        { name: "strike",     type: "number",  required: true,  desc: "Strike price (e.g. 180)" },
-        { name: "right",      type: "string",  required: true,  desc: "C | P | both (default: both)" },
-        { name: "start_date", type: "string",  required: true,  desc: "Start date YYYYMMDD (e.g. 20250102)" },
-        { name: "end_date",   type: "string",  required: true,  desc: "End date YYYYMMDD (e.g. 20250103)" },
-        { name: "interval",   type: "string",  required: false, desc: "Bar interval, e.g. 1d (default: 1d)" },
-      ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`# GET
-curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v3/option/history/ohlc?root=AAPL&exp=20260529&strike=180&right=C&start_date=20250102&end_date=20250103"
-
-# POST
+# POST — JSON body forwarded to ThetaData
 curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
-  -d '{"root":"AAPL","exp":"20260529","strike":180,"right":"C","start_date":"20250102","end_date":"20250103"}'`}
+  -d '{"root":"AAPL","exp":260620,"strike":200.0,"right":"C","start_date":20250102,"end_date":20250103}'`}
       </pre>
-      <pre className="code" style={{ marginBottom: 48 }}>
+      <pre className="code" style={{ marginBottom: 40 }}>
 {`// Response — ThetaData native format
 {
   "ohlc": [
@@ -1739,81 +2152,34 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
   ]
 }`}
       </pre>
-
-      {/* ── GET/POST /v3/option/history/quote ── */}
-      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · ThetaData Value · History</div>
-      <h2 id="post-v3-option-history-quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/history/quote</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Fetch a continuous time series of historical quotes (NBBO) for an option contract. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取期权合约的历史报价（NBBO）连续时间序列。数据源 ThetaData Value，包含服务端缓存。</span>
-      </p>
-      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/history/quote`} />
-      <ParamTable rows={[
-        { name: "root",       type: "string",  required: true,  desc: "Root ticker (e.g. AAPL)" },
-        { name: "exp",        type: "string",  required: true,  desc: "Expiration date YYYYMMDD (e.g. 20260529)" },
-        { name: "strike",     type: "number",  required: true,  desc: "Strike price (e.g. 180)" },
-        { name: "right",      type: "string",  required: true,  desc: "C | P | both (default: both)" },
-        { name: "start_date", type: "string",  required: false, desc: "Start date YYYYMMDD (e.g. 20260520)" },
-        { name: "end_date",   type: "string",  required: false, desc: "End date YYYYMMDD (e.g. 20260522)" },
-        { name: "interval",   type: "string",  required: false, desc: "Bar interval, e.g. 1s, 1m, 1h (default: 1s)" },
-      ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`# GET
-curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v3/option/history/quote?root=AAPL&exp=20260529&strike=180&right=C&start_date=20260520&end_date=20260522&interval=1h"
-
-# POST
-curl -X POST ${REST_BASE}/v3/option/history/quote \\
-  -H "Authorization: Bearer <TOKEN>" \\
-  -H "Content-Type: application/json" \\
-  -d '{"root":"AAPL","exp":"20260529","strike":180,"right":"C","start_date":"20260520","end_date":"20260522","interval":"1h"}'`}
-      </pre>
+      <h3 id="post-v3-option-snapshot-ohlc" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Snapshot OHLC example</h3>
       <pre className="code" style={{ marginBottom: 48 }}>
-{`// Response
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v3/option/snapshot/ohlc?root=AAPL&exp=260620&strike=200.0&right=C"
+
+// Response — ThetaData native format
 {
-  "endpoint": "/v3/option/history/quote",
-  "data": [
-    { "timestamp": "2026-05-20T09:30:00-04:00", "bid": null, "bid_size": 0, "ask": null, "ask_size": 0 },
-    { "timestamp": "2026-05-20T10:30:00-04:00", "bid": 118.90, "bid_size": 5, "ask": 119.80, "ask_size": 5 }
-  ]
+  "ohlc": { "open": 14.50, "high": 15.20, "low": 14.10, "close": 14.85, "volume": 320 }
 }`}
       </pre>
 
-      {/* ── GET/POST /v3/option/at_time/quote ── */}
-      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · ThetaData Value · History</div>
-      <h2 id="post-v3-option-at-time-quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/at_time/quote</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Fetch historical quotes (NBBO) at a specific time of day across multiple dates. Highly optimized to avoid retrieving bulky full-day tick streams.
-        Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取历史上多天内在每日特定时间点（如 10:00:00）那一瞬间的定点报价快照。量化低频抽样回测首选，速度极快且节省带宽。</span>
-      </p>
-      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/at_time/quote`} />
-      <ParamTable rows={[
-        { name: "root",        type: "string",  required: true,  desc: "Root ticker (e.g. AAPL)" },
-        { name: "exp",         type: "string",  required: true,  desc: "Expiration date YYYYMMDD (e.g. 20260529)" },
-        { name: "strike",      type: "number",  required: true,  desc: "Strike price (e.g. 180)" },
-        { name: "right",       type: "string",  required: true,  desc: "C | P | both (default: both)" },
-        { name: "start_date",  type: "string",  required: true,  desc: "Start date YYYYMMDD (e.g. 20260520)" },
-        { name: "end_date",    type: "string",  required: true,  desc: "End date YYYYMMDD (e.g. 20260522)" },
-        { name: "time_of_day", type: "string",  required: false, desc: "HH:MM:SS format (default: 09:30:00)" },
-      ]} />
-      <pre className="code" style={{ marginBottom: 48 }}>
-{`# GET
+      <h3 id="post-v3-option-at-time-quote" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Quote at time example</h3>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`# GET — quote at a specific time of day
 curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v3/option/at_time/quote?root=AAPL&exp=20260529&strike=180&right=C&start_date=20260520&end_date=20260522&time_of_day=10:00:00"
+  "${REST_BASE}/v3/option/at_time/quote?root=AAPL&exp=260620&strike=200.0&right=C&start_date=20250102&end_date=20250102&time_of_day=14:30:00"
 
-# POST
+# POST — JSON body
 curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
-  -d '{"root":"AAPL","exp":"20260529","strike":180,"right":"C","start_date":"20260520","end_date":"20260522","time_of_day":"10:00:00"}'`}
+  -d '{"root":"AAPL","exp":260620,"strike":200.0,"right":"C","start_date":20250102,"end_date":20250102,"time_of_day":"14:30:00"}'`}
       </pre>
       <pre className="code" style={{ marginBottom: 48 }}>
-{`// Response
+{`// Response — ThetaData native format
 {
-  "endpoint": "/v3/option/at_time/quote",
-  "data": [
-    { "timestamp": "2026-05-20T09:59:59.796000-04:00", "bid": 118.50, "bid_size": 8, "ask": 119.50, "ask_size": 10 }
+  "quotes": [
+    { "date": 20250102, "ms_of_day": 52200000, "bid": 14.80, "bid_size": 10, "ask": 14.90, "ask_size": 15 }
   ]
 }`}
       </pre>
@@ -1833,7 +2199,7 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/crypto/us/latest/orderbooks \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"BTC/USD,ETH/USD"}'`}
       </pre>
@@ -1894,7 +2260,7 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Approve a pending registration. Writes the user to both the token-site database and the proxy backend, issuing a token automatically.
         Returns the generated token so you can share it directly with the user.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>审批通过待处理的注册申请。自动写入用户数据库并签发 Token，可直接将 Token 分享给用户。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>批准一条待处理的注册申请；自动写入用户数据库并签发 Token，返回值可直接发给用户。</span>
       </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/admin/approve`} />
       <pre className="code" style={{ marginBottom: 28 }}>
@@ -1905,14 +2271,14 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
 {
   "success": true,
   "message": "已批准 tonnysun，Token 已自动注册到 proxy。",
-  "token":  "c886624f-232d-4803-99fa-f8b970e4720a",
+  "token":  "<TOKEN>",
   "expiry": "2026-06-19T14:15:57.059Z"
 }`}
       </pre>
 
       <h2 id="post-admin-reject" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/admin/reject</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Reject a pending registration with an optional reason.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>拒绝待处理的注册申请，可附带拒绝原因。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>拒绝一条待处理的注册申请，可附带原因。</span>
       </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/admin/reject`} />
       <pre className="code" style={{ marginBottom: 48 }}>
@@ -1963,7 +2329,7 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         REST limits are per-user, per rolling 60-second window. Limits tighten automatically when the server is under load (overloaded) and further under critical load.
         WebSocket symbol subscriptions are counted separately and do not reset on reconnect.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>REST 限速按用户、按 60 秒滚动窗口计算。服务器负载高时自动收紧，极端负载时进一步收紧。WS 标订阅数单独计算，重连不重置。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>REST 限速按用户、按 60 秒滚动窗口计算。服务器负载升高时自动收紧，极端负载下进一步收紧。WS 标的订阅数单独计算，重连后不会重置。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
@@ -2052,10 +2418,10 @@ function WsUsageBody() {
   return (
     <div style={{ maxWidth: 760 }}>
       <div className="eyebrow" style={{ marginBottom: 10 }}>Realtime</div>
-      <h2 id="endpoint" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>WebSocket connection</h2>
+      <h2 id="websocket-connection" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>WebSocket connection</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 20px", maxWidth: 640 }}>
-        Each channel has a dedicated path. Connect to the appropriate URL, send an <code>auth</code> message with your token, then send <code>subscribe</code> messages.
-        Stocks/options/overnight/boats messages are binary MessagePack; crypto and news channels use JSON.
+        Each channel has a dedicated path on EC2. Connect to a URL, send an <code>auth</code> message with your token, then send <code>subscribe</code> messages for the feeds you want.
+        Stocks/options/overnight/boats/test use binary MessagePack; crypto and news use JSON.
       </p>
 
       <table className="tbl card" style={{ marginBottom: 28, overflow: "hidden" }}>
@@ -2068,6 +2434,7 @@ function WsUsageBody() {
             ["overnight", "/stream/overnight", "msgpack", "—", "✓", "✓", "✓", "✓"],
             ["crypto",    "/stream/crypto",    "JSON",    "—", "✓", "✓", "✓", "✓"],
             ["news",      "/stream/news",      "JSON",    "—", "✓", "✓", "✓", "✓"],
+            ["test",      "/stream/test",      "msgpack", "—", "✓", "✓", "✓", "✓"],
           ].map(([ch, path, fmt, b, tr, v, s, p], i) => (
             <tr key={i}>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, fontWeight: 600 }}>{ch}</td>
@@ -2082,6 +2449,13 @@ function WsUsageBody() {
           ))}
         </tbody>
       </table>
+
+      <H3>Symbol & connection limits</H3>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 28px" }}>
+        Per-channel symbol limits by tier: basic: — · value: 30 · trial/standard: 50 · premium: 500.
+        WS connection limits by tier: basic: — · value: 2 · trial/standard: 3 · premium: unlimited.
+        Exceeding either limit returns an error and the subscribe/auth is rejected.
+      </p>
 
       {/* ── Connecting ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Connecting</div>
@@ -2099,21 +2473,28 @@ async def stream_stocks(token):
         # 1. Authenticate
         await ws.send(json.dumps({"action": "auth", "token": token}))
         auth_resp = msgpack.unpackb(await ws.recv())
-        # auth_resp → [{"T": "success", "msg": "authenticated"}]
+        # auth_resp -> [{"T": "success", "msg": "authenticated"}]
 
-        # 2. Subscribe
+        # 2. Subscribe to the feeds you want
         await ws.send(json.dumps({
             "action": "subscribe",
             "trades": ["AAPL", "TSLA", "NVDA"],
             "quotes": ["AAPL"],
-            "bars":   []
+            "bars":   [],
+            "updatedBars": [],
+            "dailyBars": []
         }))
 
-        # 3. Receive
+        # 3. Receive messages
         async for raw in ws:
             msgs = msgpack.unpackb(raw)   # list of message dicts
             for msg in msgs:
-                print(msg)
+                if msg.get("T") == "t":
+                    print("TRADE:", msg["S"], msg["p"], msg["s"])
+                elif msg.get("T") == "q":
+                    print("QUOTE:", msg["S"], msg["bp"], msg["ap"])
+                elif msg.get("T") == "b":
+                    print("BAR:", msg["S"], msg["o"], msg["h"], msg["l"], msg["c"])
 
 asyncio.run(stream_stocks("YOUR_TOKEN"))`}
       </pre>
@@ -2133,71 +2514,84 @@ await ws.send(json.dumps({
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 28px" }}>
         The server sends WebSocket ping frames automatically. Most client libraries respond to pings automatically. If your client does not, call <code>pong()</code> on receipt to stay connected.
         The server will close connections that exceed the send queue limit (200 messages).
-        Each tier has a per-user connection limit across all channels (see <a href="#concurrency-limits">Concurrency limits</a>). Exceeding it rejects auth with code <code>1008</code>.
+        Each tier has a per-user connection limit across all channels (see <a href="#rate-limits">Rate limits</a>). Exceeding it rejects auth with code <code>1008</code>.
       </p>
+
+      <h2 id="error" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Error</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Returned on auth failure, subscription rejection, or policy violation. The connection may be closed immediately after an error.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Auth rejected — too many connections
+await ws.send(json.dumps({"action": "auth", "token": token}))
+// -> [{"T": "error", "msg": "connection limit exceeded", "code": 1008}]
+// Connection closed with code 1008`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T":   "error",
+  "msg": "connection limit exceeded",
+  "code": 1008
+}`}
+      </pre>
+
+      <h2 id="success" className="display-title" style={{ fontSize: 28, margin: "0 0 48px" }}>Success</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Returned after successful authentication.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// After sending auth
+await ws.send(json.dumps({"action": "auth", "token": token}))
+// -> [{"T": "success", "msg": "authenticated"}]`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T": "success",
+  "msg": "authenticated"
+}`}
+      </pre>
 
       {/* ── Channels ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Channels</div>
 
-      <h2 id="stocks" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>stocks</h2>
+      {/* stocks */}
+      <h2 id="stocks" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Stocks</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Live US equities: trades, quotes, and minute bars from the SIP feed (pro account). Subscribe to <code>trades</code>, <code>quotes</code>, and/or <code>bars</code> lists.
+        Live US equities from the SIP feed (pro account). Subscribe to <code>trades</code>, <code>quotes</code>, <code>bars</code>, <code>updatedBars</code>, and/or <code>dailyBars</code>.
         Use <code>"*"</code> to subscribe to all symbols.
       </p>
-      <H3>Symbol limit</H3>
-      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>basic: — · value: 30 · trial/standard: 50 · premium: 500. Exceeding the limit returns an error message and the subscribe is rejected.</p>
-
-      <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>options</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Live OPRA options feed. Subscribe using OCC symbols in the <code>trades</code> and <code>quotes</code> lists.
-        All tiers except Basic.
-        <strong style={{ color: "var(--ink-strong)" }}> Index options (SPX, SPXW, NDX, RUT) are not available via WebSocket</strong> — the upstream Alpaca feed only covers equity and ETF options. Use the REST <code>/v1/history/options/bars</code> endpoint with <code>provider=thetadata</code> for index option history.
-      </p>
-
-      <h2 id="crypto" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>crypto</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Live US crypto orderbooks and trades. Subscribe using <code>orderbooks</code> and/or <code>trades</code> lists with pairs like <code>BTC/USD</code>.
-        Messages are plain JSON (not msgpack). All tiers except Basic.
-      </p>
       <pre className="code" style={{ marginBottom: 24 }}>
-{`await ws.send(json.dumps({
+{`# Connect to /stream, then subscribe
+uri = "${WS_BASE}/stream"
+await ws.send(json.dumps({"action": "auth", "token": token}))
+await ws.recv()   # success response
+
+await ws.send(json.dumps({
     "action": "subscribe",
-    "orderbooks": ["BTC/USD", "ETH/USD"],
-    "trades":     ["BTC/USD"]
-}))`}
+    "trades": ["AAPL", "TSLA", "NVDA"],
+    "quotes": ["AAPL"],
+    "bars":   ["AAPL"],
+    "updatedBars": ["AAPL"],
+    "dailyBars":   ["AAPL"]
+}))
+
+# You will receive Trade (T: "t"), Quote (T: "q"), Bar (T: "b"),
+# Updated bar (T: "u"), and Daily bar (T: "d") messages`}
       </pre>
 
-      <h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>news</h2>
+            <div style={{ paddingLeft: 16, borderLeft: "2px solid var(--rule)" }}>
+<h3 id="stocks-trade" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Trade</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Realtime news events from Benzinga. Subscribe with a <code>news</code> list of tickers or <code>"*"</code> for all.
-        Messages are plain JSON. All tiers except Basic. Historical news is also available via REST <code>/v1/history/news</code>.
+        Sent when you subscribe to <code>trades</code> on the stocks channel. One message per executed trade.
       </p>
-
-      <h2 id="overnight" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>overnight</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 28px" }}>
-        Extended-hours equity data. Same subscribe format as stocks (trades + quotes). All tiers except Basic.
-      </p>
-
-      {/* ── Messages ── */}
-      <div className="eyebrow" style={{ marginBottom: 10 }}>Messages</div>
-
-      <h2 id="subscribe" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Subscribe / Unsubscribe</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Subscribe and unsubscribe actions share the same shape — only the <code>action</code> field differs.
-        You can update subscriptions incrementally; each call adds or removes the listed symbols.
-      </p>
-      <pre className="code" style={{ marginBottom: 24 }}>
-{`// Subscribe
-{ "action": "subscribe",   "trades": ["AAPL"], "quotes": ["AAPL", "TSLA"], "bars": [] }
-
-// Unsubscribe
-{ "action": "unsubscribe", "trades": ["AAPL"], "quotes": [], "bars": [] }
-
-// Subscription confirmation (returned after each subscribe/unsubscribe)
-[{ "T": "subscription", "trades": ["AAPL"], "quotes": ["AAPL","TSLA"], "bars": [] }]`}
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to trades on /stream
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["AAPL"]
+}))
+// Response — Trade messages (T: "t") start arriving`}
       </pre>
-
-      <h2 id="trade" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Trade</h2>
       <pre className="code" style={{ marginBottom: 24 }}>
 {`{
   "T": "t",                         // message type: trade
@@ -2211,7 +2605,18 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      <h2 id="quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Quote</h2>
+      <h3 id="stocks-quote" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Quote</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>quotes</code> on the stocks channel. Contains the top-of-book bid and ask.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to quotes on /stream
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "quotes": ["AAPL"]
+}))
+// Response — Quote messages (T: "q") start arriving`}
+      </pre>
       <pre className="code" style={{ marginBottom: 24 }}>
 {`{
   "T":  "q",                         // message type: quote
@@ -2224,8 +2629,19 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      <h2 id="bar" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Bar</h2>
-      <pre className="code" style={{ marginBottom: 48 }}>
+      <h3 id="stocks-bar" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Bar</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>bars</code> on the stocks channel. One message per minute bar.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to minute bars on /stream
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "bars": ["AAPL"]
+}))
+// Response — Bar messages (T: "b") arrive once per minute`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
 {`{
   "T":  "b",                         // message type: bar (minute)
   "S":  "AAPL",
@@ -2237,7 +2653,489 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      {/* ── Operations ── */}
+      <h3 id="stocks-updated-bar" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Updated bar</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>updatedBars</code> on the stocks channel. Emitted when a previously sent minute bar is corrected (e.g., late trade reporting). Same schema as Bar but with <code>"T": "u"</code>.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to updated bars on /stream
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "updatedBars": ["AAPL"]
+}))
+// Response — Updated bar messages (T: "u") arrive when a bar is corrected`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T": "u",                          // message type: updated bar
+  "S": "AAPL",
+  "o": 214.20, "h": 214.50, "l": 214.10, "c": 214.38,
+  "v": 128500,
+  "vw": 214.34,
+  "n": 844,
+  "t": "2026-05-22T14:08:00Z"
+}`}
+      </pre>
+
+      <h3 id="stocks-daily-bar" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Daily bar</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>dailyBars</code> on the stocks channel. Emitted once per day at market close. Same schema as Bar but with <code>"T": "d"</code> and the timestamp is the trading day open.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to daily bars on /stream
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "dailyBars": ["AAPL"]
+}))
+// Response — Daily bar messages (T: "d") arrive once per day at close`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 32 }}>
+{`{
+  "T": "d",                          // message type: daily bar
+  "S": "AAPL",
+  "o": 213.50, "h": 215.10, "l": 212.80, "c": 214.37,
+  "v": 45283000,
+  "vw": 214.15,
+  "n": 128400,
+  "t": "2026-05-22T04:00:00Z"       // trading day open (ET)
+}`}
+      </pre>
+
+      {/* options */}
+            </div>
+<h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Options</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Live OPRA options feed. Subscribe using OCC symbols in the <code>trades</code>, <code>quotes</code>, and <code>bars</code> lists.
+        All tiers except Basic.
+        <strong style={{ color: "var(--ink-strong)" }}> Index options (SPX, SPXW, NDX, RUT) are not available via WebSocket</strong> — the upstream Alpaca feed only covers equity and ETF options. Use the REST <code>/v1/history/options/bars</code> endpoint with <code>provider=thetadata</code> for index option history.
+      </p>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`# Connect to /stream/options
+uri = "${WS_BASE}/stream/options"
+await ws.send(json.dumps({"action": "auth", "token": token}))
+await ws.recv()
+
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["AAPL240621C00210000"],
+    "quotes": ["AAPL240621C00210000"],
+    "bars":   ["AAPL240621C00210000"]
+}))
+
+# You will receive Trade (T: "t"), Quote (T: "q"), and Bar (T: "b") messages`}
+      </pre>
+
+            <div style={{ paddingLeft: 16, borderLeft: "2px solid var(--rule)" }}>
+<h3 id="options-trade" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Trade</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>trades</code> on the options channel. Schema is identical to equity trades.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to options trades on /stream/options
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["AAPL240621C00210000"]
+}))
+// Response — Trade messages (T: "t") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T": "t",
+  "S": "AAPL240621C00210000",
+  "p": 5.25,
+  "s": 10,
+  "t": "2026-05-22T14:08:12.482Z",
+  "x": "OPRA",
+  "c": ["@"],
+  "z": "C"
+}`}
+      </pre>
+
+      <h3 id="options-quote" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Quote</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>quotes</code> on the options channel. Schema is identical to equity quotes.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to options quotes on /stream/options
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "quotes": ["AAPL240621C00210000"]
+}))
+// Response — Quote messages (T: "q") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T":  "q",
+  "S":  "AAPL240621C00210000",
+  "ax": "OPRA", "ap": 5.30, "as": 50,
+  "bx": "OPRA", "bp": 5.20, "bs": 30,
+  "t":  "2026-05-22T14:08:12.522Z",
+  "c":  ["R"],
+  "z":  "C"
+}`}
+      </pre>
+
+      <h3 id="options-bar" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Bar</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>bars</code> on the options channel. One message per minute bar. Schema is identical to equity bars.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to options minute bars on /stream/options
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "bars": ["AAPL240621C00210000"]
+}))
+// Response — Bar messages (T: "b") arrive once per minute`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 32 }}>
+{`{
+  "T":  "b",
+  "S":  "AAPL240621C00210000",
+  "o":  5.10,  "h": 5.35,  "l": 5.05,  "c": 5.25,
+  "v":  450,
+  "vw": 5.22,
+  "n":  120,
+  "t":  "2026-05-22T14:08:00Z"
+}`}
+      </pre>
+
+      {/* boats */}
+            </div>
+<h2 id="boats" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Boats</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Regulatory and market-maker equity data (BOATS feed). Subscribe using <code>trades</code> and/or <code>quotes</code> lists.
+        Messages are msgpack. All tiers except Basic.
+      </p>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`# Connect to /stream/boats
+uri = "${WS_BASE}/stream/boats"
+await ws.send(json.dumps({"action": "auth", "token": token}))
+await ws.recv()
+
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["AAPL"],
+    "quotes": ["AAPL"]
+}))
+
+# You will receive Trade (T: "t") and Quote (T: "q") messages`}
+      </pre>
+
+            <div style={{ paddingLeft: 16, borderLeft: "2px solid var(--rule)" }}>
+<h3 id="boats-trade" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Trade</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>trades</code> on the boats channel. Schema is identical to equity trades.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to BOATS trades on /stream/boats
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["AAPL"]
+}))
+// Response — Trade messages (T: "t") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T": "t",
+  "S": "AAPL",
+  "p": 214.37,
+  "s": 100,
+  "t": "2026-05-22T14:08:12.482Z",
+  "x": "NASDAQ",
+  "c": ["@", "T"],
+  "z": "C"
+}`}
+      </pre>
+
+      <h3 id="boats-quote" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Quote</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>quotes</code> on the boats channel. Schema is identical to equity quotes.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to BOATS quotes on /stream/boats
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "quotes": ["AAPL"]
+}))
+// Response — Quote messages (T: "q") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 32 }}>
+{`{
+  "T":  "q",
+  "S":  "AAPL",
+  "ax": "NASDAQ", "ap": 214.40, "as": 200,
+  "bx": "NYSE",   "bp": 214.35, "bs": 500,
+  "t":  "2026-05-22T14:08:12.522Z",
+  "c":  ["R"],
+  "z":  "C"
+}`}
+      </pre>
+
+      {/* overnight */}
+            </div>
+<h2 id="overnight" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Overnight</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Extended-hours equity data. Same subscribe format as stocks (trades + quotes + bars).
+        Messages are msgpack. All tiers except Basic.
+      </p>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`# Connect to /stream/overnight
+uri = "${WS_BASE}/stream/overnight"
+await ws.send(json.dumps({"action": "auth", "token": token}))
+await ws.recv()
+
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["AAPL"],
+    "quotes": ["AAPL"],
+    "bars":   ["AAPL"]
+}))
+
+# You will receive Trade (T: "t"), Quote (T: "q"), and Bar (T: "b") messages`}
+      </pre>
+
+            <div style={{ paddingLeft: 16, borderLeft: "2px solid var(--rule)" }}>
+<h3 id="overnight-trade" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Trade</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>trades</code> on the overnight channel. Schema is identical to equity trades.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to overnight trades on /stream/overnight
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["AAPL"]
+}))
+// Response — Trade messages (T: "t") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T": "t",
+  "S": "AAPL",
+  "p": 214.37,
+  "s": 100,
+  "t": "2026-05-22T14:08:12.482Z",
+  "x": "NASDAQ",
+  "c": ["@", "T"],
+  "z": "C"
+}`}
+      </pre>
+
+      <h3 id="overnight-quote" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Quote</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>quotes</code> on the overnight channel. Schema is identical to equity quotes.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to overnight quotes on /stream/overnight
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "quotes": ["AAPL"]
+}))
+// Response — Quote messages (T: "q") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T":  "q",
+  "S":  "AAPL",
+  "ax": "NASDAQ", "ap": 214.40, "as": 200,
+  "bx": "NYSE",   "bp": 214.35, "bs": 500,
+  "t":  "2026-05-22T14:08:12.522Z",
+  "c":  ["R"],
+  "z":  "C"
+}`}
+      </pre>
+
+      <h3 id="overnight-bar" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Bar</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>bars</code> on the overnight channel. One message per minute bar. Schema is identical to equity bars.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to overnight minute bars on /stream/overnight
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "bars": ["AAPL"]
+}))
+// Response — Bar messages (T: "b") arrive once per minute`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 32 }}>
+{`{
+  "T":  "b",
+  "S":  "AAPL",
+  "o":  214.20,  "h": 214.50,  "l": 214.10,  "c": 214.37,
+  "v":  128400,
+  "vw": 214.33,
+  "n":  843,
+  "t":  "2026-05-22T14:08:00Z"
+}`}
+      </pre>
+
+      {/* crypto */}
+            </div>
+<h2 id="crypto" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Crypto</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Live US crypto orderbooks and trades. Subscribe using <code>orderbooks</code> and/or <code>trades</code> lists with pairs like <code>BTC/USD</code>.
+        Messages are plain JSON (not msgpack). All tiers except Basic.
+      </p>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`# Connect to /stream/crypto
+uri = "${WS_BASE}/stream/crypto"
+await ws.send(json.dumps({"action": "auth", "token": token}))
+await ws.recv()
+
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "orderbooks": ["BTC/USD", "ETH/USD"],
+    "trades":     ["BTC/USD"]
+}))
+
+# You will receive orderbook updates (T: "o") and Trade (T: "t") messages`}
+      </pre>
+
+            <div style={{ paddingLeft: 16, borderLeft: "2px solid var(--rule)" }}>
+<h3 id="crypto-orderbook" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Orderbook</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>orderbooks</code> on the crypto channel. Contains top-of-book bid/ask snapshot.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to crypto orderbooks on /stream/crypto
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "orderbooks": ["BTC/USD"]
+}))
+// Response — Orderbook messages (T: "o") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T":  "o",                         // message type: orderbook
+  "S":  "BTC/USD",
+  "t":  "2026-05-22T14:08:12.522Z",
+  "ax": "ERSX", "ap": 43400.00, "as": 0.5,   // ask
+  "bx": "ERSX", "bp": 43399.50, "bs": 1.2    // bid
+}`}
+      </pre>
+
+      <h3 id="crypto-trade" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Trade</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>trades</code> on the crypto channel. Same schema as equity trades.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to crypto trades on /stream/crypto
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["BTC/USD"]
+}))
+// Response — Trade messages (T: "t") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 32 }}>
+{`{
+  "T": "t",
+  "S": "BTC/USD",
+  "p": 43399.50,
+  "s": 0.25,
+  "t": "2026-05-22T14:08:12.482Z",
+  "x": "ERSX",
+  "c": ["@"]
+}`}
+      </pre>
+
+      {/* news */}
+            </div>
+<h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>News</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Realtime news events from Benzinga. Subscribe with a <code>news</code> list of tickers or <code>"*"</code> for all.
+        Messages are plain JSON. All tiers except Basic. Historical news is also available via REST <code>/v1/history/news</code>.
+      </p>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`# Connect to /stream/news
+uri = "${WS_BASE}/stream/news"
+await ws.send(json.dumps({"action": "auth", "token": token}))
+await ws.recv()
+
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "news": ["AAPL", "*"]    # "*" subscribes to all symbols
+}))
+
+# You will receive News (T: "n") messages`}
+      </pre>
+
+            <div style={{ paddingLeft: 16, borderLeft: "2px solid var(--rule)" }}>
+<h3 id="news-news" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>News</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>news</code> on the news channel. One message per news article.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to news on /stream/news
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "news": ["AAPL", "*"]
+}))
+// Response — News messages (T: "n") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 32 }}>
+{`{
+  "T":        "n",                   // message type: news
+  "id":       12345678,
+  "headline": "Apple Reports Q2 Earnings Beat",
+  "summary":  "Apple announced revenue of $95.4B...",
+  "author":   "Reuters",
+  "created_at": "2026-05-22T14:08:00Z",
+  "updated_at": "2026-05-22T14:08:00Z",
+  "url":      "https://www.benzinga.com/...",
+  "content":  "...",
+  "symbols":  ["AAPL"],
+  "source":   "benzinga"
+}`}
+      </pre>
+
+      {/* test */}
+            </div>
+<h2 id="test" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Test</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Debug and validation channel. Echoes a small test payload on subscription so you can verify connectivity, auth, and msgpack parsing without consuming market data.
+        Messages are msgpack. All tiers.
+      </p>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`# Connect to /stream/test
+uri = "${WS_BASE}/stream/test"
+await ws.send(json.dumps({"action": "auth", "token": token}))
+await ws.recv()
+
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["TEST"]
+}))
+
+# You will receive a test Trade (T: "t") message for verification`}
+      </pre>
+
+            <div style={{ paddingLeft: 16, borderLeft: "2px solid var(--rule)" }}>
+<h3 id="test-trade" className="display-title" style={{ fontSize: 16, margin: "24px 0 8px", color: "var(--ink-strong)" }}>Trade</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>trades</code> on the test channel. A dummy trade message for testing your parser.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to test trades on /stream/test
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["TEST"]
+}))
+// Response — A test Trade message (T: "t") is sent for verification`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`{
+  "T": "t",
+  "S": "TEST",
+  "p": 100.00,
+  "s": 1,
+  "t": "2026-05-22T14:08:00Z",
+  "x": "TEST",
+  "c": ["@"],
+  "z": "C"
+}`}
+      </pre>
+
+            </div>
+{/* ── Operations ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Operations</div>
 
       <h2 id="reconnect" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Reconnect</h2>
@@ -2272,8 +3170,29 @@ async def with_reconnect(token, uri, handler, backoff=1):
       <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         Best practice: process each message quickly (or offload to a queue) rather than doing heavy work inside the receive loop.
       </p>
+
+      <h2 id="rate-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Rate limits</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        WS limits are separate from REST. Symbol subscriptions and open connections are counted per user across all channels.
+      </p>
+      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
+        <thead>
+          <tr><th>Tier</th><th>WS symbols</th><th>WS connections</th></tr>
+        </thead>
+        <tbody>
+          <tr><td style={{ fontSize: 12 }}>trial</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td></tr>
+          <tr><td style={{ fontSize: 12 }}>basic</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td></tr>
+          <tr><td style={{ fontSize: 12 }}>value</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>30</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td></tr>
+          <tr><td style={{ fontSize: 12 }}>standard</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>100</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td></tr>
+          <tr><td style={{ fontSize: 12 }}>premium</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>unlimited</td></tr>
+        </tbody>
+      </table>
+      <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "0 0 40px" }}>
+        Exceeding the REST concurrency limit returns <code>429</code> with a JSON body. Exceeding the WS connection limit rejects the <code>auth</code> message and closes the socket with code <code>1008</code>.
+      </p>
     </div>
   );
 }
 
 window.DocsSite = DocsSite;
+

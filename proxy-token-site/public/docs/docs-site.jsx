@@ -499,7 +499,8 @@ function DocsTopbar({ active = "proxy", onNav }) {
       </div>
       <div className="spacer"></div>
       <div className="meta">
-        <span className="pill"><span className="live"></span> v2.6 · live</span>
+        <span className="pill"><span className="live"></span> v2.7 · live</span>
+        <GuideDownloadLink compact />
         <a className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.34c-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.74.54 1.49v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0z"/></svg>
           ikkisovi/Websocket-DataFeed-Proxy-docs
@@ -566,6 +567,46 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
 
 function slugify(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function DownloadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3v12" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M5 21h14" />
+    </svg>
+  );
+}
+
+function GuideDownloadLink({ compact = false }) {
+  return (
+    <a
+      href="/thetadata-option-proxy-skill.md"
+      download="thetadata-option-proxy-skill.md"
+      className={compact ? "btn ghost" : "btn"}
+      style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: compact ? "6px 10px" : "9px 12px", fontSize: compact ? 12 : 13 }}
+    >
+      <DownloadIcon />
+      <span>{compact ? "Skill" : "Download user skill"}</span>
+    </a>
+  );
+}
+
+function SkillDownloadCard() {
+  return (
+    <div className="card" style={{ padding: 16, margin: "0 0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, background: "var(--bg-paper)" }}>
+      <div>
+        <div className="eyebrow" style={{ marginBottom: 6, color: "var(--ink-soft)" }}>User skill</div>
+        <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 500, color: "var(--ink-strong)" }}>ThetaData Option Proxy quick-start</h3>
+        <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)" }}>
+          Public usage guide for token auth, REST examples, option-history provider choices, and endpoint smoke tests. No deployment details or secrets are included.
+          <br/><span style={{ color: "var(--ink-soft)" }}>面向用户的使用指南：Token 鉴权、REST 示例、期权数据 provider 选择和端点测试；不包含部署细节或密钥。</span>
+        </p>
+      </div>
+      <GuideDownloadLink />
+    </div>
+  );
 }
 
 function Tab({ id, tab, setTab, label, count }) {
@@ -636,10 +677,9 @@ function SideNav({ tab }) {
     { title: "Admin endpoints", items: ["login", "pending", "approve", "reject"] },
     { title: "Reference", items: ["Error codes", "Rate limits"] },
   ] : tab === "ws" ? [
-    { title: "Connecting", items: ["Endpoint", "Auth message", "Heartbeat"] },
-    { title: "Channels", items: ["stocks", "options", "crypto", "news", "overnight"] },
-    { title: "Messages", items: ["Subscribe", "Unsubscribe", "Trade", "Quote", "Bar"] },
-    { title: "Operations", items: ["Reconnect", "Backpressure"] },
+    { title: "Connecting", items: ["WebSocket connection", "Auth message", "Heartbeat", "Error", "Success"] },
+    { title: "Channels", items: ["stocks", "options", "boats", "overnight", "crypto", "news", "test"] },
+    { title: "Operations", items: ["Reconnect", "Backpressure", "Rate limits"] },
   ] : [
     { title: "System", items: ["Overview", "Components", "Latency"] },
     { title: "History", items: ["Uptime", "Incidents", "Methodology"] },
@@ -799,7 +839,47 @@ function TokenCard() {
     finally { setLoading(false); }
   };
 
-  const handleCopy = () => { navigator.clipboard.writeText(tokenData.token); };
+  const handleCopy = () => {
+    if (tokenData && tokenData.token) {
+      const textToCopy = tokenData.token;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy)
+          .then(() => alert("Token copied to clipboard!"))
+          .catch(() => fallbackCopy(textToCopy));
+      } else {
+        fallbackCopy(textToCopy);
+      }
+    }
+  };
+
+  const fallbackCopy = (text) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.width = "2em";
+    textArea.style.height = "2em";
+    textArea.style.padding = "0";
+    textArea.style.border = "none";
+    textArea.style.outline = "none";
+    textArea.style.boxShadow = "none";
+    textArea.style.background = "transparent";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        alert("Token copied to clipboard!");
+      } else {
+        alert("Unable to copy automatically. Please copy it manually.");
+      }
+    } catch (err) {
+      alert("Unable to copy automatically. Please copy it manually.");
+    }
+    document.body.removeChild(textArea);
+  };
 
   return (
     <div style={{ marginTop: 28, padding: 14, borderRadius: 8, background: "var(--bg-paper)", border: "1px solid var(--rule)" }}>
@@ -1159,6 +1239,8 @@ function ProxyApiBody() {
           <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{WS_BASE}/*</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
         </tbody>
       </table>
+      <SkillDownloadCard />
+
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13 }}>
         <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Hybrid architecture</strong> — REST historical data is served via <strong>Cloudflare</strong> global edge (<code>api.leandata.uk</code>, 7-day edge cache).
         Real-time REST endpoints (snapshots, orderbooks) are available at <code>rt-api.leandata.uk</code> (60s edge cache, faster upstream).
@@ -1173,10 +1255,10 @@ function ProxyApiBody() {
       </p>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`# Option A — Authorization header (preferred)
-Authorization: Bearer c88662...720a
+Authorization: Bearer <TOKEN>
 
 # Option B — token field in request body
-{ "token": "c886624f-232d-4803-99fa-f8b970e4720a", "symbol": "AAPL", ... }`}
+{ "token":  "<TOKEN>", "symbol": "AAPL", ... }`}
       </pre>
       <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 40px" }}>
         Tokens expire 30 days after issuance (trial: 3 days, non-renewable). The proxy returns <code>401</code> for invalid or expired tokens and <code>403</code> if your tier lacks permission for the endpoint.
@@ -1314,7 +1396,7 @@ Authorization: Bearer c88662...720a
 // Response 200
 {
   "success": true,
-  "token":  "c886624f-232d-4803-99fa-f8b970e4720a",
+  "token":  "<TOKEN>",
   "expiry": "2026-06-19T14:15:57.059704+00:00",
   "role":   "premium"
 }
@@ -1344,7 +1426,7 @@ Authorization: Bearer c88662...720a
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/history/bars \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbol":"AAPL","timeframe":"1Day","start":"2024-01-02","end":"2024-01-05","limit":5}'`}
       </pre>
@@ -1384,7 +1466,7 @@ Authorization: Bearer c88662...720a
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/history/news \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL","start":"2024-01-02","end":"2024-01-03","limit":3}'`}
       </pre>
@@ -1428,7 +1510,7 @@ Authorization: Bearer c88662...720a
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/stock/history/trade_quote \\
-  -H "Authorization: Bearer ***" \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbol":"AAPL","start":"2026-05-20T13:30:00Z","end":"2026-05-20T13:31:00Z","limit":3}'`}
       </pre>
@@ -1550,7 +1632,7 @@ curl -H "Authorization: Bearer <TOKEN>" \\
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/contracts \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"underlying_symbols":"AAPL","limit":2,"provider":"auto"}'`}
       </pre>
@@ -1610,7 +1692,7 @@ curl -H "Authorization: Bearer <TOKEN>" \\
       <pre className="code" style={{ marginBottom: 12 }}>
 {`// With explicit OCC symbol
 curl -X POST ${REST_BASE}/v1/history/options/bars \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260620C00200000","start":"2025-05-01","end":"2025-05-15","timeframe":"1Day","provider":"auto"}'
 
@@ -1648,7 +1730,7 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/open_interest \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbol":"AAPL","start":"2025-01-02","end":"2025-01-05"}'`}
       </pre>
@@ -1826,7 +1908,7 @@ for row in data["data"][:5]:
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260620C00200000","feed":"indicative"}'`}
       </pre>
@@ -1872,7 +1954,7 @@ for row in data["data"][:5]:
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/quote \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260522C00110000","feed":"indicative"}'`}
       </pre>
@@ -1935,7 +2017,7 @@ for sym, snap in resp.json()["snapshots"].items():
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/open_interest \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260522C00110000","feed":"thetadata"}'`}
       </pre>
@@ -1981,7 +2063,7 @@ for sym, snap in resp.json()["snapshots"].items():
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/expiry \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"underlying":"AAPL","expiry":"2026-05-22","feed":"indicative"}'`}
       </pre>
@@ -2117,7 +2199,7 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/crypto/us/latest/orderbooks \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"BTC/USD,ETH/USD"}'`}
       </pre>
@@ -2189,7 +2271,7 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
 {
   "success": true,
   "message": "已批准 tonnysun，Token 已自动注册到 proxy。",
-  "token":  "c886624f-232d-4803-99fa-f8b970e4720a",
+  "token":  "<TOKEN>",
   "expiry": "2026-06-19T14:15:57.059Z"
 }`}
       </pre>
@@ -2336,10 +2418,10 @@ function WsUsageBody() {
   return (
     <div style={{ maxWidth: 760 }}>
       <div className="eyebrow" style={{ marginBottom: 10 }}>Realtime</div>
-      <h2 id="endpoint" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>WebSocket connection</h2>
+      <h2 id="websocket-connection" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>WebSocket connection</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 20px", maxWidth: 640 }}>
-        Each channel has a dedicated path. Connect to the appropriate URL, send an <code>auth</code> message with your token, then send <code>subscribe</code> messages.
-        Stocks/options/overnight/boats messages are binary MessagePack; crypto and news channels use JSON.
+        Each channel has a dedicated path on EC2. Connect to a URL, send an <code>auth</code> message with your token, then send <code>subscribe</code> messages for the feeds you want.
+        Stocks/options/overnight/boats/test use binary MessagePack; crypto and news use JSON.
       </p>
 
       <table className="tbl card" style={{ marginBottom: 28, overflow: "hidden" }}>
@@ -2352,6 +2434,7 @@ function WsUsageBody() {
             ["overnight", "/stream/overnight", "msgpack", "—", "✓", "✓", "✓", "✓"],
             ["crypto",    "/stream/crypto",    "JSON",    "—", "✓", "✓", "✓", "✓"],
             ["news",      "/stream/news",      "JSON",    "—", "✓", "✓", "✓", "✓"],
+            ["test",      "/stream/test",      "msgpack", "—", "✓", "✓", "✓", "✓"],
           ].map(([ch, path, fmt, b, tr, v, s, p], i) => (
             <tr key={i}>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, fontWeight: 600 }}>{ch}</td>
@@ -2366,6 +2449,13 @@ function WsUsageBody() {
           ))}
         </tbody>
       </table>
+
+      <H3>Symbol & connection limits</H3>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 28px" }}>
+        Per-channel symbol limits by tier: basic: — · value: 30 · trial/standard: 50 · premium: 500.
+        WS connection limits by tier: basic: — · value: 2 · trial/standard: 3 · premium: unlimited.
+        Exceeding either limit returns an error and the subscribe/auth is rejected.
+      </p>
 
       {/* ── Connecting ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Connecting</div>
@@ -2383,21 +2473,28 @@ async def stream_stocks(token):
         # 1. Authenticate
         await ws.send(json.dumps({"action": "auth", "token": token}))
         auth_resp = msgpack.unpackb(await ws.recv())
-        # auth_resp → [{"T": "success", "msg": "authenticated"}]
+        # auth_resp -> [{"T": "success", "msg": "authenticated"}]
 
-        # 2. Subscribe
+        # 2. Subscribe to the feeds you want
         await ws.send(json.dumps({
             "action": "subscribe",
             "trades": ["AAPL", "TSLA", "NVDA"],
             "quotes": ["AAPL"],
-            "bars":   []
+            "bars":   [],
+            "updatedBars": [],
+            "dailyBars": []
         }))
 
-        # 3. Receive
+        # 3. Receive messages
         async for raw in ws:
             msgs = msgpack.unpackb(raw)   # list of message dicts
             for msg in msgs:
-                print(msg)
+                if msg.get("T") == "t":
+                    print("TRADE:", msg["S"], msg["p"], msg["s"])
+                elif msg.get("T") == "q":
+                    print("QUOTE:", msg["S"], msg["bp"], msg["ap"])
+                elif msg.get("T") == "b":
+                    print("BAR:", msg["S"], msg["o"], msg["h"], msg["l"], msg["c"])
 
 asyncio.run(stream_stocks("YOUR_TOKEN"))`}
       </pre>
@@ -2417,71 +2514,83 @@ await ws.send(json.dumps({
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 28px" }}>
         The server sends WebSocket ping frames automatically. Most client libraries respond to pings automatically. If your client does not, call <code>pong()</code> on receipt to stay connected.
         The server will close connections that exceed the send queue limit (200 messages).
-        Each tier has a per-user connection limit across all channels (see <a href="#concurrency-limits">Concurrency limits</a>). Exceeding it rejects auth with code <code>1008</code>.
+        Each tier has a per-user connection limit across all channels (see <a href="#rate-limits">Rate limits</a>). Exceeding it rejects auth with code <code>1008</code>.
       </p>
+
+      <h2 id="error" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Error</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Returned on auth failure, subscription rejection, or policy violation. The connection may be closed immediately after an error.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Auth rejected — too many connections
+await ws.send(json.dumps({"action": "auth", "token": token}))
+// -> [{"T": "error", "msg": "connection limit exceeded", "code": 1008}]
+// Connection closed with code 1008`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T":   "error",
+  "msg": "connection limit exceeded",
+  "code": 1008
+}`}
+      </pre>
+
+      <h2 id="success" className="display-title" style={{ fontSize: 28, margin: "0 0 48px" }}>Success</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Returned after successful authentication.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// After sending auth
+await ws.send(json.dumps({"action": "auth", "token": token}))
+// -> [{"T": "success", "msg": "authenticated"}]`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T": "success",
+  "msg": "authenticated"
+}`}
+      </pre>
 
       {/* ── Channels ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Channels</div>
 
-      <h2 id="stocks" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>stocks</h2>
+      {/* stocks */}
+      <h2 id="stocks" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Stocks</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Live US equities: trades, quotes, and minute bars from the SIP feed (pro account). Subscribe to <code>trades</code>, <code>quotes</code>, and/or <code>bars</code> lists.
+        Live US equities from the SIP feed (pro account). Subscribe to <code>trades</code>, <code>quotes</code>, <code>bars</code>, <code>updatedBars</code>, and/or <code>dailyBars</code>.
         Use <code>"*"</code> to subscribe to all symbols.
       </p>
-      <H3>Symbol limit</H3>
-      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>basic: — · value: 30 · trial/standard: 50 · premium: 500. Exceeding the limit returns an error message and the subscribe is rejected.</p>
-
-      <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>options</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Live OPRA options feed. Subscribe using OCC symbols in the <code>trades</code> and <code>quotes</code> lists.
-        All tiers except Basic.
-        <strong style={{ color: "var(--ink-strong)" }}> Index options (SPX, SPXW, NDX, RUT) are not available via WebSocket</strong> — the upstream Alpaca feed only covers equity and ETF options. Use the REST <code>/v1/history/options/bars</code> endpoint with <code>provider=thetadata</code> for index option history.
-      </p>
-
-      <h2 id="crypto" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>crypto</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Live US crypto orderbooks and trades. Subscribe using <code>orderbooks</code> and/or <code>trades</code> lists with pairs like <code>BTC/USD</code>.
-        Messages are plain JSON (not msgpack). All tiers except Basic.
-      </p>
       <pre className="code" style={{ marginBottom: 24 }}>
-{`await ws.send(json.dumps({
+{`# Connect to /stream, then subscribe
+uri = "${WS_BASE}/stream"
+await ws.send(json.dumps({"action": "auth", "token": token}))
+await ws.recv()   # success response
+
+await ws.send(json.dumps({
     "action": "subscribe",
-    "orderbooks": ["BTC/USD", "ETH/USD"],
-    "trades":     ["BTC/USD"]
-}))`}
+    "trades": ["AAPL", "TSLA", "NVDA"],
+    "quotes": ["AAPL"],
+    "bars":   ["AAPL"],
+    "updatedBars": ["AAPL"],
+    "dailyBars":   ["AAPL"]
+}))
+
+# You will receive Trade (T: "t"), Quote (T: "q"), Bar (T: "b"),
+# Updated bar (T: "u"), and Daily bar (T: "d") messages`}
       </pre>
 
-      <h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>news</h2>
+      <h3 id="stocks-trade" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Trade</h3>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Realtime news events from Benzinga. Subscribe with a <code>news</code> list of tickers or <code>"*"</code> for all.
-        Messages are plain JSON. All tiers except Basic. Historical news is also available via REST <code>/v1/history/news</code>.
+        Sent when you subscribe to <code>trades</code> on the stocks channel. One message per executed trade.
       </p>
-
-      <h2 id="overnight" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>overnight</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 28px" }}>
-        Extended-hours equity data. Same subscribe format as stocks (trades + quotes). All tiers except Basic.
-      </p>
-
-      {/* ── Messages ── */}
-      <div className="eyebrow" style={{ marginBottom: 10 }}>Messages</div>
-
-      <h2 id="subscribe" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Subscribe / Unsubscribe</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Subscribe and unsubscribe actions share the same shape — only the <code>action</code> field differs.
-        You can update subscriptions incrementally; each call adds or removes the listed symbols.
-      </p>
-      <pre className="code" style={{ marginBottom: 24 }}>
-{`// Subscribe
-{ "action": "subscribe",   "trades": ["AAPL"], "quotes": ["AAPL", "TSLA"], "bars": [] }
-
-// Unsubscribe
-{ "action": "unsubscribe", "trades": ["AAPL"], "quotes": [], "bars": [] }
-
-// Subscription confirmation (returned after each subscribe/unsubscribe)
-[{ "T": "subscription", "trades": ["AAPL"], "quotes": ["AAPL","TSLA"], "bars": [] }]`}
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to trades on /stream
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["AAPL"]
+}))
+// Response — Trade messages (T: "t") start arriving`}
       </pre>
-
-      <h2 id="trade" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Trade</h2>
       <pre className="code" style={{ marginBottom: 24 }}>
 {`{
   "T": "t",                         // message type: trade
@@ -2495,7 +2604,18 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      <h2 id="quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Quote</h2>
+      <h3 id="stocks-quote" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Quote</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>quotes</code> on the stocks channel. Contains the top-of-book bid and ask.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to quotes on /stream
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "quotes": ["AAPL"]
+}))
+// Response — Quote messages (T: "q") start arriving`}
+      </pre>
       <pre className="code" style={{ marginBottom: 24 }}>
 {`{
   "T":  "q",                         // message type: quote
@@ -2508,8 +2628,19 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      <h2 id="bar" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Bar</h2>
-      <pre className="code" style={{ marginBottom: 48 }}>
+      <h3 id="stocks-bar" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Bar</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>bars</code> on the stocks channel. One message per minute bar.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to minute bars on /stream
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "bars": ["AAPL"]
+}))
+// Response — Bar messages (T: "b") arrive once per minute`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
 {`{
   "T":  "b",                         // message type: bar (minute)
   "S":  "AAPL",
@@ -2518,6 +2649,475 @@ await ws.send(json.dumps({
   "vw": 214.33,                      // VWAP
   "n":  843,                         // trade count
   "t":  "2026-05-22T14:08:00Z"       // bar open time
+}`}
+      </pre>
+
+      <h3 id="stocks-updated-bar" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Updated bar</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>updatedBars</code> on the stocks channel. Emitted when a previously sent minute bar is corrected (e.g., late trade reporting). Same schema as Bar but with <code>"T": "u"</code>.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to updated bars on /stream
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "updatedBars": ["AAPL"]
+}))
+// Response — Updated bar messages (T: "u") arrive when a bar is corrected`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T": "u",                          // message type: updated bar
+  "S": "AAPL",
+  "o": 214.20, "h": 214.50, "l": 214.10, "c": 214.38,
+  "v": 128500,
+  "vw": 214.34,
+  "n": 844,
+  "t": "2026-05-22T14:08:00Z"
+}`}
+      </pre>
+
+      <h3 id="stocks-daily-bar" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Daily bar</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>dailyBars</code> on the stocks channel. Emitted once per day at market close. Same schema as Bar but with <code>"T": "d"</code> and the timestamp is the trading day open.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to daily bars on /stream
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "dailyBars": ["AAPL"]
+}))
+// Response — Daily bar messages (T: "d") arrive once per day at close`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 32 }}>
+{`{
+  "T": "d",                          // message type: daily bar
+  "S": "AAPL",
+  "o": 213.50, "h": 215.10, "l": 212.80, "c": 214.37,
+  "v": 45283000,
+  "vw": 214.15,
+  "n": 128400,
+  "t": "2026-05-22T04:00:00Z"       // trading day open (ET)
+}`}
+      </pre>
+
+      {/* options */}
+      <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Options</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Live OPRA options feed. Subscribe using OCC symbols in the <code>trades</code>, <code>quotes</code>, and <code>bars</code> lists.
+        All tiers except Basic.
+        <strong style={{ color: "var(--ink-strong)" }}> Index options (SPX, SPXW, NDX, RUT) are not available via WebSocket</strong> — the upstream Alpaca feed only covers equity and ETF options. Use the REST <code>/v1/history/options/bars</code> endpoint with <code>provider=thetadata</code> for index option history.
+      </p>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`# Connect to /stream/options
+uri = "${WS_BASE}/stream/options"
+await ws.send(json.dumps({"action": "auth", "token": token}))
+await ws.recv()
+
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["AAPL240621C00210000"],
+    "quotes": ["AAPL240621C00210000"],
+    "bars":   ["AAPL240621C00210000"]
+}))
+
+# You will receive Trade (T: "t"), Quote (T: "q"), and Bar (T: "b") messages`}
+      </pre>
+
+      <h3 id="options-trade" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Trade</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>trades</code> on the options channel. Schema is identical to equity trades.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to options trades on /stream/options
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["AAPL240621C00210000"]
+}))
+// Response — Trade messages (T: "t") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T": "t",
+  "S": "AAPL240621C00210000",
+  "p": 5.25,
+  "s": 10,
+  "t": "2026-05-22T14:08:12.482Z",
+  "x": "OPRA",
+  "c": ["@"],
+  "z": "C"
+}`}
+      </pre>
+
+      <h3 id="options-quote" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Quote</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>quotes</code> on the options channel. Schema is identical to equity quotes.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to options quotes on /stream/options
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "quotes": ["AAPL240621C00210000"]
+}))
+// Response — Quote messages (T: "q") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T":  "q",
+  "S":  "AAPL240621C00210000",
+  "ax": "OPRA", "ap": 5.30, "as": 50,
+  "bx": "OPRA", "bp": 5.20, "bs": 30,
+  "t":  "2026-05-22T14:08:12.522Z",
+  "c":  ["R"],
+  "z":  "C"
+}`}
+      </pre>
+
+      <h3 id="options-bar" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Bar</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>bars</code> on the options channel. One message per minute bar. Schema is identical to equity bars.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to options minute bars on /stream/options
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "bars": ["AAPL240621C00210000"]
+}))
+// Response — Bar messages (T: "b") arrive once per minute`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 32 }}>
+{`{
+  "T":  "b",
+  "S":  "AAPL240621C00210000",
+  "o":  5.10,  "h": 5.35,  "l": 5.05,  "c": 5.25,
+  "v":  450,
+  "vw": 5.22,
+  "n":  120,
+  "t":  "2026-05-22T14:08:00Z"
+}`}
+      </pre>
+
+      {/* boats */}
+      <h2 id="boats" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Boats</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Regulatory and market-maker equity data (BOATS feed). Subscribe using <code>trades</code> and/or <code>quotes</code> lists.
+        Messages are msgpack. All tiers except Basic.
+      </p>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`# Connect to /stream/boats
+uri = "${WS_BASE}/stream/boats"
+await ws.send(json.dumps({"action": "auth", "token": token}))
+await ws.recv()
+
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["AAPL"],
+    "quotes": ["AAPL"]
+}))
+
+# You will receive Trade (T: "t") and Quote (T: "q") messages`}
+      </pre>
+
+      <h3 id="boats-trade" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Trade</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>trades</code> on the boats channel. Schema is identical to equity trades.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to BOATS trades on /stream/boats
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["AAPL"]
+}))
+// Response — Trade messages (T: "t") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T": "t",
+  "S": "AAPL",
+  "p": 214.37,
+  "s": 100,
+  "t": "2026-05-22T14:08:12.482Z",
+  "x": "NASDAQ",
+  "c": ["@", "T"],
+  "z": "C"
+}`}
+      </pre>
+
+      <h3 id="boats-quote" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Quote</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>quotes</code> on the boats channel. Schema is identical to equity quotes.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to BOATS quotes on /stream/boats
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "quotes": ["AAPL"]
+}))
+// Response — Quote messages (T: "q") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 32 }}>
+{`{
+  "T":  "q",
+  "S":  "AAPL",
+  "ax": "NASDAQ", "ap": 214.40, "as": 200,
+  "bx": "NYSE",   "bp": 214.35, "bs": 500,
+  "t":  "2026-05-22T14:08:12.522Z",
+  "c":  ["R"],
+  "z":  "C"
+}`}
+      </pre>
+
+      {/* overnight */}
+      <h2 id="overnight" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Overnight</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Extended-hours equity data. Same subscribe format as stocks (trades + quotes + bars).
+        Messages are msgpack. All tiers except Basic.
+      </p>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`# Connect to /stream/overnight
+uri = "${WS_BASE}/stream/overnight"
+await ws.send(json.dumps({"action": "auth", "token": token}))
+await ws.recv()
+
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["AAPL"],
+    "quotes": ["AAPL"],
+    "bars":   ["AAPL"]
+}))
+
+# You will receive Trade (T: "t"), Quote (T: "q"), and Bar (T: "b") messages`}
+      </pre>
+
+      <h3 id="overnight-trade" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Trade</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>trades</code> on the overnight channel. Schema is identical to equity trades.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to overnight trades on /stream/overnight
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["AAPL"]
+}))
+// Response — Trade messages (T: "t") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T": "t",
+  "S": "AAPL",
+  "p": 214.37,
+  "s": 100,
+  "t": "2026-05-22T14:08:12.482Z",
+  "x": "NASDAQ",
+  "c": ["@", "T"],
+  "z": "C"
+}`}
+      </pre>
+
+      <h3 id="overnight-quote" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Quote</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>quotes</code> on the overnight channel. Schema is identical to equity quotes.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to overnight quotes on /stream/overnight
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "quotes": ["AAPL"]
+}))
+// Response — Quote messages (T: "q") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T":  "q",
+  "S":  "AAPL",
+  "ax": "NASDAQ", "ap": 214.40, "as": 200,
+  "bx": "NYSE",   "bp": 214.35, "bs": 500,
+  "t":  "2026-05-22T14:08:12.522Z",
+  "c":  ["R"],
+  "z":  "C"
+}`}
+      </pre>
+
+      <h3 id="overnight-bar" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Bar</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>bars</code> on the overnight channel. One message per minute bar. Schema is identical to equity bars.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to overnight minute bars on /stream/overnight
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "bars": ["AAPL"]
+}))
+// Response — Bar messages (T: "b") arrive once per minute`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 32 }}>
+{`{
+  "T":  "b",
+  "S":  "AAPL",
+  "o":  214.20,  "h": 214.50,  "l": 214.10,  "c": 214.37,
+  "v":  128400,
+  "vw": 214.33,
+  "n":  843,
+  "t":  "2026-05-22T14:08:00Z"
+}`}
+      </pre>
+
+      {/* crypto */}
+      <h2 id="crypto" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Crypto</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Live US crypto orderbooks and trades. Subscribe using <code>orderbooks</code> and/or <code>trades</code> lists with pairs like <code>BTC/USD</code>.
+        Messages are plain JSON (not msgpack). All tiers except Basic.
+      </p>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`# Connect to /stream/crypto
+uri = "${WS_BASE}/stream/crypto"
+await ws.send(json.dumps({"action": "auth", "token": token}))
+await ws.recv()
+
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "orderbooks": ["BTC/USD", "ETH/USD"],
+    "trades":     ["BTC/USD"]
+}))
+
+# You will receive orderbook updates (T: "o") and Trade (T: "t") messages`}
+      </pre>
+
+      <h3 id="crypto-orderbook" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Orderbook</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>orderbooks</code> on the crypto channel. Contains top-of-book bid/ask snapshot.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to crypto orderbooks on /stream/crypto
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "orderbooks": ["BTC/USD"]
+}))
+// Response — Orderbook messages (T: "o") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`{
+  "T":  "o",                         // message type: orderbook
+  "S":  "BTC/USD",
+  "t":  "2026-05-22T14:08:12.522Z",
+  "ax": "ERSX", "ap": 43400.00, "as": 0.5,   // ask
+  "bx": "ERSX", "bp": 43399.50, "bs": 1.2    // bid
+}`}
+      </pre>
+
+      <h3 id="crypto-trade" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Trade</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>trades</code> on the crypto channel. Same schema as equity trades.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to crypto trades on /stream/crypto
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["BTC/USD"]
+}))
+// Response — Trade messages (T: "t") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 32 }}>
+{`{
+  "T": "t",
+  "S": "BTC/USD",
+  "p": 43399.50,
+  "s": 0.25,
+  "t": "2026-05-22T14:08:12.482Z",
+  "x": "ERSX",
+  "c": ["@"]
+}`}
+      </pre>
+
+      {/* news */}
+      <h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>News</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Realtime news events from Benzinga. Subscribe with a <code>news</code> list of tickers or <code>"*"</code> for all.
+        Messages are plain JSON. All tiers except Basic. Historical news is also available via REST <code>/v1/history/news</code>.
+      </p>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`# Connect to /stream/news
+uri = "${WS_BASE}/stream/news"
+await ws.send(json.dumps({"action": "auth", "token": token}))
+await ws.recv()
+
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "news": ["AAPL", "*"]    # "*" subscribes to all symbols
+}))
+
+# You will receive News (T: "n") messages`}
+      </pre>
+
+      <h3 id="news-news" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>News</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>news</code> on the news channel. One message per news article.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to news on /stream/news
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "news": ["AAPL", "*"]
+}))
+// Response — News messages (T: "n") start arriving`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 32 }}>
+{`{
+  "T":        "n",                   // message type: news
+  "id":       12345678,
+  "headline": "Apple Reports Q2 Earnings Beat",
+  "summary":  "Apple announced revenue of $95.4B...",
+  "author":   "Reuters",
+  "created_at": "2026-05-22T14:08:00Z",
+  "updated_at": "2026-05-22T14:08:00Z",
+  "url":      "https://www.benzinga.com/...",
+  "content":  "...",
+  "symbols":  ["AAPL"],
+  "source":   "benzinga"
+}`}
+      </pre>
+
+      {/* test */}
+      <h2 id="test" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Test</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Debug and validation channel. Echoes a small test payload on subscription so you can verify connectivity, auth, and msgpack parsing without consuming market data.
+        Messages are msgpack. All tiers.
+      </p>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`# Connect to /stream/test
+uri = "${WS_BASE}/stream/test"
+await ws.send(json.dumps({"action": "auth", "token": token}))
+await ws.recv()
+
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["TEST"]
+}))
+
+# You will receive a test Trade (T: "t") message for verification`}
+      </pre>
+
+      <h3 id="test-trade" className="display-title" style={{ fontSize: 20, margin: "28px 0 8px" }}>Trade</h3>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Sent when you subscribe to <code>trades</code> on the test channel. A dummy trade message for testing your parser.
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Request — subscribe to test trades on /stream/test
+await ws.send(json.dumps({
+    "action": "subscribe",
+    "trades": ["TEST"]
+}))
+// Response — A test Trade message (T: "t") is sent for verification`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`{
+  "T": "t",
+  "S": "TEST",
+  "p": 100.00,
+  "s": 1,
+  "t": "2026-05-22T14:08:00Z",
+  "x": "TEST",
+  "c": ["@"],
+  "z": "C"
 }`}
       </pre>
 
@@ -2557,85 +3157,28 @@ async def with_reconnect(token, uri, handler, backoff=1):
         Best practice: process each message quickly (or offload to a queue) rather than doing heavy work inside the receive loop.
       </p>
 
-      <h2 id="performance" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Performance tips</h2>
-      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        The proxy serves cached responses in under 1ms. Most client-perceived latency comes from network round-trips and TLS handshakes. These tips can cut TTFB by 50–80%.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>代理返回缓存响应不到 1ms，客户端感知到的延迟主要来自网络往返和 TLS 握手。以下建议可将 TTFB 降低 50–80%。</span>
-      </p>
-
-      <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Use GET for cacheable endpoints</h3>
-      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        All data endpoints accept both GET (query params) and POST (JSON body). <strong>GET requests are edge-cached</strong> at the nearest Cloudflare POP — repeat queries are served in ~20ms without hitting the origin server. POST requests always go through the tunnel to origin.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>所有数据端点同时支持 GET（查询参数）和 POST（JSON body）。<strong>GET 请求在最近的 Cloudflare POP 边缘缓存</strong>——重复查询约 20ms 返回，无需到达源站。POST 请求总是通过隧道到达源站。</span>
-      </p>
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`# Slow — POST bypasses edge cache (always hits origin)
-curl -X POST https://api.leandata.uk/v1/history/bars \\
-  -d '{"token":"TOKEN","symbol":"AAPL","start":"2025-01-01","end":"2025-12-31","timeframe":"1Day"}'
-
-# Fast — GET is edge-cached (repeat requests served from POP)
-curl "https://api.leandata.uk/v1/history/bars?token=TOKEN&symbol=AAPL&start=2025-01-01&end=2025-12-31&timeframe=1Day"
-
-# Check cache status in response headers:
-# cf-cache-status: HIT    → served from edge (~20ms)
-# cf-cache-status: MISS   → fetched from origin, now cached for next request`}
-      </pre>
-
-      <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Reuse connections</h3>
-      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Each new HTTPS request pays ~100ms for TCP + TLS handshake. Use a persistent session (HTTP/2 or keep-alive) to amortize this across all requests.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>每个新 HTTPS 请求需约 100ms 用于 TCP + TLS 握手。使用持久连接（HTTP/2 或 keep-alive）可将此开销分摊到所有请求。</span>
-      </p>
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`# Python — use requests.Session for connection reuse
-import requests
-
-session = requests.Session()
-session.headers["Authorization"] = "Bearer TOKEN"
-
-# First request: ~150ms (TLS handshake + response)
-r1 = session.get("https://api.leandata.uk/v1/history/bars",
-                  params={"symbol": "AAPL", "start": "2025-01-01",
-                          "end": "2025-12-31", "timeframe": "1Day"})
-
-# Subsequent requests: ~20-40ms (connection reused)
-r2 = session.get("https://api.leandata.uk/v1/history/bars",
-                  params={"symbol": "MSFT", "start": "2025-01-01",
-                          "end": "2025-12-31", "timeframe": "1Day"})
-
-# JavaScript — fetch() reuses connections by default
-// Node.js: use undici or node-fetch with keepAlive agent
-import { Agent } from 'undici'
-const agent = new Agent({ keepAliveTimeout: 30000 })`}
-      </pre>
-
-      <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Choose the right endpoint</h3>
-      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Two REST base URLs are available. Use the one that fits your query type.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>提供两个 REST 基础 URL，根据查询类型选择合适的。</span>
+      <h2 id="rate-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Rate limits</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        WS limits are separate from REST. Symbol subscriptions and open connections are counted per user across all channels.
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
-          <tr><th>Base URL</th><th>Best for</th><th>Edge cache TTL</th></tr>
+          <tr><th>Tier</th><th>WS symbols</th><th>WS connections</th></tr>
         </thead>
         <tbody>
-          <tr>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>api.leandata.uk</td>
-            <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>Historical bars, EOD, contracts, news</td>
-            <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>7 days</td>
-          </tr>
-          <tr>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>rt-api.leandata.uk</td>
-            <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>Snapshots, crypto orderbooks, real-time quotes</td>
-            <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>60 seconds</td>
-          </tr>
+          <tr><td style={{ fontSize: 12 }}>trial</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td></tr>
+          <tr><td style={{ fontSize: 12 }}>basic</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td></tr>
+          <tr><td style={{ fontSize: 12 }}>value</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>30</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td></tr>
+          <tr><td style={{ fontSize: 12 }}>standard</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>100</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td></tr>
+          <tr><td style={{ fontSize: 12 }}>premium</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>unlimited</td></tr>
         </tbody>
       </table>
-      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
-        Both endpoints return identical data and accept the same authentication. The difference is caching duration and upstream routing.
+      <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "0 0 40px" }}>
+        Exceeding the REST concurrency limit returns <code>429</code> with a JSON body. Exceeding the WS connection limit rejects the <code>auth</code> message and closes the socket with code <code>1008</code>.
       </p>
     </div>
   );
 }
 
 window.DocsSite = DocsSite;
+
