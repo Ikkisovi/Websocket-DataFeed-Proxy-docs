@@ -579,32 +579,36 @@ function DownloadIcon() {
   );
 }
 
-function GuideDownloadLink({ compact = false }) {
+function GuideDownloadLink({ compact = false, format = "md" }) {
+  const file = `oracle-thetadata-proxy-skill.${format}`;
   return (
     <a
-      href="/thetadata-option-proxy-skill.md"
-      download="thetadata-option-proxy-skill.md"
+      href={`/${file}`}
+      download={file}
       className={compact ? "btn ghost" : "btn"}
       style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: compact ? "6px 10px" : "9px 12px", fontSize: compact ? 12 : 13 }}
     >
       <DownloadIcon />
-      <span>{compact ? "Skill" : "Download user skill"}</span>
+      <span>{compact ? "Skill" : `Download .${format}`}</span>
     </a>
   );
 }
 
 function SkillDownloadCard() {
   return (
-    <div className="card" style={{ padding: 16, margin: "0 0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, background: "var(--bg-paper)" }}>
-      <div>
-        <div className="eyebrow" style={{ marginBottom: 6, color: "var(--ink-soft)" }}>User skill</div>
-        <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 500, color: "var(--ink-strong)" }}>ThetaData Option Proxy quick-start</h3>
+    <div className="card" style={{ padding: 16, margin: "0 0 24px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, background: "var(--bg-paper)" }}>
+      <div style={{ flex: "1 1 300px" }}>
+        <div className="eyebrow" style={{ marginBottom: 6, color: "var(--ink-soft)" }}>User skill & Ops</div>
+        <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 500, color: "var(--ink-strong)" }}>ThetaData Option Proxy Guide</h3>
         <p style={{ margin: 0, fontSize: 13, color: "var(--ink-muted)" }}>
-          Public usage guide for token auth, REST examples, option-history provider choices, and endpoint smoke tests. No deployment details or secrets are included.
-          <br/><span style={{ color: "var(--ink-soft)" }}>面向用户的使用指南：Token 鉴权、REST 示例、期权数据 provider 选择和端点测试；不包含部署细节或密钥。</span>
+          Comprehensive guide including public usage (token auth, REST examples) and internal operations (Tailscale, Docker, DB queries).
+          <br/><span style={{ color: "var(--ink-soft)" }}>完整指南：包含面向用户的 Token 鉴权、REST 示例，以及内部服务器运维（Docker, TimescaleDB）。</span>
         </p>
       </div>
-      <GuideDownloadLink />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <GuideDownloadLink format="md" />
+        <GuideDownloadLink format="txt" />
+      </div>
     </div>
   );
 }
