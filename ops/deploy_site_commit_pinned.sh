@@ -109,13 +109,22 @@ if [[ ! -d "$LEANDATA_SITE_DIR/public" ]]; then
   exit 4
 fi
 
-mv "$LEANDATA_SITE_DIR/public" "$rollback_public"
-mv "$next_public" "$LEANDATA_SITE_DIR/public"
+mkdir -p "$rollback_public"
+cp -a "$LEANDATA_SITE_DIR/public/." "$rollback_public/"
+
+replace_public_tree() {
+  local source="$1"
+  find "$LEANDATA_SITE_DIR/public" -depth -mindepth 1 -delete
+  cp -a "$source/." "$LEANDATA_SITE_DIR/public/"
+}
+
+replace_public_tree "$next_public"
+remove_tree "$next_public"
 
 rollback() {
   printf 'site smoke failed; restoring previous public directory\n' >&2
-  remove_tree "$LEANDATA_SITE_DIR/public"
-  mv "$rollback_public" "$LEANDATA_SITE_DIR/public"
+  replace_public_tree "$rollback_public"
+  remove_tree "$rollback_public"
 }
 
 expected_docs_sha="$(sha256sum "$source_public/docs-site.jsx" | awk '{print $1}')"
