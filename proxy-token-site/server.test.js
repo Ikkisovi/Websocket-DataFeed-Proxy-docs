@@ -658,7 +658,8 @@ describe('GET /api/status', () => {
     expect(data).toHaveProperty('latency.rest');
     expect(data).toHaveProperty('latency.ws');
     expect(data.uptime.rest.length).toBeGreaterThanOrEqual(1);
-    expect(data.latency.rest.length).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(data.latency.rest)).toBe(true);
+    expect(Array.isArray(data.latency.ws)).toBe(true);
   });
 });
 

@@ -1,0 +1,8 @@
+LEANDATA_SITE_REPO_URL=gitlab-leandata-docs-readonly:openalice/websocket-datafeed-proxy-docs.git
+LEANDATA_SITE_REPOSITORY_MIRROR=/srv/leandata/site-repository.git
+LEANDATA_SITE_RELEASE_ROOT=/srv/leandata/site-releases
+LEANDATA_SITE_DIR=/srv/leandata/proxy-token-site
+LEANDATA_SITE_DEPLOY_LOCK_FILE=/srv/leandata/run/site-deploy.lock
+LEANDATA_SITE_DEPLOY_LOG_DIR=/srv/leandata/site-deployments
+LEANDATA_SITE_LOCAL_HEALTH_URL=http://127.0.0.1:3000/
+LEANDATA_SITE_PUBLIC_HEALTH_URL=https://leandata.uk/

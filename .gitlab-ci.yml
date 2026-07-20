@@ -1,0 +1,55 @@
+stages:
+  - test
+  - deploy
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_PIPELINE_SOURCE == "api"'
+
+docs_contract:
+  stage: test
+  tags:
+    - openalice-docs
+  interruptible: true
+  timeout: 15m
+  variables:
+    npm_config_cache: "$CI_PROJECT_DIR/.npm-cache"
+  script:
+    - npm ci --prefix proxy-token-site
+    - npm test --prefix proxy-token-site -- --runInBand
+    - npx --yes esbuild@0.25.6 proxy-token-site/public/docs-site.jsx --loader:.jsx=jsx --outfile=/tmp/leandata-docs-root.js
+    - npx --yes esbuild@0.25.6 proxy-token-site/public/docs/docs-site.jsx --loader:.jsx=jsx --outfile=/tmp/leandata-docs-nested.js
+    - bash -n ops/gitlab_deploy_aws.sh ops/leandata_site_forced_deploy.sh ops/deploy_site_commit_pinned.sh
+    - bash ops/test_deploy_contract.sh
+  after_script:
+    - rm -f /tmp/leandata-docs-root.js /tmp/leandata-docs-nested.js
+  rules:
+    - if: '$CI_COMMIT_REF_PROTECTED == "true"'
+    - when: never
+
+docs_aws_deploy:
+  stage: deploy
+  tags:
+    - openalice-docs
+  interruptible: false
+  timeout: 15m
+  resource_group: leandata-site-production
+  environment:
+    name: production/aws-site
+  needs:
+    - docs_contract
+  script:
+    - bash ops/gitlab_deploy_aws.sh "$CI_COMMIT_SHA"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && $LEANDATA_SITE_AWS_AUTO_DEPLOY == "1"'
+      changes:
+        - proxy-token-site/public/**/*
+      when: on_success
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && $LEANDATA_SITE_AWS_DEPLOY_ENABLED == "1"'
+      changes:
+        - proxy-token-site/public/**/*
+      when: manual
+      allow_failure: false
+    - when: never
