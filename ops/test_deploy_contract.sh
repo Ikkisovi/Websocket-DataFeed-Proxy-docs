@@ -40,7 +40,7 @@ EOF
 
 cat >"$tmp_dir/bin/curl" <<'EOF'
 #!/usr/bin/env bash
-printf '<script type="text/babel" src="docs-site.jsx"></script>\n'
+printf 'function DocsSite() { return null; }\n'
 EOF
 chmod +x "$tmp_dir/bin/curl"
 
@@ -51,6 +51,7 @@ LEANDATA_SITE_DEPLOY_CONFIG="$tmp_dir/site-deploy.env" \
 test -f "$site_dir/public/docs-site.jsx"
 test ! -e "$site_dir/public/old.txt"
 test -f "$tmp_dir/deployments/$commit_sha.json"
+grep -q '"docs_sha256":' "$tmp_dir/deployments/$commit_sha.json"
 
 if PATH="$tmp_dir/bin:$PATH" \
   LEANDATA_SITE_DEPLOY_CONFIG="$tmp_dir/site-deploy.env" \

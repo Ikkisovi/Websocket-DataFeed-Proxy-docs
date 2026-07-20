@@ -27,7 +27,7 @@ set +a
 : "${LEANDATA_SITE_LOCAL_HEALTH_URL:?set LEANDATA_SITE_LOCAL_HEALTH_URL}"
 : "${LEANDATA_SITE_PUBLIC_HEALTH_URL:?set LEANDATA_SITE_PUBLIC_HEALTH_URL}"
 
-for command in cp curl date find flock git grep mkdir mv tar; do
+for command in cp curl date find flock git grep mkdir mv sha256sum tar; do
   if ! command -v "$command" >/dev/null 2>&1; then
     printf 'required command is unavailable: %s\n' "$command" >&2
     exit 2
@@ -118,11 +118,28 @@ rollback() {
   mv "$rollback_public" "$LEANDATA_SITE_DIR/public"
 }
 
-if ! curl -fsS --max-time 15 "$LEANDATA_SITE_LOCAL_HEALTH_URL" | grep -q 'docs-site.jsx'; then
+expected_docs_sha="$(sha256sum "$source_public/docs-site.jsx" | awk '{print $1}')"
+local_docs_url="${LEANDATA_SITE_LOCAL_DOCS_URL:-${LEANDATA_SITE_LOCAL_HEALTH_URL%/}/docs-site.jsx}"
+public_docs_url="${LEANDATA_SITE_PUBLIC_DOCS_URL:-${LEANDATA_SITE_PUBLIC_HEALTH_URL%/}/docs-site.jsx}"
+
+local_docs_sha="$(curl -fsS --max-time 15 "$local_docs_url" | sha256sum | awk '{print $1}')" || {
+  rollback
+  exit 5
+}
+if [[ "$local_docs_sha" != "$expected_docs_sha" ]]; then
+  printf 'local docs hash mismatch: expected %s, received %s\n' \
+    "$expected_docs_sha" "$local_docs_sha" >&2
   rollback
   exit 5
 fi
-if ! curl -fsS --max-time 20 "$LEANDATA_SITE_PUBLIC_HEALTH_URL" | grep -q 'docs-site.jsx'; then
+
+public_docs_sha="$(curl -fsS --max-time 20 "$public_docs_url" | sha256sum | awk '{print $1}')" || {
+  rollback
+  exit 5
+}
+if [[ "$public_docs_sha" != "$expected_docs_sha" ]]; then
+  printf 'public docs hash mismatch: expected %s, received %s\n' \
+    "$expected_docs_sha" "$public_docs_sha" >&2
   rollback
   exit 5
 fi
@@ -131,9 +148,10 @@ remove_tree "$rollback_public"
 
 deployed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 manifest="$LEANDATA_SITE_DEPLOY_LOG_DIR/$commit_sha.json"
-printf '{"commit_sha":"%s","deployed_at":"%s","status":"success","surface":"public"}\n' \
+printf '{"commit_sha":"%s","deployed_at":"%s","status":"success","surface":"public","docs_sha256":"%s"}\n' \
   "$commit_sha" \
   "$deployed_at" \
+  "$expected_docs_sha" \
   >"$manifest"
 
 printf 'Deployed leandata public site commit %s\n' "$commit_sha"

@@ -6,3 +6,5 @@ LEANDATA_SITE_DEPLOY_LOCK_FILE=/srv/leandata/run/site-deploy.lock
 LEANDATA_SITE_DEPLOY_LOG_DIR=/srv/leandata/site-deployments
 LEANDATA_SITE_LOCAL_HEALTH_URL=http://127.0.0.1:3000/
 LEANDATA_SITE_PUBLIC_HEALTH_URL=https://leandata.uk/
+LEANDATA_SITE_LOCAL_DOCS_URL=http://127.0.0.1:3000/docs-site.jsx
+LEANDATA_SITE_PUBLIC_DOCS_URL=https://leandata.uk/docs-site.jsx
