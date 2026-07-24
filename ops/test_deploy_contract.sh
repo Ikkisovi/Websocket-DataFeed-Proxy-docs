@@ -48,7 +48,6 @@ LEANDATA_SITE_RELEASE_ROOT=$tmp_dir/releases
 LEANDATA_SITE_DIR=$site_dir
 LEANDATA_SITE_DEPLOY_LOCK_FILE=$tmp_dir/run/site-deploy.lock
 LEANDATA_SITE_DEPLOY_LOG_DIR=$tmp_dir/deployments
-LEANDATA_SITE_LOCAL_HEALTH_URL=http://local.test/
 LEANDATA_SITE_PUBLIC_HEALTH_URL=https://public.test/
 LEANDATA_RUNTIME_DEPLOY_CONFIG=$tmp_dir/runtime-deploy.env
 EOF
@@ -77,9 +76,27 @@ chmod +x "$tmp_dir/bin/curl"
 
 cat >"$tmp_dir/bin/docker" <<'EOF'
 #!/usr/bin/env bash
+if [[ "${1:-}" == "inspect" ]]; then
+  printf '127.0.0.1\n'
+  exit 0
+fi
 for arg in "$@"; do
   if [[ "$arg" == "exec" ]]; then
-    sha256sum "$LEANDATA_TEST_SITE_DIR/server.js"
+    target="${@: -1}"
+    case "$target" in
+      /app/server.js)
+        sha256sum "$LEANDATA_TEST_SITE_DIR/server.js"
+        ;;
+      /app/public/docs-site.jsx)
+        sha256sum "$LEANDATA_TEST_SITE_DIR/public/docs-site.jsx"
+        ;;
+      /app/public/account.html)
+        sha256sum "$LEANDATA_TEST_SITE_DIR/public/account.html"
+        ;;
+      *)
+        exit 2
+        ;;
+    esac
     exit 0
   fi
 done

@@ -24,7 +24,6 @@ set +a
 : "${LEANDATA_SITE_DIR:?set LEANDATA_SITE_DIR}"
 : "${LEANDATA_SITE_DEPLOY_LOCK_FILE:?set LEANDATA_SITE_DEPLOY_LOCK_FILE}"
 : "${LEANDATA_SITE_DEPLOY_LOG_DIR:?set LEANDATA_SITE_DEPLOY_LOG_DIR}"
-: "${LEANDATA_SITE_LOCAL_HEALTH_URL:?set LEANDATA_SITE_LOCAL_HEALTH_URL}"
 : "${LEANDATA_SITE_PUBLIC_HEALTH_URL:?set LEANDATA_SITE_PUBLIC_HEALTH_URL}"
 
 runtime_config="${LEANDATA_RUNTIME_DEPLOY_CONFIG:-/etc/leandata/deploy.env}"
@@ -51,6 +50,18 @@ fi
 current_link="${LEANDATA_CURRENT_LINK:-/srv/leandata/current}"
 compose_project="${LEANDATA_COMPOSE_PROJECT:-leandata-v2}"
 compose_files_value="${LEANDATA_COMPOSE_FILES:-docker-compose.aliyun.yml:docker-compose.aliyun.archive.yml:docker-compose.aliyun.logging.yml}"
+ui_container="${LEANDATA_SITE_UI_CONTAINER:-${compose_project}-leandata-ui-1}"
+ui_port="${LEANDATA_SITE_UI_PORT:-3000}"
+local_health_path="${LEANDATA_SITE_LOCAL_HEALTH_PATH:-/}"
+local_docs_path="${LEANDATA_SITE_LOCAL_DOCS_PATH:-/docs-site.jsx}"
+local_account_path="${LEANDATA_SITE_LOCAL_ACCOUNT_PATH:-/account}"
+
+for path in "$local_health_path" "$local_docs_path" "$local_account_path"; do
+  if [[ "$path" != /* ]]; then
+    printf 'local site check paths must start with /: %s\n' "$path" >&2
+    exit 2
+  fi
+done
 
 for command in awk cp curl date docker find flock git grep mkdir mv readlink seq sha256sum sleep tar; do
   if ! command -v "$command" >/dev/null 2>&1; then
@@ -223,7 +234,14 @@ wait_for_health() {
 
 recreate_ui() {
   "${compose_args[@]}" up -d --no-deps --no-build --force-recreate leandata-ui
-  wait_for_health "$LEANDATA_SITE_LOCAL_HEALTH_URL"
+  local ui_ip
+  ui_ip="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{println .IPAddress}}{{end}}' "$ui_container" | awk 'NF { print; exit }')"
+  if [[ -z "$ui_ip" ]]; then
+    printf 'could not resolve UI container address: %s\n' "$ui_container" >&2
+    return 1
+  fi
+  local_site_base="http://$ui_ip:$ui_port"
+  wait_for_health "$local_site_base$local_health_path"
 }
 
 replace_public_tree "$next_public"
@@ -243,15 +261,15 @@ rollback() {
 expected_docs_sha="$(sha256sum "$source_public/docs-site.jsx" | awk '{print $1}')"
 expected_server_sha="$(sha256sum "$source_server" | awk '{print $1}')"
 expected_account_sha="$(sha256sum "$source_public/account.html" | awk '{print $1}')"
-local_docs_url="${LEANDATA_SITE_LOCAL_DOCS_URL:-${LEANDATA_SITE_LOCAL_HEALTH_URL%/}/docs-site.jsx}"
 public_docs_url="${LEANDATA_SITE_PUBLIC_DOCS_URL:-${LEANDATA_SITE_PUBLIC_HEALTH_URL%/}/docs-site.jsx}"
-local_account_url="${LEANDATA_SITE_LOCAL_ACCOUNT_URL:-${LEANDATA_SITE_LOCAL_HEALTH_URL%/}/account}"
 public_account_url="${LEANDATA_SITE_PUBLIC_ACCOUNT_URL:-${LEANDATA_SITE_PUBLIC_HEALTH_URL%/}/account}"
 
 if ! recreate_ui; then
   rollback
   exit 5
 fi
+local_docs_url="$local_site_base$local_docs_path"
+local_account_url="$local_site_base$local_account_path"
 
 host_server_sha="$(sha256sum "$LEANDATA_SITE_DIR/server.js" | awk '{print $1}')"
 container_server_sha="$("${compose_args[@]}" exec -T leandata-ui sha256sum /app/server.js | awk '{print $1}')" || {
@@ -260,6 +278,26 @@ container_server_sha="$("${compose_args[@]}" exec -T leandata-ui sha256sum /app/
 }
 if [[ "$host_server_sha" != "$expected_server_sha" || "$container_server_sha" != "$expected_server_sha" ]]; then
   printf 'server hash mismatch after UI recreation\n' >&2
+  rollback
+  exit 5
+fi
+host_docs_sha="$(sha256sum "$LEANDATA_SITE_DIR/public/docs-site.jsx" | awk '{print $1}')"
+container_docs_sha="$("${compose_args[@]}" exec -T leandata-ui sha256sum /app/public/docs-site.jsx | awk '{print $1}')" || {
+  rollback
+  exit 5
+}
+host_account_sha="$(sha256sum "$LEANDATA_SITE_DIR/public/account.html" | awk '{print $1}')"
+container_account_sha="$("${compose_args[@]}" exec -T leandata-ui sha256sum /app/public/account.html | awk '{print $1}')" || {
+  rollback
+  exit 5
+}
+if [[ "$host_docs_sha" != "$expected_docs_sha" || "$container_docs_sha" != "$expected_docs_sha" ]]; then
+  printf 'docs hash mismatch on host or in UI container\n' >&2
+  rollback
+  exit 5
+fi
+if [[ "$host_account_sha" != "$expected_account_sha" || "$container_account_sha" != "$expected_account_sha" ]]; then
+  printf 'account page hash mismatch on host or in UI container\n' >&2
   rollback
   exit 5
 fi
