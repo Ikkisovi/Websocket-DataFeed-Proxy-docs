@@ -19,12 +19,16 @@ docs_contract:
   script:
     - npm ci --prefix proxy-token-site
     - npm test --prefix proxy-token-site -- --runInBand
+    - node --check proxy-token-site/server.js
     - npx --yes esbuild@0.25.6 proxy-token-site/public/docs-site.jsx --loader:.jsx=jsx --outfile=/tmp/leandata-docs-root.js
     - npx --yes esbuild@0.25.6 proxy-token-site/public/docs/docs-site.jsx --loader:.jsx=jsx --outfile=/tmp/leandata-docs-nested.js
+    - npx --yes esbuild@0.25.6 proxy-token-site/public/account-page.jsx --loader:.jsx=jsx --outfile=/tmp/leandata-account-page.js
+    - npx --yes esbuild@0.25.6 proxy-token-site/public/register-page.jsx --loader:.jsx=jsx --outfile=/tmp/leandata-register-page.js
+    - npx --yes esbuild@0.25.6 proxy-token-site/public/token-page.jsx --loader:.jsx=jsx --outfile=/tmp/leandata-token-page.js
     - bash -n ops/gitlab_deploy_aws.sh ops/leandata_site_forced_deploy.sh ops/deploy_site_commit_pinned.sh
     - bash ops/test_deploy_contract.sh
   after_script:
-    - rm -f /tmp/leandata-docs-root.js /tmp/leandata-docs-nested.js
+    - rm -f /tmp/leandata-docs-root.js /tmp/leandata-docs-nested.js /tmp/leandata-account-page.js /tmp/leandata-register-page.js /tmp/leandata-token-page.js
   rules:
     - if: '$CI_COMMIT_REF_PROTECTED == "true"'
     - when: never
@@ -45,10 +49,12 @@ docs_aws_deploy:
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && $LEANDATA_SITE_AWS_AUTO_DEPLOY == "1"'
       changes:
+        - proxy-token-site/server.js
         - proxy-token-site/public/**/*
       when: on_success
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && $LEANDATA_SITE_AWS_DEPLOY_ENABLED == "1"'
       changes:
+        - proxy-token-site/server.js
         - proxy-token-site/public/**/*
       when: manual
       allow_failure: false

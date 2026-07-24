@@ -12,23 +12,67 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 app.use(cors());
 app.use(bodyParser.json());
+
+// Mobile UA detection — serve mobile.html for phones/tablets
+app.use((req, res, next) => {
+  const ua = (req.headers['user-agent'] || '').toLowerCase();
+  const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i.test(ua);
+  if (isMobile) {
+    if (req.path === '/' || req.path === '/index.html') {
+      return res.sendFile(path.join(__dirname, 'public', 'mobile.html'));
+    }
+    if (req.path === '/docs' || req.path === '/docs/' || req.path === '/docs/index.html') {
+      return res.sendFile(path.join(__dirname, 'public', 'docs', 'mobile.html'));
+    }
+    if (req.path === '/register' || req.path === '/register.html') {
+      return res.sendFile(path.join(__dirname, 'public', 'register-mobile.html'));
+    }
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Clean URL routes (no .html suffix needed)
 app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'public', 'register.html')));
+app.get('/account', (req, res) => res.sendFile(path.join(__dirname, 'public', 'account.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
 // --- Data paths (overridable for tests via env) ---
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const PENDING_FILE = path.join(DATA_DIR, 'pending.json');
-const PROXY_USERS_FILE = process.env.PROXY_USERS_FILE || path.join(__dirname, 'remote_proxy', 'users.json');
 
-// --- EC2 sync config (token-site on TC → SCP users.json to EC2 for WS auth) ---
+const CLOUD_HOST_LABEL = process.env.CLOUD_HOST_LABEL || 'Aliyun';
+const IS_CLOUD_HOST = fs.existsSync('/srv/leandata') || fs.existsSync('/mnt/leandata-v2') || fs.existsSync('/home/opc');
+
+const PROXY_USERS_FILE = process.env.PROXY_USERS_FILE
+  || path.join(__dirname, 'remote_proxy', 'users.json');
+
+// --- Legacy remote sync config. Aliyun v2 keeps users.json local and shared by mount. ---
 const EC2_HOST = process.env.EC2_HOST || 'ec2-user@52.37.182.24';
 const EC2_USERS_PATH = process.env.EC2_USERS_PATH || '/home/ec2-user/cloud-proxy/users.json';
-const EC2_SSH_KEY = process.env.EC2_SSH_KEY || '/home/kai/.ssh/id_ed25519';
+const EC2_SSH_KEY = process.env.EC2_SSH_KEY
+  || (IS_CLOUD_HOST && fs.existsSync('/tmp/ec2_ed25519.pem') ? '/tmp/ec2_ed25519.pem'
+    : IS_CLOUD_HOST && fs.existsSync('/home/opc/.ssh/ec2_ed25519.pem') ? '/home/opc/.ssh/ec2_ed25519.pem'
+    : '/home/kai/.ssh/id_ed25519');
 
+// --- Startup guard: warn if configuration paths mismatch current environment ---
+(function startupPathGuard() {
+  if (IS_CLOUD_HOST) {
+    const expectedProxy = path.join(__dirname, 'remote_proxy', 'users.json');
+    if (PROXY_USERS_FILE !== expectedProxy) {
+      console.error(`\n⚠️  [GUARD] PROXY_USERS_FILE = "${PROXY_USERS_FILE}"`);
+      console.error(`   Expected on ${CLOUD_HOST_LABEL}: "${expectedProxy}"`);
+      console.error(`   This will cause users to be lost from the proxy registry!`);
+      console.error(`   Fix: set PROXY_USERS_FILE env or ensure the path exists.\n`);
+    }
+    if (process.env.BYPASS_SYNC !== 'true' && !EC2_SSH_KEY.includes('ec2_ed25519') && !EC2_SSH_KEY.includes('oracle_key')) {
+      console.error(`\n⚠️  [GUARD] EC2_SSH_KEY = "${EC2_SSH_KEY}"`);
+      console.error(`   Legacy remote sync may fail with wrong key!\n`);
+    }
+  }
+})();
 
 // --- Service tier definitions ---
 // Roles map to cloud proxy RateLimiter:
@@ -102,6 +146,15 @@ const TIERS = {
 
 // --- In-memory admin sessions ---
 const adminSessions = new Set();
+const accountSessions = new Map();
+const accountLoginAttempts = new Map();
+const ACCOUNT_SESSION_COOKIE = 'leandata_account_session';
+const ACCOUNT_SESSION_TTL_MS = Math.max(
+  15 * 60 * 1000,
+  Math.min(Number(process.env.ACCOUNT_SESSION_TTL_MS) || 8 * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000)
+);
+const ACCOUNT_LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const ACCOUNT_LOGIN_MAX_ATTEMPTS = 8;
 
 // --- Helpers ---
 function readJSON(filepath, fallback = []) {
@@ -122,59 +175,183 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+function parseCookies(req) {
+  const cookies = {};
+  for (const part of String(req.headers.cookie || '').split(';')) {
+    const index = part.indexOf('=');
+    if (index <= 0) continue;
+    const key = part.slice(0, index).trim();
+    const value = part.slice(index + 1).trim();
+    if (key) cookies[key] = decodeURIComponent(value);
+  }
+  return cookies;
+}
+
+function setAccountSessionCookie(res, sessionId) {
+  const maxAgeSeconds = Math.floor(ACCOUNT_SESSION_TTL_MS / 1000);
+  res.setHeader(
+    'Set-Cookie',
+    `${ACCOUNT_SESSION_COOKIE}=${encodeURIComponent(sessionId)}; Path=/; Max-Age=${maxAgeSeconds}; HttpOnly; Secure; SameSite=Strict`
+  );
+}
+
+function clearAccountSessionCookie(res) {
+  res.setHeader(
+    'Set-Cookie',
+    `${ACCOUNT_SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict`
+  );
+}
+
+function safeEqual(left, right) {
+  const a = Buffer.from(String(left || ''), 'utf8');
+  const b = Buffer.from(String(right || ''), 'utf8');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function accountLoginKey(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return forwarded || req.socket?.remoteAddress || 'unknown';
+}
+
+function accountLoginAllowed(req) {
+  const key = accountLoginKey(req);
+  const now = Date.now();
+  const previous = accountLoginAttempts.get(key) || [];
+  const recent = previous.filter(timestamp => now - timestamp < ACCOUNT_LOGIN_WINDOW_MS);
+  accountLoginAttempts.set(key, recent);
+  return recent.length < ACCOUNT_LOGIN_MAX_ATTEMPTS;
+}
+
+function recordAccountLoginFailure(req) {
+  const key = accountLoginKey(req);
+  const now = Date.now();
+  const previous = accountLoginAttempts.get(key) || [];
+  accountLoginAttempts.set(
+    key,
+    [...previous.filter(timestamp => now - timestamp < ACCOUNT_LOGIN_WINDOW_MS), now]
+  );
+}
+
+function clearAccountLoginFailures(req) {
+  accountLoginAttempts.delete(accountLoginKey(req));
+}
+
+function findLocalAccount(userId) {
+  return readJSON(USERS_FILE).find(user => user.username === userId) || null;
+}
+
+function findProxyAccount(userId) {
+  const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+  return (proxyData.users || []).find(user => user.user_id === userId) || null;
+}
+
+function maskToken(token) {
+  const value = String(token || '');
+  if (value.length < 12) return value ? '••••••••' : null;
+  return `${value.slice(0, 6)}····${value.slice(-4)}`;
+}
+
+function createAccountSession(userId) {
+  const sessionId = crypto.randomBytes(32).toString('base64url');
+  accountSessions.set(sessionId, {
+    user_id: userId,
+    expires_at: Date.now() + ACCOUNT_SESSION_TTL_MS
+  });
+  return sessionId;
+}
+
+function resolveAccountSession(req) {
+  const sessionId = parseCookies(req)[ACCOUNT_SESSION_COOKIE];
+  if (!sessionId) return null;
+  const session = accountSessions.get(sessionId);
+  if (!session || session.expires_at <= Date.now()) {
+    accountSessions.delete(sessionId);
+    return null;
+  }
+  session.expires_at = Date.now() + ACCOUNT_SESSION_TTL_MS;
+  return { sessionId, session };
+}
+
+function requireAccount(req, res, next) {
+  const resolved = resolveAccountSession(req);
+  if (!resolved) {
+    clearAccountSessionCookie(res);
+    return res.status(401).json({ success: false, message: '请先登录账户管理中心。' });
+  }
+  const localUser = findLocalAccount(resolved.session.user_id);
+  const proxyUser = findProxyAccount(resolved.session.user_id);
+  if (!localUser || !proxyUser || !proxyUser.token) {
+    accountSessions.delete(resolved.sessionId);
+    clearAccountSessionCookie(res);
+    return res.status(401).json({ success: false, message: '账户凭证已失效，请联系管理员。' });
+  }
+  req.account = {
+    sessionId: resolved.sessionId,
+    userId: resolved.session.user_id,
+    localUser,
+    proxyUser
+  };
+  next();
+}
+
+function latestRenewalFor(userId) {
+  return readJSON(PENDING_FILE)
+    .filter(item => item.type === 'renewal' && item.username === userId)
+    .sort((left, right) => String(right.requested_at || '').localeCompare(String(left.requested_at || '')))[0] || null;
+}
+
+function publicRenewalStatus(entry) {
+  if (!entry) return null;
+  return {
+    id: entry.id,
+    status: entry.status,
+    tier: entry.tier,
+    mode: entry.mode || null,
+    months: entry.months || Math.max(1, Math.round(Number(entry.renew_days || 30) / 30)),
+    requested_at: entry.requested_at || entry.registered_at || null,
+    approved_at: entry.approved_at || null,
+    rejected_at: entry.rejected_at || null,
+    reject_reason: entry.status === 'rejected' ? (entry.reject_reason || '审核未通过') : null
+  };
+}
+
+async function fetchAccountUsage(url, token) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (_) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
- * SCP users.json to EC2 so the WS proxy picks up changes.
- * Fire-and-forget: logs errors but does not block the response.
+ * No-op since v2 mounts the same users.json into REST and WS services.
+ * users.json is local to the Aliyun host; nothing is copied to a remote proxy.
+ * Signature kept for backward compatibility.
  */
 function syncToEC2() {
-  if (process.env.BYPASS_SYNC === 'true') {
-    console.log('[Sync] Bypass SCP sync (BYPASS_SYNC=true)');
-    return;
-  }
-  execFile('scp', [
-    '-i', EC2_SSH_KEY,
-    '-o', 'StrictHostKeyChecking=no',
-    '-o', 'ConnectTimeout=5',
-    PROXY_USERS_FILE,
-    `${EC2_HOST}:${EC2_USERS_PATH}`
-  ], { timeout: 15000 }, (err, stdout, stderr) => {
-    if (err) {
-      console.error('[Sync] SCP to EC2 failed:', err.message, stderr);
-    } else {
-      console.log('[Sync] users.json synced to EC2');
-    }
-  });
+  return;
 }
 
 /**
- * Promise-based sync to EC2. Returns {ok, message}.
+ * No-op (see syncToEC2). Always resolves success; users.json is local to Aliyun.
+ * Signature kept for backward compatibility.
  */
 function syncToEC2Async() {
-  if (process.env.BYPASS_SYNC === 'true') {
-    console.log('[Sync] Bypass SCP sync (BYPASS_SYNC=true)');
-    return Promise.resolve({ ok: true, message: 'Bypassed sync (BYPASS_SYNC=true)' });
-  }
-  return new Promise((resolve) => {
-    execFile('scp', [
-      '-i', EC2_SSH_KEY,
-      '-o', 'StrictHostKeyChecking=no',
-      '-o', 'ConnectTimeout=10',
-      PROXY_USERS_FILE,
-      `${EC2_HOST}:${EC2_USERS_PATH}`
-    ], { timeout: 20000 }, (err, stdout, stderr) => {
-      if (err) {
-        console.error('[Sync] SCP to EC2 failed:', err.message, stderr);
-        resolve({ ok: false, message: `SCP failed: ${err.message}` });
-      } else {
-        console.log('[Sync] users.json synced to EC2');
-        resolve({ ok: true, message: 'Synced to EC2' });
-      }
-    });
-  });
+  return Promise.resolve({ ok: true, message: 'Local registry (no remote sync needed)' });
 }
 
 /**
- * Write proxy users file and sync to EC2.
+ * Write proxy users file. (WS proxy reads the same local users.json.)
  */
 function writeProxyUsersAndSync(data) {
   writeJSON(PROXY_USERS_FILE, data);
@@ -182,7 +359,22 @@ function writeProxyUsersAndSync(data) {
 }
 
 async function writeProxyUsersAndSyncAsync(data) {
+  const beforeCount = data.users ? data.users.length : 0;
   writeJSON(PROXY_USERS_FILE, data);
+
+  // Post-write verification: read back and confirm user count matches
+  try {
+    const readBack = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
+    const afterCount = (readBack.users || []).length;
+    if (afterCount !== beforeCount) {
+      console.error(`[GUARD] Post-write mismatch! Wrote ${beforeCount} users, read back ${afterCount}. File: ${PROXY_USERS_FILE}`);
+      return { ok: false, message: `Post-write mismatch: wrote ${beforeCount}, read ${afterCount}` };
+    }
+  } catch (err) {
+    console.error(`[GUARD] Post-write read-back failed: ${err.message}`);
+    return { ok: false, message: `Read-back failed: ${err.message}` };
+  }
+
   const result = await syncToEC2Async();
   return result;
 }
@@ -206,13 +398,1296 @@ function computeExpiry(tierConfig) {
   return expiry.toISOString();
 }
 
+function computeRenewalExpiry(currentExpiry, days) {
+  const now = new Date();
+  const current = currentExpiry ? new Date(currentExpiry) : null;
+  const base = current && !Number.isNaN(current.getTime()) && current > now ? current : now;
+  const expiry = new Date(base);
+  expiry.setDate(expiry.getDate() + (Number(days) || 30));
+  return expiry.toISOString();
+}
+
+function getNewYorkMarketClock(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(now).reduce((acc, part) => {
+    acc[part.type] = part.value;
+    return acc;
+  }, {});
+  const weekday = parts.weekday;
+  const hour = Number(parts.hour);
+  const minute = Number(parts.minute);
+  const minutes = hour * 60 + minute;
+  const isWeekday = !['Sat', 'Sun'].includes(weekday);
+  const regularSession = isWeekday && minutes >= 9 * 60 + 30 && minutes < 16 * 60;
+  return {
+    is_open: isWeekday,
+    regular_session: regularSession,
+    weekend_closed: !isWeekday,
+    market_state: isWeekday ? 'quote_driven' : 'weekend_closed',
+    timezone: 'America/New_York',
+    timestamp: now.toISOString(),
+    note: 'Simulator hard-closes weekends only. Weekday fills are quote/liquidity driven so extended and overnight sessions can fill when executable quotes are available.'
+  };
+}
+
+function firstFiniteNumber(...values) {
+  for (const value of values) {
+    const n = Number(value);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
+
+function extractFirstFiniteByKey(obj, keys, depth = 0) {
+  if (!obj || typeof obj !== 'object' || depth > 5) return null;
+  const wanted = new Set(keys.map(k => String(k).toLowerCase()));
+  for (const [key, value] of Object.entries(obj)) {
+    if (wanted.has(String(key).toLowerCase())) {
+      const n = firstFiniteNumber(value);
+      if (n !== null) return n;
+    }
+  }
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === 'object') {
+      const nested = extractFirstFiniteByKey(value, keys, depth + 1);
+      if (nested !== null) return nested;
+    }
+  }
+  return null;
+}
+
+function extractFirstTimestampByKey(obj, keys, depth = 0) {
+  if (!obj || typeof obj !== 'object' || depth > 5) return null;
+  const wanted = new Set(keys.map(k => String(k).toLowerCase()));
+  for (const [key, value] of Object.entries(obj)) {
+    if (wanted.has(String(key).toLowerCase())) {
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime())) return date.toISOString();
+    }
+  }
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === 'object') {
+      const nested = extractFirstTimestampByKey(value, keys, depth + 1);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+function extractSubscriptionHint(obj, depth = 0) {
+  if (!obj || typeof obj !== 'object' || depth > 5) return null;
+  const keys = new Set([
+    'active_subscription', 'active_subs', 'subscription_active', 'subscriptions_active',
+    'ws_active', 'stream_active', 'boat_active', 'boats_active', 'feed_active', 'is_active'
+  ]);
+  for (const [key, value] of Object.entries(obj)) {
+    const normalized = String(key).toLowerCase();
+    if (keys.has(normalized)) {
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'number') return value > 0;
+      if (typeof value === 'string') {
+        if (/^(true|active|ok|open|subscribed|yes|1)$/i.test(value)) return true;
+        if (/^(false|inactive|closed|stale|no|0)$/i.test(value)) return false;
+      }
+    }
+  }
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === 'object') {
+      const nested = extractSubscriptionHint(value, depth + 1);
+      if (nested !== null) return nested;
+    }
+  }
+  return null;
+}
+
+function pickQuoteRoot(data, symbol) {
+  const sym = String(symbol || '').toUpperCase();
+  const candidates = [
+    data?.quote,
+    data?.latestQuote,
+    data?.latest_quote,
+    data?.snapshot?.latestQuote,
+    data?.snapshot?.latest_quote,
+    data?.snapshots?.[sym]?.latestQuote,
+    data?.snapshots?.[sym]?.latest_quote,
+    data?.quotes?.[sym],
+    Array.isArray(data?.quotes) ? data.quotes[0] : null,
+    Array.isArray(data?.data) ? data.data[0] : null,
+    data?.[sym]?.latestQuote,
+    data?.[sym],
+    data
+  ];
+  return candidates.find(v => v && typeof v === 'object') || {};
+}
+
+function normalizeSimulatorQuote(data, symbol) {
+  const root = pickQuoteRoot(data, symbol);
+  const bid = firstFiniteNumber(
+    root.bp, root.bid_price, root.bidPrice, root.bid,
+    extractFirstFiniteByKey(root, ['bp', 'bid_price', 'bidPrice', 'bid'])
+  );
+  const ask = firstFiniteNumber(
+    root.ap, root.ask_price, root.askPrice, root.ask,
+    extractFirstFiniteByKey(root, ['ap', 'ask_price', 'askPrice', 'ask'])
+  );
+  const last = firstFiniteNumber(
+    root.price, root.p, root.last_price, root.lastPrice, root.last, root.close,
+    extractFirstFiniteByKey(root, ['price', 'p', 'last_price', 'lastPrice', 'last', 'close'])
+  );
+  const timestamp = extractFirstTimestampByKey(root, ['t', 'timestamp', 'time', 'updated_at', 'updatedAt', 'last_updated', 'lastUpdated']);
+  const ageMs = timestamp ? Date.now() - new Date(timestamp).getTime() : null;
+  const stale = ageMs !== null ? ageMs > 5 * 60 * 1000 : null;
+  return {
+    symbol: String(symbol || '').toUpperCase(),
+    bid,
+    ask,
+    last,
+    timestamp,
+    age_ms: ageMs,
+    stale,
+    subscription_active: extractSubscriptionHint(data) ?? extractSubscriptionHint(root),
+    source: data?.source || data?.provider || 'leandata-realtime'
+  };
+}
+
+async function fetchSimulatorLiquidity({ token, symbol, assetClass, args = {} }) {
+  if (assetClass === 'crypto') {
+    return {
+      quote: {
+        symbol,
+        bid: null,
+        ask: null,
+        last: firstFiniteNumber(args.simulated_price, args.limit_price, 100),
+        timestamp: new Date().toISOString(),
+        stale: false,
+        subscription_active: true,
+        source: 'simulator-crypto'
+      }
+    };
+  }
+  const REST = 'https://api.leandata.uk';
+  const RT = 'https://rt-api.leandata.uk';
+  const url = assetClass === 'option'
+    ? `${REST}/v1/options/snapshots/quote`
+    : `${RT}/v1/stocks/latest/quote`;
+  const payload = assetClass === 'option'
+    ? { ...args, symbol, symbols: args.symbols || symbol }
+    : { symbol, feed: args.feed || args.data_feed || args.feed_name || 'iex' };
+  const data = await postLeandataJson(token, url, payload);
+  return { quote: normalizeSimulatorQuote(data, symbol), raw_status: data?.status };
+}
+
+function decideSimulatorFill({ assetClass, orderType, side, limitPrice, simulatedPrice, liquidity }) {
+  const clock = getNewYorkMarketClock();
+  if (assetClass !== 'crypto' && clock.weekend_closed) {
+    return { fill: false, status: 'accepted', clock, price: null, reason: 'weekend_closed', quote: liquidity?.quote || null };
+  }
+
+  const quote = liquidity?.quote || {};
+  const executablePrice = side === 'buy'
+    ? firstFiniteNumber(quote.ask, quote.last, simulatedPrice)
+    : firstFiniteNumber(quote.bid, quote.last, simulatedPrice);
+
+  if (assetClass !== 'crypto' && side === 'buy' && !quote.ask && !quote.last) {
+    return { fill: false, status: 'accepted', clock, price: null, reason: 'no_executable_ask', quote };
+  }
+  if (assetClass !== 'crypto' && side === 'sell' && !quote.bid && !quote.last) {
+    return { fill: false, status: 'accepted', clock, price: null, reason: 'no_executable_bid', quote };
+  }
+
+  if (orderType === 'market') {
+    return { fill: true, status: 'filled', clock, price: executablePrice, reason: quote.stale ? 'marketable_quote_stale' : 'marketable_quote', quote };
+  }
+  if (orderType === 'limit') {
+    const referencePrice = side === 'buy'
+      ? firstFiniteNumber(quote.ask, quote.last, simulatedPrice)
+      : firstFiniteNumber(quote.bid, quote.last, simulatedPrice);
+    const marketable = side === 'buy'
+      ? Number(limitPrice) >= Number(referencePrice)
+      : Number(limitPrice) <= Number(referencePrice);
+    return {
+      fill: marketable,
+      status: marketable ? 'filled' : 'accepted',
+      clock,
+      price: marketable ? referencePrice : null,
+      reason: marketable ? (quote.stale ? 'limit_crossed_quote_stale' : 'limit_crossed_quote') : 'limit_not_marketable',
+      quote
+    };
+  }
+  return { fill: false, status: 'accepted', clock, price: null, reason: 'order_type_waiting_for_trigger', quote };
+}
+
+// ============================================================
+// MCP: Alpaca-style paper simulator facade
+// ============================================================
+
+const MCP_PAPER_DIR = path.join(DATA_DIR, 'mcp-paper', 'accounts');
+const MCP_WATCHLIST_DIR = path.join(DATA_DIR, 'mcp-paper', 'watchlists');
+const MCP_AUDIT_DIR = path.join(DATA_DIR, 'mcp-paper', 'audit');
+
+function mcpJsonRpc(id, result) {
+  return { jsonrpc: '2.0', id, result };
+}
+
+function mcpJsonRpcError(id, code, message, data) {
+  return { jsonrpc: '2.0', id: id ?? null, error: { code, message, ...(data ? { data } : {}) } };
+}
+
+function mcpTextResult(payload) {
+  const text = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+  return {
+    content: [{ type: 'text', text }],
+    structuredContent: typeof payload === 'string' ? { message: payload } : payload
+  };
+}
+
+function resolveMcpPrincipal(req) {
+  const auth = req.headers.authorization;
+  const match = typeof auth === 'string' ? auth.match(/^Bearer\s+(\S+)$/i) : null;
+  const token = match ? match[1] : '';
+  if (!token) return null;
+
+  const registry = readJSON(PROXY_USERS_FILE, { users: [] });
+  const user = (registry.users || []).find(u => u.token === token);
+  if (!user) return null;
+
+  const expiry = user.expires_at ? new Date(user.expires_at) : null;
+  if (expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime() < Date.now()) {
+    return { expired: true, user, token };
+  }
+  return { expired: false, user, token };
+}
+
+function legacyPaperUserId(userId) {
+  return String(userId || 'unknown').replace(/[^a-zA-Z0-9_.-]/g, '_').slice(0, 120);
+}
+
+function safePaperUserId(userId) {
+  return `u-${crypto.createHash('sha256').update(String(userId || 'unknown')).digest('hex')}`;
+}
+
+function paperAccountPath(userId) {
+  return path.join(MCP_PAPER_DIR, `${safePaperUserId(userId)}.json`);
+}
+
+function watchlistPath(userId) {
+  return path.join(MCP_WATCHLIST_DIR, `${safePaperUserId(userId)}.json`);
+}
+
+function migrateLegacyMcpState(directory, userId, targetFile) {
+  const legacyFile = path.join(directory, `${legacyPaperUserId(userId)}.json`);
+  if (fs.existsSync(targetFile) || !fs.existsSync(legacyFile)) return;
+
+  const legacyState = readJSON(legacyFile, null);
+  if (!legacyState || legacyState.user_id !== userId) return;
+
+  try {
+    fs.renameSync(legacyFile, targetFile);
+  } catch (err) {
+    console.error('[MCP state] migration failed:', err.message);
+  }
+}
+
+function defaultPaperAccount(userId) {
+  const now = new Date().toISOString();
+  return {
+    user_id: userId,
+    currency: 'USD',
+    cash: 100000,
+    buying_power: 100000,
+    equity: 100000,
+    initial_equity: 100000,
+    positions: [],
+    orders: [],
+    created_at: now,
+    updated_at: now
+  };
+}
+
+function readPaperAccount(userId) {
+  fs.mkdirSync(MCP_PAPER_DIR, { recursive: true });
+  const file = paperAccountPath(userId);
+  migrateLegacyMcpState(MCP_PAPER_DIR, userId, file);
+  if (!fs.existsSync(file)) {
+    const account = defaultPaperAccount(userId);
+    writeJSON(file, account);
+    return account;
+  }
+  return readJSON(file, defaultPaperAccount(userId));
+}
+
+function defaultWatchlistBook(userId) {
+  const now = new Date().toISOString();
+  return {
+    user_id: userId,
+    watchlists: [
+      {
+        id: 'default',
+        name: 'Default Universe',
+        symbols: [],
+        created_at: now,
+        updated_at: now
+      }
+    ],
+    created_at: now,
+    updated_at: now
+  };
+}
+
+function readWatchlists(userId) {
+  fs.mkdirSync(MCP_WATCHLIST_DIR, { recursive: true });
+  const file = watchlistPath(userId);
+  migrateLegacyMcpState(MCP_WATCHLIST_DIR, userId, file);
+  if (!fs.existsSync(file)) {
+    const book = defaultWatchlistBook(userId);
+    writeJSON(file, book);
+    return book;
+  }
+  const book = readJSON(file, defaultWatchlistBook(userId));
+  if (!Array.isArray(book.watchlists) || book.watchlists.length === 0) {
+    book.watchlists = defaultWatchlistBook(userId).watchlists;
+  }
+  return book;
+}
+
+function writeWatchlists(book) {
+  book.updated_at = new Date().toISOString();
+  for (const list of book.watchlists || []) {
+    list.updated_at = list.updated_at || book.updated_at;
+    list.symbols = Array.from(new Set((list.symbols || []).map(s => String(s).trim().toUpperCase()).filter(Boolean))).sort();
+  }
+  writeJSON(watchlistPath(book.user_id), book);
+}
+
+function findWatchlist(book, watchlistIdOrName = 'default') {
+  const key = String(watchlistIdOrName || 'default').trim();
+  return (book.watchlists || []).find(w => w.id === key || w.name === key) || null;
+}
+
+function assertSymbolInUniverse(userId, symbol) {
+  const cleanSymbol = String(symbol || '').trim().toUpperCase();
+  const book = readWatchlists(userId);
+  const inUniverse = (book.watchlists || []).some(w => (w.symbols || []).includes(cleanSymbol));
+  if (!inUniverse) {
+    throw new Error(`${cleanSymbol} is not in your MCP watchlist/universe. Call alpaca_add_asset_to_watchlist first.`);
+  }
+}
+
+function appendMcpAudit(userId, entry) {
+  try {
+    fs.mkdirSync(MCP_AUDIT_DIR, { recursive: true });
+    const file = path.join(MCP_AUDIT_DIR, `${safePaperUserId(userId)}.jsonl`);
+    fs.appendFileSync(file, JSON.stringify({
+      ts: new Date().toISOString(),
+      user_id: userId,
+      ...entry
+    }) + '\n');
+  } catch (err) {
+    console.error('[MCP audit] write failed:', err.message);
+  }
+}
+
+function summarizeMcpResult(payload) {
+  if (!payload || typeof payload !== 'object') return { type: typeof payload };
+  if (Array.isArray(payload)) return { type: 'array', count: payload.length };
+  const summary = {};
+  for (const [key, value] of Object.entries(payload).slice(0, 8)) {
+    if (Array.isArray(value)) summary[key] = { type: 'array', count: value.length };
+    else if (value && typeof value === 'object') summary[key] = { type: 'object', keys: Object.keys(value).slice(0, 8) };
+    else summary[key] = value;
+  }
+  return summary;
+}
+
+function cleanMcpArgs(args = {}) {
+  const clone = JSON.parse(JSON.stringify(args || {}));
+  for (const key of Object.keys(clone)) {
+    if (/token|secret|key|authorization/i.test(key)) clone[key] = '[redacted]';
+  }
+  return clone;
+}
+
+async function postLeandataJson(token, url, payload = {}) {
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ ...payload, token })
+  });
+  const text = await resp.text();
+  let data;
+  try { data = text ? JSON.parse(text) : {}; } catch (_) { data = { raw: text }; }
+  if (!resp.ok) {
+    const message = data.error || data.message || `Leandata proxy returned HTTP ${resp.status}`;
+    const err = new Error(message);
+    err.status = resp.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+function firstSymbolArg(args = {}) {
+  return args.symbol || args.underlying_symbol || args.underlying || args.ticker || args.symbols?.[0] || '';
+}
+
+function assertMcpUniverseForArgs(userId, args = {}) {
+  const symbols = [];
+  if (Array.isArray(args.symbols)) symbols.push(...args.symbols);
+  const first = firstSymbolArg(args);
+  if (first) symbols.push(first);
+  for (const raw of symbols) {
+    const symbol = String(raw || '').trim().toUpperCase();
+    if (symbol) assertSymbolInUniverse(userId, symbol);
+  }
+}
+
+function writePaperAccount(account) {
+  account.updated_at = new Date().toISOString();
+  account.equity = Number(account.cash || 0) + (account.positions || []).reduce((sum, p) => {
+    return sum + Number(p.market_value || 0);
+  }, 0);
+  account.buying_power = Math.max(0, Number(account.cash || 0));
+  writeJSON(paperAccountPath(account.user_id), account);
+}
+
+function updatePaperPosition(account, symbol, side, qty, price) {
+  const cleanSymbol = String(symbol || '').trim().toUpperCase();
+  const cleanQty = Number(qty);
+  const cleanPrice = Number(price);
+  if (!cleanSymbol) throw new Error('symbol is required');
+  if (!Number.isFinite(cleanQty) || cleanQty <= 0) throw new Error('qty must be a positive number');
+  if (!Number.isFinite(cleanPrice) || cleanPrice <= 0) throw new Error('price must be a positive number');
+
+  const signedQty = side === 'sell' ? -cleanQty : cleanQty;
+  const positions = account.positions || [];
+  let position = positions.find(p => p.symbol === cleanSymbol);
+  if (!position) {
+    position = {
+      symbol: cleanSymbol,
+      asset_class: 'us_equity',
+      qty: 0,
+      avg_entry_price: cleanPrice,
+      market_price: cleanPrice,
+      market_value: 0,
+      unrealized_pl: 0,
+      side: 'long'
+    };
+    positions.push(position);
+  }
+
+  const oldQty = Number(position.qty || 0);
+  const newQty = oldQty + signedQty;
+  const oldCost = oldQty * Number(position.avg_entry_price || cleanPrice);
+
+  account.cash = Number(account.cash || 0) - signedQty * cleanPrice;
+
+  if (Math.abs(newQty) < 1e-9) {
+    account.positions = positions.filter(p => p.symbol !== cleanSymbol);
+    return;
+  }
+
+  if (Math.sign(oldQty) === Math.sign(newQty) && Math.sign(oldQty) === Math.sign(signedQty)) {
+    position.avg_entry_price = Math.abs((oldCost + signedQty * cleanPrice) / newQty);
+  } else if (Math.sign(oldQty) !== Math.sign(newQty)) {
+    position.avg_entry_price = cleanPrice;
+  }
+  position.qty = newQty;
+  position.market_price = cleanPrice;
+  position.market_value = newQty * cleanPrice;
+  position.unrealized_pl = (cleanPrice - Number(position.avg_entry_price || cleanPrice)) * newQty;
+  position.side = newQty >= 0 ? 'long' : 'short';
+}
+
+const ALPACA_PAPER_TOOLS = [
+  {
+    name: 'alpaca_get_watchlists',
+    description: 'List this user MCP watchlists. Watchlists act as the allowed universe for paper trading and data tools.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+  },
+  {
+    name: 'alpaca_create_watchlist',
+    description: 'Create a user watchlist/universe. Symbols added here are allowed for later MCP operations.',
+    inputSchema: {
+      type: 'object',
+      required: ['name'],
+      properties: {
+        name: { type: 'string' },
+        symbols: { type: 'array', items: { type: 'string' }, default: [] }
+      },
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'alpaca_add_asset_to_watchlist',
+    description: 'Add a symbol to a watchlist/universe. Paper trading and data tools require symbols to be in a watchlist first.',
+    inputSchema: {
+      type: 'object',
+      required: ['symbol'],
+      properties: {
+        symbol: { type: 'string' },
+        watchlist_id: { type: 'string', default: 'default' }
+      },
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'alpaca_remove_asset_from_watchlist',
+    description: 'Remove a symbol from a watchlist/universe.',
+    inputSchema: {
+      type: 'object',
+      required: ['symbol'],
+      properties: {
+        symbol: { type: 'string' },
+        watchlist_id: { type: 'string', default: 'default' }
+      },
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'alpaca_get_watchlist_assets',
+    description: 'List symbols in a watchlist/universe.',
+    inputSchema: {
+      type: 'object',
+      properties: { watchlist_id: { type: 'string', default: 'default' } },
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'alpaca_paper_get_account',
+    description: 'Get the current isolated Leandata paper account. This never connects to a real Alpaca trading account.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+  },
+  {
+    name: 'alpaca_paper_get_positions',
+    description: 'List simulated paper positions for this Leandata user.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+  },
+  {
+    name: 'alpaca_paper_get_orders',
+    description: 'List simulated paper orders for this Leandata user.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['all', 'open', 'closed', 'filled', 'canceled'], default: 'all' },
+        limit: { type: 'number', minimum: 1, maximum: 200, default: 50 }
+      },
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'alpaca_paper_place_order',
+    description: 'Place a simulated stock paper order. The symbol must first be added to a watchlist/universe. Orders are quote-driven: weekends are closed; weekday extended/overnight sessions can fill when Leandata realtime bid/ask is executable. No real Alpaca order is sent.',
+    inputSchema: {
+      type: 'object',
+      required: ['symbol', 'side', 'qty'],
+      properties: {
+        symbol: { type: 'string', description: 'US equity symbol, for example AAPL.' },
+        side: { type: 'string', enum: ['buy', 'sell'] },
+        qty: { type: 'number', exclusiveMinimum: 0 },
+        type: { type: 'string', enum: ['market', 'limit'], default: 'market' },
+        time_in_force: { type: 'string', enum: ['day', 'gtc', 'ioc', 'fok'], default: 'day' },
+        limit_price: { type: 'number', exclusiveMinimum: 0 },
+        simulated_price: { type: 'number', exclusiveMinimum: 0, description: 'Fallback simulation price used only when realtime quote price is unavailable.' },
+        extended_hours: { type: 'boolean', default: false, description: 'Accepted for Alpaca compatibility; simulator fill logic is quote-driven and can use extended/overnight quotes on weekdays.' },
+        client_order_id: { type: 'string' }
+      },
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'alpaca_paper_cancel_order',
+    description: 'Cancel a simulated order if it has not filled. Immediate-fill simulator orders are returned unchanged with status filled.',
+    inputSchema: {
+      type: 'object',
+      required: ['order_id'],
+      properties: { order_id: { type: 'string' } },
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'alpaca_paper_reset_account',
+    description: 'Reset this user paper account to 100,000 USD cash. This affects only the simulator ledger.',
+    inputSchema: {
+      type: 'object',
+      properties: { confirm: { type: 'boolean', description: 'Must be true.' } },
+      required: ['confirm'],
+      additionalProperties: false
+    }
+  }
+];
+
+const STRING_FILTER_SCHEMA = { type: 'object', properties: {}, additionalProperties: true };
+const SYMBOL_SCHEMA = {
+  type: 'object',
+  required: ['symbol'],
+  properties: { symbol: { type: 'string' } },
+  additionalProperties: true
+};
+
+const ALPACA_FULL_TOOLS = [
+  // Account & Portfolio
+  ['get_account_info', 'Balance, margin, and simulated account status.', {}],
+  ['get_account_config', 'Trading restrictions, margin settings, and PDT-style simulator config.', {}],
+  ['update_account_config', 'Update simulated account configuration settings.', STRING_FILTER_SCHEMA],
+  ['get_portfolio_history', 'Simulated equity and P/L over time.', STRING_FILTER_SCHEMA],
+  ['get_account_activities', 'Simulator fills, dividends, transfers, and account activities.', STRING_FILTER_SCHEMA],
+  ['get_account_activities_by_type', 'Simulator activities filtered by type.', { type: 'object', required: ['activity_type'], properties: { activity_type: { type: 'string' } }, additionalProperties: true }],
+
+  // Trading
+  ['get_orders', 'Retrieve simulated orders with filters.', STRING_FILTER_SCHEMA],
+  ['get_order_by_id', 'Get a simulated order by ID.', { type: 'object', required: ['order_id'], properties: { order_id: { type: 'string' } }, additionalProperties: false }],
+  ['get_order_by_client_id', 'Get a simulated order by client order ID.', { type: 'object', required: ['client_order_id'], properties: { client_order_id: { type: 'string' } }, additionalProperties: false }],
+  ['replace_order_by_id', 'Replace an existing open simulated order.', STRING_FILTER_SCHEMA],
+  ['cancel_order_by_id', 'Cancel a specific simulated order.', { type: 'object', required: ['order_id'], properties: { order_id: { type: 'string' } }, additionalProperties: false }],
+  ['cancel_all_orders', 'Cancel all open simulated orders.', {}],
+  ['place_stock_order', 'Stocks/ETFs paper order. Symbol must be in watchlist/universe first.', STRING_FILTER_SCHEMA],
+  ['place_crypto_order', 'Crypto paper order. Symbol must be in watchlist/universe first.', STRING_FILTER_SCHEMA],
+  ['place_option_order', 'Options paper order. Underlying must be in watchlist/universe first.', STRING_FILTER_SCHEMA],
+
+  // Positions
+  ['get_all_positions', 'All current simulated positions.', {}],
+  ['get_open_position', 'Details for a specific simulated position.', SYMBOL_SCHEMA],
+  ['close_position', 'Close a specific simulated position.', SYMBOL_SCHEMA],
+  ['close_all_positions', 'Liquidate entire simulated portfolio.', {}],
+  ['exercise_options_position', 'Simulated exercise instruction for an option position.', SYMBOL_SCHEMA],
+  ['do_not_exercise_options_position', 'Simulated do-not-exercise instruction for an option position.', SYMBOL_SCHEMA],
+
+  // Watchlists
+  ['create_watchlist', 'Create a new watchlist/universe.', { type: 'object', required: ['name'], properties: { name: { type: 'string' }, symbols: { type: 'array', items: { type: 'string' } } }, additionalProperties: false }],
+  ['get_watchlists', 'List all watchlists/universes.', {}],
+  ['get_watchlist_by_id', 'Get a specific watchlist/universe.', { type: 'object', required: ['watchlist_id'], properties: { watchlist_id: { type: 'string' } }, additionalProperties: false }],
+  ['update_watchlist_by_id', 'Update a watchlist name and/or symbols.', STRING_FILTER_SCHEMA],
+  ['delete_watchlist_by_id', 'Delete a watchlist/universe.', { type: 'object', required: ['watchlist_id'], properties: { watchlist_id: { type: 'string' } }, additionalProperties: false }],
+  ['add_asset_to_watchlist_by_id', 'Add an asset to a watchlist/universe.', { type: 'object', required: ['symbol'], properties: { symbol: { type: 'string' }, watchlist_id: { type: 'string', default: 'default' } }, additionalProperties: false }],
+  ['remove_asset_from_watchlist_by_id', 'Remove an asset from a watchlist/universe.', { type: 'object', required: ['symbol'], properties: { symbol: { type: 'string' }, watchlist_id: { type: 'string', default: 'default' } }, additionalProperties: false }],
+
+  // Assets & Market Info
+  ['get_all_assets', 'List assets with optional filtering.', STRING_FILTER_SCHEMA],
+  ['get_asset', 'Detailed info for a specific asset.', SYMBOL_SCHEMA],
+  ['get_option_contracts', 'ThetaData-backed option contracts for underlying symbols.', STRING_FILTER_SCHEMA],
+  ['get_option_contract', 'Single option contract by symbol or ID.', STRING_FILTER_SCHEMA],
+  ['get_calendar', 'Market calendar for a date range.', STRING_FILTER_SCHEMA],
+  ['get_clock', 'Current market status and next open/close.', {}],
+  ['get_corporate_action_announcements', 'Corporate action announcements.', STRING_FILTER_SCHEMA],
+  ['get_corporate_action_announcement', 'Single announcement by ID.', STRING_FILTER_SCHEMA],
+
+  // Stock Data
+  ['get_stock_bars', 'Historical OHLCV bars from Leandata stock data.', STRING_FILTER_SCHEMA],
+  ['get_stock_quotes', 'Historical bid/ask quotes from Leandata stock data.', STRING_FILTER_SCHEMA],
+  ['get_stock_trades', 'Historical trades from Leandata stock data.', STRING_FILTER_SCHEMA],
+  ['get_stock_latest_bar', 'Latest stock minute bar.', SYMBOL_SCHEMA],
+  ['get_stock_latest_quote', 'Latest stock quote.', SYMBOL_SCHEMA],
+  ['get_stock_latest_trade', 'Latest stock trade.', SYMBOL_SCHEMA],
+  ['get_stock_snapshot', 'Comprehensive stock snapshot.', SYMBOL_SCHEMA],
+  ['get_most_active_stocks', 'Most active stocks by volume/trade count.', STRING_FILTER_SCHEMA],
+  ['get_market_movers', 'Top gainers and losers.', STRING_FILTER_SCHEMA],
+
+  // Crypto Data
+  ['get_crypto_bars', 'Historical crypto OHLCV bars.', STRING_FILTER_SCHEMA],
+  ['get_crypto_quotes', 'Historical crypto quotes.', STRING_FILTER_SCHEMA],
+  ['get_crypto_trades', 'Historical crypto trades.', STRING_FILTER_SCHEMA],
+  ['get_crypto_latest_bar', 'Latest crypto minute bar.', SYMBOL_SCHEMA],
+  ['get_crypto_latest_quote', 'Latest crypto quote.', SYMBOL_SCHEMA],
+  ['get_crypto_latest_trade', 'Latest crypto trade.', SYMBOL_SCHEMA],
+  ['get_crypto_snapshot', 'Comprehensive crypto snapshot.', SYMBOL_SCHEMA],
+  ['get_crypto_latest_orderbook', 'Latest crypto orderbook from Leandata.', SYMBOL_SCHEMA],
+
+  // Options Data + ThetaData
+  ['get_option_bars', 'ThetaData-backed historical option OHLCV bars.', STRING_FILTER_SCHEMA],
+  ['get_option_trades', 'ThetaData-backed historical option trades.', STRING_FILTER_SCHEMA],
+  ['get_option_latest_trade', 'Latest option trade when available.', STRING_FILTER_SCHEMA],
+  ['get_option_latest_quote', 'Latest option quote with bid/ask and exchange info when available.', STRING_FILTER_SCHEMA],
+  ['get_option_snapshot', 'ThetaData/Leandata option snapshot with Greeks and IV when available.', STRING_FILTER_SCHEMA],
+  ['get_option_chain', 'ThetaData-backed full option chain for an underlying.', STRING_FILTER_SCHEMA],
+  ['get_option_exchange_codes', 'Option exchange code to name mapping.', {}],
+
+  // Corporate Actions, News, Fixed Income, Index, Locates
+  ['get_corporate_actions', 'Corporate action announcements from market data.', STRING_FILTER_SCHEMA],
+  ['get_news', 'News articles for stocks and crypto.', STRING_FILTER_SCHEMA],
+  ['get_fixed_income_latest_quotes', 'Latest fixed income quotes by ISIN when available.', STRING_FILTER_SCHEMA],
+  ['get_index_latest_values', 'Latest market index values when available.', STRING_FILTER_SCHEMA],
+  ['get_index_values', 'Historical market index values when available.', STRING_FILTER_SCHEMA],
+  ['get_locates', 'Simulator locate requests filtered by status, symbol, or date.', STRING_FILTER_SCHEMA],
+  ['create_locate', 'Create a simulated locate request for a short sale.', STRING_FILTER_SCHEMA],
+  ['get_locate', 'Get a single simulated locate request by ID.', STRING_FILTER_SCHEMA],
+  ['get_locate_quotes', 'Get simulated locate availability and pricing for symbols.', STRING_FILTER_SCHEMA],
+].map(([name, description, inputSchema]) => ({
+  name,
+  description,
+  inputSchema: inputSchema && Object.keys(inputSchema).length ? inputSchema : { type: 'object', properties: {}, additionalProperties: false }
+}));
+
+const LEGACY_TOOL_ALIASES = {
+  alpaca_paper_get_account: 'get_account_info',
+  alpaca_paper_get_positions: 'get_all_positions',
+  alpaca_paper_get_orders: 'get_orders',
+  alpaca_paper_place_order: 'place_stock_order',
+  alpaca_paper_cancel_order: 'cancel_order_by_id',
+  alpaca_paper_reset_account: 'reset_paper_account',
+  alpaca_get_watchlists: 'get_watchlists',
+  alpaca_create_watchlist: 'create_watchlist',
+  alpaca_add_asset_to_watchlist: 'add_asset_to_watchlist_by_id',
+  alpaca_remove_asset_from_watchlist: 'remove_asset_from_watchlist_by_id',
+  alpaca_get_watchlist_assets: 'get_watchlist_by_id'
+};
+
+const ALL_MCP_TOOLS = [
+  ...ALPACA_FULL_TOOLS,
+  {
+    name: 'reset_paper_account',
+    description: 'Reset this user paper account to 100,000 USD cash.',
+    inputSchema: { type: 'object', required: ['confirm'], properties: { confirm: { type: 'boolean' } }, additionalProperties: false }
+  },
+  ...ALPACA_PAPER_TOOLS,
+];
+
+async function callAlpacaPaperTool(user, name, args = {}, token = '') {
+  const userId = user.user_id || user.username || 'unknown';
+  const account = readPaperAccount(userId);
+  name = LEGACY_TOOL_ALIASES[name] || name;
+
+  if (name === 'get_watchlists') {
+    return readWatchlists(userId);
+  }
+
+  if (name === 'create_watchlist') {
+    const cleanName = String(args.name || '').trim();
+    if (!cleanName) throw new Error('name is required');
+    const book = readWatchlists(userId);
+    const existing = findWatchlist(book, cleanName);
+    if (existing) return { watchlist: existing, created: false };
+
+    const now = new Date().toISOString();
+    const watchlist = {
+      id: crypto.randomUUID(),
+      name: cleanName,
+      symbols: Array.from(new Set((args.symbols || []).map(s => String(s).trim().toUpperCase()).filter(Boolean))).sort(),
+      created_at: now,
+      updated_at: now
+    };
+    book.watchlists.push(watchlist);
+    writeWatchlists(book);
+    return { watchlist, created: true };
+  }
+
+  if (name === 'add_asset_to_watchlist_by_id') {
+    const symbol = String(args.symbol || '').trim().toUpperCase();
+    if (!symbol) throw new Error('symbol is required');
+    const book = readWatchlists(userId);
+    const watchlist = findWatchlist(book, args.watchlist_id || 'default');
+    if (!watchlist) throw new Error('watchlist not found');
+    watchlist.symbols = Array.from(new Set([...(watchlist.symbols || []), symbol])).sort();
+    watchlist.updated_at = new Date().toISOString();
+    writeWatchlists(book);
+    return { watchlist, symbol, added: true };
+  }
+
+  if (name === 'remove_asset_from_watchlist_by_id') {
+    const symbol = String(args.symbol || '').trim().toUpperCase();
+    if (!symbol) throw new Error('symbol is required');
+    const book = readWatchlists(userId);
+    const watchlist = findWatchlist(book, args.watchlist_id || 'default');
+    if (!watchlist) throw new Error('watchlist not found');
+    watchlist.symbols = (watchlist.symbols || []).filter(s => s !== symbol);
+    watchlist.updated_at = new Date().toISOString();
+    writeWatchlists(book);
+    return { watchlist, symbol, removed: true };
+  }
+
+  if (name === 'get_watchlist_by_id') {
+    const book = readWatchlists(userId);
+    const watchlist = findWatchlist(book, args.watchlist_id || 'default');
+    if (!watchlist) throw new Error('watchlist not found');
+    return { watchlist };
+  }
+
+  if (name === 'update_watchlist_by_id') {
+    const book = readWatchlists(userId);
+    const watchlist = findWatchlist(book, args.watchlist_id || 'default');
+    if (!watchlist) throw new Error('watchlist not found');
+    if (args.name) watchlist.name = String(args.name).trim();
+    if (Array.isArray(args.symbols)) watchlist.symbols = args.symbols.map(s => String(s).trim().toUpperCase()).filter(Boolean);
+    watchlist.updated_at = new Date().toISOString();
+    writeWatchlists(book);
+    return { watchlist };
+  }
+
+  if (name === 'delete_watchlist_by_id') {
+    const key = String(args.watchlist_id || '').trim();
+    if (!key || key === 'default') throw new Error('default watchlist cannot be deleted');
+    const book = readWatchlists(userId);
+    const before = book.watchlists.length;
+    book.watchlists = book.watchlists.filter(w => w.id !== key && w.name !== key);
+    writeWatchlists(book);
+    return { deleted: before !== book.watchlists.length, watchlists: book.watchlists };
+  }
+
+  if (name === 'get_account_info') {
+    return {
+      account: {
+        user_id: account.user_id,
+        status: 'ACTIVE',
+        trading_blocked: false,
+        transfers_blocked: true,
+        account_blocked: false,
+        currency: account.currency,
+        cash: account.cash,
+        buying_power: account.buying_power,
+        equity: account.equity,
+        initial_equity: account.initial_equity,
+        paper_only: true,
+        broker: 'leandata-paper-simulator'
+      }
+    };
+  }
+
+  if (name === 'get_account_config') {
+    return {
+      config: {
+        paper_only: true,
+        trade_confirm_email: 'none',
+        no_shorting: false,
+        suspend_trade: false,
+        fractional_trading: true,
+        max_margin_multiplier: '1',
+        pdt_check: 'simulated',
+        universe_required: true
+      }
+    };
+  }
+
+  if (name === 'get_clock') {
+    return getNewYorkMarketClock();
+  }
+
+  if (name === 'update_account_config') {
+    account.config = { ...(account.config || {}), ...args, updated_at: new Date().toISOString() };
+    writePaperAccount(account);
+    return { config: account.config };
+  }
+
+  if (name === 'get_portfolio_history') {
+    return {
+      portfolio_history: {
+        timestamp: [account.updated_at || account.created_at],
+        equity: [account.equity],
+        profit_loss: [Number(account.equity || 0) - Number(account.initial_equity || 100000)],
+        profit_loss_pct: [(Number(account.equity || 0) - Number(account.initial_equity || 100000)) / Number(account.initial_equity || 100000)],
+        paper_only: true
+      }
+    };
+  }
+
+  if (name === 'get_account_activities' || name === 'get_account_activities_by_type') {
+    const activities = (account.orders || []).map(o => ({
+      id: o.id,
+      activity_type: 'FILL',
+      transaction_time: o.filled_at || o.submitted_at,
+      symbol: o.symbol,
+      qty: o.filled_qty || o.qty,
+      price: o.filled_avg_price,
+      side: o.side,
+      order_id: o.id,
+      paper_only: true
+    }));
+    const wanted = String(args.activity_type || '').toUpperCase();
+    return { activities: wanted ? activities.filter(a => a.activity_type === wanted) : activities.reverse() };
+  }
+
+  if (name === 'get_all_positions') {
+    return { positions: account.positions || [] };
+  }
+
+  if (name === 'get_open_position') {
+    const symbol = String(args.symbol || '').trim().toUpperCase();
+    assertSymbolInUniverse(userId, symbol);
+    const position = (account.positions || []).find(p => p.symbol === symbol);
+    if (!position) throw new Error('position not found');
+    return { position };
+  }
+
+  if (name === 'get_orders') {
+    const status = args.status || 'all';
+    const limit = Math.max(1, Math.min(Number(args.limit || 50), 200));
+    let orders = account.orders || [];
+    if (status === 'open') orders = orders.filter(o => ['new', 'accepted', 'open'].includes(o.status));
+    else if (status === 'closed') orders = orders.filter(o => ['filled', 'canceled', 'rejected'].includes(o.status));
+    else if (status !== 'all') orders = orders.filter(o => o.status === status);
+    return { orders: orders.slice(-limit).reverse() };
+  }
+
+  if (name === 'get_order_by_id' || name === 'get_order_by_client_id') {
+    const orderId = args.order_id || args.client_order_id;
+    const order = (account.orders || []).find(o => o.id === orderId || o.client_order_id === orderId);
+    if (!order) throw new Error('order not found');
+    return { order };
+  }
+
+  if (name === 'place_stock_order' || name === 'place_crypto_order' || name === 'place_option_order') {
+    const symbol = String(args.symbol || '').trim().toUpperCase();
+    const underlying = String(args.underlying_symbol || args.underlying || symbol).trim().toUpperCase();
+    const side = String(args.side || '').toLowerCase();
+    const qty = Number(args.qty);
+    const orderType = args.type || 'market';
+    const limitPrice = args.limit_price === undefined ? undefined : Number(args.limit_price);
+    const fallbackPrice = Number(args.simulated_price || limitPrice || 100);
+    const assetClass = name === 'place_crypto_order' ? 'crypto' : name === 'place_option_order' ? 'option' : 'us_equity';
+    if (!symbol) throw new Error('symbol is required');
+    assertSymbolInUniverse(userId, underlying || symbol);
+    if (!['buy', 'sell'].includes(side)) throw new Error('side must be buy or sell');
+    if (!Number.isFinite(qty) || qty <= 0) throw new Error('qty must be a positive number');
+    if (orderType === 'limit' && (!Number.isFinite(limitPrice) || limitPrice <= 0)) throw new Error('limit_price is required for limit orders');
+
+    const now = new Date().toISOString();
+    const simulatorClock = getNewYorkMarketClock();
+    let liquidity = null;
+    let liquidityError = null;
+    if (assetClass === 'crypto' || !simulatorClock.weekend_closed) {
+      try {
+        liquidity = await fetchSimulatorLiquidity({ token, symbol, assetClass, args });
+      } catch (err) {
+        liquidityError = err.message || String(err);
+      }
+    }
+    const fillDecision = assetClass !== 'crypto' && simulatorClock.weekend_closed
+      ? {
+          fill: false,
+          status: 'accepted',
+          clock: simulatorClock,
+          price: null,
+          reason: 'weekend_closed',
+          quote: null
+        }
+      : liquidityError
+      ? {
+          fill: false,
+          status: 'accepted',
+          clock: simulatorClock,
+          price: null,
+          reason: 'liquidity_unavailable',
+          quote: null,
+          liquidity_error: liquidityError
+        }
+      : decideSimulatorFill({
+          assetClass,
+          orderType,
+          side,
+          limitPrice,
+          simulatedPrice: fallbackPrice,
+          liquidity,
+        });
+    const fillPrice = Number(fillDecision.price || fallbackPrice);
+    const order = {
+      id: crypto.randomUUID(),
+      client_order_id: args.client_order_id || crypto.randomUUID(),
+      symbol,
+      asset_class: assetClass,
+      side,
+      qty,
+      type: orderType,
+      time_in_force: args.time_in_force || 'day',
+      limit_price: limitPrice,
+      extended_hours: Boolean(args.extended_hours),
+      status: fillDecision.status,
+      submitted_at: now,
+      filled_at: fillDecision.fill ? now : null,
+      filled_qty: fillDecision.fill ? qty : 0,
+      filled_avg_price: fillDecision.fill ? fillPrice : null,
+      notional: qty * fillPrice,
+      simulator_clock: fillDecision.clock,
+      simulator_liquidity: {
+        quote: fillDecision.quote || null,
+        raw_status: liquidity?.raw_status || null,
+        error: fillDecision.liquidity_error || null
+      },
+      simulator_fill_reason: fillDecision.reason,
+      simulator_note: fillDecision.fill
+        ? 'Simulator fill applied because executable quote/liquidity rules allowed it.'
+        : 'Simulator accepted the order but did not fill it because no executable quote was available, it is weekend-closed, or the order is not marketable.',
+      paper_only: true
+    };
+
+    if (fillDecision.fill) {
+      updatePaperPosition(account, symbol, side, qty, fillPrice);
+    }
+    account.orders = account.orders || [];
+    account.orders.push(order);
+    writePaperAccount(account);
+    return { order, account: (await callAlpacaPaperTool(user, 'get_account_info', {}, token)).account };
+  }
+
+  if (name === 'replace_order_by_id') {
+    const order = (account.orders || []).find(o => o.id === args.order_id);
+    if (!order) throw new Error('order not found');
+    if (order.status === 'filled') throw new Error('filled simulator orders cannot be replaced');
+    Object.assign(order, args, { replaced_at: new Date().toISOString() });
+    writePaperAccount(account);
+    return { order };
+  }
+
+  if (name === 'cancel_order_by_id') {
+    const order = (account.orders || []).find(o => o.id === args.order_id || o.client_order_id === args.order_id);
+    if (!order) throw new Error('order not found');
+    if (!['filled', 'canceled', 'rejected'].includes(order.status)) {
+      order.status = 'canceled';
+      order.canceled_at = new Date().toISOString();
+      writePaperAccount(account);
+    }
+    return { order };
+  }
+
+  if (name === 'cancel_all_orders') {
+    let canceled = 0;
+    for (const order of account.orders || []) {
+      if (!['filled', 'canceled', 'rejected'].includes(order.status)) {
+        order.status = 'canceled';
+        order.canceled_at = new Date().toISOString();
+        canceled += 1;
+      }
+    }
+    writePaperAccount(account);
+    return { canceled };
+  }
+
+  if (name === 'close_position') {
+    const symbol = String(args.symbol || '').trim().toUpperCase();
+    assertSymbolInUniverse(userId, symbol);
+    const position = (account.positions || []).find(p => p.symbol === symbol);
+    if (!position) throw new Error('position not found');
+    const side = Number(position.qty) > 0 ? 'sell' : 'buy';
+    const qty = Math.abs(Number(position.qty));
+    const price = Number(args.simulated_price || position.market_price || position.avg_entry_price || 100);
+    updatePaperPosition(account, symbol, side, qty, price);
+    writePaperAccount(account);
+    return { closed: true, symbol, qty, simulated_price: price };
+  }
+
+  if (name === 'close_all_positions') {
+    const positions = [...(account.positions || [])];
+    for (const p of positions) {
+      const side = Number(p.qty) > 0 ? 'sell' : 'buy';
+      updatePaperPosition(account, p.symbol, side, Math.abs(Number(p.qty)), Number(p.market_price || p.avg_entry_price || 100));
+    }
+    writePaperAccount(account);
+    return { closed: positions.length, positions };
+  }
+
+  if (name === 'exercise_options_position' || name === 'do_not_exercise_options_position') {
+    return { accepted: true, instruction: name, paper_only: true, note: 'Recorded as simulator instruction only.' };
+  }
+
+  if (name === 'reset_paper_account') {
+    if (args.confirm !== true) throw new Error('confirm must be true');
+    const fresh = defaultPaperAccount(userId);
+    writeJSON(paperAccountPath(userId), fresh);
+    return { reset: true, account: fresh };
+  }
+
+  return callAlpacaDataTool(user, name, args, token);
+}
+
+async function callAlpacaDataTool(user, name, args = {}, token = '') {
+  const userId = user.user_id || user.username || 'unknown';
+  assertMcpUniverseForArgs(userId, args);
+  const REST = 'https://api.leandata.uk';
+  const RT = 'https://rt-api.leandata.uk';
+
+  const routes = {
+    get_stock_bars: [`${REST}/v1/history/bars`, args],
+    get_stock_quotes: [`${REST}/v1/stock/history/trade_quote`, { ...args, data_type: 'quotes' }],
+    get_stock_trades: [`${REST}/v1/stock/history/trade_quote`, { ...args, data_type: 'trades' }],
+    get_stock_snapshot: [`${RT}/v1/stocks/snapshot`, args],
+    get_stock_latest_bar: [`${RT}/v1/stocks/latest/bar`, args],
+    get_stock_latest_quote: [`${RT}/v1/stocks/latest/quote`, args],
+    get_stock_latest_trade: [`${RT}/v1/stocks/latest/trade`, args],
+    get_crypto_latest_orderbook: [`${REST}/v1/crypto/us/latest/orderbooks`, args],
+    get_option_contracts: [`${REST}/v1/options/contracts`, args],
+    get_option_chain: [`${REST}/v1/options/snapshots/expiry`, args],
+    get_option_snapshot: [`${REST}/v1/options/snapshots`, args],
+    get_option_bars: [`${REST}/v1/history/options/bars`, args],
+    get_option_trades: [`${REST}/v1/history/options/trades`, args],
+    get_option_latest_trade: [`${REST}/v1/options/snapshots/trade`, args],
+    get_option_latest_quote: [`${REST}/v1/options/snapshots/quote`, args],
+    get_news: [`${REST}/v1/history/news`, args],
+    get_corporate_actions: [`${REST}/v1/corporate/actions`, args],
+    get_corporate_action_announcements: [`${REST}/v1/corporate/actions`, args],
+    get_calendar: [`${REST}/v1/market/calendar`, args],
+    get_clock: [`${RT}/v1/market/clock`, args],
+    get_most_active_stocks: [`${RT}/v1/stocks/most-active`, args],
+    get_market_movers: [`${RT}/v1/stocks/movers`, args],
+  };
+
+  if (name === 'get_all_assets') {
+    return { assets: [], note: 'Asset directory is not fully materialized yet; add symbols to watchlist before using data/trading tools.' };
+  }
+
+  if (name === 'get_asset') {
+    const symbol = String(args.symbol || '').toUpperCase();
+    assertSymbolInUniverse(userId, symbol);
+    return { asset: { symbol, tradable: true, status: 'active', asset_class: 'us_equity', exchange: args.exchange || 'US', source: 'leandata-watchlist' } };
+  }
+
+  if (name === 'get_option_contract') {
+    return postLeandataJson(token, `${REST}/v1/options/contracts`, args);
+  }
+
+  if (name === 'get_option_exchange_codes') {
+    return {
+      exchanges: {
+        A: 'NYSE American Options',
+        B: 'BOX Options',
+        C: 'Cboe Options',
+        I: 'Nasdaq ISE',
+        P: 'NYSE Arca Options',
+        Q: 'Nasdaq Options',
+        W: 'Cboe C2 Options',
+        X: 'Nasdaq PHLX',
+      },
+      source: 'static-reference'
+    };
+  }
+
+  if (['get_fixed_income_latest_quotes', 'get_index_latest_values', 'get_index_values'].includes(name)) {
+    return { unavailable: true, tool: name, message: 'Tool is exposed for Alpaca compatibility; Leandata backend route is not enabled yet.' };
+  }
+
+  if (['get_locates', 'create_locate', 'get_locate', 'get_locate_quotes'].includes(name)) {
+    return { simulated: true, tool: name, locates: [], message: 'Locate tools are simulator-only and do not contact a broker.' };
+  }
+
+  if (['get_corporate_action_announcement'].includes(name)) {
+    return { unavailable: true, tool: name, message: 'Single announcement lookup route is not enabled yet.' };
+  }
+
+  const route = routes[name];
+  if (route) {
+    const [url, payload] = route;
+    return postLeandataJson(token, url, payload);
+  }
+
+  throw new Error(`Unknown tool: ${name}`);
+}
+
+async function handleMcpRequest(principal, message) {
+  const id = Object.prototype.hasOwnProperty.call(message, 'id') ? message.id : undefined;
+  if (!message || message.jsonrpc !== '2.0') {
+    return mcpJsonRpcError(id, -32600, 'Invalid JSON-RPC request');
+  }
+
+  if (message.method === 'initialize') {
+    const requestedVersion = message.params?.protocolVersion || '2025-06-18';
+    return mcpJsonRpc(id, {
+      protocolVersion: requestedVersion,
+      capabilities: { tools: { listChanged: false } },
+      serverInfo: { name: 'leandata-alpaca-paper', version: '0.1.0' }
+    });
+  }
+
+  if (message.method === 'notifications/initialized') {
+    return undefined;
+  }
+
+  if (message.method === 'tools/list') {
+    return mcpJsonRpc(id, { tools: ALL_MCP_TOOLS });
+  }
+
+  if (message.method === 'tools/call') {
+    const name = message.params?.name;
+    const args = message.params?.arguments || {};
+    const userId = principal.user.user_id || principal.user.username || 'unknown';
+    const started = Date.now();
+    try {
+      const payload = await callAlpacaPaperTool(principal.user, name, args, principal.token);
+      appendMcpAudit(userId, {
+        tool: name,
+        arguments: cleanMcpArgs(args),
+        ok: true,
+        duration_ms: Date.now() - started,
+        result_summary: summarizeMcpResult(payload)
+      });
+      return mcpJsonRpc(id, mcpTextResult(payload));
+    } catch (err) {
+      appendMcpAudit(userId, {
+        tool: name,
+        arguments: cleanMcpArgs(args),
+        ok: false,
+        duration_ms: Date.now() - started,
+        error: err.message || 'Tool call failed'
+      });
+      return mcpJsonRpcError(id, -32000, err.message || 'Tool call failed');
+    }
+  }
+
+  if (message.method === 'ping') {
+    return mcpJsonRpc(id, {});
+  }
+
+  if (id === undefined) return undefined;
+  return mcpJsonRpcError(id, -32601, `Method not found: ${message.method}`);
+}
+
+const MCP_MAX_BATCH_SIZE = Math.max(1, Math.min(Number(process.env.MCP_MAX_BATCH_SIZE) || 20, 100));
+const MCP_BATCH_CONCURRENCY = Math.max(1, Math.min(Number(process.env.MCP_BATCH_CONCURRENCY) || 4, MCP_MAX_BATCH_SIZE));
+
+async function mapWithConcurrency(items, concurrency, mapper) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      results[index] = await mapper(items[index]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+app.get('/mcp/alpaca', (req, res) => {
+  const principal = resolveMcpPrincipal(req);
+  if (!principal) return res.status(401).json({ error: 'Missing or invalid Leandata bearer token.' });
+  if (principal.expired) return res.status(403).json({ error: 'Leandata token expired.' });
+  return res.json({
+    name: 'leandata-alpaca-paper',
+    transport: 'streamable-http',
+    endpoint: '/mcp/alpaca',
+    paper_only: true,
+    user_id: principal.user.user_id,
+    tools: ALPACA_PAPER_TOOLS.map(t => t.name)
+  });
+});
+
+app.post('/mcp/alpaca', async (req, res) => {
+  const principal = resolveMcpPrincipal(req);
+  if (!principal) return res.status(401).json({ error: 'Missing or invalid Leandata bearer token.' });
+  if (principal.expired) return res.status(403).json({ error: 'Leandata token expired.' });
+
+  const messages = Array.isArray(req.body) ? req.body : [req.body];
+  if (messages.length > MCP_MAX_BATCH_SIZE) {
+    return res.status(400).json({ error: `MCP batch limit is ${MCP_MAX_BATCH_SIZE} requests.` });
+  }
+  const replies = (await mapWithConcurrency(messages, MCP_BATCH_CONCURRENCY, msg => handleMcpRequest(principal, msg))).filter(Boolean);
+  if (replies.length === 0) return res.status(202).end();
+  res.setHeader('Mcp-Session-Id', safePaperUserId(principal.user.user_id || 'unknown'));
+  return res.json(Array.isArray(req.body) ? replies : replies[0]);
+});
+
 // ============================================================
 // PUBLIC: Buyer Registration
 // ============================================================
 app.post('/api/register', (req, res) => {
   const { username, phone, tier, mode } = req.body;
+  const cleanUsername = (username || '').trim();
+  const cleanPhone = (phone || '').trim();
 
-  if (!username || !phone) {
+  if (!cleanUsername || !cleanPhone) {
     return res.status(400).json({ success: false, message: '用户名和手机号都是必填的。' });
   }
 
@@ -230,20 +1705,21 @@ app.post('/api/register', (req, res) => {
 
   // Check if username already taken in approved users
   const users = readJSON(USERS_FILE);
-  if (users.find(u => u.username === username)) {
-    return res.status(409).json({ success: false, message: '该用户名已被使用，请换一个。' });
+  if (users.find(u => u.username === cleanUsername)) {
+    return res.status(409).json({ success: false, message: '该用户名已被使用。老用户请点击“老用户续费”，不要重新注册同名 ID。' });
   }
 
   // Check if already pending
   const pending = readJSON(PENDING_FILE);
-  if (pending.find(p => p.username === username && p.status === 'pending')) {
+  if (pending.find(p => p.username === cleanUsername && p.status === 'pending')) {
     return res.status(409).json({ success: false, message: '该用户名正在审核中，请等待。' });
   }
 
   const entry = {
     id: crypto.randomUUID(),
-    username: username.trim(),
-    phone: phone.trim(),
+    type: 'registration',
+    username: cleanUsername,
+    phone: cleanPhone,
     tier: selectedTier,
     ...(mode && { mode }),
     registered_at: new Date().toISOString(),
@@ -254,6 +1730,153 @@ app.post('/api/register', (req, res) => {
   writeJSON(PENDING_FILE, pending);
 
   return res.json({ success: true, message: '注册成功！请等待卖家确认订单后即可生成 Token。', id: entry.id });
+});
+
+// ============================================================
+// ACCOUNT: Login, overview, logout, and renewal request
+// ============================================================
+app.use('/api/account', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Pragma', 'no-cache');
+  next();
+});
+
+app.post('/api/account/login', (req, res) => {
+  if (!accountLoginAllowed(req)) {
+    return res.status(429).json({ success: false, message: '登录尝试过多，请 15 分钟后重试。' });
+  }
+  const credential = req.body?.credential;
+  const userId = String(credential?.user_id || '').trim();
+  const phone = String(credential?.phone || '').trim();
+  if (!userId || !phone || userId.length > 128 || phone.length > 64) {
+    return res.status(400).json({ success: false, message: '请提供有效的用户 ID 和手机号凭证。' });
+  }
+
+  const localUser = findLocalAccount(userId);
+  const proxyUser = findProxyAccount(userId);
+  if (!localUser || !localUser.phone || !safeEqual(localUser.phone, phone) || !proxyUser || !proxyUser.token) {
+    recordAccountLoginFailure(req);
+    return res.status(401).json({ success: false, message: '用户 ID 或手机号不匹配。' });
+  }
+
+  clearAccountLoginFailures(req);
+  const sessionId = createAccountSession(userId);
+  setAccountSessionCookie(res, sessionId);
+  return res.json({
+    success: true,
+    account: {
+      user_id: userId,
+      role: proxyUser.role || localUser.role || 'standard',
+      expiry: proxyUser.expires_at || null
+    }
+  });
+});
+
+app.post('/api/account/logout', (req, res) => {
+  const resolved = resolveAccountSession(req);
+  if (resolved) accountSessions.delete(resolved.sessionId);
+  clearAccountSessionCookie(res);
+  return res.json({ success: true });
+});
+
+app.get('/api/account/session', requireAccount, (req, res) => {
+  return res.json({
+    success: true,
+    account: {
+      user_id: req.account.userId,
+      role: req.account.proxyUser.role || req.account.localUser.role || 'standard',
+      expiry: req.account.proxyUser.expires_at || null
+    }
+  });
+});
+
+app.get('/api/account/overview', requireAccount, async (req, res) => {
+  const { userId, localUser, proxyUser } = req.account;
+  const wsUsageUrl = process.env.PROXY_WS_USAGE_URL
+    || `http://${PROXY_WS_HOST}:${PROXY_WS_PORT}/account/usage`;
+  const [restUsage, wsUsage] = await Promise.all([
+    fetchAccountUsage(`${PROXY_REST_URL}/v1/account/usage`, proxyUser.token),
+    fetchAccountUsage(wsUsageUrl, proxyUser.token)
+  ]);
+  const expiry = proxyUser.expires_at || null;
+  const expiryMs = expiry ? new Date(expiry).getTime() : NaN;
+  const daysRemaining = Number.isNaN(expiryMs)
+    ? null
+    : Math.max(0, Math.ceil((expiryMs - Date.now()) / 86400000));
+  return res.json({
+    success: true,
+    account: {
+      user_id: userId,
+      role: proxyUser.role || localUser.role || 'standard',
+      tier: localUser.tier || proxyUser.role || 'standard',
+      mode: localUser.mode || null,
+      expiry,
+      days_remaining: daysRemaining,
+      token_masked: maskToken(proxyUser.token)
+    },
+    usage: {
+      rest: restUsage?.rest || null,
+      ws: wsUsage?.ws || null,
+      windows: {
+        rest: restUsage?.window || null,
+        ws: wsUsage?.window || null
+      }
+    },
+    renewal: publicRenewalStatus(latestRenewalFor(userId))
+  });
+});
+
+app.post('/api/account/renew', requireAccount, (req, res) => {
+  const selectedTier = String(req.body?.tier || '').trim();
+  const mode = String(req.body?.mode || '').trim();
+  const months = Number(req.body?.months);
+  if (!['basic', 'value', 'standard', 'premium'].includes(selectedTier)) {
+    return res.status(400).json({ success: false, message: '请选择有效的续费套餐。' });
+  }
+  if (!Number.isInteger(months) || months < 1 || months > 12) {
+    return res.status(400).json({ success: false, message: '续费月数必须是 1–12 个月。' });
+  }
+  if (selectedTier === 'value' && !TIERS.value.modes[mode]) {
+    return res.status(400).json({ success: false, message: 'Value 套餐请选择 stocks 或 options 方向。' });
+  }
+
+  const pending = readJSON(PENDING_FILE);
+  const alreadyPending = pending.find(p => p.username === req.account.userId && p.status === 'pending' && p.type === 'renewal');
+  if (alreadyPending) {
+    return res.status(409).json({ success: false, message: '该账号已有续费申请正在审核中，请等待管理员确认。', id: alreadyPending.id });
+  }
+
+  const renewDays = months * (TIERS[selectedTier].expiryDays || 30);
+  const entry = {
+    id: crypto.randomUUID(),
+    type: 'renewal',
+    username: req.account.userId,
+    phone: req.account.localUser.phone,
+    tier: selectedTier,
+    ...(selectedTier === 'value' && { mode }),
+    months,
+    renew_days: renewDays,
+    registered_at: new Date().toISOString(),
+    requested_at: new Date().toISOString(),
+    status: 'pending'
+  };
+
+  pending.push(entry);
+  writeJSON(PENDING_FILE, pending);
+
+  return res.status(201).json({
+    success: true,
+    status: 'pending',
+    message: '续费申请已提交，请等待管理员确认订单。',
+    renewal: publicRenewalStatus(entry)
+  });
+});
+
+app.post('/api/renew', (_req, res) => {
+  return res.status(410).json({
+    success: false,
+    message: '续费入口已迁移到账户管理中心，请先登录 /account。'
+  });
 });
 
 // ============================================================
@@ -363,26 +1986,28 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
 
   const tierConfig = TIERS[entry.tier] || TIERS.premium;
   const perms = resolvePermissions(tierConfig, entry.mode);
+  const isRenewal = entry.type === 'renewal';
 
-  // 1. Add to users.json
   const users = readJSON(USERS_FILE);
-  const filtered = users.filter(u => u.username !== entry.username);
-  filtered.push({
-    username: entry.username,
-    phone: entry.phone,
-    role: tierConfig.role,
-    tier: entry.tier,
-    ...(entry.mode && { mode: entry.mode }),
-    permissions: perms
-  });
-  writeJSON(USERS_FILE, filtered);
+  const existingLocalUser = users.find(u => u.username === entry.username);
+  const persistApproval = () => {
+    const filtered = users.filter(u => u.username !== entry.username);
+    filtered.push({
+      username: entry.username,
+      phone: entry.phone || existingLocalUser?.phone,
+      role: tierConfig.role,
+      tier: entry.tier,
+      ...(entry.mode && { mode: entry.mode }),
+      permissions: perms
+    });
+    writeJSON(USERS_FILE, filtered);
+    entry.status = 'approved';
+    entry.approved_at = new Date().toISOString();
+    writeJSON(PENDING_FILE, pending);
+  };
 
-  // 2. Update pending status
-  entry.status = 'approved';
-  entry.approved_at = new Date().toISOString();
-  writeJSON(PENDING_FILE, pending);
-
-  // 3. Generate token and register on proxy + sync to ThinkCentre
+  // Update the shared auth registry first. A renewal must preserve the existing
+  // token and fails closed if that token disappeared before admin approval.
   try {
     var proxyData = { users: [] };
     if (fs.existsSync(PROXY_USERS_FILE)) {
@@ -391,9 +2016,38 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
     if (!proxyData.users) proxyData.users = [];
 
     const existing = proxyData.users.find(u => u.user_id === entry.username);
+    if (isRenewal && (!existing || !existing.token)) {
+      return res.status(409).json({
+        success: false,
+        message: '续费账户的现有 Token 已不存在，申请保持待审核；请先恢复原账户。'
+      });
+    }
+
     if (existing) {
-      const syncResult = await syncToEC2Async();
-      return res.json({ success: true, message: `已批准 ${entry.username}，Token 已存在${syncResult.ok ? '并已同步' : '但同步失败: ' + syncResult.message}。`, token: existing.token, expiry: existing.expires_at });
+      existing.role = tierConfig.role;
+      existing.permissions = perms;
+      existing.expires_at = isRenewal
+        ? computeRenewalExpiry(existing.expires_at, entry.renew_days || tierConfig.expiryDays || 30)
+        : (existing.expires_at || computeExpiry(tierConfig));
+      if (entry.tier === 'test') existing.test_user = true;
+      else delete existing.test_user;
+
+      const syncResult = await writeProxyUsersAndSyncAsync(proxyData);
+      if (!syncResult.ok) {
+        return res.status(500).json({
+          success: false,
+          message: `数据服务注册表更新失败，申请保持待审核: ${syncResult.message}`
+        });
+      }
+      persistApproval();
+      const action = isRenewal ? '续费已批准并延长有效期' : '已批准，Token 已存在并更新套餐';
+      return res.json({
+        success: true,
+        message: `${action}：${entry.username}，已同步到数据服务。`,
+        token: existing.token,
+        expiry: existing.expires_at,
+        role: existing.role
+      });
     }
 
     const token = crypto.randomUUID();
@@ -410,17 +2064,25 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
     });
 
     const syncResult = await writeProxyUsersAndSyncAsync(proxyData);
+    if (!syncResult.ok) {
+      return res.status(500).json({
+        success: false,
+        message: `数据服务注册表更新失败，申请保持待审核: ${syncResult.message}`
+      });
+    }
+    persistApproval();
 
     return res.json({
       success: true,
-      message: `已批准 ${entry.username}，Token 已注册${syncResult.ok ? '并同步到数据服务' : '但同步失败: ' + syncResult.message}。`,
+      message: `已批准 ${entry.username}，Token 已注册并同步到数据服务。`,
       token,
-      expiry: expiresAt
+      expiry: expiresAt,
+      role: tierConfig.role
     });
   } catch (err) {
-    return res.json({
-      success: true,
-      message: `已批准 ${entry.username}，但 proxy 同步失败: ${err.message}。`
+    return res.status(500).json({
+      success: false,
+      message: `数据服务注册表更新失败，申请保持待审核: ${err.message}`
     });
   }
 });
@@ -445,7 +2107,114 @@ app.post('/api/admin/reject', requireAdmin, (req, res) => {
 });
 
 // ============================================================
-// ADMIN: Force reload users.json and sync to ThinkCentre
+// ADMIN: Delete a user from all registries (local + shared proxy registry)
+// ============================================================
+app.post('/api/admin/delete-user', requireAdmin, async (req, res) => {
+  const { username } = req.body;
+  if (!username) return res.status(400).json({ success: false, message: 'Missing username.' });
+
+  const logs = [];
+
+  // 1. Remove from local approved users
+  const users = readJSON(USERS_FILE);
+  const userIdx = users.findIndex(u => u.username === username);
+  if (userIdx >= 0) {
+    users.splice(userIdx, 1);
+    writeJSON(USERS_FILE, users);
+    logs.push(`Removed from local users.json`);
+  }
+
+  // 2. Remove from pending
+  const pending = readJSON(PENDING_FILE);
+  const pendIdx = pending.findIndex(p => p.username === username);
+  if (pendIdx >= 0) {
+    pending.splice(pendIdx, 1);
+    writeJSON(PENDING_FILE, pending);
+    logs.push(`Removed from pending.json`);
+  }
+
+  // 3. Remove from shared proxy users file.
+  try {
+    let proxyData = { users: [] };
+    if (fs.existsSync(PROXY_USERS_FILE)) {
+      proxyData = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
+    }
+    const before = (proxyData.users || []).length;
+    proxyData.users = (proxyData.users || []).filter(u => u.user_id !== username);
+    const after = proxyData.users.length;
+
+    if (before > after) {
+      const syncResult = await writeProxyUsersAndSyncAsync(proxyData);
+      logs.push(`Removed from proxy registry (${before}→${after} users)`);
+      logs.push(syncResult.ok ? 'local proxy registry updated' : `proxy registry update failed: ${syncResult.message}`);
+    } else {
+      logs.push('Not found in proxy registry');
+    }
+  } catch (err) {
+    logs.push(`Proxy registry error: ${err.message}`);
+  }
+
+  if (logs.length === 0) {
+    return res.status(404).json({ success: false, message: `User "${username}" not found in any registry.` });
+  }
+
+  return res.json({ success: true, message: `Deleted "${username}".`, logs });
+});
+
+// ============================================================
+// ADMIN: Verify registry — compare local approved users with shared proxy users.
+// ============================================================
+app.get('/api/admin/sync-verify', requireAdmin, async (req, res) => {
+  const result = { tc: null, ec2: null, match: false, missingOnEC2: [], extraOnEC2: [] };
+
+  // 1. Read TC proxy users (local file)
+  try {
+    const tcData = readJSON(PROXY_USERS_FILE, { users: [] });
+    result.tc = (tcData.users || []).map(u => u.user_id).sort();
+  } catch (err) {
+    return res.json({ success: false, message: `Cannot read TC proxy file: ${err.message}` });
+  }
+
+  // 2. Legacy remote check, normally disabled on Aliyun.
+  if (process.env.BYPASS_SYNC === 'true') {
+    return res.json({ success: true, ...result, message: 'Remote check skipped (BYPASS_SYNC=true)' });
+  }
+
+  try {
+    const ec2Data = await new Promise((resolve, reject) => {
+      execFile('ssh', [
+        '-i', EC2_SSH_KEY,
+        '-o', 'StrictHostKeyChecking=no',
+        '-o', 'ConnectTimeout=10',
+        EC2_HOST,
+        `cat ${EC2_USERS_PATH}`
+      ], { timeout: 20000 }, (err, stdout) => {
+        if (err) return reject(err);
+        resolve(JSON.parse(stdout));
+      });
+    });
+    result.ec2 = (ec2Data.users || []).map(u => u.user_id).sort();
+  } catch (err) {
+    return res.json({ success: false, tc: result.tc, message: `Remote SSH failed: ${err.message}` });
+  }
+
+  // 3. Diff
+  result.missingOnEC2 = result.tc.filter(u => !result.ec2.includes(u));
+  result.extraOnEC2 = result.ec2.filter(u => !result.tc.includes(u));
+  result.match = result.missingOnEC2.length === 0 && result.extraOnEC2.length === 0;
+
+  return res.json({
+    success: true,
+    match: result.match,
+    tcCount: result.tc.length,
+    ec2Count: result.ec2.length,
+    missingOnEC2: result.missingOnEC2,
+    extraOnEC2: result.extraOnEC2
+  });
+});
+
+// ============================================================
+// ADMIN: Force reload shared users.json
 // ============================================================
 app.post('/api/admin/sync-users', requireAdmin, async (req, res) => {
   const logs = [];
@@ -462,8 +2231,8 @@ app.post('/api/admin/sync-users', requireAdmin, async (req, res) => {
     return res.json({ success: false, logs });
   }
 
-  // 2. Sync to ThinkCentre
-  log('Syncing to ThinkCentre...');
+  // 2. REST and WS proxy services mount the same users.json locally.
+  log('Reloading shared users.json (REST and WS services read the same file)...');
   const syncResult = await syncToEC2Async();
   log(syncResult.ok ? '✓ ' + syncResult.message : '✗ ' + syncResult.message);
 
@@ -535,10 +2304,12 @@ app.post('/api/generate-token', async (req, res) => {
 // ============================================================
 
 const STATUS_FILE = path.join(DATA_DIR, 'status.json');
-const PROXY_REST_URL = process.env.PROXY_REST_URL || 'http://localhost:8768';
+const PROXY_REST_URL = process.env.PROXY_REST_URL
+  || (IS_CLOUD_HOST ? 'http://localhost:8766' : 'http://100.82.194.120:8766');
 const PROXY_RT_URL   = process.env.PROXY_RT_URL   || 'https://rt-api.leandata.uk';
-const PROXY_WS_HOST  = process.env.PROXY_WS_HOST  || '52.37.182.24';
-const PROXY_WS_PORT  = process.env.PROXY_WS_PORT  || 8767;
+const PROXY_WS_HOST  = process.env.PROXY_WS_HOST || '127.0.0.1';
+const PROXY_WS_PORT  = process.env.PROXY_WS_PORT || 8767;
+const STATUS_PROBE_TIMEOUT_MS = Math.max(100, Math.min(Number(process.env.STATUS_PROBE_TIMEOUT_MS) || 3000, 10000));
 
 function readStatusData() {
   try {
@@ -554,14 +2325,16 @@ function writeStatusData(data) {
 // Probe REST proxy health — returns { ok, latencyMs }
 async function probeRest() {
   const start = Date.now();
+  let timer;
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10000);
+    timer = setTimeout(() => controller.abort(), STATUS_PROBE_TIMEOUT_MS);
     const resp = await fetch(`${PROXY_REST_URL}/health`, { signal: controller.signal });
-    clearTimeout(timer);
     return { ok: resp.ok, latencyMs: Date.now() - start };
   } catch (_) {
     return { ok: false, latencyMs: Date.now() - start };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -571,7 +2344,7 @@ async function probeWs() {
   const start = Date.now();
   return new Promise(resolve => {
     const sock = new net.Socket();
-    sock.setTimeout(5000);
+    sock.setTimeout(STATUS_PROBE_TIMEOUT_MS);
     sock.once('connect', () => { sock.destroy(); resolve({ ok: true, latencyMs: Date.now() - start }); });
     sock.once('timeout', () => { sock.destroy(); resolve({ ok: false, latencyMs: Date.now() - start }); });
     sock.once('error', () => { sock.destroy(); resolve({ ok: false, latencyMs: Date.now() - start }); });
@@ -579,23 +2352,43 @@ async function probeWs() {
   });
 }
 
-// Probe RT API (EC2 via Cloudflare) — returns { ok, latencyMs }
-async function probeRt() {
+// Shared keep-alive agents for the RT probe. Without connection reuse, Node's
+// fetch cold-handshakes a full TLS connection to the Cloudflare edge on every
+// probe (~265ms), while REST (localhost, no TLS) and WS (bare TCP) don't — so RT
+// looked ~6-40x slower purely as a measurement artifact. A warm reused socket
+// makes RT measure its real ~30ms (CF edge HIT). The 25s heartbeat below keeps
+// this socket alive between sparse /api/status polls.
+const _rtHttpsAgent = require('https').Agent ? new (require('https').Agent)({ keepAlive: true, maxSockets: 1, keepAliveMsecs: 30000 }) : undefined;
+const _rtHttpAgent  = new (require('http').Agent)({ keepAlive: true, maxSockets: 1 });
+
+// Probe RT API (Aliyun via Cloudflare) — returns { ok, latencyMs }
+function probeRt() {
   const start = Date.now();
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10000);
-    const resp = await fetch(`${PROXY_RT_URL}/health`, { signal: controller.signal });
-    clearTimeout(timer);
-    return { ok: resp.ok, latencyMs: Date.now() - start };
-  } catch (_) {
-    return { ok: false, latencyMs: Date.now() - start };
-  }
+  const isHttps = PROXY_RT_URL.startsWith('https');
+  const lib = isHttps ? require('https') : require('http');
+  const agent = isHttps ? _rtHttpsAgent : _rtHttpAgent;
+  return new Promise(resolve => {
+    let done = false;
+    const finish = ok => { if (!done) { done = true; resolve({ ok, latencyMs: Date.now() - start }); } };
+    try {
+      const req = lib.get(`${PROXY_RT_URL}/health`, { agent, timeout: STATUS_PROBE_TIMEOUT_MS }, res => {
+        res.on('data', () => {});
+        res.on('end', () => finish(res.statusCode >= 200 && res.statusCode < 300));
+        res.on('error', () => finish(false));
+      });
+      req.on('timeout', () => { req.destroy(); finish(false); });
+      req.on('error', () => finish(false));
+    } catch (_) {
+      finish(false);
+    }
+  });
 }
 
-// GET /api/status — overall + per-component live status
-app.get('/api/status', async (_req, res) => {
-  try {
+const STATUS_CACHE_TTL_MS = Math.max(1000, Math.min(Number(process.env.STATUS_CACHE_TTL_MS) || 15000, 300000));
+let statusSnapshot = null;
+let statusProbeInFlight = null;
+
+async function collectStatusSnapshot() {
     const [restProbe, wsProbe, rtProbe] = await Promise.all([probeRest(), probeWs(), probeRt()]);
     const statusData = readStatusData();
 
@@ -629,7 +2422,7 @@ app.get('/api/status', async (_req, res) => {
     const prevWs = statusData.uptime.ws.length >= 2 ? statusData.uptime.ws[statusData.uptime.ws.length - 2] : null;
 
     if (prevRest && prevRest.up === 1 && !restProbe.ok) {
-      addIncident('REST API', 'major', 'REST proxy unreachable', `Health probe failed after ${restProbe.latencyMs}ms. Cloudflare → ThinkCentre path affected.`);
+      addIncident('REST API', 'major', 'REST proxy unreachable', `Health probe failed after ${restProbe.latencyMs}ms. Cloudflare → Aliyun path affected.`);
     } else if (prevRest && prevRest.up === 0 && restProbe.ok) {
       addIncident('REST API', 'resolved', 'REST proxy recovered', `Health probe succeeded in ${restProbe.latencyMs}ms.`);
     }
@@ -652,30 +2445,52 @@ app.get('/api/status', async (_req, res) => {
     const allDown = !restProbe.ok && !wsProbe.ok && !rtProbe.ok;
     const overall = allOk ? 'operational' : allDown ? 'outage' : 'degraded';
 
-    res.json({
+    return {
       overall,
       components: {
         rest: {
           name: 'REST API',
-          route: 'api.leandata.uk · Cloudflare → ThinkCentre',
+          route: 'api.leandata.uk · Cloudflare → Aliyun',
           status: restStatus,
           latencyMs: restProbe.latencyMs,
         },
         rt: {
           name: 'RT API',
-          route: 'rt-api.leandata.uk · Cloudflare → EC2',
+          route: 'rt-api.leandata.uk · Cloudflare → Aliyun',
           status: rtStatus,
           latencyMs: rtProbe.latencyMs,
         },
         ws: {
           name: 'WebSocket stream',
-          route: `ws://${PROXY_WS_HOST}:${PROXY_WS_PORT} · EC2 direct`,
+          route: 'wss://leandata.uk/stream · Cloudflare → Aliyun',
           status: wsStatus,
           latencyMs: wsProbe.latencyMs,
         },
       },
       timestamp: new Date().toISOString(),
-    });
+    };
+}
+
+async function getStatusSnapshot() {
+  const now = Date.now();
+  if (statusSnapshot && fs.existsSync(STATUS_FILE) && now - statusSnapshot.generatedAt < STATUS_CACHE_TTL_MS) {
+    return statusSnapshot.payload;
+  }
+  if (!statusProbeInFlight) {
+    statusProbeInFlight = collectStatusSnapshot()
+      .then(payload => {
+        statusSnapshot = { generatedAt: Date.now(), payload };
+        return payload;
+      })
+      .finally(() => { statusProbeInFlight = null; });
+  }
+  return statusProbeInFlight;
+}
+
+// GET /api/status — shared snapshot avoids repeated probes and synchronous writes per page poll.
+app.get('/api/status', async (_req, res) => {
+  try {
+    res.json(await getStatusSnapshot());
   } catch (err) {
     console.error('Status probe error:', err);
     res.status(500).json({ error: 'Status probe failed' });
@@ -806,7 +2621,7 @@ app.get('/api/incidents', (_req, res) => {
 });
 
 // POST /api/incidents — manually log an incident (admin/internal use)
-app.post('/api/incidents', (req, res) => {
+app.post('/api/incidents', requireAdmin, (req, res) => {
   try {
     const { component, severity, title, summary, duration } = req.body || {};
     if (!component || !title) {
@@ -828,33 +2643,23 @@ app.post('/api/incidents', (req, res) => {
 
 // ── Usage proxy — forwards to cloud proxy audit/stats on localhost:8768 ──
 
-const PROXY_LOCAL = process.env.PROXY_REST_URL || 'http://localhost:8768';
+const PROXY_LOCAL = process.env.PROXY_REST_URL
+  || (IS_CLOUD_HOST ? 'http://localhost:8766' : 'http://100.82.194.120:8766');
 
-// Resolve username → token from proxy users.json
-function resolveUserToken(username) {
+async function proxyUsage(req, res, endpoint) {
   try {
-    const proxyData = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
-    const user = (proxyData.users || []).find(u => u.user_id === username);
-    return user ? user.token : null;
-  } catch (_) { return null; }
-}
-
-// GET/POST /api/usage/audit — proxy to cloud proxy audit endpoint (auth by username)
-app.all('/api/usage/audit', async (req, res) => {
-  try {
-    const username = req.query.username || req.body?.username || '';
-    if (!username) return res.status(400).json({ error: 'username required' });
-    const token = resolveUserToken(username);
-    if (!token) return res.status(404).json({ error: 'User not found' });
+    const principal = resolveMcpPrincipal(req);
+    if (!principal) return res.status(401).json({ error: 'Missing or invalid Leandata bearer token.' });
+    if (principal.expired) return res.status(403).json({ error: 'Leandata token expired.' });
 
     const params = new URLSearchParams(req.query);
     params.delete('username');
     const qs = params.toString();
-    const url = `${PROXY_LOCAL}/v1/admin/audit${qs ? '?' + qs : ''}`;
+    const url = `${PROXY_LOCAL}${endpoint}${qs ? '?' + qs : ''}`;
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ token: principal.token }),
     });
     const data = await resp.json();
     res.status(resp.status).json(data);
@@ -862,30 +2667,37 @@ app.all('/api/usage/audit', async (req, res) => {
     console.error('Usage audit proxy error:', err);
     res.status(502).json({ error: 'Failed to reach proxy' });
   }
-});
+}
 
-// GET/POST /api/usage/stats — proxy to cloud proxy stats endpoint (auth by username)
-app.all('/api/usage/stats', async (req, res) => {
+// GET/POST usage data — the authenticated token can retrieve only its own records.
+app.all('/api/usage/audit', (req, res) => proxyUsage(req, res, '/v1/admin/audit'));
+
+app.all('/api/usage/stats', (req, res) => proxyUsage(req, res, '/v1/admin/stats'));
+
+// POST /api/survey/fmp — record FMP integration survey submission
+app.post('/api/survey/fmp', (req, res) => {
   try {
-    const username = req.query.username || req.body?.username || '';
-    if (!username) return res.status(400).json({ error: 'username required' });
-    const token = resolveUserToken(username);
-    if (!token) return res.status(404).json({ error: 'User not found' });
+    const { email, interests, tier, comments } = req.body || {};
+    const surveyFile = path.join(DATA_DIR, 'survey.json');
 
-    const params = new URLSearchParams(req.query);
-    params.delete('username');
-    const qs = params.toString();
-    const url = `${PROXY_LOCAL}/v1/admin/stats${qs ? '?' + qs : ''}`;
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
+    // Ensure DATA_DIR exists
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+
+    const responses = readJSON(surveyFile, []);
+    responses.push({
+      email: email || '',
+      interests: interests || [],
+      tier: tier || '',
+      comments: comments || '',
+      timestamp: new Date().toISOString()
     });
-    const data = await resp.json();
-    res.status(resp.status).json(data);
+    writeJSON(surveyFile, responses);
+    res.json({ success: true, message: 'Survey response saved.' });
   } catch (err) {
-    console.error('Usage stats proxy error:', err);
-    res.status(502).json({ error: 'Failed to reach proxy' });
+    console.error('Survey write error:', err);
+    res.status(500).json({ error: 'Failed to write survey response' });
   }
 });
 
@@ -896,6 +2708,10 @@ if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
   });
+  // Heartbeat: keep the RT probe's TLS connection to the Cloudflare edge warm so
+  // periodic /api/status probes reuse it (~30ms) instead of cold-handshaking
+  // (~265ms) on every poll. Interval is below CF's keep-alive idle timeout.
+  setInterval(() => { probeRt().catch(() => {}); }, 25000).unref();
 }
 
-module.exports = { app, TIERS, syncToEC2, computeExpiry, readJSON, writeJSON };
+module.exports = { app, TIERS, syncToEC2, computeExpiry, readJSON, writeJSON, safePaperUserId, PROXY_USERS_FILE, EC2_HOST, EC2_USERS_PATH, EC2_SSH_KEY };

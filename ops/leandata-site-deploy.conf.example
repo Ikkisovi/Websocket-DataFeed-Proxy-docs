@@ -8,3 +8,6 @@ LEANDATA_SITE_LOCAL_HEALTH_URL=http://127.0.0.1:3000/
 LEANDATA_SITE_PUBLIC_HEALTH_URL=https://leandata.uk/
 LEANDATA_SITE_LOCAL_DOCS_URL=http://127.0.0.1:3000/docs-site.jsx
 LEANDATA_SITE_PUBLIC_DOCS_URL=https://leandata.uk/docs-site.jsx
+LEANDATA_SITE_LOCAL_ACCOUNT_URL=http://127.0.0.1:3000/account
+LEANDATA_SITE_PUBLIC_ACCOUNT_URL=https://leandata.uk/account
+LEANDATA_RUNTIME_DEPLOY_CONFIG=/etc/leandata/deploy.env

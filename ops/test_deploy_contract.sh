@@ -8,15 +8,29 @@ trap 'find "$tmp_dir" -depth -mindepth 1 -delete 2>/dev/null || true; rmdir "$tm
 source_repo="$tmp_dir/source"
 bare_repo="$tmp_dir/source.git"
 site_dir="$tmp_dir/proxy-token-site"
-mkdir -p "$source_repo/proxy-token-site/public" "$site_dir/public" "$tmp_dir/bin"
+runtime_dir="$tmp_dir/runtime-release/services/leandata-v2"
+mkdir -p "$source_repo/proxy-token-site/public" "$site_dir/public" "$tmp_dir/bin" "$runtime_dir"
 
+printf 'module.exports = { version: "new" };\n' \
+  >"$source_repo/proxy-token-site/server.js"
 printf '<script type="text/babel" src="docs-site.jsx"></script>\n' \
   >"$source_repo/proxy-token-site/public/index.html"
 printf 'function DocsSite() { return null; }\n' \
   >"$source_repo/proxy-token-site/public/docs-site.jsx"
 printf 'function TokenPage() { return null; }\n' \
   >"$source_repo/proxy-token-site/public/token-page.jsx"
+printf '<div id="root"></div>\n' \
+  >"$source_repo/proxy-token-site/public/account.html"
+printf 'function AccountPage() { return null; }\n' \
+  >"$source_repo/proxy-token-site/public/account-page.jsx"
 printf 'old\n' >"$site_dir/public/old.txt"
+printf 'module.exports = { version: "old" };\n' >"$site_dir/server.js"
+for compose_file in docker-compose.aliyun.yml docker-compose.aliyun.archive.yml docker-compose.aliyun.logging.yml; do
+  printf 'services: {}\n' >"$runtime_dir/$compose_file"
+done
+ln -s "$tmp_dir/runtime-release" "$tmp_dir/current"
+: >"$tmp_dir/runtime.env"
+: >"$tmp_dir/archive.env"
 
 git -C "$source_repo" init -q
 git -C "$source_repo" config user.name "CI Contract"
@@ -36,24 +50,58 @@ LEANDATA_SITE_DEPLOY_LOCK_FILE=$tmp_dir/run/site-deploy.lock
 LEANDATA_SITE_DEPLOY_LOG_DIR=$tmp_dir/deployments
 LEANDATA_SITE_LOCAL_HEALTH_URL=http://local.test/
 LEANDATA_SITE_PUBLIC_HEALTH_URL=https://public.test/
+LEANDATA_RUNTIME_DEPLOY_CONFIG=$tmp_dir/runtime-deploy.env
 EOF
+
+cat >"$tmp_dir/runtime-deploy.env" <<EOF
+LEANDATA_ENV_FILE=$tmp_dir/runtime.env
+LEANDATA_ARCHIVE_ENV_FILE=$tmp_dir/archive.env
+LEANDATA_SITE_DIR=$site_dir
+LEANDATA_DATA_ROOT=$tmp_dir/data
+LEANDATA_CURRENT_LINK=$tmp_dir/current
+LEANDATA_COMPOSE_PROJECT=leandata-site-contract
+LEANDATA_COMPOSE_FILES=docker-compose.aliyun.yml:docker-compose.aliyun.archive.yml:docker-compose.aliyun.logging.yml
+EOF
+mkdir -p "$tmp_dir/data"
 
 cat >"$tmp_dir/bin/curl" <<'EOF'
 #!/usr/bin/env bash
-printf 'function DocsSite() { return null; }\n'
+url="${@: -1}"
+if [[ "$url" == */account ]]; then
+  printf '<div id="root"></div>\n'
+else
+  printf 'function DocsSite() { return null; }\n'
+fi
 EOF
 chmod +x "$tmp_dir/bin/curl"
 
+cat >"$tmp_dir/bin/docker" <<'EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+  if [[ "$arg" == "exec" ]]; then
+    sha256sum "$LEANDATA_TEST_SITE_DIR/server.js"
+    exit 0
+  fi
+done
+exit 0
+EOF
+chmod +x "$tmp_dir/bin/docker"
+
 PATH="$tmp_dir/bin:$PATH" \
+LEANDATA_TEST_SITE_DIR="$site_dir" \
 LEANDATA_SITE_DEPLOY_CONFIG="$tmp_dir/site-deploy.env" \
   bash "$script_dir/deploy_site_commit_pinned.sh" "$commit_sha"
 
 test -f "$site_dir/public/docs-site.jsx"
 test ! -e "$site_dir/public/old.txt"
+grep -q 'version: "new"' "$site_dir/server.js"
 test -f "$tmp_dir/deployments/$commit_sha.json"
+grep -q '"server_sha256":' "$tmp_dir/deployments/$commit_sha.json"
 grep -q '"docs_sha256":' "$tmp_dir/deployments/$commit_sha.json"
+grep -q '"account_sha256":' "$tmp_dir/deployments/$commit_sha.json"
 
 if PATH="$tmp_dir/bin:$PATH" \
+  LEANDATA_TEST_SITE_DIR="$site_dir" \
   LEANDATA_SITE_DEPLOY_CONFIG="$tmp_dir/site-deploy.env" \
   bash "$script_dir/deploy_site_commit_pinned.sh" \
   0000000000000000000000000000000000000000 >/dev/null 2>&1; then

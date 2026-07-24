@@ -193,6 +193,275 @@ describe('POST /api/register', () => {
 });
 
 // ============================================================
+// Account portal
+// ============================================================
+describe('Account portal', () => {
+  let loginSequence = 0;
+
+  function seedAccount({
+    userId = 'account-user',
+    phone = '6045550100',
+    tier = 'standard',
+    mode,
+    expiry = computeExpiry(TIERS.standard),
+    token = 'account-token-1234567890'
+  } = {}) {
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{
+      username: userId,
+      phone,
+      role: TIERS[tier].role,
+      tier,
+      ...(mode && { mode }),
+      permissions: mode ? TIERS[tier].modes[mode] : TIERS[tier].permissions
+    }]));
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({
+      users: [{
+        token,
+        user_id: userId,
+        role: TIERS[tier].role,
+        expires_at: expiry,
+        permissions: mode ? TIERS[tier].modes[mode] : TIERS[tier].permissions
+      }]
+    }));
+    return { userId, phone, token, expiry };
+  }
+
+  async function loginAccount(account = seedAccount()) {
+    loginSequence += 1;
+    const login = await request(app)
+      .post('/api/account/login')
+      .set('x-forwarded-for', `198.51.100.${loginSequence}`)
+      .send({
+        credential: {
+          user_id: account.userId,
+          phone: account.phone
+        }
+      });
+    const cookie = login.headers['set-cookie']?.[0]?.split(';')[0];
+    return { login, cookie };
+  }
+
+  it('requires the credential object and rejects mismatched phone numbers', async () => {
+    const account = seedAccount();
+    const missing = await request(app).post('/api/account/login').send({
+      user_id: account.userId,
+      phone: account.phone
+    });
+    expect(missing.statusCode).toBe(400);
+
+    const mismatch = await request(app)
+      .post('/api/account/login')
+      .set('x-forwarded-for', '198.51.100.220')
+      .send({
+        credential: {
+          user_id: account.userId,
+          phone: 'wrong-phone'
+        }
+      });
+    expect(mismatch.statusCode).toBe(401);
+    expect(mismatch.body.message).not.toContain(account.userId);
+  });
+
+  it('creates an HttpOnly account session without returning phone or raw token', async () => {
+    const account = seedAccount();
+    const { login, cookie } = await loginAccount(account);
+
+    expect(login.statusCode).toBe(200);
+    expect(cookie).toMatch(/^leandata_account_session=/);
+    expect(login.headers['set-cookie'][0]).toMatch(/HttpOnly/);
+    expect(login.headers['set-cookie'][0]).toMatch(/SameSite=Strict/);
+    expect(login.headers['cache-control']).toBe('no-store');
+    expect(JSON.stringify(login.body)).not.toContain(account.phone);
+    expect(JSON.stringify(login.body)).not.toContain(account.token);
+  });
+
+  it('rate limits repeated failures without penalizing successful logins', async () => {
+    const account = seedAccount();
+    for (let attempt = 0; attempt < 9; attempt += 1) {
+      const login = await request(app)
+        .post('/api/account/login')
+        .set('x-forwarded-for', '198.51.100.221')
+        .send({
+          credential: {
+            user_id: account.userId,
+            phone: account.phone
+          }
+        });
+      expect(login.statusCode).toBe(200);
+    }
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const failure = await request(app)
+        .post('/api/account/login')
+        .set('x-forwarded-for', '198.51.100.222')
+        .send({
+          credential: {
+            user_id: account.userId,
+            phone: 'wrong-phone'
+          }
+        });
+      expect(failure.statusCode).toBe(401);
+    }
+    const limited = await request(app)
+      .post('/api/account/login')
+      .set('x-forwarded-for', '198.51.100.222')
+      .send({
+        credential: {
+          user_id: account.userId,
+          phone: 'wrong-phone'
+        }
+      });
+    expect(limited.statusCode).toBe(429);
+  });
+
+  it('returns only the authenticated account overview and scoped usage', async () => {
+    const account = seedAccount();
+    const { cookie } = await loginAccount(account);
+    jest.spyOn(global, 'fetch').mockImplementation(async url => {
+      if (String(url).includes('/v1/account/usage')) {
+        return {
+          ok: true,
+          json: async () => ({
+            rest: {
+              requests: 42,
+              active_historical_requests: 1,
+              limits: { historical_concurrent_max: 3, max_symbols_per_request: 200 }
+            },
+            window: { scope: 'process_lifetime', uptime_seconds: 120 }
+          })
+        };
+      }
+      if (String(url).includes('/account/usage')) {
+        return {
+          ok: true,
+          json: async () => ({
+            ws: { active_connections: 2, subscriptions: 7 },
+            window: { scope: 'live', uptime_seconds: 120 }
+          })
+        };
+      }
+      throw new Error(`unexpected URL: ${url}`);
+    });
+
+    const overview = await request(app).get('/api/account/overview').set('Cookie', cookie);
+
+    expect(overview.statusCode).toBe(200);
+    expect(overview.body.account.user_id).toBe(account.userId);
+    expect(overview.body.account.token_masked).toMatch(/^accoun.*7890$/);
+    expect(overview.body.usage.rest.requests).toBe(42);
+    expect(overview.body.usage.ws.active_connections).toBe(2);
+    expect(overview.body.usage.ws.subscriptions).toBe(7);
+    expect(JSON.stringify(overview.body)).not.toContain(account.phone);
+    expect(JSON.stringify(overview.body)).not.toContain(account.token);
+  });
+
+  it('requires login for account overview and renewal', async () => {
+    const overview = await request(app).get('/api/account/overview');
+    const renewal = await request(app).post('/api/account/renew').send({
+      tier: 'standard',
+      months: 1
+    });
+    expect(overview.statusCode).toBe(401);
+    expect(renewal.statusCode).toBe(401);
+  });
+
+  it('creates a pending renewal for the logged-in account and selected months', async () => {
+    const account = seedAccount();
+    const { cookie } = await loginAccount(account);
+    const renewal = await request(app)
+      .post('/api/account/renew')
+      .set('Cookie', cookie)
+      .send({ tier: 'premium', months: 2 });
+
+    expect(renewal.statusCode).toBe(201);
+    expect(renewal.body.renewal.tier).toBe('premium');
+    expect(renewal.body.renewal.months).toBe(2);
+    const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
+    expect(pending).toHaveLength(1);
+    expect(pending[0].username).toBe(account.userId);
+    expect(pending[0].phone).toBe(account.phone);
+    expect(pending[0].renew_days).toBe(60);
+  });
+
+  it('validates renewal plan, value mode, and month bounds', async () => {
+    const account = seedAccount();
+    const { cookie } = await loginAccount(account);
+    const invalidPlan = await request(app)
+      .post('/api/account/renew')
+      .set('Cookie', cookie)
+      .send({ tier: 'trial', months: 1 });
+    const missingMode = await request(app)
+      .post('/api/account/renew')
+      .set('Cookie', cookie)
+      .send({ tier: 'value', months: 1 });
+    const invalidMonths = await request(app)
+      .post('/api/account/renew')
+      .set('Cookie', cookie)
+      .send({ tier: 'standard', months: 13 });
+
+    expect(invalidPlan.statusCode).toBe(400);
+    expect(missingMode.statusCode).toBe(400);
+    expect(invalidMonths.statusCode).toBe(400);
+  });
+
+  it('extends the existing token from its current expiry after admin approval', async () => {
+    const currentExpiry = new Date(Date.now() + 10 * 86400000).toISOString();
+    const account = seedAccount({ expiry: currentExpiry });
+    const { cookie } = await loginAccount(account);
+    const renewal = await request(app)
+      .post('/api/account/renew')
+      .set('Cookie', cookie)
+      .send({ tier: 'standard', months: 2 });
+    const admin = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    const approved = await request(app)
+      .post('/api/admin/approve')
+      .set('x-admin-token', admin.body.token)
+      .send({ id: renewal.body.renewal.id });
+
+    expect(approved.statusCode).toBe(200);
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    const updated = proxy.users.find(user => user.user_id === account.userId);
+    const extensionDays = (new Date(updated.expires_at) - new Date(currentExpiry)) / 86400000;
+    expect(extensionDays).toBeGreaterThan(59.9);
+    expect(extensionDays).toBeLessThan(60.1);
+    expect(updated.token).toBe(account.token);
+  });
+
+  it('keeps a renewal pending instead of rotating a missing token', async () => {
+    const account = seedAccount();
+    const { cookie } = await loginAccount(account);
+    const renewal = await request(app)
+      .post('/api/account/renew')
+      .set('Cookie', cookie)
+      .send({ tier: 'standard', months: 1 });
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({ users: [] }));
+
+    const admin = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    const approved = await request(app)
+      .post('/api/admin/approve')
+      .set('x-admin-token', admin.body.token)
+      .send({ id: renewal.body.renewal.id });
+
+    expect(approved.statusCode).toBe(409);
+    expect(approved.body.success).toBe(false);
+    const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
+    expect(pending.find(item => item.id === renewal.body.renewal.id).status).toBe('pending');
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    expect(proxy.users).toHaveLength(0);
+  });
+
+  it('retires the public credential-based renewal endpoint', async () => {
+    const response = await request(app).post('/api/renew').send({
+      username: 'legacy',
+      phone: 'legacy',
+      tier: 'standard'
+    });
+    expect(response.statusCode).toBe(410);
+    expect(response.body.message).toMatch(/账户管理中心/);
+  });
+});
+
+// ============================================================
 // Check status
 // ============================================================
 describe('POST /api/check-status', () => {
@@ -608,7 +877,8 @@ describe('POST /api/admin/sync-users', () => {
       .send({});
 
     const logText = res.body.logs.join('\n');
-    expect(logText).toMatch(/Syncing to ThinkCentre/);
+    expect(logText).toMatch(/Reloading shared users\.json/);
+    expect(logText).toMatch(/Local registry/);
   });
 });
 
@@ -730,6 +1000,13 @@ describe('GET /api/latency', () => {
 // Incident API
 // ============================================================
 describe('GET /api/incidents', () => {
+  let adminToken;
+
+  beforeEach(async () => {
+    const login = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    adminToken = login.body.token;
+  });
+
   it('returns incidents array', async () => {
     const res = await request(app).get('/api/incidents');
     expect(res.statusCode).toBe(200);
@@ -741,6 +1018,7 @@ describe('GET /api/incidents', () => {
     // The startup incident was logged when the module loaded, but resetTestData clears it.
     // Create a fresh one to verify the format.
     await request(app).post('/api/incidents')
+      .set('x-admin-token', adminToken)
       .send({ component: 'Token Portal', severity: 'resolved', title: 'Service restart', summary: 'server started' });
     const res = await request(app).get('/api/incidents');
     const startup = res.body.incidents.find(i => i.title === 'Service restart');
@@ -751,8 +1029,22 @@ describe('GET /api/incidents', () => {
 });
 
 describe('POST /api/incidents', () => {
+  let adminToken;
+
+  beforeEach(async () => {
+    const login = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    adminToken = login.body.token;
+  });
+
+  it('requires admin auth', async () => {
+    const res = await request(app).post('/api/incidents')
+      .send({ component: 'REST API', title: 'Unauthorized incident' });
+    expect(res.statusCode).toBe(401);
+  });
+
   it('creates an incident with all fields', async () => {
     const res = await request(app).post('/api/incidents')
+      .set('x-admin-token', adminToken)
       .send({ component: 'REST API', severity: 'minor', title: 'Test incident', summary: 'Testing', duration: '5 min' });
     expect(res.statusCode).toBe(200);
     expect(res.body.success).toBe(true);
@@ -765,6 +1057,7 @@ describe('POST /api/incidents', () => {
 
   it('persists incident to status.json', async () => {
     await request(app).post('/api/incidents')
+      .set('x-admin-token', adminToken)
       .send({ component: 'WebSocket', severity: 'major', title: 'WS down' });
 
     const res = await request(app).get('/api/incidents');
@@ -775,16 +1068,19 @@ describe('POST /api/incidents', () => {
 
   it('defaults severity to minor', async () => {
     const res = await request(app).post('/api/incidents')
+      .set('x-admin-token', adminToken)
       .send({ component: 'REST API', title: 'No severity' });
     expect(res.body.incident.severity).toBe('minor');
   });
 
   it('requires component and title', async () => {
     const res = await request(app).post('/api/incidents')
+      .set('x-admin-token', adminToken)
       .send({ title: 'Missing component' });
     expect(res.statusCode).toBe(400);
 
     const res2 = await request(app).post('/api/incidents')
+      .set('x-admin-token', adminToken)
       .send({ component: 'REST API' });
     expect(res2.statusCode).toBe(400);
   });
@@ -792,6 +1088,7 @@ describe('POST /api/incidents', () => {
   it('keeps max 100 incidents', async () => {
     for (let i = 0; i < 102; i++) {
       await request(app).post('/api/incidents')
+        .set('x-admin-token', adminToken)
         .send({ component: 'REST API', title: `Incident ${i}` });
     }
     const res = await request(app).get('/api/incidents');

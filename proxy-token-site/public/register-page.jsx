@@ -15,10 +15,11 @@ function RegisterTopbar() {
       <div className="nav">
         <a href="index.html">Proxy API</a>
         <a href="index.html#ws-usage">WS usage</a>
+        <a href="/account">账户管理</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
-        <a href="index.html" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>已有账号 · 生成 Token →</a>
+        <a href="/account" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>已有账号 · 账户管理 →</a>
       </div>
     </div>
   );
