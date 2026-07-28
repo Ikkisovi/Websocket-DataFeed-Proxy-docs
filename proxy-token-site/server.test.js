@@ -13,6 +13,7 @@ process.env.PROXY_USERS_FILE = TEST_PROXY_FILE;
 process.env.THINKCENTRE_HOST = 'nobody@127.0.0.1'; // prevent real sync
 process.env.BYPASS_SYNC = 'true';                 // skip SCP to EC2 in tests
 process.env.PROXY_RT_URL = 'http://127.0.0.1:1'; // prevent real rt-api probe in tests
+process.env.PROXY_REST_URL = 'http://127.0.0.1:1'; // prevent real REST proxy calls in tests
 process.env.PROXY_WS_HOST = '127.0.0.1';         // fast-fail WS probe (ECONNREFUSED)
 process.env.PROXY_WS_PORT = '1';
 
@@ -23,11 +24,13 @@ const { app, TIERS, computeExpiry } = require('./server');
 
 const USERS_FILE = path.join(TEST_DATA_DIR, 'users.json');
 const PENDING_FILE = path.join(TEST_DATA_DIR, 'pending.json');
+const BULK_ORDERS_FILE = path.join(TEST_DATA_DIR, 'bulk-orders.json');
 const ADMIN_PASSWORD_FILE = path.join(TEST_DATA_DIR, 'admin-password.env');
 
 function resetTestData() {
   fs.writeFileSync(USERS_FILE, '[]');
   fs.writeFileSync(PENDING_FILE, '[]');
+  fs.writeFileSync(BULK_ORDERS_FILE, '[]');
   fs.writeFileSync(TEST_PROXY_FILE, '{"users":[]}');
   if (fs.existsSync(ADMIN_PASSWORD_FILE)) fs.unlinkSync(ADMIN_PASSWORD_FILE);
   // Clean status data so status/uptime/latency tests start fresh
@@ -147,16 +150,21 @@ describe('POST /api/register', () => {
 
   it('returns 400 for invalid tier', async () => {
     const res = await request(app).post('/api/register').send({
-      username: 'test', phone: '123', tier: 'nonexistent'
+      username: 'test', phone: '123', tier: 'nonexistent', email: 'test@example.com'
     });
     expect(res.statusCode).toBe(400);
     expect(res.body.message).toMatch(/无效/);
   });
 
-  it('accepts all 5 tier IDs', async () => {
-    for (const tier of ['trial', 'basic', 'value', 'standard', 'premium']) {
+  it('accepts the four public token tier IDs', async () => {
+    for (const tier of ['trial', 'value', 'standard', 'premium']) {
       resetTestData();
-      const body = { username: `user_${tier}`, phone: '123', tier };
+      const body = {
+        username: `user_${tier}`,
+        phone: '123',
+        tier,
+        email: `user_${tier}@example.com`
+      };
       if (tier === 'value') body.mode = 'stocks';
       const res = await request(app).post('/api/register').send(body);
       expect(res.statusCode).toBe(200);
@@ -168,27 +176,37 @@ describe('POST /api/register', () => {
   });
 
   it('rejects duplicate pending username', async () => {
-    await request(app).post('/api/register').send({ username: 'dup', phone: '1', tier: 'trial' });
-    const res = await request(app).post('/api/register').send({ username: 'dup', phone: '2', tier: 'basic' });
+    await request(app).post('/api/register').send({
+      username: 'dup', phone: '1', tier: 'trial', email: 'dup@example.com'
+    });
+    const res = await request(app).post('/api/register').send({
+      username: 'dup', phone: '2', tier: 'standard', email: 'dup2@example.com'
+    });
     expect(res.statusCode).toBe(409);
   });
 
   it('defaults to standard when tier omitted', async () => {
-    await request(app).post('/api/register').send({ username: 'noTier', phone: '1' });
+    await request(app).post('/api/register').send({
+      username: 'noTier', phone: '1', email: 'notier@example.com'
+    });
     const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
     expect(pending[0].tier).toBe('standard');
   });
 
   it('rejects value tier without mode', async () => {
     const res = await request(app).post('/api/register').send({
-      username: 'valueNoMode', phone: '1', tier: 'value'
+      username: 'valueNoMode', phone: '1', tier: 'value', email: 'value@example.com'
     });
     expect(res.statusCode).toBe(400);
   });
 
   it('stores mode for value tier', async () => {
     const res = await request(app).post('/api/register').send({
-      username: 'valueUser', phone: '1', tier: 'value', mode: 'options'
+      username: 'valueUser',
+      phone: '1',
+      tier: 'value',
+      mode: 'options',
+      email: 'valueuser@example.com'
     });
     expect(res.statusCode).toBe(200);
     const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
@@ -197,19 +215,246 @@ describe('POST /api/register', () => {
 
   it('returns 400 for an invalid email', async () => {
     const res = await request(app).post('/api/register').send({
-      username: 'badMail', phone: '1', tier: 'basic', email: 'not-an-email'
+      username: 'badMail', phone: '1', tier: 'standard', email: 'not-an-email'
     });
     expect(res.statusCode).toBe(400);
     expect(res.body.success).toBe(false);
   });
 
-  it('stores a valid optional email on the pending entry', async () => {
+  it('returns 400 when email is missing', async () => {
     const res = await request(app).post('/api/register').send({
-      username: 'mailUser', phone: '1', tier: 'basic', email: 'mailuser@example.com'
+      username: 'noMail', phone: '1', tier: 'standard'
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'))).toEqual([]);
+  });
+
+  it('rejects Basic as a retired public registration tier', async () => {
+    const res = await request(app).post('/api/register').send({
+      username: 'oldBasic', phone: '1', tier: 'basic', email: 'basic@example.com'
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('retired_registration_tier');
+  });
+
+  it('stores the required email on the pending entry', async () => {
+    const res = await request(app).post('/api/register').send({
+      username: 'mailUser', phone: '1', tier: 'standard', email: 'mailuser@example.com'
     });
     expect(res.statusCode).toBe(200);
     const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
     expect(pending[0].email).toBe('mailuser@example.com');
+  });
+});
+
+// ============================================================
+// Bulk download estimates and orders
+// ============================================================
+describe('Bulk download API', () => {
+  const estimateFixture = {
+    schema_version: 'bulk_estimate_v1',
+    estimated_raw_bytes: 42_000_000_000,
+    estimated_transfer_bytes: 8_400_000_000,
+    pricing: {
+      estimated_price: 50,
+      currency: 'CNY'
+    }
+  };
+
+  function mockEstimate() {
+    return jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => estimateFixture
+    });
+  }
+
+  it('normalizes and deduplicates tickers and forwards production schemas', async () => {
+    const fetchMock = mockEstimate();
+    const res = await request(app).post('/api/bulk/estimate').send({
+      tickers: ['aapl', ' AAPL ', 'msft'],
+      schemas: ['stock_minute', 'stock_minute', 'options_oi'],
+      start: '2026-01-01',
+      end: '2026-07-22'
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://127.0.0.1:1/v1/bulk/estimate');
+    expect(JSON.parse(options.body)).toEqual({
+      tickers: ['AAPL', 'MSFT'],
+      schemas: ['stock_minute', 'options_oi']
+    });
+    expect(options.body).not.toContain('datasets');
+    expect(res.body.requested_range).toEqual({
+      start: '2026-01-01',
+      end: '2026-07-22'
+    });
+  });
+
+  it('accepts each of the six production-supported schema IDs', async () => {
+    const fetchMock = mockEstimate();
+    const schemas = [
+      'options_eod_theta',
+      'options_eod_alpaca',
+      'options_oi',
+      'options_contracts',
+      'stock_minute',
+      'stock_daily'
+    ];
+    const res = await request(app).post('/api/bulk/estimate').send({
+      tickers: ['AAPL'],
+      schemas
+    });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).schemas).toEqual(schemas);
+  });
+
+  it('rejects unsupported schemas before contacting the estimator', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch');
+    const res = await request(app).post('/api/bulk/estimate').send({
+      tickers: ['AAPL'],
+      schemas: ['unsupported_schema']
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('invalid_bulk_request');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects an inverted date range before contacting the estimator', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch');
+    const res = await request(app).post('/api/bulk/estimate').send({
+      tickers: ['AAPL'],
+      schemas: ['stock_daily'],
+      start: '2026-07-22',
+      end: '2026-01-01'
+    });
+    expect(res.statusCode).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('requires username, phone, and email for an order', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch');
+    const res = await request(app).post('/api/bulk/orders').send({
+      tickers: ['AAPL'],
+      schemas: ['stock_daily'],
+      username: 'kai'
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('contact_required');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid order email', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch');
+    const res = await request(app).post('/api/bulk/orders').send({
+      tickers: ['AAPL'],
+      schemas: ['stock_daily'],
+      username: 'kai',
+      phone: '123',
+      email: 'not-an-email'
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('invalid_email');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('persists the server-side estimate with the order', async () => {
+    mockEstimate();
+    const res = await request(app).post('/api/bulk/orders').send({
+      tickers: ['aapl', 'msft'],
+      schemas: ['stock_daily'],
+      start: '2026-01-01',
+      end: '2026-07-22',
+      username: 'Kai',
+      phone: '123',
+      email: 'kai@example.com',
+      note: 'CSV preferred'
+    });
+    expect(res.statusCode).toBe(201);
+
+    const orders = JSON.parse(fs.readFileSync(BULK_ORDERS_FILE, 'utf8'));
+    expect(orders).toHaveLength(1);
+    expect(orders[0]).toMatchObject({
+      status: 'pending',
+      username: 'Kai',
+      email: 'kai@example.com',
+      tickers: ['AAPL', 'MSFT'],
+      schemas: ['stock_daily'],
+      estimate: estimateFixture
+    });
+  });
+
+  it('requires admin auth to list and update bulk orders', async () => {
+    const list = await request(app).get('/api/admin/bulk-orders');
+    const update = await request(app)
+      .post('/api/admin/bulk-orders/missing/status')
+      .send({ status: 'fulfilled' });
+    expect(list.statusCode).toBe(401);
+    expect(update.statusCode).toBe(401);
+  });
+
+  it('computes the final byte-based price when an admin fulfills an order', async () => {
+    mockEstimate();
+    const order = await request(app).post('/api/bulk/orders').send({
+      tickers: ['AAPL'],
+      schemas: ['stock_daily'],
+      username: 'Kai',
+      phone: '123',
+      email: 'kai@example.com'
+    });
+    const login = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    const update = await request(app)
+      .post(`/api/admin/bulk-orders/${order.body.order_id}/status`)
+      .set('x-admin-token', login.body.token)
+      .send({
+        status: 'fulfilled',
+        actual_raw_bytes: 50_000_000_001
+      });
+    expect(update.statusCode).toBe(200);
+    expect(update.body.final_price).toBe(51);
+    expect(update.body.currency).toBe('CNY');
+  });
+});
+
+describe('Registration and bulk product UI contract', () => {
+  const registerSource = fs.readFileSync(
+    path.join(__dirname, 'public', 'register-page.jsx'),
+    'utf8'
+  );
+  const docsSource = fs.readFileSync(
+    path.join(__dirname, 'public', 'docs', 'docs-site.jsx'),
+    'utf8'
+  );
+
+  it('makes registration email required and replaces the Basic card with Bulk Download', () => {
+    expect(registerSource).toContain('type="email"');
+    expect(registerSource).toContain('required');
+    expect(registerSource).toContain('Bulk Download');
+    expect(registerSource).toContain('/docs/#bulk');
+    expect(registerSource).not.toContain('id: "basic"');
+  });
+
+  it('offers only the six estimator-supported bulk schema IDs', () => {
+    const ids = [
+      'options_eod_theta',
+      'options_eod_alpaca',
+      'options_oi',
+      'options_contracts',
+      'stock_minute',
+      'stock_daily'
+    ];
+    for (const id of ids) expect(docsSource).toContain(`id: "${id}"`);
+    expect((docsSource.match(/id: "(?:options_|stock_)[a-z_]+"/g) || [])).toHaveLength(6);
+  });
+
+  it('states that the preview is full-window rather than date-scaled', () => {
+    expect(docsSource).toContain('完整参考窗口');
+    expect(docsSource).toContain('实际交付切片');
+    expect(docsSource).toContain('Reference-window estimate');
+    expect(docsSource).not.toContain('date-scaled estimate');
   });
 });
 
@@ -497,7 +742,9 @@ describe('POST /api/check-status', () => {
   });
 
   it('returns pending for registered user', async () => {
-    await request(app).post('/api/register').send({ username: 'pend', phone: '111', tier: 'trial' });
+    await request(app).post('/api/register').send({
+      username: 'pend', phone: '111', tier: 'trial', email: 'pend@example.com'
+    });
     const res = await request(app).post('/api/check-status').send({ username: 'pend', phone: '111' });
     expect(res.body.status).toBe('pending');
   });
@@ -580,7 +827,6 @@ describe('POST /api/admin/approve', () => {
   it('approves and writes correct role for each tier', async () => {
     const tierTests = [
       { tier: 'trial', expectedRole: 'standard' },
-      { tier: 'basic', expectedRole: 'basic' },
       { tier: 'value', expectedRole: 'value', mode: 'options' },
       { tier: 'standard', expectedRole: 'standard' },
       { tier: 'premium', expectedRole: 'premium' },
@@ -588,7 +834,12 @@ describe('POST /api/admin/approve', () => {
 
     for (const { tier, expectedRole, mode: m } of tierTests) {
       resetTestData();
-      const body = { username: `u_${tier}`, phone: '123', tier };
+      const body = {
+        username: `u_${tier}`,
+        phone: '123',
+        tier,
+        email: `u_${tier}@example.com`
+      };
       if (m) body.mode = m;
       const reg = await request(app).post('/api/register').send(body);
       const id = reg.body.id;
@@ -616,7 +867,7 @@ describe('POST /api/admin/approve', () => {
 
   it('trial tier gets 3-day expiry in proxy', async () => {
     const reg = await request(app).post('/api/register').send({
-      username: 'trial_exp', phone: '123', tier: 'trial'
+      username: 'trial_exp', phone: '123', tier: 'trial', email: 'trial_exp@example.com'
     });
     await request(app).post('/api/admin/approve')
       .set('x-admin-token', adminToken)
@@ -654,18 +905,28 @@ describe('POST /api/admin/approve', () => {
     expect(proxyUser.email).toBe('mailflow@example.com');
   });
 
-  it('omits the email field when registration has none', async () => {
-    const reg = await request(app).post('/api/register').send({
-      username: 'noMail', phone: '123', tier: 'standard'
-    });
-    await request(app).post('/api/admin/approve')
+  it('can approve a legacy Basic pending record without reopening public Basic registration', async () => {
+    const id = 'legacy-basic-pending';
+    fs.writeFileSync(PENDING_FILE, JSON.stringify([{
+      id,
+      type: 'registration',
+      username: 'legacyBasic',
+      phone: '123',
+      email: 'legacybasic@example.com',
+      tier: 'basic',
+      registered_at: new Date().toISOString(),
+      status: 'pending'
+    }]));
+
+    const res = await request(app).post('/api/admin/approve')
       .set('x-admin-token', adminToken)
-      .send({ id: reg.body.id });
+      .send({ id });
+    expect(res.body.success).toBe(true);
 
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
-    const proxyUser = proxy.users.find(user => user.user_id === 'noMail');
-    expect(proxyUser).toBeDefined();
-    expect('email' in proxyUser).toBe(false);
+    const proxyUser = proxy.users.find(user => user.user_id === 'legacyBasic');
+    expect(proxyUser.role).toBe('basic');
+    expect(proxyUser.email).toBe('legacybasic@example.com');
   });
 });
 
@@ -678,7 +939,7 @@ describe('POST /api/admin/reject', () => {
     const adminToken = login.body.token;
 
     const reg = await request(app).post('/api/register').send({
-      username: 'rejectme', phone: '999', tier: 'trial'
+      username: 'rejectme', phone: '999', tier: 'trial', email: 'rejectme@example.com'
     });
 
     const res = await request(app).post('/api/admin/reject')
@@ -872,7 +1133,7 @@ describe('POST /api/admin/approve — async sync', () => {
 
   it('approve response includes sync status in message', async () => {
     const reg = await request(app).post('/api/register').send({
-      username: 'asyncapprove', phone: '555', tier: 'standard'
+      username: 'asyncapprove', phone: '555', tier: 'standard', email: 'async@example.com'
     });
 
     const res = await request(app).post('/api/admin/approve')
@@ -902,7 +1163,7 @@ describe('POST /api/admin/approve — async sync', () => {
 
     // Register + approve same username
     const reg = await request(app).post('/api/register').send({
-      username: 'existuser2', phone: '777', tier: 'standard'
+      username: 'existuser2', phone: '777', tier: 'standard', email: 'existuser2@example.com'
     });
 
     const res = await request(app).post('/api/admin/approve')
@@ -915,7 +1176,7 @@ describe('POST /api/admin/approve — async sync', () => {
 
   it('approve writes proxy file in correct format', async () => {
     const reg = await request(app).post('/api/register').send({
-      username: 'approvefmt', phone: '888', tier: 'basic'
+      username: 'approvefmt', phone: '888', tier: 'standard', email: 'approvefmt@example.com'
     });
 
     await request(app).post('/api/admin/approve')

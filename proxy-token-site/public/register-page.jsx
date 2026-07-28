@@ -14,6 +14,7 @@ function RegisterTopbar() {
       <div className="divider"></div>
       <div className="nav">
         <a href="index.html">Proxy API</a>
+        <a href="/docs/#bulk">Bulk Download</a>
         <a href="index.html#ws-usage">WS usage</a>
         <a href="/account">账户管理</a>
       </div>
@@ -48,21 +49,22 @@ const TIERS = [
     badge: null,
   },
   {
-    id: "basic",
-    name: "Basic",
-    price: "$40",
-    period: "/ month",
-    tagline: "仅 REST · 批量下载",
-    desc: "无实时 WebSocket · 仅历史数据与批量下载接口",
+    id: "bulk",
+    name: "Bulk",
+    price: "¥50",
+    period: "/ first 50 GB",
+    tagline: "一次性批量下载",
+    desc: "按 ticker 与数据集下单 · 超过 50 GB 后每开始 1 GB 加 ¥1",
     channels: [],
     wsSymbols: 0,
-    restPerMin: 10,
-    restParallel: 2,
-    wsConns: 1,
-    validity: "30 days",
-    rest: "stocks + options history",
-    restOnly: true,
-    badge: null,
+    restPerMin: null,
+    restParallel: null,
+    wsConns: null,
+    validity: "one-off",
+    rest: "archive export · measured quote",
+    restOnly: false,
+    isBulk: true,
+    badge: "ONE-OFF",
   },
   {
     id: "value",
@@ -123,13 +125,13 @@ const TIERS = [
 ];
 
 const COMPARISON_ROWS = [
-  { label: "Realtime WebSocket",       get: t => t.channels.length > 0 },
-  { label: "WS channels",              get: t => t.channels.length === 0 ? "—" : `${t.channels.length} channels`, raw: true },
-  { label: "REST data scope",          get: t => t.id === "premium" ? "all" : t.id === "value" ? "mode" : t.restOnly ? "stocks+options" : "stocks+options", raw: true },
-  { label: "REST req/min",             get: t => `${t.restPerMin}/min`, raw: true },
-  { label: "REST parallel",            get: t => `${t.restParallel}`, raw: true },
-  { label: "WS symbols",               get: t => t.wsSymbols === 0 ? "—" : `${t.wsSymbols}`, raw: true },
-  { label: "WS connections",           get: t => t.channels.length === 0 ? "—" : `${t.wsConns}`, raw: true },
+  { label: "Realtime WebSocket",       get: t => !t.isBulk && t.channels.length > 0 },
+  { label: "WS channels",              get: t => t.isBulk || t.channels.length === 0 ? "—" : `${t.channels.length} channels`, raw: true },
+  { label: "REST data scope",          get: t => t.isBulk ? "archive export" : t.id === "premium" ? "all" : t.id === "value" ? "mode" : "stocks+options", raw: true },
+  { label: "REST req/min",             get: t => t.isBulk ? "—" : `${t.restPerMin}/min`, raw: true },
+  { label: "REST parallel",            get: t => t.isBulk ? "—" : `${t.restParallel}`, raw: true },
+  { label: "WS symbols",               get: t => t.isBulk || t.wsSymbols === 0 ? "—" : `${t.wsSymbols}`, raw: true },
+  { label: "WS connections",           get: t => t.isBulk || t.channels.length === 0 ? "—" : `${t.wsConns}`, raw: true },
   { label: "Token validity",           get: t => t.validity, raw: true },
 ];
 
@@ -156,8 +158,13 @@ function RegisterPage() {
   // Handle Registration Submit
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
-    if (!regUsername.trim() || !regPhone.trim()) {
-      setRegMsg("请填写用户名和手机号。");
+    if (!regUsername.trim() || !regPhone.trim() || !regEmail.trim()) {
+      setRegMsg("请填写用户名、手机号和邮箱。");
+      setRegStatus("error");
+      return;
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(regEmail.trim())) {
+      setRegMsg("请输入有效的邮箱地址。");
       setRegStatus("error");
       return;
     }
@@ -178,7 +185,7 @@ function RegisterPage() {
           username: regUsername.trim(),
           phone: regPhone.trim(),
           tier,
-          ...(regEmail.trim() && { email: regEmail.trim() }),
+          email: regEmail.trim(),
           ...(tier === "value" && mode && { mode })
         })
       });
@@ -260,8 +267,8 @@ function RegisterPage() {
             新用户 <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>注册</span>
           </h1>
           <p style={{ color: "var(--ink-muted)", margin: "0 0 36px", fontSize: 15, maxWidth: 560 }}>
-            选择套餐并填写信息，管理员确认订单后可自助生成 Token。
-            注册不会立即开通 — 通常 1 个工作日内完成审核。
+            选择 Token 套餐并填写信息，或进入一次性 Bulk Download 下单。
+            Token 注册不会立即开通 — 通常 1 个工作日内完成审核。
           </p>
 
           {/* Layout: form + status side by side */}
@@ -272,23 +279,31 @@ function RegisterPage() {
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
                 <div className="eyebrow">1 · 选择服务等级</div>
                 <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>
-                  5 plans · USD · subscription
+                  4 token plans · 1 bulk export
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 28 }}>
                 {TIERS.map(t => {
-                  const selected = tier === t.id;
+                  const selected = !t.isBulk && tier === t.id;
                   return (
                     <button
+                      type="button"
                       key={t.id}
-                      onClick={() => { setTier(t.id); if (t.id !== "value") setMode(""); }}
+                      onClick={() => {
+                        if (t.isBulk) {
+                          window.location.href = "/docs/#bulk";
+                          return;
+                        }
+                        setTier(t.id);
+                        if (t.id !== "value") setMode("");
+                      }}
                       className="card"
                       style={{
                         textAlign: "left",
                         padding: 16,
                         cursor: "pointer",
                         borderColor: selected ? "var(--ink-strong)" : "var(--rule)",
-                        background: selected ? "var(--bg-paper)" : "var(--bg-canvas)",
+                        background: t.isBulk ? "var(--accent-soft)" : selected ? "var(--bg-paper)" : "var(--bg-canvas)",
                         borderWidth: 1,
                         borderStyle: "solid",
                         borderRadius: "var(--radius-lg)",
@@ -310,7 +325,7 @@ function RegisterPage() {
                           letterSpacing: ".1em",
                         }}>{t.badge}</span>
                       )}
-                      {selected && (
+                      {selected && !t.isBulk && (
                         <span style={{
                           position: "absolute", top: 12, right: 12,
                           width: 16, height: 16, borderRadius: "50%",
@@ -341,14 +356,25 @@ function RegisterPage() {
                           fontFamily: "var(--f-mono)",
                           color: "var(--ink-strong)",
                           fontSize: 11,
-                        }}>{t.restOnly ? "unlimited (REST)" : `${t.wsSymbols} symbols`}</span>
+                        }}>{t.isBulk ? "up to 1,000 tickers" : t.restOnly ? "unlimited (REST)" : `${t.wsSymbols} symbols`}</span>
                       </div>
 
                       {/* Channels */}
                       <div style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>
                         WS
                       </div>
-                      {t.restOnly ? (
+                      {t.isBulk ? (
+                        <div style={{
+                          fontFamily: "var(--f-mono)",
+                          fontSize: 10.5,
+                          color: "var(--accent-ink)",
+                          padding: "2px 6px",
+                          background: "var(--bg-paper)",
+                          borderRadius: 3,
+                          display: "inline-block",
+                          marginBottom: 10,
+                        }}>open order builder →</div>
+                      ) : t.restOnly ? (
                         <div style={{
                           fontFamily: "var(--f-mono)",
                           fontSize: 10.5,
@@ -376,7 +402,7 @@ function RegisterPage() {
 
                       {/* REST line */}
                       <div style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>
-                        REST
+                        {t.isBulk ? "DELIVERY" : "REST"}
                       </div>
                       <div style={{ fontFamily: "var(--f-mono)", fontSize: 10.5, color: "var(--ink-base)", lineHeight: 1.5 }}>
                         {t.rest}
@@ -492,15 +518,16 @@ function RegisterPage() {
                     </div>
                   </div>
                   <div style={{ marginTop: 18 }}>
-                    <label className="label">邮箱（可选）</label>
+                    <label className="label">邮箱</label>
                     <input
                       className="input mono"
                       type="email"
-                      placeholder="用于接收服务更新通知"
+                      placeholder="用于账户绑定与服务通知"
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
+                      required
                     />
-                    <div className="hint">仅用于接收数据服务变更与故障通知，不会用于其他用途。</div>
+                    <div className="hint">必填。用于账户识别、服务通知和后续登录验证。</div>
                   </div>
 
                   <div style={{

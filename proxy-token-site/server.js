@@ -59,6 +59,7 @@ app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'adm
 // --- Data paths (overridable for tests via env) ---
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const PENDING_FILE = path.join(DATA_DIR, 'pending.json');
+const BULK_ORDERS_FILE = path.join(DATA_DIR, 'bulk-orders.json');
 
 const CLOUD_HOST_LABEL = process.env.CLOUD_HOST_LABEL || 'Aliyun';
 const IS_CLOUD_HOST = fs.existsSync('/srv/leandata') || fs.existsSync('/mnt/leandata-v2') || fs.existsSync('/home/opc');
@@ -160,6 +161,7 @@ const TIERS = {
     }
   }
 };
+const PUBLIC_REGISTRATION_TIER_IDS = new Set(['trial', 'value', 'standard', 'premium']);
 
 // --- In-memory admin sessions ---
 const adminSessions = new Set();
@@ -1705,15 +1707,22 @@ app.post('/api/register', (req, res) => {
   const cleanPhone = (phone || '').trim();
   const cleanEmail = typeof email === 'string' ? email.trim() : '';
 
-  if (!cleanUsername || !cleanPhone) {
-    return res.status(400).json({ success: false, message: '用户名和手机号都是必填的。' });
+  if (!cleanUsername || !cleanPhone || !cleanEmail) {
+    return res.status(400).json({ success: false, message: '用户名、手机号和邮箱都是必填的。' });
   }
-  if (cleanEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cleanEmail)) {
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cleanEmail)) {
     return res.status(400).json({ success: false, message: '邮箱格式不正确。' });
   }
 
   const selectedTier = tier || 'standard';
-  if (!TIERS[selectedTier]) {
+  if (!PUBLIC_REGISTRATION_TIER_IDS.has(selectedTier)) {
+    if (selectedTier === 'basic') {
+      return res.status(400).json({
+        success: false,
+        error: 'retired_registration_tier',
+        message: 'Basic REST 月度套餐已停止新注册，请使用一次性 Bulk Download，或选择其他 Token 套餐。'
+      });
+    }
     return res.status(400).json({ success: false, message: '无效的服务等级。' });
   }
 
@@ -1743,7 +1752,7 @@ app.post('/api/register', (req, res) => {
     phone: cleanPhone,
     tier: selectedTier,
     ...(mode && { mode }),
-    ...(cleanEmail && { email: cleanEmail }),
+    email: cleanEmail,
     registered_at: new Date().toISOString(),
     status: 'pending'
   };
@@ -1752,6 +1761,211 @@ app.post('/api/register', (req, res) => {
   writeJSON(PENDING_FILE, pending);
 
   return res.json({ success: true, message: '注册成功！请等待卖家确认订单后即可生成 Token。', id: entry.id });
+});
+
+// ============================================================
+// PUBLIC: One-off bulk download estimates and order requests
+// ============================================================
+const BULK_SCHEMA_IDS = new Set([
+  'options_eod_theta',
+  'options_eod_alpaca',
+  'options_oi',
+  'options_contracts',
+  'stock_minute',
+  'stock_daily'
+]);
+const BULK_EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+function normalizeBulkRequest(body = {}) {
+  const tickers = [...new Set(
+    (Array.isArray(body.tickers) ? body.tickers : String(body.tickers || '').split(/[\s,]+/))
+      .map(value => String(value).trim().toUpperCase())
+      .filter(Boolean)
+  )];
+  const schemasInput = body.schemas ?? body.datasets;
+  const schemas = [...new Set(
+    (Array.isArray(schemasInput) ? schemasInput : String(schemasInput || '').split(','))
+      .map(value => String(value).trim().toLowerCase())
+      .filter(Boolean)
+  )];
+  return {
+    tickers,
+    schemas,
+    start: String(body.start || '2021-01-01').trim(),
+    end: String(body.end || '2026-07-22').trim()
+  };
+}
+
+function validateBulkRequest({ tickers, schemas, start, end }) {
+  if (tickers.length === 0) return 'At least one ticker is required.';
+  if (tickers.length > 1000) return 'A single order supports at most 1,000 tickers.';
+  if (tickers.some(ticker => !/^(?:\^[A-Z0-9]+|[A-Z0-9][A-Z0-9./-]{0,31})$/.test(ticker) || ticker.includes('..'))) {
+    return 'One or more tickers are invalid.';
+  }
+  if (schemas.length === 0) return 'Select at least one bulk dataset.';
+  if (schemas.some(schema => !BULK_SCHEMA_IDS.has(schema))) {
+    return 'One or more bulk datasets are not available for measured estimates.';
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+    return 'Start and end must use YYYY-MM-DD.';
+  }
+  const startDate = new Date(`${start}T00:00:00Z`);
+  const endDate = new Date(`${end}T00:00:00Z`);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return 'Start or end date is invalid.';
+  }
+  if (startDate > endDate) return 'Start must be on or before end.';
+  return null;
+}
+
+async function fetchBulkEstimate(payload) {
+  const response = await fetch(`${PROXY_REST_URL}/v1/bulk/estimate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      tickers: payload.tickers,
+      schemas: payload.schemas
+    })
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const error = new Error(data.message || data.error || 'Bulk estimate failed.');
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
+
+app.post('/api/bulk/estimate', async (req, res) => {
+  const payload = normalizeBulkRequest(req.body);
+  const validationError = validateBulkRequest(payload);
+  if (validationError) {
+    return res.status(400).json({
+      success: false,
+      error: 'invalid_bulk_request',
+      message: validationError
+    });
+  }
+  try {
+    const estimate = await fetchBulkEstimate(payload);
+    return res.json({
+      success: true,
+      ...estimate,
+      requested_range: { start: payload.start, end: payload.end },
+      range_pricing_note: 'The current estimate uses the measured full archive window. Final billing uses the fulfilled slice measured in uncompressed bytes.'
+    });
+  } catch (error) {
+    console.error('Bulk estimate proxy error:', error.message);
+    return res.status(error.status || 502).json({
+      success: false,
+      error: 'bulk_estimate_unavailable',
+      message: error.message
+    });
+  }
+});
+
+app.post('/api/bulk/orders', async (req, res) => {
+  const payload = normalizeBulkRequest(req.body);
+  const validationError = validateBulkRequest(payload);
+  if (validationError) {
+    return res.status(400).json({
+      success: false,
+      error: 'invalid_bulk_request',
+      message: validationError
+    });
+  }
+
+  const username = String(req.body?.username || '').trim();
+  const phone = String(req.body?.phone || '').trim();
+  const email = String(req.body?.email || '').trim();
+  if (!username || !phone || !email) {
+    return res.status(400).json({
+      success: false,
+      error: 'contact_required',
+      message: 'Username, phone, and email are required.'
+    });
+  }
+  if (!BULK_EMAIL_RE.test(email)) {
+    return res.status(400).json({
+      success: false,
+      error: 'invalid_email',
+      message: 'A valid email address is required.'
+    });
+  }
+
+  try {
+    const estimate = await fetchBulkEstimate(payload);
+    const orders = readJSON(BULK_ORDERS_FILE, []);
+    const order = {
+      id: crypto.randomUUID(),
+      status: 'pending',
+      username,
+      phone,
+      email,
+      tickers: payload.tickers,
+      schemas: payload.schemas,
+      start: payload.start,
+      end: payload.end,
+      estimate,
+      note: String(req.body?.note || '').trim().slice(0, 1000),
+      created_at: new Date().toISOString()
+    };
+    orders.push(order);
+    writeJSON(BULK_ORDERS_FILE, orders);
+    return res.status(201).json({
+      success: true,
+      order_id: order.id,
+      status: order.status,
+      estimated_raw_bytes: estimate.estimated_raw_bytes,
+      estimated_transfer_bytes: estimate.estimated_transfer_bytes,
+      estimated_price: estimate.pricing?.estimated_price ?? null,
+      currency: estimate.pricing?.currency || 'CNY'
+    });
+  } catch (error) {
+    console.error('Bulk order estimate error:', error.message);
+    return res.status(error.status || 502).json({
+      success: false,
+      error: 'bulk_order_unavailable',
+      message: error.message
+    });
+  }
+});
+
+app.get('/api/admin/bulk-orders', requireAdmin, (_req, res) => {
+  return res.json({ success: true, orders: readJSON(BULK_ORDERS_FILE, []) });
+});
+
+app.post('/api/admin/bulk-orders/:id/status', requireAdmin, (req, res) => {
+  const allowed = new Set(['pending', 'approved', 'rejected', 'fulfilled']);
+  const status = String(req.body?.status || '').trim().toLowerCase();
+  if (!allowed.has(status)) {
+    return res.status(400).json({ success: false, message: 'Invalid bulk order status.' });
+  }
+
+  const orders = readJSON(BULK_ORDERS_FILE, []);
+  const order = orders.find(item => item.id === req.params.id);
+  if (!order) {
+    return res.status(404).json({ success: false, message: 'Bulk order not found.' });
+  }
+
+  order.status = status;
+  order.updated_at = new Date().toISOString();
+  const actualRawBytes = Number(req.body?.actual_raw_bytes);
+  if (Number.isSafeInteger(actualRawBytes) && actualRawBytes >= 0) {
+    const billableGb = Math.max(50, Math.ceil(actualRawBytes / 1_000_000_000));
+    order.actual_raw_bytes = actualRawBytes;
+    order.final_price = 50 + Math.max(0, billableGb - 50);
+    order.currency = 'CNY';
+  }
+  order.admin_note = String(req.body?.admin_note || '').trim().slice(0, 1000);
+  writeJSON(BULK_ORDERS_FILE, orders);
+  return res.json({
+    success: true,
+    order_id: order.id,
+    status: order.status,
+    final_price: order.final_price ?? null,
+    currency: order.currency || order.estimate?.pricing?.currency || 'CNY'
+  });
 });
 
 // ============================================================

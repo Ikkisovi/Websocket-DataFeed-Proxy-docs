@@ -510,7 +510,7 @@ function DocsTopbar({ active = "proxy", onNav }) {
 }
 
 function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
-  const validTabs = ["proxy", "ws", "status", "usage"];
+  const validTabs = ["proxy", "bulk", "ws", "status", "usage"];
   const hashTab = typeof window !== "undefined" && window.location.hash ? window.location.hash.slice(1) : "";
   const startTab = validTabs.includes(hashTab) ? hashTab : initialTab;
   const [tab, setTab] = useState(startTab);
@@ -535,7 +535,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
       {showTopbar && <DocsTopbar active={tab} onNav={setTab} />}
 
       {/* Hero */}
-      <div style={{
+      <div className="docs-hero" style={{
         padding: "44px 64px 28px",
         borderBottom: "1px solid var(--rule)",
         background: "var(--bg-paper)",
@@ -553,25 +553,26 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
         </p>
 
         {/* Tab strip */}
-        <div style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
+        <div className="docs-tabs" style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
           <Tab id="proxy" tab={tab} setTab={setTab} label="Proxy API" count="45+ endpoints" />
+          <Tab id="bulk" tab={tab} setTab={setTab} label="Bulk Download" count="¥50 / 50GB" />
           <Tab id="ws" tab={tab} setTab={setTab} label="WS usage" count="6 channels" />
           <Tab id="status" tab={tab} setTab={setTab} label="Status" count="live" />
           <Tab id="usage" tab={tab} setTab={setTab} label="Usage" count="30d" />
           <div style={{ flex: 1 }}></div>
-          <div style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
+          <div className="docs-last-sync" style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
             last sync · 2026-05-25 hybrid architecture (CF REST + EC2 WS)
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div style={{ display: "grid", gridTemplateColumns: (tab === "status" || tab === "usage") ? "1fr" : "220px 1fr 220px", flex: 1 }}>
-        {tab !== "status" && tab !== "usage" && <SideNav tab={tab} />}
-        <main style={{ padding: (tab === "status" || tab === "usage") ? "36px 32px" : "40px 56px", background: "var(--bg-canvas)" }}>
-          {tab === "proxy" ? <ProxyApiBody /> : tab === "ws" ? <WsUsageBody /> : tab === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…")) : (React.createElement(StatusBody))}
+      <div style={{ display: "grid", gridTemplateColumns: (tab === "status" || tab === "usage" || tab === "bulk") ? "1fr" : "220px 1fr 220px", flex: 1 }}>
+        {tab !== "status" && tab !== "usage" && tab !== "bulk" && <SideNav tab={tab} />}
+        <main className={tab === "bulk" ? "bulk-main" : ""} style={{ padding: (tab === "status" || tab === "usage" || tab === "bulk") ? "36px 32px" : "40px 56px", background: "var(--bg-canvas)" }}>
+          {tab === "proxy" ? <ProxyApiBody /> : tab === "bulk" ? <BulkOrderBody /> : tab === "ws" ? <WsUsageBody /> : tab === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…")) : (React.createElement(StatusBody))}
         </main>
-        {tab !== "status" && tab !== "usage" && <OnThisPage tab={tab} />}
+        {tab !== "status" && tab !== "usage" && tab !== "bulk" && <OnThisPage tab={tab} />}
       </div>
     </div>
   );
@@ -1151,6 +1152,289 @@ function StockEndpointSection({ endpoint }) {
   );
 }
 
+const BULK_SCHEMA_OPTIONS = [
+  {
+    id: "stock_minute",
+    category: "Stocks",
+    label: "Stock bars · 1 minute",
+    detail: "SIP minute OHLCV · measured average ~49 MB per ticker for the reference archive",
+  },
+  {
+    id: "stock_daily",
+    category: "Stocks",
+    label: "Stock bars · daily",
+    detail: "SIP daily OHLCV · measured average ~0.4 MB per ticker",
+  },
+  {
+    id: "options_eod_theta",
+    category: "Options",
+    label: "Option EOD · complete chain",
+    detail: "ThetaData complete-chain EOD · measured average ~360 MB per underlying",
+  },
+  {
+    id: "options_eod_alpaca",
+    category: "Options",
+    label: "Option EOD · traded contracts",
+    detail: "Alpaca traded-contract EOD · measured average ~76 MB per underlying",
+  },
+  {
+    id: "options_oi",
+    category: "Options",
+    label: "Option open interest",
+    detail: "Historical contract-level OI · measured average ~167 MB per underlying",
+  },
+  {
+    id: "options_contracts",
+    category: "Options",
+    label: "Option contracts",
+    detail: "Contract reference rows · measured average ~27 MB per underlying",
+  },
+];
+
+function formatBulkBytes(bytes) {
+  if (!Number.isFinite(bytes)) return "—";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1000 && unit < units.length - 1) {
+    value /= 1000;
+    unit += 1;
+  }
+  return `${value >= 100 ? value.toFixed(0) : value.toFixed(2)} ${units[unit]}`;
+}
+
+function BulkOrderBody() {
+  const [tickerText, setTickerText] = React.useState("AAPL, MSFT, NVDA");
+  const [schemas, setSchemas] = React.useState(["options_eod_theta", "options_oi", "stock_minute"]);
+  const [start, setStart] = React.useState("2021-01-01");
+  const [end, setEnd] = React.useState("2026-07-22");
+  const [estimate, setEstimate] = React.useState(null);
+  const [username, setUsername] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [note, setNote] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [message, setMessage] = React.useState("");
+  const [messageType, setMessageType] = React.useState("");
+
+  const tickers = [...new Set(
+    tickerText.split(/[\s,]+/).map(value => value.trim().toUpperCase()).filter(Boolean)
+  )];
+
+  const invalidateEstimate = () => {
+    setEstimate(null);
+    setMessage("");
+    setMessageType("");
+  };
+
+  const toggleSchema = id => {
+    setSchemas(current => current.includes(id)
+      ? current.filter(value => value !== id)
+      : [...current, id]);
+    invalidateEstimate();
+  };
+
+  const requestEstimate = async () => {
+    setLoading(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch("/api/bulk/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tickers, schemas, start, end }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.message || "Estimate failed.");
+      setEstimate(data);
+    } catch (error) {
+      setMessage(error.message);
+      setMessageType("error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitOrder = async () => {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+      setMessage("请输入有效邮箱。");
+      setMessageType("error");
+      return;
+    }
+    setLoading(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch("/api/bulk/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tickers,
+          schemas,
+          start,
+          end,
+          username: username.trim(),
+          phone: phone.trim(),
+          email: email.trim(),
+          note,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.message || "Order request failed.");
+      setMessage(`订单 ${data.order_id.slice(0, 8)} 已提交 · 当前估价 ¥${data.estimated_price ?? "待确认"}`);
+      setMessageType("success");
+    } catch (error) {
+      setMessage(error.message);
+      setMessageType("error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>One-off product · manual fulfillment</div>
+      <h2 className="display-title" style={{ fontSize: 44, margin: "0 0 10px" }}>Bulk Download</h2>
+      <p style={{ color: "var(--ink-muted)", maxWidth: 780, margin: "0 0 28px", lineHeight: 1.65 }}>
+        Bulk Download 是一次性数据导出，不再作为 Basic REST 月度套餐销售。
+        当前估价基于已测量的 2021-01-01 至 2026-07-22 完整归档窗口：
+        前 50 GB 为 ¥50，之后每开始 1 GB 加 ¥1。最终价格按实际交付切片的未压缩字节计算。
+      </p>
+
+      <div className="bulk-layout" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.35fr) minmax(300px, .75fr)", gap: 20, alignItems: "start" }}>
+        <div>
+          <div className="card" style={{ padding: 22, marginBottom: 18 }}>
+            <div className="eyebrow" style={{ marginBottom: 10 }}>1 · Tickers</div>
+            <textarea
+              className="input mono"
+              value={tickerText}
+              onChange={event => { setTickerText(event.target.value); invalidateEstimate(); }}
+              rows={4}
+              placeholder="AAPL, MSFT, NVDA"
+              style={{ width: "100%", resize: "vertical", lineHeight: 1.6 }}
+            />
+            <div style={{ marginTop: 8, color: "var(--ink-soft)", fontSize: 12 }}>
+              {tickers.length} unique ticker{tickers.length === 1 ? "" : "s"} · 最多 1,000 个
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 22, marginBottom: 18 }}>
+            <div className="eyebrow" style={{ marginBottom: 10 }}>2 · Requested range</div>
+            <div className="bulk-date-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <label style={{ color: "var(--ink-muted)", fontSize: 12 }}>Start
+                <input className="input mono" type="date" value={start} onChange={event => { setStart(event.target.value); invalidateEstimate(); }} style={{ width: "100%", marginTop: 6 }} />
+              </label>
+              <label style={{ color: "var(--ink-muted)", fontSize: 12 }}>End
+                <input className="input mono" type="date" value={end} onChange={event => { setEnd(event.target.value); invalidateEstimate(); }} style={{ width: "100%", marginTop: 6 }} />
+              </label>
+            </div>
+            <div style={{ marginTop: 8, color: "var(--ink-soft)", fontSize: 12 }}>
+              当前自动估价使用完整参考窗口；日期范围会保存在订单中，由交付时按实际切片结算。
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 22 }}>
+            <div className="eyebrow" style={{ marginBottom: 12 }}>3 · Measured datasets</div>
+            <div className="bulk-dataset-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+              {BULK_SCHEMA_OPTIONS.map(option => {
+                const active = schemas.includes(option.id);
+                return (
+                  <button
+                    type="button"
+                    key={option.id}
+                    onClick={() => toggleSchema(option.id)}
+                    style={{
+                      textAlign: "left",
+                      padding: 14,
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      border: `1px solid ${active ? "var(--accent)" : "var(--rule)"}`,
+                      background: active ? "var(--accent-soft)" : "var(--bg-paper)",
+                      color: "var(--ink-base)",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 5 }}>
+                      <strong>{option.label}</strong>
+                      <span className="mono" style={{ fontSize: 10, color: "var(--accent-ink)" }}>{active ? "SELECTED" : ""}</span>
+                    </div>
+                    <div className="mono" style={{ fontSize: 10, color: "var(--ink-soft)", marginBottom: 6 }}>{option.category} · {option.id}</div>
+                    <div style={{ color: "var(--ink-muted)", fontSize: 12, lineHeight: 1.45 }}>{option.detail}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="card bulk-estimate-panel" style={{ padding: 22, position: "sticky", top: 20 }}>
+          <div className="eyebrow" style={{ marginBottom: 12 }}>Estimate & order</div>
+          {estimate ? (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                <div style={{ padding: 12, background: "var(--bg-canvas)", borderRadius: 7 }}>
+                  <div className="eyebrow">Billable raw</div>
+                  <div className="display-title" style={{ fontSize: 24 }}>{formatBulkBytes(estimate.estimated_raw_bytes)}</div>
+                </div>
+                <div style={{ padding: 12, background: "var(--bg-canvas)", borderRadius: 7 }}>
+                  <div className="eyebrow">Expected transfer</div>
+                  <div className="display-title" style={{ fontSize: 24 }}>{formatBulkBytes(estimate.estimated_transfer_bytes)}</div>
+                </div>
+              </div>
+              <div style={{ borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)", padding: "14px 0", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <span style={{ color: "var(--ink-muted)" }}>Reference-window estimate</span>
+                <strong className="display-title" style={{ fontSize: 34 }}>¥{estimate.pricing?.estimated_price ?? "—"}</strong>
+              </div>
+            </>
+          ) : (
+            <p style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55, margin: "0 0 18px" }}>
+              选择 ticker 与数据集后生成参考估价。订单提交时服务器会重新计算，不能使用浏览器篡改后的价格。
+            </p>
+          )}
+
+          <button
+            type="button"
+            className="btn"
+            onClick={requestEstimate}
+            disabled={loading || tickers.length === 0 || schemas.length === 0}
+            style={{ width: "100%", justifyContent: "center" }}
+          >
+            {loading ? "Calculating…" : "Calculate size & price"}
+          </button>
+
+          {estimate && (
+            <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 9 }}>
+              <input className="input" placeholder="Username · required" value={username} onChange={event => setUsername(event.target.value)} />
+              <input className="input" placeholder="Phone · required" value={phone} onChange={event => setPhone(event.target.value)} />
+              <input className="input" type="email" placeholder="Email · required" value={email} onChange={event => setEmail(event.target.value)} />
+              <textarea className="input" rows={3} placeholder="Delivery format or notes · optional" value={note} onChange={event => setNote(event.target.value)} />
+              <button
+                type="button"
+                className="btn primary"
+                onClick={submitOrder}
+                disabled={loading || !username.trim() || !phone.trim() || !email.trim()}
+                style={{ width: "100%", justifyContent: "center" }}
+              >
+                Submit for approval →
+              </button>
+            </div>
+          )}
+
+          {message && (
+            <div style={{
+              marginTop: 12,
+              padding: 10,
+              borderRadius: 6,
+              color: messageType === "success" ? "var(--ok)" : "var(--danger)",
+              background: messageType === "success" ? "var(--ok-soft)" : "var(--danger-soft)",
+              fontSize: 12,
+            }}>{message}</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProxyApiBody() {
   return (
     <div style={{ maxWidth: 760 }}>
@@ -1198,8 +1482,9 @@ Authorization: Bearer c88662...720a
 
       <h2 id="tiers-permissions" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Tiers &amp; permissions</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Five plans control access to channels, symbols, rate limits, and REST endpoints.
-        <span style={{ color: "var(--ink-soft)", fontSize: 13 }}>五个套餐等级控制通道、标的、限速和接口权限。</span>
+        Four public token plans control access to channels, symbols, rate limits, and REST endpoints.
+        Basic is shown only for existing-account compatibility and is closed to new registration; Bulk Download is the separate one-off product above.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>公开注册提供四种 Token 套餐。Basic 仅为老账户兼容，不再开放新注册；批量导出请使用上方独立的 Bulk Download。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
@@ -1218,13 +1503,13 @@ Authorization: Bearer c88662...720a
           </tr>
           <tr>
             <td><span className="tier basic">Basic</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$40/mo</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Legacy · closed</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>— (REST only)</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>600</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td>
-            <td style={{ fontSize: 12 }}>stocks + options history · no realtime</td>
+            <td style={{ fontSize: 12 }}>existing accounts only · no new registration</td>
           </tr>
           <tr>
             <td><span className="tier value">Value</span></td>
@@ -1277,18 +1562,22 @@ Authorization: Bearer c88662...720a
       <ParamTable rows={[
         { name: "username", type: "string", required: true, desc: "Unique display name (must not exist in approved users)" },
         { name: "phone",    type: "string", required: true, desc: "Mobile number used to verify identity on token generation" },
-        { name: "tier",     type: "string", required: false, desc: "trial | basic | value | standard | premium (default: standard)." },
+        { name: "email",    type: "string", required: true, desc: "Valid email used for account identity, service notices, and future login verification." },
+        { name: "tier",     type: "string", required: false, desc: "trial | value | standard | premium (default: standard). Basic is retired for new registrations." },
         { name: "mode",     type: "string", required: false, desc: "stocks | options — required when tier is value. Determines which data vertical is enabled." },
       ]} />
       <pre className="code" style={{ marginBottom: 28 }}>
 {`// Request
-{ "username": "tonnysun", "phone": "18717931119", "tier": "premium" }
+{ "username": "tonnysun", "phone": "18717931119", "email": "tonny@example.com", "tier": "premium" }
 
 // Value tier — mode required
-{ "username": "qianyu", "phone": "13800138000", "tier": "value", "mode": "options" }
+{ "username": "qianyu", "phone": "13800138000", "email": "qianyu@example.com", "tier": "value", "mode": "options" }
 
 // Response 200
 { "success": true, "message": "注册成功！请等待卖家确认订单后即可生成 Token。", "id": "61ce4f82-..." }
+
+// Error 400 — Basic is no longer a public registration tier
+{ "success": false, "error": "retired_registration_tier", "message": "Basic REST 月度套餐已停止新注册..." }
 
 // Error 409 — username already taken
 { "success": false, "message": "该用户名已被使用，请换一个。" }`}

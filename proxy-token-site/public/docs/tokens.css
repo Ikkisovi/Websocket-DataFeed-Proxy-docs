@@ -55,6 +55,10 @@
 /* Base reset within artboards */
 .proxy-app, .proxy-app * { box-sizing: border-box; }
 .proxy-app {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
   font-family: var(--f-sans);
   font-feature-settings: "ss01", "cv11";
   color: var(--ink-base);
@@ -258,6 +262,69 @@ code.inline, .ic {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+}
+
+/* --- Bulk endpoint builder --- */
+.bulk-dataset-grid > button {
+  min-width: 0;
+  overflow: hidden;
+}
+.bulk-dataset-grid > button code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+@media (max-width: 980px) {
+  .bulk-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .bulk-estimate-panel {
+    position: static !important;
+  }
+}
+@media (max-width: 720px) {
+  .topbar {
+    gap: 8px;
+    padding-inline: 12px;
+  }
+  .topbar .divider,
+  .topbar .meta {
+    display: none;
+  }
+  .topbar .nav {
+    margin-left: auto;
+    overflow-x: auto;
+  }
+  .topbar .nav a {
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+  .docs-hero {
+    padding: 32px 20px 22px !important;
+  }
+  .docs-hero h1 {
+    font-size: clamp(40px, 11vw, 56px) !important;
+    line-height: 0.98;
+  }
+  .docs-tabs {
+    margin-inline: -20px !important;
+    padding-inline: 20px !important;
+    overflow-x: auto;
+  }
+  .docs-tabs > button {
+    flex: 0 0 auto;
+    margin-right: 20px !important;
+  }
+  .docs-last-sync {
+    display: none;
+  }
+  .bulk-main {
+    min-width: 0;
+    padding: 28px 16px !important;
+  }
+  .bulk-dataset-grid,
+  .bulk-date-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
 }
 .btn.accent:hover { background: var(--accent-ink); }
 .btn.ghost {

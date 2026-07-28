@@ -35,3 +35,4 @@ XXX
 data/announce-log.jsonl
 data/announce-smtp.env
 data/admin-password.env
+data/bulk-orders.json
