@@ -335,6 +335,31 @@ describe('Bulk download API', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('requires a measured dataset or a custom endpoint description', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch');
+    const res = await request(app).post('/api/bulk/orders').send({
+      username: 'kai',
+      phone: '123',
+      email: 'kai@example.com',
+      tickers: [],
+      schemas: []
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('invalid_bulk_request');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('returns manual_quote_required when estimating a custom-only request', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch');
+    const res = await request(app).post('/api/bulk/estimate').send({
+      schemas: [],
+      custom_request: 'Historical daily GEX snapshots for SPY and QQQ.'
+    });
+    expect(res.statusCode).toBe(422);
+    expect(res.body.error).toBe('manual_quote_required');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('requires username, phone, and email for an order', async () => {
     const fetchMock = jest.spyOn(global, 'fetch');
     const res = await request(app).post('/api/bulk/orders').send({
@@ -385,6 +410,38 @@ describe('Bulk download API', () => {
       schemas: ['stock_daily'],
       estimate: estimateFixture
     });
+    expect(orders[0].quote_mode).toBe('measured');
+  });
+
+  it('persists a custom-only endpoint request for manual quoting without estimator access', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch');
+    const res = await request(app).post('/api/bulk/orders').send({
+      schemas: [],
+      tickers: [],
+      custom_request: 'Need historical daily /v1/options/snapshot/gex output for SPY and QQQ as CSV.',
+      start: '2024-01-01',
+      end: '2026-07-22',
+      username: 'Custom Buyer',
+      phone: '6045550100',
+      email: 'buyer@example.com'
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.body.quote_mode).toBe('manual');
+    expect(res.body.manual_quote_required).toBe(true);
+    expect(res.body.estimated_price).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const orders = JSON.parse(fs.readFileSync(BULK_ORDERS_FILE, 'utf8'));
+    expect(orders[0]).toMatchObject({
+      status: 'pending',
+      quote_mode: 'manual',
+      username: 'Custom Buyer',
+      email: 'buyer@example.com',
+      schemas: [],
+      tickers: [],
+      estimate: null,
+      custom_request: 'Need historical daily /v1/options/snapshot/gex output for SPY and QQQ as CSV.'
+    });
   });
 
   it('requires admin auth to list and update bulk orders', async () => {
@@ -416,6 +473,41 @@ describe('Bulk download API', () => {
     expect(update.statusCode).toBe(200);
     expect(update.body.final_price).toBe(51);
     expect(update.body.currency).toBe('CNY');
+  });
+
+  it('lets an admin store a manual quote and retrieve the order with contact details', async () => {
+    const order = await request(app).post('/api/bulk/orders').send({
+      schemas: [],
+      custom_request: 'Need an endpoint that is not listed.',
+      username: 'Manual Quote User',
+      phone: '123456789',
+      email: 'manual@example.com'
+    });
+    const login = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    const update = await request(app)
+      .post(`/api/admin/bulk-orders/${order.body.order_id}/status`)
+      .set('x-admin-token', login.body.token)
+      .send({
+        status: 'approved',
+        quoted_price: 88.5,
+        admin_note: 'Contacted by email'
+      });
+    expect(update.statusCode).toBe(200);
+    expect(update.body.quoted_price).toBe(88.5);
+
+    const list = await request(app)
+      .get('/api/admin/bulk-orders')
+      .set('x-admin-token', login.body.token);
+    expect(list.statusCode).toBe(200);
+    expect(list.body.orders[0]).toMatchObject({
+      id: order.body.order_id,
+      status: 'approved',
+      quoted_price: 88.5,
+      admin_note: 'Contacted by email',
+      phone: '123456789',
+      email: 'manual@example.com',
+      custom_request: 'Need an endpoint that is not listed.'
+    });
   });
 });
 
@@ -455,6 +547,12 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).toContain('实际交付切片');
     expect(docsSource).toContain('Reference-window estimate');
     expect(docsSource).not.toContain('date-scaled estimate');
+  });
+
+  it('supports free-text custom endpoint requests with contact-based manual quoting', () => {
+    expect(docsSource).toContain('custom_request');
+    expect(docsSource).toContain('没找到需要的 endpoint / dataset？');
+    expect(docsSource).toContain('人工联系报价');
   });
 });
 
@@ -792,7 +890,7 @@ describe('Admin auth', () => {
   });
 });
 
-describe('Admin announcement UI', () => {
+describe('Admin portal UI', () => {
   it('serves the editor and recipient selection controls', async () => {
     const res = await request(app).get('/admin');
     expect(res.statusCode).toBe(200);
@@ -809,6 +907,18 @@ describe('Admin announcement UI', () => {
     const res = await request(app).get('/admin');
     expect(res.statusCode).toBe(200);
     expect(res.text).toContain('包括已过期账号');
+  });
+
+  it('shows saved Bulk requests, contact details, custom endpoint text, and quote controls', async () => {
+    const res = await request(app).get('/admin');
+    expect(res.statusCode).toBe(200);
+    expect(res.text).toContain('data-tab="bulk"');
+    expect(res.text).toContain('id="panel-bulk"');
+    expect(res.text).toContain('id="list-bulk"');
+    expect(res.text).toContain('/api/admin/bulk-orders');
+    expect(res.text).toContain('自定义 endpoint / 数据需求');
+    expect(res.text).toContain('标记已报价 / 已联系');
+    expect(res.text).toContain('quoted_price');
   });
 });
 

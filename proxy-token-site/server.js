@@ -1792,19 +1792,27 @@ function normalizeBulkRequest(body = {}) {
     tickers,
     schemas,
     start: String(body.start || '2021-01-01').trim(),
-    end: String(body.end || '2026-07-22').trim()
+    end: String(body.end || '2026-07-22').trim(),
+    custom_request: String(body.custom_request || '').trim()
   };
 }
 
-function validateBulkRequest({ tickers, schemas, start, end }) {
-  if (tickers.length === 0) return 'At least one ticker is required.';
+function validateBulkRequest({ tickers, schemas, start, end, custom_request: customRequest }) {
+  if (schemas.length > 0 && tickers.length === 0) {
+    return 'At least one ticker is required for measured datasets.';
+  }
   if (tickers.length > 1000) return 'A single order supports at most 1,000 tickers.';
   if (tickers.some(ticker => !/^(?:\^[A-Z0-9]+|[A-Z0-9][A-Z0-9./-]{0,31})$/.test(ticker) || ticker.includes('..'))) {
     return 'One or more tickers are invalid.';
   }
-  if (schemas.length === 0) return 'Select at least one bulk dataset.';
+  if (schemas.length === 0 && !customRequest) {
+    return 'Select at least one bulk dataset or describe a custom endpoint request.';
+  }
   if (schemas.some(schema => !BULK_SCHEMA_IDS.has(schema))) {
     return 'One or more bulk datasets are not available for measured estimates.';
+  }
+  if (customRequest.length > 2000) {
+    return 'Custom endpoint requests must be 2,000 characters or fewer.';
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
     return 'Start and end must use YYYY-MM-DD.';
@@ -1844,6 +1852,13 @@ app.post('/api/bulk/estimate', async (req, res) => {
       success: false,
       error: 'invalid_bulk_request',
       message: validationError
+    });
+  }
+  if (payload.schemas.length === 0) {
+    return res.status(422).json({
+      success: false,
+      error: 'manual_quote_required',
+      message: 'Custom endpoint requests require a manual quote. Submit the request with your contact details.'
     });
   }
   try {
@@ -1894,11 +1909,17 @@ app.post('/api/bulk/orders', async (req, res) => {
   }
 
   try {
-    const estimate = await fetchBulkEstimate(payload);
+    const estimate = payload.schemas.length > 0
+      ? await fetchBulkEstimate(payload)
+      : null;
     const orders = readJSON(BULK_ORDERS_FILE, []);
+    const quoteMode = payload.custom_request
+      ? (payload.schemas.length > 0 ? 'mixed' : 'manual')
+      : 'measured';
     const order = {
       id: crypto.randomUUID(),
       status: 'pending',
+      quote_mode: quoteMode,
       username,
       phone,
       email,
@@ -1907,6 +1928,7 @@ app.post('/api/bulk/orders', async (req, res) => {
       start: payload.start,
       end: payload.end,
       estimate,
+      custom_request: payload.custom_request.slice(0, 2000),
       note: String(req.body?.note || '').trim().slice(0, 1000),
       created_at: new Date().toISOString()
     };
@@ -1916,10 +1938,12 @@ app.post('/api/bulk/orders', async (req, res) => {
       success: true,
       order_id: order.id,
       status: order.status,
-      estimated_raw_bytes: estimate.estimated_raw_bytes,
-      estimated_transfer_bytes: estimate.estimated_transfer_bytes,
-      estimated_price: estimate.pricing?.estimated_price ?? null,
-      currency: estimate.pricing?.currency || 'CNY'
+      quote_mode: quoteMode,
+      manual_quote_required: Boolean(payload.custom_request),
+      estimated_raw_bytes: estimate?.estimated_raw_bytes ?? null,
+      estimated_transfer_bytes: estimate?.estimated_transfer_bytes ?? null,
+      estimated_price: estimate?.pricing?.estimated_price ?? null,
+      currency: estimate?.pricing?.currency || 'CNY'
     });
   } catch (error) {
     console.error('Bulk order estimate error:', error.message);
@@ -1932,7 +1956,9 @@ app.post('/api/bulk/orders', async (req, res) => {
 });
 
 app.get('/api/admin/bulk-orders', requireAdmin, (_req, res) => {
-  return res.json({ success: true, orders: readJSON(BULK_ORDERS_FILE, []) });
+  const orders = readJSON(BULK_ORDERS_FILE, [])
+    .sort((left, right) => String(right.created_at || '').localeCompare(String(left.created_at || '')));
+  return res.json({ success: true, orders });
 });
 
 app.post('/api/admin/bulk-orders/:id/status', requireAdmin, (req, res) => {
@@ -1957,12 +1983,21 @@ app.post('/api/admin/bulk-orders/:id/status', requireAdmin, (req, res) => {
     order.final_price = 50 + Math.max(0, billableGb - 50);
     order.currency = 'CNY';
   }
+  const quotedPrice = Number(req.body?.quoted_price);
+  if (Number.isFinite(quotedPrice) && quotedPrice >= 0 && quotedPrice <= 1_000_000_000) {
+    order.quoted_price = Math.round(quotedPrice * 100) / 100;
+    order.currency = 'CNY';
+    if (status === 'fulfilled' && order.final_price === undefined) {
+      order.final_price = order.quoted_price;
+    }
+  }
   order.admin_note = String(req.body?.admin_note || '').trim().slice(0, 1000);
   writeJSON(BULK_ORDERS_FILE, orders);
   return res.json({
     success: true,
     order_id: order.id,
     status: order.status,
+    quoted_price: order.quoted_price ?? null,
     final_price: order.final_price ?? null,
     currency: order.currency || order.estimate?.pricing?.currency || 'CNY'
   });

@@ -208,6 +208,7 @@
     /* ── Content ── */
     .content { max-width: 1180px; margin: 0 auto; padding: 28px 24px; }
     #panel-pending, #panel-all { max-width: 860px; margin: 0 auto; }
+    #panel-bulk { max-width: 980px; margin: 0 auto; }
 
     /* ── User cards ── */
     .user-card {
@@ -528,6 +529,73 @@
     .announce-result.success { background: var(--ok-soft); color: oklch(0.38 0.10 155); }
     .announce-result.error { background: var(--danger-soft); color: oklch(0.42 0.12 25); }
 
+    /* ── Bulk download requests ── */
+    .bulk-admin-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 20px; margin-bottom: 18px;
+    }
+    .bulk-admin-title {
+      font-family: var(--f-display); font-size: 32px; line-height: 1.1;
+      font-weight: 400; color: var(--ink-strong);
+    }
+    .bulk-admin-subtitle { margin-top: 6px; font-size: 13px; color: var(--ink-muted); }
+    .bulk-order-card {
+      background: var(--bg-paper); border: 1px solid var(--rule);
+      border-radius: var(--radius-lg); padding: 18px 20px; margin-bottom: 12px;
+    }
+    .bulk-order-head {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 12px;
+    }
+    .bulk-order-id {
+      font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-soft);
+      margin-top: 3px;
+    }
+    .bulk-order-contact {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px; margin-top: 14px;
+    }
+    .bulk-contact-cell {
+      padding: 9px 10px; border: 1px solid var(--rule);
+      border-radius: var(--radius-md); background: var(--bg-canvas);
+      min-width: 0;
+    }
+    .bulk-contact-value {
+      display: block; margin-top: 2px; color: var(--ink-strong);
+      font-family: var(--f-mono); font-size: 11px;
+      overflow-wrap: anywhere;
+    }
+    .bulk-order-section {
+      margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--rule);
+    }
+    .bulk-chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+    .bulk-chip {
+      padding: 3px 7px; border: 1px solid var(--rule);
+      border-radius: 999px; background: var(--bg-sunken);
+      font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-base);
+    }
+    .bulk-custom-request {
+      white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 7px;
+      padding: 11px 12px; border-radius: var(--radius-md);
+      background: var(--accent-soft); border: 1px solid var(--rule);
+      color: var(--ink-strong); font-size: 12.5px; line-height: 1.6;
+    }
+    .bulk-estimate-row {
+      display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px;
+      font-family: var(--f-mono); font-size: 11px; color: var(--ink-muted);
+    }
+    .bulk-admin-controls {
+      display: grid; grid-template-columns: 150px 150px minmax(180px, 1fr);
+      gap: 8px; margin-top: 12px;
+    }
+    .bulk-admin-controls .input { padding: 8px 9px; font-size: 12px; }
+    .bulk-admin-actions { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 9px; }
+    .status-chip.fulfilled {
+      background: var(--accent-soft); border-color: var(--accent);
+      color: var(--accent-ink);
+    }
+    .status-chip.fulfilled::before { background: var(--accent); }
+
     @media (max-width: 820px) {
       .topbar { height: auto; min-height: 56px; padding: 10px 14px; flex-wrap: wrap; }
       .topbar-divider, .topbar-title, .stat-chip { display: none; }
@@ -543,6 +611,10 @@
       .preview-panel { grid-column: auto; }
       .manual-form { grid-template-columns: 1fr; }
       .manual-form .btn { justify-content: center; }
+      .bulk-admin-header { display: block; }
+      .bulk-admin-header .btn { margin-top: 12px; }
+      .bulk-order-contact { grid-template-columns: 1fr; }
+      .bulk-admin-controls { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 520px) {
@@ -590,6 +662,9 @@
       <div class="stat-chip">
         已批准 <span class="n" id="stat-approved">0</span>
       </div>
+      <div class="stat-chip pending-chip">
+        Bulk 待处理 <span class="n" id="stat-bulk-pending">0</span>
+      </div>
       <button class="btn ghost" onclick="loadData()" title="刷新数据">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
           <path d="M13.5 8A5.5 5.5 0 1 1 10 3.07" stroke-linecap="round"/>
@@ -616,6 +691,9 @@
     <div class="tab" data-tab="all" onclick="switchTab(this)">
       全部记录 <span class="count" id="tab-count-all">0</span>
     </div>
+    <div class="tab" data-tab="bulk" onclick="switchTab(this)">
+      Bulk 下载 <span class="count" id="tab-count-bulk">0</span>
+    </div>
     <div class="tab" data-tab="announce" onclick="switchTab(this)">
       Email 公告 <span class="count" id="tab-count-announce">—</span>
     </div>
@@ -635,6 +713,18 @@
     </div>
     <div id="panel-all" class="hidden">
       <div id="list-all"></div>
+    </div>
+    <div id="panel-bulk" class="hidden">
+      <div class="bulk-admin-header">
+        <div>
+          <h1 class="bulk-admin-title">Bulk 下载申请</h1>
+          <p class="bulk-admin-subtitle">这里显示公开 Bulk 页面提交的标准数据订单和自定义 endpoint 需求，并保留申请人的电话与邮箱供你人工报价。</p>
+        </div>
+        <button class="btn" type="button" onclick="loadData()">刷新申请</button>
+      </div>
+      <div id="list-bulk">
+        <div class="empty">正在加载 Bulk 申请…</div>
+      </div>
     </div>
     <div id="panel-announce" class="hidden">
       <div class="announce-header">
@@ -778,6 +868,9 @@
     manual: [],
     preview: null
   };
+  const bulkState = {
+    orders: []
+  };
 
   /* ── Toast ── */
   function showToast(msg, type) {
@@ -821,34 +914,45 @@
     const tab = el.dataset.tab;
     document.getElementById('panel-pending').classList.toggle('hidden', tab !== 'pending');
     document.getElementById('panel-all').classList.toggle('hidden', tab !== 'all');
+    document.getElementById('panel-bulk').classList.toggle('hidden', tab !== 'bulk');
     document.getElementById('panel-announce').classList.toggle('hidden', tab !== 'announce');
-    document.querySelector('.topbar-title').textContent = tab === 'announce' ? '公告后台' : '审核后台';
+    document.querySelector('.topbar-title').textContent =
+      tab === 'announce' ? '公告后台' : tab === 'bulk' ? 'Bulk 订单后台' : '审核后台';
     if (tab === 'announce') loadAnnouncements();
+    if (tab === 'bulk') loadData();
   }
 
   /* ── Load data ── */
   async function loadData() {
     try {
       const h = { 'X-Admin-Token': adminToken };
-      const [pr, ar] = await Promise.all([
+      const [pr, ar, br] = await Promise.all([
         fetch('/api/admin/pending', { headers: h }),
-        fetch('/api/admin/all',     { headers: h })
+        fetch('/api/admin/all',     { headers: h }),
+        fetch('/api/admin/bulk-orders', { headers: h })
       ]);
-      if (pr.status === 401 || ar.status === 401) { location.reload(); return; }
+      if (pr.status === 401 || ar.status === 401 || br.status === 401) { location.reload(); return; }
 
       const pd = await pr.json();
       const ad = await ar.json();
+      const bd = await br.json();
       const pending = pd.items || [];
       const all     = ad.items || [];
+      const bulkOrders = bd.orders || [];
       const approved = all.filter(i => i.status === 'approved').length;
+      const bulkPending = bulkOrders.filter(order => order.status === 'pending').length;
+      bulkState.orders = bulkOrders;
 
       document.getElementById('stat-pending').textContent  = pending.length;
       document.getElementById('stat-approved').textContent = approved;
+      document.getElementById('stat-bulk-pending').textContent = bulkPending;
       document.getElementById('tab-count-pending').textContent = pending.length;
       document.getElementById('tab-count-all').textContent     = all.length;
+      document.getElementById('tab-count-bulk').textContent    = bulkOrders.length;
 
       renderList('list-pending', pending, true);
       renderList('list-all',     all,     false);
+      renderBulkOrders();
     } catch (e) {
       showToast('加载失败: ' + e.message, 'error');
     }
@@ -917,6 +1021,155 @@
 
   function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ── Bulk download requests ── */
+  function bulkStatusLabel(status) {
+    if (status === 'approved') return '已报价 / 已联系';
+    if (status === 'rejected') return '已拒绝';
+    if (status === 'fulfilled') return '已交付';
+    return '待处理';
+  }
+
+  function formatBulkBytes(bytes) {
+    const value = Number(bytes);
+    if (!Number.isFinite(value)) return '—';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let scaled = value;
+    let unit = 0;
+    while (scaled >= 1000 && unit < units.length - 1) {
+      scaled /= 1000;
+      unit += 1;
+    }
+    return `${scaled >= 100 ? scaled.toFixed(0) : scaled.toFixed(2)} ${units[unit]}`;
+  }
+
+  function renderBulkOrders() {
+    const list = document.getElementById('list-bulk');
+    if (!bulkState.orders.length) {
+      list.innerHTML = '<div class="empty">当前还没有 Bulk 下载申请</div>';
+      return;
+    }
+
+    list.innerHTML = bulkState.orders.map(order => {
+      const status = order.status || 'pending';
+      const created = order.created_at
+        ? new Date(order.created_at).toLocaleString('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })
+        : '—';
+      const schemas = Array.isArray(order.schemas) ? order.schemas : [];
+      const tickers = Array.isArray(order.tickers) ? order.tickers : [];
+      const estimate = order.estimate || {};
+      const estimatedPrice = estimate.pricing?.estimated_price;
+      const price = order.final_price ?? order.quoted_price ?? estimatedPrice;
+      const schemaChips = schemas.length
+        ? schemas.map(schema => `<span class="bulk-chip">${escHtml(schema)}</span>`).join('')
+        : '<span class="bulk-chip">custom only</span>';
+      const tickerChips = tickers.length
+        ? tickers.slice(0, 30).map(ticker => `<span class="bulk-chip">${escHtml(ticker)}</span>`).join('')
+        : '<span class="bulk-chip">未指定 ticker</span>';
+      const tickerOverflow = tickers.length > 30
+        ? `<span class="bulk-chip">+${tickers.length - 30} more</span>`
+        : '';
+      const customRequest = order.custom_request
+        ? `<div class="bulk-order-section">
+            <span class="field-label">自定义 endpoint / 数据需求</span>
+            <div class="bulk-custom-request">${escHtml(order.custom_request)}</div>
+          </div>`
+        : '';
+      const note = order.note
+        ? `<div class="bulk-order-section"><span class="field-label">交付备注</span><div>${escHtml(order.note)}</div></div>`
+        : '';
+      const adminNote = order.admin_note
+        ? `<div class="bulk-order-section"><span class="field-label">Admin 备注</span><div>${escHtml(order.admin_note)}</div></div>`
+        : '';
+
+      return `
+        <article class="bulk-order-card" id="bulk-card-${order.id}">
+          <div class="bulk-order-head">
+            <div>
+              <div class="card-username">${escHtml(order.username || '—')}</div>
+              <div class="bulk-order-id">${escHtml(order.id || '')} · ${escHtml(created)} · ${escHtml(order.quote_mode || 'measured')}</div>
+            </div>
+            <span class="status-chip ${status}">${escHtml(bulkStatusLabel(status))}</span>
+          </div>
+
+          <div class="bulk-order-contact">
+            <div class="bulk-contact-cell">
+              <span class="meta-label">Email</span>
+              <a class="bulk-contact-value" href="mailto:${encodeURIComponent(order.email || '')}">${escHtml(order.email || '—')}</a>
+            </div>
+            <div class="bulk-contact-cell">
+              <span class="meta-label">Phone</span>
+              <a class="bulk-contact-value" href="tel:${encodeURIComponent(order.phone || '')}">${escHtml(order.phone || '—')}</a>
+            </div>
+            <div class="bulk-contact-cell">
+              <span class="meta-label">Requested range</span>
+              <span class="bulk-contact-value">${escHtml(order.start || '—')} → ${escHtml(order.end || '—')}</span>
+            </div>
+          </div>
+
+          <div class="bulk-order-section">
+            <span class="field-label">Datasets</span>
+            <div class="bulk-chip-row">${schemaChips}</div>
+            <span class="field-label" style="margin-top:10px">Tickers</span>
+            <div class="bulk-chip-row">${tickerChips}${tickerOverflow}</div>
+            <div class="bulk-estimate-row">
+              <span>Raw ${formatBulkBytes(estimate.estimated_raw_bytes)}</span>
+              <span>Transfer ${formatBulkBytes(estimate.estimated_transfer_bytes)}</span>
+              <span>当前价格 ${price === undefined || price === null ? '待人工报价' : `¥${escHtml(price)}`}</span>
+            </div>
+          </div>
+
+          ${customRequest}
+          ${note}
+          ${adminNote}
+
+          <div class="bulk-order-section">
+            <span class="field-label">报价与处理</span>
+            <div class="bulk-admin-controls">
+              <input id="bulk-price-${order.id}" class="input" type="number" min="0" step="0.01"
+                value="${order.quoted_price ?? ''}" placeholder="报价 CNY">
+              <input id="bulk-gb-${order.id}" class="input" type="number" min="0" step="0.001"
+                value="${order.actual_raw_bytes !== undefined ? Number(order.actual_raw_bytes) / 1000000000 : ''}" placeholder="实际 raw GB">
+              <input id="bulk-note-${order.id}" class="input" type="text" maxlength="1000"
+                value="${escHtml(order.admin_note || '')}" placeholder="内部备注 / 联系结果">
+            </div>
+            <div class="bulk-admin-actions">
+              <button class="btn approve" type="button" onclick="updateBulkOrder('${order.id}', 'approved')">标记已报价 / 已联系</button>
+              <button class="btn primary" type="button" onclick="updateBulkOrder('${order.id}', 'fulfilled')">标记已交付</button>
+              <button class="btn reject" type="button" onclick="updateBulkOrder('${order.id}', 'rejected')">拒绝</button>
+              ${status !== 'pending' ? `<button class="btn ghost" type="button" onclick="updateBulkOrder('${order.id}', 'pending')">恢复待处理</button>` : ''}
+            </div>
+          </div>
+        </article>`;
+    }).join('');
+  }
+
+  async function updateBulkOrder(id, status) {
+    const quotedPrice = document.getElementById(`bulk-price-${id}`).value.trim();
+    const actualGb = document.getElementById(`bulk-gb-${id}`).value.trim();
+    const adminNote = document.getElementById(`bulk-note-${id}`).value.trim();
+    const payload = { status, admin_note: adminNote };
+    if (quotedPrice !== '') payload.quoted_price = Number(quotedPrice);
+    if (actualGb !== '') payload.actual_raw_bytes = Math.round(Number(actualGb) * 1000000000);
+
+    try {
+      const response = await fetch(`/api/admin/bulk-orders/${encodeURIComponent(id)}/status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': adminToken
+        },
+        body: JSON.stringify(payload)
+      });
+      if (response.status === 401) { location.reload(); return; }
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.message || 'Bulk 订单更新失败');
+      showToast(`Bulk 申请已更新为：${bulkStatusLabel(status)}`, 'success');
+      loadData();
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
   }
 
   /* ── Email announcements ── */

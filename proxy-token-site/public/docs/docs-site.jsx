@@ -1212,6 +1212,7 @@ function BulkOrderBody() {
   const [username, setUsername] = React.useState("");
   const [phone, setPhone] = React.useState("");
   const [email, setEmail] = React.useState("");
+  const [customRequest, setCustomRequest] = React.useState("");
   const [note, setNote] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [message, setMessage] = React.useState("");
@@ -1256,6 +1257,11 @@ function BulkOrderBody() {
   };
 
   const submitOrder = async () => {
+    if (schemas.length === 0 && !customRequest.trim()) {
+      setMessage("请选择至少一个数据集，或填写自定义 endpoint / 数据需求。");
+      setMessageType("error");
+      return;
+    }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
       setMessage("请输入有效邮箱。");
       setMessageType("error");
@@ -1276,12 +1282,17 @@ function BulkOrderBody() {
           username: username.trim(),
           phone: phone.trim(),
           email: email.trim(),
+          custom_request: customRequest.trim(),
           note,
         }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.message || "Order request failed.");
-      setMessage(`订单 ${data.order_id.slice(0, 8)} 已提交 · 当前估价 ¥${data.estimated_price ?? "待确认"}`);
+      setMessage(
+        data.manual_quote_required
+          ? `申请 ${data.order_id.slice(0, 8)} 已提交 · Kai 会根据联系方式与你确认并人工报价`
+          : `订单 ${data.order_id.slice(0, 8)} 已提交 · 当前估价 ¥${data.estimated_price ?? "待确认"}`
+      );
       setMessageType("success");
     } catch (error) {
       setMessage(error.message);
@@ -1363,6 +1374,27 @@ function BulkOrderBody() {
                 );
               })}
             </div>
+            <div style={{ borderTop: "1px solid var(--rule)", marginTop: 18, paddingTop: 18 }}>
+              <label style={{ color: "var(--ink-strong)", fontSize: 13, fontWeight: 600 }}>
+                没找到需要的 endpoint / dataset？
+              </label>
+              <textarea
+                className="input"
+                value={customRequest}
+                onChange={event => {
+                  setCustomRequest(event.target.value);
+                  setMessage("");
+                  setMessageType("");
+                }}
+                maxLength={2000}
+                rows={5}
+                placeholder={"可直接描述需求，例如：\n需要 /v1/options/snapshot/gex 的历史每日快照，标的为 SPY、QQQ，日期 2024-01-01 至今，希望 CSV 交付。"}
+                style={{ width: "100%", resize: "vertical", lineHeight: 1.55, marginTop: 8 }}
+              />
+              <div style={{ marginTop: 7, color: "var(--ink-soft)", fontSize: 12 }}>
+                可以不选择上面的标准数据集。提交后会进入 admin，由 Kai 根据你留下的电话和邮箱人工联系报价。
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1387,7 +1419,8 @@ function BulkOrderBody() {
             </>
           ) : (
             <p style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55, margin: "0 0 18px" }}>
-              选择 ticker 与数据集后生成参考估价。订单提交时服务器会重新计算，不能使用浏览器篡改后的价格。
+              标准数据集可生成参考估价；自定义 endpoint 申请会直接进入人工报价队列。
+              订单提交时服务器会重新计算标准数据集价格，不能使用浏览器篡改后的价格。
             </p>
           )}
 
@@ -1401,23 +1434,31 @@ function BulkOrderBody() {
             {loading ? "Calculating…" : "Calculate size & price"}
           </button>
 
-          {estimate && (
-            <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 9 }}>
-              <input className="input" placeholder="Username · required" value={username} onChange={event => setUsername(event.target.value)} />
-              <input className="input" placeholder="Phone · required" value={phone} onChange={event => setPhone(event.target.value)} />
-              <input className="input" type="email" placeholder="Email · required" value={email} onChange={event => setEmail(event.target.value)} />
-              <textarea className="input" rows={3} placeholder="Delivery format or notes · optional" value={note} onChange={event => setNote(event.target.value)} />
-              <button
-                type="button"
-                className="btn primary"
-                onClick={submitOrder}
-                disabled={loading || !username.trim() || !phone.trim() || !email.trim()}
-                style={{ width: "100%", justifyContent: "center" }}
-              >
-                Submit for approval →
-              </button>
+          <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--rule)", display: "flex", flexDirection: "column", gap: 9 }}>
+            <div style={{ color: "var(--ink-muted)", fontSize: 12, lineHeight: 1.5 }}>
+              联系方式用于确认数据范围、交付格式和最终报价。
             </div>
-          )}
+            <input className="input" placeholder="Username · required" value={username} onChange={event => setUsername(event.target.value)} />
+            <input className="input" placeholder="Phone · required" value={phone} onChange={event => setPhone(event.target.value)} />
+            <input className="input" type="email" placeholder="Email · required" value={email} onChange={event => setEmail(event.target.value)} />
+            <textarea className="input" rows={3} placeholder="Delivery format or additional notes · optional" value={note} onChange={event => setNote(event.target.value)} />
+            <button
+              type="button"
+              className="btn primary"
+              onClick={submitOrder}
+              disabled={
+                loading
+                || !username.trim()
+                || !phone.trim()
+                || !email.trim()
+                || (schemas.length === 0 && !customRequest.trim())
+                || (schemas.length > 0 && tickers.length === 0)
+              }
+              style={{ width: "100%", justifyContent: "center" }}
+            >
+              Submit request →
+            </button>
+          </div>
 
           {message && (
             <div style={{
