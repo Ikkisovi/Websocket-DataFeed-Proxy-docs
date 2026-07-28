@@ -34,3 +34,4 @@ ENDOFFILE
 XXX
 data/announce-log.jsonl
 data/announce-smtp.env
+data/admin-password.env

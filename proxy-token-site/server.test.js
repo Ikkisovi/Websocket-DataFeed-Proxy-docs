@@ -23,11 +23,13 @@ const { app, TIERS, computeExpiry } = require('./server');
 
 const USERS_FILE = path.join(TEST_DATA_DIR, 'users.json');
 const PENDING_FILE = path.join(TEST_DATA_DIR, 'pending.json');
+const ADMIN_PASSWORD_FILE = path.join(TEST_DATA_DIR, 'admin-password.env');
 
 function resetTestData() {
   fs.writeFileSync(USERS_FILE, '[]');
   fs.writeFileSync(PENDING_FILE, '[]');
   fs.writeFileSync(TEST_PROXY_FILE, '{"users":[]}');
+  if (fs.existsSync(ADMIN_PASSWORD_FILE)) fs.unlinkSync(ADMIN_PASSWORD_FILE);
   // Clean status data so status/uptime/latency tests start fresh
   const statusFile = path.join(TEST_DATA_DIR, 'status.json');
   if (fs.existsSync(statusFile)) fs.unlinkSync(statusFile);
@@ -519,6 +521,27 @@ describe('Admin auth', () => {
   it('rejects admin endpoints without token', async () => {
     const res = await request(app).get('/api/admin/pending');
     expect(res.statusCode).toBe(401);
+  });
+
+  it('loads the admin password from a mode-0600 host file', async () => {
+    fs.writeFileSync(ADMIN_PASSWORD_FILE, 'host-only-admin-password', { mode: 0o600 });
+    const oldPassword = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    const configured = await request(app).post('/api/admin/login')
+      .send({ password: 'host-only-admin-password' });
+    expect(oldPassword.statusCode).toBe(401);
+    expect(configured.statusCode).toBe(200);
+  });
+
+  it('fails closed in production when no secure admin password is configured', async () => {
+    const savedNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const res = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+      expect(res.statusCode).toBe(503);
+      expect(res.body.error).toBe('admin_not_configured');
+    } finally {
+      process.env.NODE_ENV = savedNodeEnv;
+    }
   });
 });
 

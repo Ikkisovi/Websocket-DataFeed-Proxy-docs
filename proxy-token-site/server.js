@@ -10,7 +10,23 @@ const { execFile } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+const ADMIN_PASSWORD_FILE = process.env.ADMIN_PASSWORD_FILE
+  || path.join(DATA_DIR, 'admin-password.env');
+
+function configuredAdminPassword() {
+  if (process.env.ADMIN_PASSWORD) return process.env.ADMIN_PASSWORD;
+  try {
+    const stat = fs.statSync(ADMIN_PASSWORD_FILE);
+    if ((stat.mode & 0o077) !== 0) return '';
+    const password = fs.readFileSync(ADMIN_PASSWORD_FILE, 'utf8').trim();
+    if (!password || /[\r\n]/.test(password)) return '';
+    return password;
+  } catch {
+    // Tests retain the historical local default. Production fails closed.
+    return process.env.NODE_ENV === 'test' ? 'admin123' : '';
+  }
+}
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -41,7 +57,6 @@ app.get('/account', (req, res) => res.sendFile(path.join(__dirname, 'public', 'a
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
 // --- Data paths (overridable for tests via env) ---
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const PENDING_FILE = path.join(DATA_DIR, 'pending.json');
 
@@ -1942,8 +1957,16 @@ app.post('/api/check-status', (req, res) => {
 // ADMIN: Login
 // ============================================================
 app.post('/api/admin/login', (req, res) => {
+  const adminPassword = configuredAdminPassword();
+  if (!adminPassword) {
+    return res.status(503).json({
+      success: false,
+      error: 'admin_not_configured',
+      message: 'Admin authentication is not configured on this host.'
+    });
+  }
   const { password } = req.body;
-  if (password !== ADMIN_PASSWORD) {
+  if (password !== adminPassword) {
     return res.status(401).json({ success: false, message: '密码错误。' });
   }
   const token = crypto.randomBytes(32).toString('hex');
