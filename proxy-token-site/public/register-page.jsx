@@ -140,6 +140,7 @@ function RegisterPage() {
   // Registration Form State
   const [regUsername, setRegUsername] = useRegState("");
   const [regPhone, setRegPhone] = useRegState("");
+  const [regEmail, setRegEmail] = useRegState("");
   const [regMsg, setRegMsg] = useRegState("");
   const [regStatus, setRegStatus] = useRegState(""); // "success", "error"
   const [regLoading, setRegLoading] = useRegState(false);
@@ -177,6 +178,7 @@ function RegisterPage() {
           username: regUsername.trim(),
           phone: regPhone.trim(),
           tier,
+          ...(regEmail.trim() && { email: regEmail.trim() }),
           ...(tier === "value" && mode && { mode })
         })
       });
@@ -186,6 +188,7 @@ function RegisterPage() {
         setRegStatus("success");
         setRegUsername("");
         setRegPhone("");
+        setRegEmail("");
       } else {
         setRegMsg(data.message || "注册失败，请检查输入。");
         setRegStatus("error");
@@ -487,6 +490,17 @@ function RegisterPage() {
                       />
                       <div className="hint">用于匹配卖家订单记录。</div>
                     </div>
+                  </div>
+                  <div style={{ marginTop: 18 }}>
+                    <label className="label">邮箱（可选）</label>
+                    <input
+                      className="input mono"
+                      type="email"
+                      placeholder="用于接收服务更新通知"
+                      value={regEmail}
+                      onChange={(e) => setRegEmail(e.target.value)}
+                    />
+                    <div className="hint">仅用于接收数据服务变更与故障通知，不会用于其他用途。</div>
                   </div>
 
                   <div style={{

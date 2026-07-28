@@ -3,7 +3,9 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const crypto = require('crypto');
 const fs = require('fs');
+const net = require('net');
 const path = require('path');
+const tls = require('tls');
 const { execFile } = require('child_process');
 
 const app = express();
@@ -1683,12 +1685,16 @@ app.post('/mcp/alpaca', async (req, res) => {
 // PUBLIC: Buyer Registration
 // ============================================================
 app.post('/api/register', (req, res) => {
-  const { username, phone, tier, mode } = req.body;
+  const { username, phone, tier, mode, email } = req.body;
   const cleanUsername = (username || '').trim();
   const cleanPhone = (phone || '').trim();
+  const cleanEmail = typeof email === 'string' ? email.trim() : '';
 
   if (!cleanUsername || !cleanPhone) {
     return res.status(400).json({ success: false, message: '用户名和手机号都是必填的。' });
+  }
+  if (cleanEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cleanEmail)) {
+    return res.status(400).json({ success: false, message: '邮箱格式不正确。' });
   }
 
   const selectedTier = tier || 'standard';
@@ -1722,6 +1728,7 @@ app.post('/api/register', (req, res) => {
     phone: cleanPhone,
     tier: selectedTier,
     ...(mode && { mode }),
+    ...(cleanEmail && { email: cleanEmail }),
     registered_at: new Date().toISOString(),
     status: 'pending'
   };
@@ -1964,6 +1971,7 @@ app.get('/api/admin/all', requireAdmin, (req, res) => {
     ...users.map(u => ({
       username: u.username,
       phone: u.phone,
+      ...(u.email && { email: u.email }),
       tier: u.role,
       status: 'approved',
       source: 'users'
@@ -1998,6 +2006,7 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
       role: tierConfig.role,
       tier: entry.tier,
       ...(entry.mode && { mode: entry.mode }),
+      ...(entry.email && { email: entry.email }),
       permissions: perms
     });
     writeJSON(USERS_FILE, filtered);
@@ -2026,6 +2035,7 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
     if (existing) {
       existing.role = tierConfig.role;
       existing.permissions = perms;
+      if (entry.email) existing.email = entry.email;
       existing.expires_at = isRenewal
         ? computeRenewalExpiry(existing.expires_at, entry.renew_days || tierConfig.expiryDays || 30)
         : (existing.expires_at || computeExpiry(tierConfig));
@@ -2060,6 +2070,7 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
       role: tierConfig.role,
       expires_at: expiresAt,
       permissions: perms,
+      ...(entry.email && { email: entry.email }),
       ...(entry.tier === 'test' && { test_user: true })
     });
 
@@ -2085,6 +2096,458 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
       message: `数据服务注册表更新失败，申请保持待审核: ${err.message}`
     });
   }
+});
+
+// ============================================================
+// ADMIN: User email announcements
+// ============================================================
+// Recipients come from the shared registry's optional `email` field. Expired,
+// test, and service accounts are skipped by default. SMTP credentials are
+// injected through host-only environment variables and are never logged.
+const ANNOUNCE_LOG_FILE = path.join(DATA_DIR, 'announce-log.jsonl');
+const ANNOUNCE_TEST_ID_RE = /^(perftest_|smoke_|debug_|oracle_test_)/;
+const ANNOUNCE_SERVICE_IDS = new Set(['lean-live']);
+const ANNOUNCE_EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const ANNOUNCE_MAX_SUBJECT_LENGTH = 200;
+const ANNOUNCE_MAX_BODY_LENGTH = 100_000;
+const DEFAULT_ANNOUNCE_FROM_NAME = '恺 Kai · leandata.uk';
+const DEFAULT_ANNOUNCE_TEMPLATE = `Hi {user_id},
+
+I’m writing to let you know about an update to leandata.uk.
+
+What changed
+------------
+<Write one concise sentence describing the update.>
+
+What this means for you
+-----------------------
+<Explain the user-visible impact, including affected endpoints or data coverage.>
+
+Do you need to do anything?
+---------------------------
+<State “No action is needed” or give exact, minimal steps.>
+
+Your current account role is {role}, and your access is valid through
+{expires_date}. Unless stated above, your token, permissions, and existing
+integration remain unchanged.
+
+你好，{user_id}：
+
+想和你同步一项 leandata.uk 更新。
+
+更新内容
+--------
+<用一句简洁的话说明本次更新。>
+
+对你的影响
+----------
+<说明用户可感知的变化，包括受影响的接口或数据覆盖。>
+
+是否需要操作
+------------
+<明确写“无需任何操作”，或给出准确且最少的操作步骤。>
+
+你当前的账户角色是 {role}，访问有效期至 {expires_date}。除非上文另有说明，
+你的 Token、权限和现有接入方式均保持不变。
+
+If you have any questions or notice an issue, simply reply to this email.
+如有问题或发现异常，直接回复这封邮件即可。
+
+Best,
+恺 Kai
+leandata.uk`;
+
+function resolveAnnounceRecipients(options = {}) {
+  const { includeExpired = false, includeTest = false, includeService = false } = options;
+  const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+  const now = Date.now();
+  const reachable = [];
+  const skipped = [];
+
+  for (const user of proxyData.users || []) {
+    const userId = String(user.user_id || '');
+    if (!userId) continue;
+
+    const entry = {
+      user_id: userId,
+      role: user.role || 'default',
+      expires_at: user.expires_at || null
+    };
+
+    let reason = null;
+    if (ANNOUNCE_SERVICE_IDS.has(userId) && !includeService) reason = 'service_principal';
+    else if ((user.test_user || ANNOUNCE_TEST_ID_RE.test(userId)) && !includeTest) reason = 'test_user';
+    else if (
+      user.expires_at
+      && !Number.isNaN(Date.parse(user.expires_at))
+      && Date.parse(user.expires_at) <= now
+      && !includeExpired
+    ) reason = 'expired';
+
+    if (reason) {
+      skipped.push({ ...entry, reason });
+      continue;
+    }
+
+    const email = typeof user.email === 'string' ? user.email.trim() : '';
+    if (!email) {
+      skipped.push({ ...entry, reason: 'no_email' });
+      continue;
+    }
+    if (!ANNOUNCE_EMAIL_RE.test(email)) {
+      skipped.push({ ...entry, reason: 'invalid_email' });
+      continue;
+    }
+    reachable.push({ ...entry, email });
+  }
+
+  return { reachable, skipped };
+}
+
+function renderAnnounceBody(template, user) {
+  const expiry = (user.expires_at || '').slice(0, 10) || 'n/a';
+  return String(template)
+    .replaceAll('{user_id}', user.user_id)
+    .replaceAll('{role}', user.role || '')
+    .replaceAll('{expires_date}', expiry);
+}
+
+function announceRecipientSnapshot(reachable) {
+  const stable = reachable
+    .map(({ user_id, email, role, expires_at }) => ({ user_id, email, role, expires_at }))
+    .sort((a, b) => a.user_id.localeCompare(b.user_id));
+  return crypto.createHash('sha256').update(JSON.stringify(stable)).digest('hex');
+}
+
+function validateAnnounceInput(subject, body) {
+  if (!subject || !body) return 'subject and body are required.';
+  if (/[\r\n]/.test(subject)) return 'subject must be a single line.';
+  if (subject.length > ANNOUNCE_MAX_SUBJECT_LENGTH) {
+    return `subject must be at most ${ANNOUNCE_MAX_SUBJECT_LENGTH} characters.`;
+  }
+  if (body.length > ANNOUNCE_MAX_BODY_LENGTH) {
+    return `body must be at most ${ANNOUNCE_MAX_BODY_LENGTH} characters.`;
+  }
+  return null;
+}
+
+function announceSmtpConfig() {
+  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, MAIL_FROM, MAIL_FROM_NAME } = process.env;
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASSWORD) return null;
+
+  const port = Number(SMTP_PORT || 465);
+  const from = MAIL_FROM || SMTP_USER;
+  if (!Number.isInteger(port) || port < 1 || port > 65535 || !ANNOUNCE_EMAIL_RE.test(from)) return null;
+
+  return {
+    host: SMTP_HOST,
+    port,
+    user: SMTP_USER,
+    password: SMTP_PASSWORD,
+    from,
+    fromName: MAIL_FROM_NAME || DEFAULT_ANNOUNCE_FROM_NAME
+  };
+}
+
+function smtpResponse(socket, timeoutMs = 30_000) {
+  return new Promise((resolve, reject) => {
+    let buffer = '';
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('SMTP response timed out.'));
+    }, timeoutMs);
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      socket.off('data', onData);
+      socket.off('error', onError);
+      socket.off('end', onEnd);
+    };
+    const onError = error => {
+      cleanup();
+      reject(error);
+    };
+    const onEnd = () => {
+      cleanup();
+      reject(new Error('SMTP connection closed unexpectedly.'));
+    };
+    const onData = chunk => {
+      buffer += chunk.toString('utf8');
+      const lines = buffer.split(/\r?\n/);
+      const complete = lines.find(line => /^\d{3} /.test(line));
+      if (!complete) return;
+      cleanup();
+      resolve({
+        code: Number(complete.slice(0, 3)),
+        message: lines.filter(Boolean).join('\n')
+      });
+    };
+
+    socket.on('data', onData);
+    socket.once('error', onError);
+    socket.once('end', onEnd);
+  });
+}
+
+async function smtpCommand(socket, command, expectedCodes) {
+  const pending = smtpResponse(socket);
+  socket.write(`${command}\r\n`);
+  const response = await pending;
+  if (!expectedCodes.includes(response.code)) {
+    throw new Error(`SMTP command failed (${response.code}): ${response.message.slice(0, 300)}`);
+  }
+  return response;
+}
+
+function openTcpSocket(host, port) {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host, port });
+    socket.once('connect', () => resolve(socket));
+    socket.once('error', reject);
+  });
+}
+
+function openTlsSocket(options) {
+  return new Promise((resolve, reject) => {
+    const socket = tls.connect({ ...options, rejectUnauthorized: true });
+    socket.once('secureConnect', () => resolve(socket));
+    socket.once('error', reject);
+  });
+}
+
+function encodeMailHeader(value) {
+  const text = String(value || '');
+  if (/^[\x20-\x7e]*$/.test(text)) return text;
+  return `=?UTF-8?B?${Buffer.from(text, 'utf8').toString('base64')}?=`;
+}
+
+function wrapBase64(value) {
+  return Buffer.from(String(value), 'utf8').toString('base64').match(/.{1,76}/g)?.join('\r\n') || '';
+}
+
+function buildSmtpMessage({ from, fromName, to, subject, text }) {
+  const fromHeader = fromName ? `${encodeMailHeader(fromName)} <${from}>` : from;
+  return [
+    `From: ${fromHeader}`,
+    `To: ${to}`,
+    `Subject: ${encodeMailHeader(subject)}`,
+    `Date: ${new Date().toUTCString()}`,
+    `Message-ID: <${crypto.randomUUID()}@leandata.uk>`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    wrapBase64(text)
+  ].join('\r\n');
+}
+
+async function sendSmtpMail({ config, to, subject, text }) {
+  let socket;
+  try {
+    if (config.port === 465) {
+      socket = await openTlsSocket({ host: config.host, port: config.port, servername: config.host });
+      const greeting = await smtpResponse(socket);
+      if (greeting.code !== 220) throw new Error(`SMTP greeting failed (${greeting.code}).`);
+    } else {
+      socket = await openTcpSocket(config.host, config.port);
+      const greeting = await smtpResponse(socket);
+      if (greeting.code !== 220) throw new Error(`SMTP greeting failed (${greeting.code}).`);
+      await smtpCommand(socket, 'EHLO leandata.uk', [250]);
+      await smtpCommand(socket, 'STARTTLS', [220]);
+      socket = await openTlsSocket({ socket, servername: config.host });
+    }
+
+    await smtpCommand(socket, 'EHLO leandata.uk', [250]);
+    const auth = Buffer.from(`\0${config.user}\0${config.password}`, 'utf8').toString('base64');
+    await smtpCommand(socket, `AUTH PLAIN ${auth}`, [235]);
+    await smtpCommand(socket, `MAIL FROM:<${config.from}>`, [250]);
+    await smtpCommand(socket, `RCPT TO:<${to}>`, [250, 251]);
+    await smtpCommand(socket, 'DATA', [354]);
+
+    const message = buildSmtpMessage({
+      from: config.from,
+      fromName: config.fromName,
+      to,
+      subject,
+      text
+    });
+    const dotStuffed = message
+      .split('\r\n')
+      .map(line => line.startsWith('.') ? `.${line}` : line)
+      .join('\r\n');
+    const accepted = smtpResponse(socket);
+    socket.write(`${dotStuffed}\r\n.\r\n`);
+    const response = await accepted;
+    if (response.code !== 250) {
+      throw new Error(`SMTP message rejected (${response.code}): ${response.message.slice(0, 300)}`);
+    }
+
+    try {
+      await smtpCommand(socket, 'QUIT', [221]);
+    } catch {
+      // The message was already accepted; a dropped QUIT response is harmless.
+    }
+  } finally {
+    socket?.destroy();
+  }
+}
+
+function appendAnnounceLog(record) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.appendFileSync(
+      ANNOUNCE_LOG_FILE,
+      JSON.stringify({ ts: new Date().toISOString(), ...record }) + '\n',
+      { mode: 0o600 }
+    );
+    fs.chmodSync(ANNOUNCE_LOG_FILE, 0o600);
+  } catch (err) {
+    console.error('announce log write failed:', err.message);
+  }
+}
+
+app.get('/api/admin/announce/template', requireAdmin, (_req, res) => {
+  const cfg = announceSmtpConfig();
+  return res.json({
+    success: true,
+    subject: 'leandata.uk 更新 / Service update',
+    body: DEFAULT_ANNOUNCE_TEMPLATE,
+    from_name: cfg?.fromName || DEFAULT_ANNOUNCE_FROM_NAME,
+    placeholders: ['{user_id}', '{role}', '{expires_date}']
+  });
+});
+
+app.get('/api/admin/announce/recipients', requireAdmin, (req, res) => {
+  const { reachable, skipped } = resolveAnnounceRecipients({
+    includeExpired: req.query.include_expired === '1',
+    includeTest: req.query.include_test === '1',
+    includeService: req.query.include_service === '1'
+  });
+  return res.json({
+    success: true,
+    reachable,
+    skipped,
+    recipient_snapshot: announceRecipientSnapshot(reachable),
+    smtp_configured: Boolean(announceSmtpConfig())
+  });
+});
+
+app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
+  const subject = typeof req.body?.subject === 'string' ? req.body.subject.trim() : '';
+  const body = typeof req.body?.body === 'string'
+    ? req.body.body.replaceAll('\r\n', '\n').trim()
+    : '';
+  const testTo = typeof req.body?.test_to === 'string' ? req.body.test_to.trim() : '';
+  const confirm = req.body?.confirm === true;
+  const validationError = validateAnnounceInput(subject, body);
+  if (validationError) {
+    return res.status(400).json({ success: false, message: validationError });
+  }
+
+  const { reachable, skipped } = resolveAnnounceRecipients({});
+  const recipientSnapshot = announceRecipientSnapshot(reachable);
+
+  // Dry run by default: report exactly what would be sent and send nothing.
+  if (!testTo && !confirm) {
+    return res.json({
+      success: true,
+      dry_run: true,
+      reachable,
+      skipped,
+      recipient_snapshot: recipientSnapshot,
+      sample: reachable.length
+        ? { to: reachable[0].email, text: renderAnnounceBody(body, reachable[0]) }
+        : null
+    });
+  }
+
+  const cfg = announceSmtpConfig();
+  if (!cfg) {
+    return res.status(503).json({
+      success: false,
+      error: 'announce_not_configured',
+      message: 'SMTP environment is not configured on this host.'
+    });
+  }
+
+  const sendMail = app.locals.announceSendMail || sendSmtpMail;
+
+  if (testTo) {
+    if (!ANNOUNCE_EMAIL_RE.test(testTo)) {
+      return res.status(400).json({ success: false, message: 'invalid test_to address.' });
+    }
+    const previewUser = reachable[0] || { user_id: 'preview', role: '', expires_at: null };
+    const results = [];
+    try {
+      await sendMail({
+        config: cfg,
+        to: testTo,
+        subject,
+        text: renderAnnounceBody(body, previewUser)
+      });
+      results.push({ email: testTo, status: 'sent' });
+    } catch (err) {
+      results.push({
+        email: testTo,
+        status: 'failed',
+        error: String(err.message || err).slice(0, 200)
+      });
+    }
+    appendAnnounceLog({
+      subject,
+      test_to: testTo,
+      recipient_snapshot: recipientSnapshot,
+      results
+    });
+    return res.json({
+      success: results[0].status === 'sent',
+      test_to: testTo,
+      results,
+      reachable_count: reachable.length
+    });
+  }
+
+  if (!reachable.length) {
+    return res.status(422).json({ success: false, error: 'no_recipients', skipped });
+  }
+  if (req.body?.recipient_snapshot !== recipientSnapshot) {
+    return res.status(409).json({
+      success: false,
+      error: 'recipient_snapshot_changed',
+      message: 'Recipients changed or were not previewed. Run a dry preview again before sending.',
+      recipient_snapshot: recipientSnapshot,
+      reachable,
+      skipped
+    });
+  }
+
+  const results = [];
+  for (const recipient of reachable) {
+    try {
+      await sendMail({
+        config: cfg,
+        to: recipient.email,
+        subject,
+        text: renderAnnounceBody(body, recipient)
+      });
+      results.push({
+        user_id: recipient.user_id,
+        email: recipient.email,
+        status: 'sent'
+      });
+    } catch (err) {
+      results.push({
+        user_id: recipient.user_id,
+        email: recipient.email,
+        status: 'failed',
+        error: String(err.message || err).slice(0, 200)
+      });
+    }
+  }
+
+  appendAnnounceLog({ subject, recipient_snapshot: recipientSnapshot, results });
+  const failures = results.filter(result => result.status !== 'sent').length;
+  return res.json({ success: failures === 0, results, skipped, failures });
 });
 
 // ============================================================
@@ -2283,7 +2746,8 @@ app.post('/api/generate-token', async (req, res) => {
       user_id: validCustomer.username,
       role: tierConfig.role,
       expires_at: expiresAt,
-      permissions: perms
+      permissions: perms,
+      ...(validCustomer.email && { email: validCustomer.email })
     };
 
     proxyData.users = proxyData.users.filter(u => u.user_id !== validCustomer.username);

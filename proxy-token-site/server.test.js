@@ -16,6 +16,8 @@ process.env.PROXY_RT_URL = 'http://127.0.0.1:1'; // prevent real rt-api probe in
 process.env.PROXY_WS_HOST = '127.0.0.1';         // fast-fail WS probe (ECONNREFUSED)
 process.env.PROXY_WS_PORT = '1';
 
+const mockSendMail = jest.fn().mockResolvedValue({ messageId: 'mock' });
+
 const request = require('supertest');
 const { app, TIERS, computeExpiry } = require('./server');
 
@@ -189,6 +191,23 @@ describe('POST /api/register', () => {
     expect(res.statusCode).toBe(200);
     const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
     expect(pending[0].mode).toBe('options');
+  });
+
+  it('returns 400 for an invalid email', async () => {
+    const res = await request(app).post('/api/register').send({
+      username: 'badMail', phone: '1', tier: 'basic', email: 'not-an-email'
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('stores a valid optional email on the pending entry', async () => {
+    const res = await request(app).post('/api/register').send({
+      username: 'mailUser', phone: '1', tier: 'basic', email: 'mailuser@example.com'
+    });
+    expect(res.statusCode).toBe(200);
+    const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
+    expect(pending[0].email).toBe('mailuser@example.com');
   });
 });
 
@@ -572,6 +591,38 @@ describe('POST /api/admin/approve', () => {
       .set('x-admin-token', adminToken)
       .send({ id: 'nonexistent' });
     expect(res.statusCode).toBe(404);
+  });
+
+  it('carries registration email into users.json and the proxy registry', async () => {
+    const reg = await request(app).post('/api/register').send({
+      username: 'mailFlow', phone: '123', tier: 'standard', email: 'mailflow@example.com'
+    });
+    const res = await request(app).post('/api/admin/approve')
+      .set('x-admin-token', adminToken)
+      .send({ id: reg.body.id });
+    expect(res.body.success).toBe(true);
+
+    const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    expect(users.find(user => user.username === 'mailFlow').email).toBe('mailflow@example.com');
+
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    const proxyUser = proxy.users.find(user => user.user_id === 'mailFlow');
+    expect(proxyUser).toBeDefined();
+    expect(proxyUser.email).toBe('mailflow@example.com');
+  });
+
+  it('omits the email field when registration has none', async () => {
+    const reg = await request(app).post('/api/register').send({
+      username: 'noMail', phone: '123', tier: 'standard'
+    });
+    await request(app).post('/api/admin/approve')
+      .set('x-admin-token', adminToken)
+      .send({ id: reg.body.id });
+
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    const proxyUser = proxy.users.find(user => user.user_id === 'noMail');
+    expect(proxyUser).toBeDefined();
+    expect('email' in proxyUser).toBe(false);
   });
 });
 
@@ -1094,4 +1145,196 @@ describe('POST /api/incidents', () => {
     const res = await request(app).get('/api/incidents');
     expect(res.body.incidents.length).toBeLessThanOrEqual(100);
   }, 15000);
+});
+
+// ============================================================
+// Admin announce — recipient resolution and sending
+// ============================================================
+describe('Admin announce API', () => {
+  let adminToken;
+  const ANNOUNCE_LOG = path.join(TEST_DATA_DIR, 'announce-log.jsonl');
+  const savedSmtpEnv = {};
+
+  function seedProxyUsers() {
+    const future = new Date(Date.now() + 30 * 864e5).toISOString();
+    const past = new Date(Date.now() - 30 * 864e5).toISOString();
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({ users: [
+      { token: 'a', user_id: 'withMail', role: 'premium', expires_at: future, email: 'with@example.com' },
+      { token: 'b', user_id: 'noMail', role: 'standard', expires_at: future },
+      { token: 'c', user_id: 'expiredMail', role: 'standard', expires_at: past, email: 'old@example.com' },
+      { token: 'd', user_id: 'smoke_1', role: 'test', expires_at: future, test_user: true, email: 't@example.com' },
+      { token: 'e', user_id: 'lean-live', role: 'premium', expires_at: future, email: 'svc@example.com' },
+      { token: 'f', user_id: 'badMail', role: 'basic', expires_at: future, email: 'nope' }
+    ] }));
+  }
+
+  beforeEach(async () => {
+    resetTestData();
+    seedProxyUsers();
+    mockSendMail.mockClear();
+    app.locals.announceSendMail = mockSendMail;
+    for (const key of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'MAIL_FROM', 'MAIL_FROM_NAME']) {
+      savedSmtpEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+    if (fs.existsSync(ANNOUNCE_LOG)) fs.unlinkSync(ANNOUNCE_LOG);
+    const login = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    adminToken = login.body.token;
+  });
+
+  afterEach(() => {
+    for (const key of Object.keys(savedSmtpEnv)) {
+      if (savedSmtpEnv[key] === undefined) delete process.env[key];
+      else process.env[key] = savedSmtpEnv[key];
+    }
+  });
+
+  function setSmtpEnv() {
+    process.env.SMTP_HOST = 'smtp.example.com';
+    process.env.SMTP_PORT = '465';
+    process.env.SMTP_USER = 'ops@example.com';
+    process.env.SMTP_PASSWORD = 'secret';
+  }
+
+  it('lists reachable and skipped recipients', async () => {
+    const res = await request(app).get('/api/admin/announce/recipients')
+      .set('x-admin-token', adminToken);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.reachable.map(user => user.user_id)).toEqual(['withMail']);
+    const reasons = Object.fromEntries(res.body.skipped.map(user => [user.user_id, user.reason]));
+    expect(reasons.noMail).toBe('no_email');
+    expect(reasons.expiredMail).toBe('expired');
+    expect(reasons.smoke_1).toBe('test_user');
+    expect(reasons['lean-live']).toBe('service_principal');
+    expect(reasons.badMail).toBe('invalid_email');
+    expect(res.body.recipient_snapshot).toMatch(/^[0-9a-f]{64}$/);
+    expect(res.body.smtp_configured).toBe(false);
+  });
+
+  it('returns the reusable bilingual Kai template', async () => {
+    const res = await request(app).get('/api/admin/announce/template')
+      .set('x-admin-token', adminToken);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.from_name).toContain('Kai');
+    expect(res.body.body).toContain('恺 Kai');
+    expect(res.body.placeholders).toEqual(['{user_id}', '{role}', '{expires_date}']);
+  });
+
+  it('requires admin auth', async () => {
+    const res = await request(app).get('/api/admin/announce/recipients');
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('dry-runs by default and sends nothing', async () => {
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({ subject: 'Test', body: 'Hi {user_id}, until {expires_date}' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.dry_run).toBe(true);
+    expect(res.body.sample.to).toBe('with@example.com');
+    expect(res.body.sample.text).toContain('Hi withMail');
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 on confirm when SMTP is not configured', async () => {
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({ subject: 'Test', body: 'Hi', confirm: true });
+    expect(res.statusCode).toBe(503);
+    expect(res.body.error).toBe('announce_not_configured');
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('sends one personalized message per reachable user on confirm', async () => {
+    setSmtpEnv();
+    const preview = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({ subject: 'Update', body: 'Hi {user_id}' });
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({
+        subject: 'Update',
+        body: 'Hi {user_id}',
+        confirm: true,
+        recipient_snapshot: preview.body.recipient_snapshot
+      });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(mockSendMail).toHaveBeenCalledTimes(1);
+    const message = mockSendMail.mock.calls[0][0];
+    expect(message.to).toBe('with@example.com');
+    expect(message.text).toBe('Hi withMail');
+    expect(message.config.from).toBe('ops@example.com');
+    const log = fs.readFileSync(ANNOUNCE_LOG, 'utf8').trim().split('\n').map(JSON.parse);
+    expect(log[0].results[0].status).toBe('sent');
+    expect(fs.statSync(ANNOUNCE_LOG).mode & 0o777).toBe(0o600);
+  });
+
+  it('fails closed when confirm does not match the previewed recipients', async () => {
+    setSmtpEnv();
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({ subject: 'Update', body: 'Hi', confirm: true, recipient_snapshot: 'stale' });
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toBe('recipient_snapshot_changed');
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('treats a string confirm value as a dry run', async () => {
+    setSmtpEnv();
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({ subject: 'Update', body: 'Hi', confirm: 'true' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.dry_run).toBe(true);
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('rejects a multiline subject', async () => {
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({ subject: 'Update\nBcc: victim@example.com', body: 'Hi' });
+    expect(res.statusCode).toBe(400);
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('test_to sends a single preview to the operator', async () => {
+    setSmtpEnv();
+    fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({ subject: 'Preview', body: 'Hi {user_id}', test_to: 'ops@example.net' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(mockSendMail).toHaveBeenCalledTimes(1);
+    expect(mockSendMail.mock.calls[0][0].to).toBe('ops@example.net');
+    expect(fs.statSync(ANNOUNCE_LOG).mode & 0o777).toBe(0o600);
+  });
+
+  it('rejects an invalid test_to address', async () => {
+    setSmtpEnv();
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({ subject: 'Preview', body: 'Hi', test_to: 'not-an-email' });
+    expect(res.statusCode).toBe(400);
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('returns 422 on confirm when nobody is reachable', async () => {
+    setSmtpEnv();
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({ users: [
+      {
+        token: 'b',
+        user_id: 'noMail',
+        role: 'standard',
+        expires_at: new Date(Date.now() + 864e5).toISOString()
+      }
+    ] }));
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({ subject: 'Update', body: 'Hi', confirm: true });
+    expect(res.statusCode).toBe(422);
+    expect(res.body.error).toBe('no_recipients');
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
 });
