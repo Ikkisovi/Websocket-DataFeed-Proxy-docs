@@ -1153,6 +1153,7 @@ describe('POST /api/incidents', () => {
 describe('Admin announce API', () => {
   let adminToken;
   const ANNOUNCE_LOG = path.join(TEST_DATA_DIR, 'announce-log.jsonl');
+  const ANNOUNCE_SMTP_ENV = path.join(TEST_DATA_DIR, 'announce-smtp.env');
   const savedSmtpEnv = {};
 
   function seedProxyUsers() {
@@ -1178,6 +1179,7 @@ describe('Admin announce API', () => {
       delete process.env[key];
     }
     if (fs.existsSync(ANNOUNCE_LOG)) fs.unlinkSync(ANNOUNCE_LOG);
+    if (fs.existsSync(ANNOUNCE_SMTP_ENV)) fs.unlinkSync(ANNOUNCE_SMTP_ENV);
     const login = await request(app).post('/api/admin/login').send({ password: 'admin123' });
     adminToken = login.body.token;
   });
@@ -1218,6 +1220,33 @@ describe('Admin announce API', () => {
     expect(res.body.from_name).toContain('Kai');
     expect(res.body.body).toContain('恺 Kai');
     expect(res.body.placeholders).toEqual(['{user_id}', '{role}', '{expires_date}']);
+  });
+
+  it('loads SMTP from a mode-0600 host file', async () => {
+    fs.writeFileSync(ANNOUNCE_SMTP_ENV, [
+      'SMTP_HOST=smtp.example.com',
+      'SMTP_PORT=465',
+      'SMTP_USER=ops@example.com',
+      'SMTP_PASSWORD=secret',
+      'MAIL_FROM_NAME="恺 Kai · leandata.uk"'
+    ].join('\n'), { mode: 0o600 });
+    const res = await request(app).get('/api/admin/announce/recipients')
+      .set('x-admin-token', adminToken);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.smtp_configured).toBe(true);
+  });
+
+  it('rejects a host SMTP file with group or world permissions', async () => {
+    fs.writeFileSync(ANNOUNCE_SMTP_ENV, [
+      'SMTP_HOST=smtp.example.com',
+      'SMTP_USER=ops@example.com',
+      'SMTP_PASSWORD=secret'
+    ].join('\n'), { mode: 0o644 });
+    fs.chmodSync(ANNOUNCE_SMTP_ENV, 0o644);
+    const res = await request(app).get('/api/admin/announce/recipients')
+      .set('x-admin-token', adminToken);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.smtp_configured).toBe(false);
   });
 
   it('requires admin auth', async () => {

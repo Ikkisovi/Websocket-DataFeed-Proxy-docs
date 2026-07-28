@@ -2105,6 +2105,8 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
 // test, and service accounts are skipped by default. SMTP credentials are
 // injected through host-only environment variables and are never logged.
 const ANNOUNCE_LOG_FILE = path.join(DATA_DIR, 'announce-log.jsonl');
+const ANNOUNCE_SMTP_ENV_FILE = process.env.ANNOUNCE_SMTP_ENV_FILE
+  || path.join(DATA_DIR, 'announce-smtp.env');
 const ANNOUNCE_TEST_ID_RE = /^(perftest_|smoke_|debug_|oracle_test_)/;
 const ANNOUNCE_SERVICE_IDS = new Set(['lean-live']);
 const ANNOUNCE_EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -2231,8 +2233,39 @@ function validateAnnounceInput(subject, body) {
   return null;
 }
 
+function loadAnnounceSmtpEnvFile() {
+  try {
+    const stat = fs.statSync(ANNOUNCE_SMTP_ENV_FILE);
+    if ((stat.mode & 0o077) !== 0) return {};
+
+    const values = {};
+    for (const rawLine of fs.readFileSync(ANNOUNCE_SMTP_ENV_FILE, 'utf8').split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#') || !line.includes('=')) continue;
+      const splitAt = line.indexOf('=');
+      const key = line.slice(0, splitAt).trim();
+      let value = line.slice(splitAt + 1).trim();
+      if (
+        value.length >= 2
+        && ((value.startsWith('"') && value.endsWith('"'))
+          || (value.startsWith("'") && value.endsWith("'")))
+      ) value = value.slice(1, -1);
+      values[key] = value;
+    }
+    return values;
+  } catch {
+    return {};
+  }
+}
+
 function announceSmtpConfig() {
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, MAIL_FROM, MAIL_FROM_NAME } = process.env;
+  const fileEnv = loadAnnounceSmtpEnvFile();
+  const SMTP_HOST = process.env.SMTP_HOST || fileEnv.SMTP_HOST;
+  const SMTP_PORT = process.env.SMTP_PORT || fileEnv.SMTP_PORT;
+  const SMTP_USER = process.env.SMTP_USER || fileEnv.SMTP_USER;
+  const SMTP_PASSWORD = process.env.SMTP_PASSWORD || fileEnv.SMTP_PASSWORD;
+  const MAIL_FROM = process.env.MAIL_FROM || fileEnv.MAIL_FROM;
+  const MAIL_FROM_NAME = process.env.MAIL_FROM_NAME || fileEnv.MAIL_FROM_NAME;
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASSWORD) return null;
 
   const port = Number(SMTP_PORT || 465);
