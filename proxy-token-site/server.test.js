@@ -522,6 +522,26 @@ describe('Admin auth', () => {
   });
 });
 
+describe('Admin announcement UI', () => {
+  it('serves the editor and recipient selection controls', async () => {
+    const res = await request(app).get('/admin');
+    expect(res.statusCode).toBe(200);
+    expect(res.text).toContain('data-tab="announce"');
+    expect(res.text).toContain('id="announce-subject"');
+    expect(res.text).toContain('id="announce-body"');
+    expect(res.text).toContain('id="announce-recipient-list"');
+    expect(res.text).toContain('id="manual-email"');
+    expect(res.text).toContain('id="announce-preview-button"');
+    expect(res.text).toContain('id="announce-send-button"');
+  });
+
+  it('states that expired registered users with email are included', async () => {
+    const res = await request(app).get('/admin');
+    expect(res.statusCode).toBe(200);
+    expect(res.text).toContain('包括已过期账号');
+  });
+});
+
 // ============================================================
 // Admin approve — writes to isolated proxy file
 // ============================================================
@@ -1202,10 +1222,9 @@ describe('Admin announce API', () => {
     const res = await request(app).get('/api/admin/announce/recipients')
       .set('x-admin-token', adminToken);
     expect(res.statusCode).toBe(200);
-    expect(res.body.reachable.map(user => user.user_id)).toEqual(['withMail']);
+    expect(res.body.reachable.map(user => user.user_id)).toEqual(['withMail', 'expiredMail']);
     const reasons = Object.fromEntries(res.body.skipped.map(user => [user.user_id, user.reason]));
     expect(reasons.noMail).toBe('no_email');
-    expect(reasons.expiredMail).toBe('expired');
     expect(reasons.smoke_1).toBe('test_user');
     expect(reasons['lean-live']).toBe('service_principal');
     expect(reasons.badMail).toBe('invalid_email');
@@ -1265,6 +1284,128 @@ describe('Admin announce API', () => {
     expect(mockSendMail).not.toHaveBeenCalled();
   });
 
+  it('previews only explicitly selected eligible registry users', async () => {
+    const proxyData = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    proxyData.users.push({
+      token: 'g',
+      user_id: 'secondMail',
+      role: 'basic',
+      expires_at: new Date(Date.now() + 30 * 864e5).toISOString(),
+      email: 'second@example.com'
+    });
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify(proxyData));
+
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({
+        subject: 'Test',
+        body: 'Hi {user_id}',
+        selected_user_ids: ['secondMail']
+      });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.reachable.map(user => user.user_id)).toEqual(['secondMail']);
+    expect(res.body.selected_user_ids).toEqual(['secondMail']);
+    expect(res.body.sample.text).toBe('Hi secondMail');
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('includes expired human users when they still have a valid email', async () => {
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({
+        subject: 'Test',
+        body: 'Hi {user_id}, until {expires_date}',
+        selected_user_ids: ['expiredMail']
+      });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.reachable.map(user => user.user_id)).toEqual(['expiredMail']);
+    expect(res.body.sample.text).toContain('Hi expiredMail');
+  });
+
+  it('supports manual-only recipients and personalizes with their display name', async () => {
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({
+        subject: 'Test',
+        body: 'Hi {user_id}; role={role}; expiry={expires_date}',
+        selected_user_ids: [],
+        manual_recipients: [{ email: 'friend@example.net', name: 'Kai Friend' }]
+      });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.reachable).toHaveLength(1);
+    expect(res.body.reachable[0]).toMatchObject({
+      source: 'manual',
+      user_id: 'Kai Friend',
+      email: 'friend@example.net',
+      role: 'manual'
+    });
+    expect(res.body.sample.text).toBe('Hi Kai Friend; role=manual; expiry=n/a');
+  });
+
+  it('deduplicates manual email addresses case-insensitively and keeps registry rows authoritative', async () => {
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({
+        subject: 'Test',
+        body: 'Hi {user_id}',
+        selected_user_ids: ['withMail'],
+        manual_recipients: [
+          { email: 'WITH@example.com', name: 'Duplicate registry' },
+          { email: 'manual@example.net', name: 'First manual' },
+          { email: 'MANUAL@example.net', name: 'Duplicate manual' }
+        ]
+      });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.reachable.map(user => user.user_id)).toEqual(['withMail', 'First manual']);
+    expect(res.body.duplicate_recipients).toHaveLength(2);
+    expect(res.body.duplicate_recipients.every(item => item.reason === 'duplicate_email')).toBe(true);
+  });
+
+  it('rejects invalid manual email addresses', async () => {
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({
+        subject: 'Test',
+        body: 'Hi',
+        selected_user_ids: [],
+        manual_recipients: [{ email: 'not-an-email', name: 'Bad' }]
+      });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('invalid_recipient_selection');
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('rejects unknown and ineligible selected registry users', async () => {
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({
+        subject: 'Test',
+        body: 'Hi',
+        selected_user_ids: ['missing-user', 'noMail']
+      });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('invalid_selected_users');
+    expect(res.body.invalid_selections).toEqual([
+      { user_id: 'missing-user', reason: 'unknown_user' },
+      { user_id: 'noMail', reason: 'no_email' }
+    ]);
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('returns 422 for an explicit empty selection', async () => {
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({
+        subject: 'Test',
+        body: 'Hi',
+        selected_user_ids: [],
+        manual_recipients: []
+      });
+    expect(res.statusCode).toBe(422);
+    expect(res.body.error).toBe('no_recipients');
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
   it('returns 503 on confirm when SMTP is not configured', async () => {
     const res = await request(app).post('/api/admin/announce/send')
       .set('x-admin-token', adminToken)
@@ -1289,7 +1430,7 @@ describe('Admin announce API', () => {
       });
     expect(res.statusCode).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(mockSendMail).toHaveBeenCalledTimes(1);
+    expect(mockSendMail).toHaveBeenCalledTimes(2);
     const message = mockSendMail.mock.calls[0][0];
     expect(message.to).toBe('with@example.com');
     expect(message.text).toBe('Hi withMail');
@@ -1306,6 +1447,70 @@ describe('Admin announce API', () => {
       .send({ subject: 'Update', body: 'Hi', confirm: true, recipient_snapshot: 'stale' });
     expect(res.statusCode).toBe(409);
     expect(res.body.error).toBe('recipient_snapshot_changed');
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when a selected registry email drifts after preview', async () => {
+    setSmtpEnv();
+    const payload = {
+      subject: 'Update',
+      body: 'Hi {user_id}',
+      selected_user_ids: ['withMail'],
+      manual_recipients: []
+    };
+    const preview = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send(payload);
+
+    const proxyData = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    proxyData.users.find(user => user.user_id === 'withMail').email = 'changed@example.com';
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify(proxyData));
+
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({
+        ...payload,
+        confirm: true,
+        recipient_snapshot: preview.body.recipient_snapshot
+      });
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toBe('recipient_snapshot_changed');
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('does not let a preview for one user broaden into an all-user send', async () => {
+    setSmtpEnv();
+    const proxyData = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    proxyData.users.push({
+      token: 'g',
+      user_id: 'secondMail',
+      role: 'basic',
+      expires_at: new Date(Date.now() + 30 * 864e5).toISOString(),
+      email: 'second@example.com'
+    });
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify(proxyData));
+
+    const preview = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({
+        subject: 'Update',
+        body: 'Hi {user_id}',
+        selected_user_ids: ['withMail']
+      });
+    const res = await request(app).post('/api/admin/announce/send')
+      .set('x-admin-token', adminToken)
+      .send({
+        subject: 'Update',
+        body: 'Hi {user_id}',
+        confirm: true,
+        recipient_snapshot: preview.body.recipient_snapshot
+      });
+    expect(res.statusCode).toBe(409);
+    expect(res.body.reachable.map(user => user.user_id).sort()).toEqual([
+      'expiredMail',
+      'secondMail',
+      'withMail'
+    ]);
     expect(mockSendMail).not.toHaveBeenCalled();
   });
 

@@ -2112,6 +2112,8 @@ const ANNOUNCE_SERVICE_IDS = new Set(['lean-live']);
 const ANNOUNCE_EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const ANNOUNCE_MAX_SUBJECT_LENGTH = 200;
 const ANNOUNCE_MAX_BODY_LENGTH = 100_000;
+const ANNOUNCE_MAX_MANUAL_RECIPIENTS = 500;
+const ANNOUNCE_MAX_RECIPIENT_NAME_LENGTH = 120;
 const DEFAULT_ANNOUNCE_FROM_NAME = '恺 Kai · leandata.uk';
 const DEFAULT_ANNOUNCE_TEMPLATE = `Hi {user_id},
 
@@ -2214,11 +2216,141 @@ function renderAnnounceBody(template, user) {
     .replaceAll('{expires_date}', expiry);
 }
 
-function announceRecipientSnapshot(reachable) {
-  const stable = reachable
-    .map(({ user_id, email, role, expires_at }) => ({ user_id, email, role, expires_at }))
-    .sort((a, b) => a.user_id.localeCompare(b.user_id));
+function announceRecipientSnapshot(recipients) {
+  const stable = recipients
+    .map(({ source, user_id, email, role, expires_at }) => ({
+      source: source || 'registry',
+      user_id,
+      email,
+      role,
+      expires_at
+    }))
+    .sort((a, b) => (
+      a.email.toLowerCase().localeCompare(b.email.toLowerCase())
+      || a.user_id.localeCompare(b.user_id)
+    ));
   return crypto.createHash('sha256').update(JSON.stringify(stable)).digest('hex');
+}
+
+function resolveAnnounceSelection(input = {}) {
+  // Announcements may target expired human accounts when they still have a
+  // valid email address. Test accounts and service principals remain excluded.
+  const registry = resolveAnnounceRecipients({ includeExpired: true });
+  const reachableById = new Map(registry.reachable.map(user => [user.user_id, user]));
+  const skippedById = new Map(registry.skipped.map(user => [user.user_id, user]));
+  const hasExplicitSelection = Object.prototype.hasOwnProperty.call(input, 'selected_user_ids');
+  const rawSelectedIds = hasExplicitSelection ? input.selected_user_ids : registry.reachable.map(user => user.user_id);
+
+  if (!Array.isArray(rawSelectedIds)) {
+    return { error: 'selected_user_ids must be an array of user IDs.' };
+  }
+  if (rawSelectedIds.length > 10_000) {
+    return { error: 'selected_user_ids contains too many entries.' };
+  }
+
+  const selectedIds = [];
+  const selectedIdSet = new Set();
+  for (const rawUserId of rawSelectedIds) {
+    if (typeof rawUserId !== 'string' || !rawUserId.trim()) {
+      return { error: 'selected_user_ids must contain only non-empty strings.' };
+    }
+    const userId = rawUserId.trim();
+    if (!selectedIdSet.has(userId)) {
+      selectedIdSet.add(userId);
+      selectedIds.push(userId);
+    }
+  }
+
+  const invalidSelections = [];
+  const selectedRegistry = [];
+  for (const userId of selectedIds) {
+    const reachable = reachableById.get(userId);
+    if (reachable) {
+      selectedRegistry.push({ ...reachable, source: 'registry' });
+      continue;
+    }
+    const skipped = skippedById.get(userId);
+    invalidSelections.push({
+      user_id: userId,
+      reason: skipped?.reason || 'unknown_user'
+    });
+  }
+  if (invalidSelections.length) {
+    return {
+      error: 'One or more selected registry users are unknown or ineligible.',
+      errorCode: 'invalid_selected_users',
+      invalidSelections
+    };
+  }
+
+  const rawManual = input.manual_recipients === undefined ? [] : input.manual_recipients;
+  if (!Array.isArray(rawManual)) {
+    return { error: 'manual_recipients must be an array.' };
+  }
+  if (rawManual.length > ANNOUNCE_MAX_MANUAL_RECIPIENTS) {
+    return {
+      error: `manual_recipients must contain at most ${ANNOUNCE_MAX_MANUAL_RECIPIENTS} entries.`
+    };
+  }
+
+  const manual = [];
+  for (let index = 0; index < rawManual.length; index++) {
+    const item = rawManual[index];
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      return { error: `manual_recipients[${index}] must be an object.` };
+    }
+    const email = typeof item.email === 'string' ? item.email.trim() : '';
+    const name = typeof item.name === 'string' ? item.name.trim() : '';
+    if (!ANNOUNCE_EMAIL_RE.test(email)) {
+      return { error: `manual_recipients[${index}] has an invalid email address.` };
+    }
+    if (/[\r\n]/.test(name)) {
+      return { error: `manual_recipients[${index}].name must be a single line.` };
+    }
+    if (name.length > ANNOUNCE_MAX_RECIPIENT_NAME_LENGTH) {
+      return {
+        error: `manual_recipients[${index}].name must be at most ${ANNOUNCE_MAX_RECIPIENT_NAME_LENGTH} characters.`
+      };
+    }
+    manual.push({
+      source: 'manual',
+      user_id: name || email,
+      name: name || null,
+      email,
+      role: 'manual',
+      expires_at: null
+    });
+  }
+
+  // A selected registry row is authoritative for its email. Manual duplicates
+  // and repeated manual addresses are ignored case-insensitively.
+  const recipients = [];
+  const duplicateRecipients = [];
+  const seenEmails = new Map();
+  for (const recipient of [...selectedRegistry, ...manual]) {
+    const emailKey = recipient.email.toLowerCase();
+    const existing = seenEmails.get(emailKey);
+    if (existing) {
+      duplicateRecipients.push({
+        source: recipient.source,
+        user_id: recipient.user_id,
+        email: recipient.email,
+        reason: 'duplicate_email',
+        kept_user_id: existing.user_id
+      });
+      continue;
+    }
+    seenEmails.set(emailKey, recipient);
+    recipients.push(recipient);
+  }
+
+  return {
+    recipients,
+    skipped: registry.skipped,
+    duplicateRecipients,
+    selected_user_ids: selectedIds,
+    manual_recipients: manual.map(({ email, name }) => ({ email, name }))
+  };
 }
 
 function validateAnnounceInput(subject, body) {
@@ -2452,7 +2584,7 @@ app.get('/api/admin/announce/template', requireAdmin, (_req, res) => {
 
 app.get('/api/admin/announce/recipients', requireAdmin, (req, res) => {
   const { reachable, skipped } = resolveAnnounceRecipients({
-    includeExpired: req.query.include_expired === '1',
+    includeExpired: req.query.include_expired !== '0',
     includeTest: req.query.include_test === '1',
     includeService: req.query.include_service === '1'
   });
@@ -2477,19 +2609,46 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
     return res.status(400).json({ success: false, message: validationError });
   }
 
-  const { reachable, skipped } = resolveAnnounceRecipients({});
-  const recipientSnapshot = announceRecipientSnapshot(reachable);
+  const selection = resolveAnnounceSelection(req.body || {});
+  if (selection.error) {
+    return res.status(400).json({
+      success: false,
+      error: selection.errorCode || 'invalid_recipient_selection',
+      message: selection.error,
+      invalid_selections: selection.invalidSelections || []
+    });
+  }
+  const {
+    recipients,
+    skipped,
+    duplicateRecipients,
+    selected_user_ids: selectedUserIds,
+    manual_recipients: manualRecipients
+  } = selection;
+  const recipientSnapshot = announceRecipientSnapshot(recipients);
 
   // Dry run by default: report exactly what would be sent and send nothing.
   if (!testTo && !confirm) {
+    if (!recipients.length) {
+      return res.status(422).json({
+        success: false,
+        error: 'no_recipients',
+        message: 'Select at least one eligible registry user or add a manual email address.',
+        skipped,
+        duplicate_recipients: duplicateRecipients
+      });
+    }
     return res.json({
       success: true,
       dry_run: true,
-      reachable,
+      reachable: recipients,
       skipped,
+      duplicate_recipients: duplicateRecipients,
+      selected_user_ids: selectedUserIds,
+      manual_recipients: manualRecipients,
       recipient_snapshot: recipientSnapshot,
-      sample: reachable.length
-        ? { to: reachable[0].email, text: renderAnnounceBody(body, reachable[0]) }
+      sample: recipients.length
+        ? { to: recipients[0].email, text: renderAnnounceBody(body, recipients[0]) }
         : null
     });
   }
@@ -2509,7 +2668,7 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
     if (!ANNOUNCE_EMAIL_RE.test(testTo)) {
       return res.status(400).json({ success: false, message: 'invalid test_to address.' });
     }
-    const previewUser = reachable[0] || { user_id: 'preview', role: '', expires_at: null };
+    const previewUser = recipients[0] || { user_id: 'preview', role: '', expires_at: null };
     const results = [];
     try {
       await sendMail({
@@ -2536,12 +2695,18 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
       success: results[0].status === 'sent',
       test_to: testTo,
       results,
-      reachable_count: reachable.length
+      reachable_count: recipients.length,
+      recipient_snapshot: recipientSnapshot
     });
   }
 
-  if (!reachable.length) {
-    return res.status(422).json({ success: false, error: 'no_recipients', skipped });
+  if (!recipients.length) {
+    return res.status(422).json({
+      success: false,
+      error: 'no_recipients',
+      skipped,
+      duplicate_recipients: duplicateRecipients
+    });
   }
   if (req.body?.recipient_snapshot !== recipientSnapshot) {
     return res.status(409).json({
@@ -2549,13 +2714,14 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
       error: 'recipient_snapshot_changed',
       message: 'Recipients changed or were not previewed. Run a dry preview again before sending.',
       recipient_snapshot: recipientSnapshot,
-      reachable,
-      skipped
+      reachable: recipients,
+      skipped,
+      duplicate_recipients: duplicateRecipients
     });
   }
 
   const results = [];
-  for (const recipient of reachable) {
+  for (const recipient of recipients) {
     try {
       await sendMail({
         config: cfg,
@@ -2564,12 +2730,14 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
         text: renderAnnounceBody(body, recipient)
       });
       results.push({
+        source: recipient.source,
         user_id: recipient.user_id,
         email: recipient.email,
         status: 'sent'
       });
     } catch (err) {
       results.push({
+        source: recipient.source,
         user_id: recipient.user_id,
         email: recipient.email,
         status: 'failed',
@@ -2578,9 +2746,21 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
     }
   }
 
-  appendAnnounceLog({ subject, recipient_snapshot: recipientSnapshot, results });
+  appendAnnounceLog({
+    subject,
+    recipient_snapshot: recipientSnapshot,
+    selected_user_ids: selectedUserIds,
+    manual_recipient_count: manualRecipients.length,
+    results
+  });
   const failures = results.filter(result => result.status !== 'sent').length;
-  return res.json({ success: failures === 0, results, skipped, failures });
+  return res.json({
+    success: failures === 0,
+    results,
+    skipped,
+    duplicate_recipients: duplicateRecipients,
+    failures
+  });
 });
 
 // ============================================================
