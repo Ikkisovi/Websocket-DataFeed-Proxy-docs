@@ -520,6 +520,18 @@ describe('Registration and bulk product UI contract', () => {
     path.join(__dirname, 'public', 'docs', 'docs-site.jsx'),
     'utf8'
   );
+  const rootDocsSource = fs.readFileSync(
+    path.join(__dirname, 'public', 'docs-site.jsx'),
+    'utf8'
+  );
+  const tokenPageSource = fs.readFileSync(
+    path.join(__dirname, 'public', 'token-page.jsx'),
+    'utf8'
+  );
+  const rootIndexSource = fs.readFileSync(
+    path.join(__dirname, 'public', 'index.html'),
+    'utf8'
+  );
 
   it('makes registration email required and replaces the Basic card with Bulk Download', () => {
     expect(registerSource).toContain('type="email"');
@@ -553,6 +565,23 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).toContain('custom_request');
     expect(docsSource).toContain('没找到需要的 endpoint / dataset？');
     expect(docsSource).toContain('人工联系报价');
+  });
+
+  it('uses one embedded docs header and one index-options announcement', () => {
+    expect(tokenPageSource).toContain('<DocsSite hideTopbar={true} />');
+    expect(tokenPageSource).not.toContain('portal · production');
+    expect(tokenPageSource).not.toContain('>Account</a>');
+    expect(rootIndexSource).toContain('src="/docs/docs-site.jsx"');
+    expect(rootIndexSource).not.toContain('src="docs-site.jsx"');
+    expect(docsSource.match(/Alpaca supports index options now\./g)).toHaveLength(1);
+  });
+
+  it('keeps both public docs entry files identical and uses stable domain endpoints', () => {
+    expect(rootDocsSource).toBe(docsSource);
+    expect(docsSource).toContain('wss://leandata.uk/stream');
+    expect(docsSource).toContain('https://rt-api.leandata.uk');
+    expect(docsSource).not.toContain('52.37.182.24');
+    expect(docsSource).not.toContain('Hybrid architecture');
   });
 });
 
