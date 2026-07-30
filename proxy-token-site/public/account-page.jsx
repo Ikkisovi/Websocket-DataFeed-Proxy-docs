@@ -112,6 +112,7 @@ function AccountTopbar({ loggedIn, onLogout }) {
 function AccountLogin({ onLoggedIn }) {
   const [userId, setUserId] = useAccountState("");
   const [phone, setPhone] = useAccountState("");
+  const [email, setEmail] = useAccountState("");
   const [loading, setLoading] = useAccountState(false);
   const [message, setMessage] = useAccountState("");
 
@@ -127,9 +128,11 @@ function AccountLogin({ onLoggedIn }) {
             user_id: userId.trim(),
             phone: phone.trim(),
           },
+          ...(email.trim() && { email: email.trim() }),
         }),
       });
       setPhone("");
+      setEmail("");
       await onLoggedIn();
     } catch (error) {
       setMessage(error.message);
@@ -161,7 +164,7 @@ function AccountLogin({ onLoggedIn }) {
           <div className="eyebrow" style={{ marginBottom: 10 }}>账户登录</div>
           <h2 className="display-title" style={{ fontSize: 36, margin: "0 0 10px" }}>验证账户凭证</h2>
           <p style={{ color: "var(--ink-muted)", margin: "0 0 28px" }}>
-            用户 ID 与注册手机号共同构成唯一登录凭证。
+            用户 ID 与注册手机号共同构成唯一登录凭证。邮箱可选填写。
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -187,6 +190,20 @@ function AccountLogin({ onLoggedIn }) {
                 placeholder="注册时使用的手机号"
                 required
               />
+            </div>
+            <div>
+              <label className="label">通知邮箱（可选）</label>
+              <input
+                className="input"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={event => setEmail(event.target.value)}
+                placeholder="name@example.com"
+              />
+              <div style={{ marginTop: 7, color: "var(--ink-muted)", fontSize: 11, lineHeight: 1.5 }}>
+                Endpoint 变更、新 endpoint 上线及更多数据支持会通过此邮箱通知。
+              </div>
             </div>
             <button className="btn primary" disabled={loading} style={{ justifyContent: "center", padding: 12 }}>
               {loading ? "验证中…" : "进入账户管理 →"}

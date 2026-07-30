@@ -671,6 +671,68 @@ describe('Account portal', () => {
     expect(JSON.stringify(login.body)).not.toContain(account.token);
   });
 
+  it('keeps login email optional and validates it when supplied', async () => {
+    const account = seedAccount();
+    const invalid = await request(app)
+      .post('/api/account/login')
+      .set('x-forwarded-for', '198.51.100.223')
+      .send({
+        credential: {
+          user_id: account.userId,
+          phone: account.phone
+        },
+        email: 'not-an-email'
+      });
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.body.error).toBe('invalid_email');
+
+    const { login } = await loginAccount(account);
+    expect(login.statusCode).toBe(200);
+    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0].email).toBeUndefined();
+    expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users[0].email).toBeUndefined();
+  });
+
+  it('persists a supplied login email only after the account credentials match', async () => {
+    const account = seedAccount();
+    const beforeProxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users[0];
+
+    const rejected = await request(app)
+      .post('/api/account/login')
+      .set('x-forwarded-for', '198.51.100.224')
+      .send({
+        credential: {
+          user_id: account.userId,
+          phone: 'wrong-phone'
+        },
+        email: 'attacker@example.com'
+      });
+    expect(rejected.statusCode).toBe(401);
+    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0].email).toBeUndefined();
+    expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users[0].email).toBeUndefined();
+
+    const accepted = await request(app)
+      .post('/api/account/login')
+      .set('x-forwarded-for', '198.51.100.225')
+      .send({
+        credential: {
+          user_id: account.userId,
+          phone: account.phone
+        },
+        email: 'login-saved@example.com'
+      });
+    expect(accepted.statusCode).toBe(200);
+    expect(accepted.body.account.email).toBe('login-saved@example.com');
+
+    const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    expect(users[0].email).toBe('login-saved@example.com');
+    expect(proxy.users[0].email).toBe('login-saved@example.com');
+    expect(proxy.users[0].token).toBe(beforeProxy.token);
+    expect(proxy.users[0].role).toBe(beforeProxy.role);
+    expect(proxy.users[0].expires_at).toBe(beforeProxy.expires_at);
+    expect(proxy.users[0].permissions).toEqual(beforeProxy.permissions);
+  });
+
   it('rate limits repeated failures without penalizing successful logins', async () => {
     const account = seedAccount();
     for (let attempt = 0; attempt < 9; attempt += 1) {
@@ -1015,10 +1077,17 @@ describe('Admin portal UI', () => {
 });
 
 describe('Account portal UI', () => {
-  it('offers an optional persisted notification email field with release-notice copy', async () => {
+  it('offers optional persisted notification email fields on login and after login', async () => {
     const res = await request(app).get('/account-page.jsx');
     expect(res.statusCode).toBe(200);
-    expect(res.text).toContain('type="email"');
+    const loginSource = res.text.slice(
+      res.text.indexOf('function AccountLogin'),
+      res.text.indexOf('function AccountKpi')
+    );
+    expect(loginSource).toContain('type="email"');
+    expect(loginSource).toContain('通知邮箱（可选）');
+    expect(loginSource).toContain('...(email.trim() && { email: email.trim() })');
+    expect(loginSource).toContain('Endpoint 变更、新 endpoint 上线及更多数据支持');
     expect(res.text).toContain('/api/account/email');
     expect(res.text).toContain('Endpoint 变更、新 endpoint 上线及更多数据支持');
     expect(res.text).toContain('Notification email · optional');

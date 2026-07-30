@@ -264,6 +264,65 @@ function findProxyAccount(userId) {
   return (proxyData.users || []).find(user => user.user_id === userId) || null;
 }
 
+const ACCOUNT_EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+function persistAccountEmail(userId, email) {
+  let usersRaw;
+  let proxyRaw;
+  let users;
+  let proxyData;
+  try {
+    usersRaw = fs.readFileSync(USERS_FILE, 'utf8');
+    proxyRaw = fs.readFileSync(PROXY_USERS_FILE, 'utf8');
+    users = JSON.parse(usersRaw);
+    proxyData = JSON.parse(proxyRaw);
+  } catch {
+    return {
+      ok: false,
+      status: 500,
+      error: 'account_registry_unreadable',
+      message: '账户资料暂时无法读取，邮箱未保存。'
+    };
+  }
+
+  const localMatches = Array.isArray(users)
+    ? users.filter(user => user.username === userId)
+    : [];
+  const proxyMatches = Array.isArray(proxyData?.users)
+    ? proxyData.users.filter(user => user.user_id === userId)
+    : [];
+  if (localMatches.length !== 1 || proxyMatches.length !== 1 || !proxyMatches[0].token) {
+    return {
+      ok: false,
+      status: 409,
+      error: 'account_registry_mismatch',
+      message: '账户资料不一致，邮箱未保存；请联系管理员核对。'
+    };
+  }
+
+  localMatches[0].email = email;
+  proxyMatches[0].email = email;
+
+  try {
+    // The shared registry is a single-file bind mount in production, so it
+    // must be updated in place. Validate both identities before either write,
+    // then restore both original payloads if the second write fails.
+    writeJSON(PROXY_USERS_FILE, proxyData);
+    writeJSON(USERS_FILE, users);
+  } catch {
+    try { fs.writeFileSync(PROXY_USERS_FILE, proxyRaw); } catch (_) {}
+    try { fs.writeFileSync(USERS_FILE, usersRaw); } catch (_) {}
+    return {
+      ok: false,
+      status: 500,
+      error: 'account_email_persist_failed',
+      message: '邮箱保存失败，原账户资料已保留，请稍后重试。'
+    };
+  }
+
+  return { ok: true, email };
+}
+
 function maskToken(token) {
   const value = String(token || '');
   if (value.length < 12) return value ? '••••••••' : null;
@@ -2019,8 +2078,16 @@ app.post('/api/account/login', (req, res) => {
   const credential = req.body?.credential;
   const userId = String(credential?.user_id || '').trim();
   const phone = String(credential?.phone || '').trim();
+  const email = String(req.body?.email || '').trim();
   if (!userId || !phone || userId.length > 128 || phone.length > 64) {
     return res.status(400).json({ success: false, message: '请提供有效的用户 ID 和手机号凭证。' });
+  }
+  if (email && (email.length > 254 || !ACCOUNT_EMAIL_RE.test(email))) {
+    return res.status(400).json({
+      success: false,
+      error: 'invalid_email',
+      message: '请填写有效的通知邮箱，或将其留空。'
+    });
   }
 
   const localUser = findLocalAccount(userId);
@@ -2028,6 +2095,17 @@ app.post('/api/account/login', (req, res) => {
   if (!localUser || !localUser.phone || !safeEqual(localUser.phone, phone) || !proxyUser || !proxyUser.token) {
     recordAccountLoginFailure(req);
     return res.status(401).json({ success: false, message: '用户 ID 或手机号不匹配。' });
+  }
+
+  if (email) {
+    const persisted = persistAccountEmail(userId, email);
+    if (!persisted.ok) {
+      return res.status(persisted.status).json({
+        success: false,
+        error: persisted.error,
+        message: persisted.message
+      });
+    }
   }
 
   clearAccountLoginFailures(req);
@@ -2038,6 +2116,7 @@ app.post('/api/account/login', (req, res) => {
     account: {
       user_id: userId,
       role: proxyUser.role || localUser.role || 'standard',
+      email: email || proxyUser.email || localUser.email || null,
       expiry: proxyUser.expires_at || null
     }
   });
@@ -2100,7 +2179,7 @@ app.get('/api/account/overview', requireAccount, async (req, res) => {
 
 app.post('/api/account/email', requireAccount, (req, res) => {
   const email = String(req.body?.email || '').trim();
-  if (!email || email.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+  if (!email || email.length > 254 || !ACCOUNT_EMAIL_RE.test(email)) {
     return res.status(400).json({
       success: false,
       error: 'invalid_email',
@@ -2108,53 +2187,12 @@ app.post('/api/account/email', requireAccount, (req, res) => {
     });
   }
 
-  let usersRaw;
-  let proxyRaw;
-  let users;
-  let proxyData;
-  try {
-    usersRaw = fs.readFileSync(USERS_FILE, 'utf8');
-    proxyRaw = fs.readFileSync(PROXY_USERS_FILE, 'utf8');
-    users = JSON.parse(usersRaw);
-    proxyData = JSON.parse(proxyRaw);
-  } catch {
-    return res.status(500).json({
+  const persisted = persistAccountEmail(req.account.userId, email);
+  if (!persisted.ok) {
+    return res.status(persisted.status).json({
       success: false,
-      error: 'account_registry_unreadable',
-      message: '账户资料暂时无法读取，邮箱未保存。'
-    });
-  }
-
-  const localMatches = Array.isArray(users)
-    ? users.filter(user => user.username === req.account.userId)
-    : [];
-  const proxyMatches = Array.isArray(proxyData?.users)
-    ? proxyData.users.filter(user => user.user_id === req.account.userId)
-    : [];
-  if (localMatches.length !== 1 || proxyMatches.length !== 1 || !proxyMatches[0].token) {
-    return res.status(409).json({
-      success: false,
-      error: 'account_registry_mismatch',
-      message: '账户资料不一致，邮箱未保存；请联系管理员核对。'
-    });
-  }
-
-  localMatches[0].email = email;
-  proxyMatches[0].email = email;
-
-  try {
-    // The shared registry is a single-file bind mount in production, so it
-    // must be updated in place. Validate both identities before either write,
-    // then restore both original payloads if the second write fails.
-    writeJSON(PROXY_USERS_FILE, proxyData);
-    writeJSON(USERS_FILE, users);
-  } catch {
-    try { fs.writeFileSync(PROXY_USERS_FILE, proxyRaw); } catch (_) {}
-    try { fs.writeFileSync(USERS_FILE, usersRaw); } catch (_) {}
-    return res.status(500).json({
-      success: false,
-      error: 'account_email_persist_failed',
-      message: '邮箱保存失败，原账户资料已保留，请稍后重试。'
+      error: persisted.error,
+      message: persisted.message
     });
   }
 
