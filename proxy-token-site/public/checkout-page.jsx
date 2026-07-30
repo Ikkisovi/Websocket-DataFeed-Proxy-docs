@@ -97,6 +97,15 @@ function formatCny(amountFen) {
   }).format(Number(amountFen || 0) / 100);
 }
 
+function formatCardMoney(amountMinor, currency) {
+  return new Intl.NumberFormat(currency === "CAD" ? "en-CA" : "en-US", {
+    style: "currency",
+    currency,
+    currencyDisplay: "narrowSymbol",
+    minimumFractionDigits: 2,
+  }).format(Number(amountMinor || 0) / 100);
+}
+
 function formatCheckoutDate(value) {
   if (!value) return "—";
   const date = new Date(value);
@@ -172,7 +181,8 @@ function CheckoutPage() {
   const [tier, setTier] = useCheckoutState("standard");
   const [mode, setMode] = useCheckoutState("");
   const [months, setMonths] = useCheckoutState(1);
-  const [method, setMethod] = useCheckoutState("alipay");
+  const [method, setMethod] = useCheckoutState("stripe_card");
+  const [stripeCurrency, setStripeCurrency] = useCheckoutState("CAD");
   const [loading, setLoading] = useCheckoutState(true);
   const [paying, setPaying] = useCheckoutState(false);
   const [error, setError] = useCheckoutState("");
@@ -188,6 +198,9 @@ function CheckoutPage() {
         setTier(suggested.tier);
         setMode(suggested.mode);
         setMonths(suggested.months);
+        const preferredMethod = data.payment_methods?.find(item => item.id === "stripe_card" && item.available)
+          || data.payment_methods?.find(item => item.available);
+        if (preferredMethod) setMethod(preferredMethod.id);
       })
       .catch(requestError => setError(requestError.message))
       .finally(() => setLoading(false));
@@ -228,6 +241,15 @@ function CheckoutPage() {
     () => info?.bundles?.find(item => item.id === bundleId) || null,
     [info, bundleId]
   );
+  const selectedPaymentMethod = useCheckoutMemo(
+    () => info?.payment_methods?.find(item => item.id === method) || null,
+    [info, method]
+  );
+  const stripeMonthlyPrice = useCheckoutMemo(
+    () => selectedPaymentMethod?.currencies?.find(item => item.currency === stripeCurrency) || null,
+    [selectedPaymentMethod, stripeCurrency]
+  );
+  const stripeTotalMinor = Number(stripeMonthlyPrice?.monthly_amount_minor || 0) * months;
 
   const chooseTier = nextTier => {
     setTier(nextTier);
@@ -249,6 +271,7 @@ function CheckoutPage() {
           checkout_token: checkoutToken || undefined,
           bundle_id: bundle.id,
           payment_method: method,
+          ...(method === "stripe_card" && { stripe_currency: stripeCurrency }),
         }),
       });
       if (created.checkout_url) {
@@ -309,19 +332,39 @@ function CheckoutPage() {
                 <button
                   type="button"
                   key={item.id}
-                  className={`payment-method ${method === item.id ? "selected" : ""}`}
-                  onClick={() => setMethod(item.id)}
+                  className={`payment-method ${method === item.id ? "selected" : ""} ${!item.available ? "unavailable" : ""}`}
+                  onClick={() => item.available && setMethod(item.id)}
+                  disabled={!item.available}
                 >
                   <PaymentMethodIcon method={item.id} />
                   <span>
                     <span className="payment-method-name">{item.name}</span>
                     <span className="payment-method-note">
-                      {item.id === "stripe_card" ? "由 Stripe 安全处理卡号与 CVV" : "扫码或 App 内确认"}
+                      {item.status || (item.id === "stripe_card" ? "由 Stripe 安全处理卡号与 CVV" : "扫码或 App 内确认")}
                     </span>
                   </span>
                 </button>
               ))}
             </div>
+
+            {method === "stripe_card" && (
+              <>
+                <div className="checkout-separator">卡支付币种</div>
+                <div className="currency-grid" aria-label="Stripe 结账币种">
+                  {(selectedPaymentMethod?.currencies || []).map(option => (
+                    <button
+                      type="button"
+                      key={option.currency}
+                      className={`currency-option ${stripeCurrency === option.currency ? "selected" : ""}`}
+                      onClick={() => setStripeCurrency(option.currency)}
+                    >
+                      <span>{option.currency}</span>
+                      <strong>{formatCardMoney(option.monthly_amount_minor, option.currency)} / 月</strong>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
             <div className="checkout-separator">套餐设置</div>
 
@@ -396,22 +439,36 @@ function CheckoutPage() {
               </ul>
               <div className="summary-divider"></div>
               <div className="price-row">
-                <span>套餐月价</span>
+                <span>人民币套餐月价</span>
                 <span>{formatCny(bundle?.monthly_amount_cny_fen)}</span>
               </div>
+              {method === "stripe_card" && (
+                <div className="price-row">
+                  <span>Stripe 卡支付月价</span>
+                  <span>{formatCardMoney(stripeMonthlyPrice?.monthly_amount_minor, stripeCurrency)} {stripeCurrency}</span>
+                </div>
+              )}
               <div className="price-row">
                 <span>订阅时长</span>
                 <span>{months} 个月</span>
               </div>
               <div className="price-row total">
                 <span>今日应付金额</span>
-                <span>{formatCny(bundle?.amount_cny_fen)}</span>
+                <span>
+                  {method === "stripe_card"
+                    ? `${formatCardMoney(stripeTotalMinor, stripeCurrency)} ${stripeCurrency}`
+                    : formatCny(bundle?.amount_cny_fen)}
+                </span>
               </div>
-              <button className="checkout-pay-button" disabled={paying || !bundle} onClick={pay}>
+              <button
+                className="checkout-pay-button"
+                disabled={paying || !bundle || !selectedPaymentMethod?.available}
+                onClick={pay}
+              >
                 {paying
                   ? "正在确认支付…"
                   : method === "stripe_card"
-                    ? `使用信用卡支付 ${formatCny(bundle?.amount_cny_fen)}`
+                    ? `使用信用卡支付 ${formatCardMoney(stripeTotalMinor, stripeCurrency)} ${stripeCurrency}`
                     : `${method === "alipay" ? "支付宝" : "微信支付"}${method === "alipay" ? "支付 " : " "}${formatCny(bundle?.amount_cny_fen)}`}
               </button>
               {error && <div className="checkout-error">{error}</div>}

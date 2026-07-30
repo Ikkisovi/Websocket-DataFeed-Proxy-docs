@@ -662,6 +662,9 @@ describe('Payment bundles and automatic fulfillment', () => {
     paymentMethod = 'alipay',
     extra = {}
   }) {
+    if (paymentMethod === 'alipay' && process.env.PAYMENT_MOCK_ENABLED !== 'true') {
+      process.env.PAYMENT_ALIPAY_ENABLED = 'true';
+    }
     return request(app).post('/api/payment/orders').send({
       checkout_token: registration.checkout_token,
       bundle_id: bundleId,
@@ -720,7 +723,7 @@ describe('Payment bundles and automatic fulfillment', () => {
       .query({ checkout_token: registration.checkout_token });
     expect(info.statusCode).toBe(200);
     expect(info.body.suggested_bundle_id).toBe('standard-1m');
-    expect(info.body.bundles.find(bundle => bundle.id === 'standard-3m').amount_cny_fen).toBe(24000);
+    expect(info.body.bundles.find(bundle => bundle.id === 'standard-3m').amount_cny_fen).toBe(30000);
 
     const order = await createRegistrationOrder({
       registration,
@@ -728,11 +731,11 @@ describe('Payment bundles and automatic fulfillment', () => {
       extra: { amount_cny_fen: 1, currency: 'USD' }
     });
     expect(order.statusCode).toBe(201);
-    expect(order.body.order.bundle.amount_cny_fen).toBe(8000);
+    expect(order.body.order.bundle.amount_cny_fen).toBe(10000);
     expect(order.body.order.bundle.currency).toBe('CNY');
   });
 
-  it('offers Alipay and Stripe card checkout while WeChat remains opt-in', async () => {
+  it('shows Alipay as unavailable while Stripe card checkout remains the live method', async () => {
     const registration = await createRegistrationCheckout();
     const info = await request(app)
       .get('/api/payment/checkout-info')
@@ -742,7 +745,31 @@ describe('Payment bundles and automatic fulfillment', () => {
       'alipay',
       'stripe_card'
     ]);
-    expect(info.body.payment_methods.find(method => method.id === 'stripe_card').configured).toBe(false);
+    const alipay = info.body.payment_methods.find(method => method.id === 'alipay');
+    const stripe = info.body.payment_methods.find(method => method.id === 'stripe_card');
+    expect(alipay.available).toBe(false);
+    expect(alipay.status).toContain('EasyPay');
+    expect(stripe.configured).toBe(false);
+    expect(stripe.available).toBe(false);
+    expect(stripe.currencies).toEqual([
+      { currency: 'CAD', monthly_amount_minor: 3000 },
+      { currency: 'USD', monthly_amount_minor: 2500 }
+    ]);
+  });
+
+  it('keeps the visible Alipay placeholder from creating an order before EasyPay approval', async () => {
+    const registration = await createRegistrationCheckout({
+      username: 'alipay-placeholder-user',
+      email: 'alipay-placeholder-user@example.com'
+    });
+    const response = await request(app).post('/api/payment/orders').send({
+      checkout_token: registration.checkout_token,
+      bundle_id: 'standard-1m',
+      payment_method: 'alipay'
+    });
+    expect(response.statusCode).toBe(503);
+    expect(response.body.message).toContain('EasyPay');
+    expect(JSON.parse(fs.readFileSync(PAYMENT_ORDERS_FILE, 'utf8'))).toHaveLength(0);
   });
 
   it('loads Stripe credentials only from a mode-0600 host file', async () => {
@@ -761,7 +788,9 @@ describe('Payment bundles and automatic fulfillment', () => {
       .get('/api/payment/checkout-info')
       .query({ checkout_token: registration.checkout_token });
     expect(configured.statusCode).toBe(200);
-    expect(configured.body.payment_methods.find(method => method.id === 'stripe_card').configured).toBe(true);
+    expect(configured.body.payment_methods.find(method => method.id === 'stripe_card')).toEqual(
+      expect.objectContaining({ configured: true, available: true })
+    );
 
     fs.chmodSync(STRIPE_PAYMENT_ENV_FILE, 0o640);
     const rejected = await request(app)
@@ -771,18 +800,47 @@ describe('Payment bundles and automatic fulfillment', () => {
     expect(rejected.body.payment_methods.find(method => method.id === 'stripe_card').configured).toBe(false);
   });
 
-  it('fails closed when Stripe card checkout is selected without server keys', async () => {
+  it('creates Stripe Checkout in the selected USD currency without trusting client amounts', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_local_only';
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_local_test';
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: 'cs_test_usd_checkout',
+        url: 'https://checkout.stripe.com/c/pay/cs_test_usd_checkout'
+      })
+    });
+    const registration = await createRegistrationCheckout({
+      username: 'stripe-session-user',
+      email: 'stripe-session-user@example.com'
+    });
+    const response = await createRegistrationOrder({
+      registration,
+      bundleId: 'premium-3m',
+      paymentMethod: 'stripe_card',
+      extra: { stripe_currency: 'USD', amount_minor: 1 }
+    });
+    expect(response.statusCode).toBe(201);
+    expect(response.body.checkout_url).toContain('checkout.stripe.com');
+    const [url, options] = fetchMock.mock.calls[0];
+    const form = new URLSearchParams(options.body);
+    expect(url).toBe('https://api.stripe.com/v1/checkout/sessions');
+    expect(form.get('line_items[0][price_data][currency]')).toBe('usd');
+    expect(form.get('line_items[0][price_data][unit_amount]')).toBe('7500');
+    expect(form.get('metadata[bundle_id]')).toBe('premium-3m');
+  });
+
+  it('fails closed before creating an order when Stripe card checkout has no server keys', async () => {
     const registration = await createRegistrationCheckout();
     const order = await createRegistrationOrder({
       registration,
       paymentMethod: 'stripe_card'
     });
     expect(order.statusCode).toBe(503);
-    expect(order.body.message).toContain('Stripe');
+    expect(order.body.message).toContain('暂时不可用');
     const persisted = JSON.parse(fs.readFileSync(PAYMENT_ORDERS_FILE, 'utf8'));
-    expect(persisted).toHaveLength(1);
-    expect(persisted[0].provider).toBe('stripe_checkout');
-    expect(persisted[0].status).toBe('FAILED');
+    expect(persisted).toHaveLength(0);
   });
 
   it('verifies Stripe webhooks, checks amount/currency/bundle, and fulfills idempotently', async () => {
@@ -813,8 +871,8 @@ describe('Payment bundles and automatic fulfillment', () => {
           client_reference_id: created.body.order.id,
           payment_intent: 'pi_test_complete',
           payment_status: 'paid',
-          amount_total: 8000,
-          currency: 'cny',
+          amount_total: 3000,
+          currency: 'cad',
           metadata: {
             order_id: created.body.order.id,
             bundle_id: 'standard-1m'
@@ -839,6 +897,11 @@ describe('Payment bundles and automatic fulfillment', () => {
     const completed = JSON.parse(fs.readFileSync(PAYMENT_ORDERS_FILE, 'utf8'))[0];
     expect(completed.status).toBe('COMPLETED');
     expect(completed.provider_payment_id).toBe('pi_test_complete');
+    expect(completed.provider_charge).toEqual({
+      currency: 'CAD',
+      amount_minor: 3000,
+      monthly_amount_minor: 3000
+    });
     const returnLookup = await request(app)
       .get(`/api/payment/orders/${created.body.order.id}`)
       .query({ checkout_token: registration.checkout_token });
@@ -927,6 +990,35 @@ describe('Payment bundles and automatic fulfillment', () => {
     const held = JSON.parse(fs.readFileSync(PAYMENT_ORDERS_FILE, 'utf8'))[0];
     expect(held.status).toBe('MANUAL_REVIEW');
     expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users).toHaveLength(0);
+  });
+
+  it('prices Stripe orders in server-authoritative CAD or USD amounts', async () => {
+    process.env.PAYMENT_MOCK_ENABLED = 'true';
+    const registration = await createRegistrationCheckout({
+      username: 'stripe-currency-user',
+      email: 'stripe-currency-user@example.com'
+    });
+    const usd = await createRegistrationOrder({
+      registration,
+      bundleId: 'premium-3m',
+      paymentMethod: 'stripe_card',
+      extra: { stripe_currency: 'usd', amount_minor: 1 }
+    });
+    expect(usd.statusCode).toBe(201);
+    expect(usd.body.order.bundle.amount_cny_fen).toBe(45000);
+    expect(usd.body.order.provider_charge).toEqual({
+      currency: 'USD',
+      amount_minor: 7500,
+      monthly_amount_minor: 2500
+    });
+
+    const rejected = await createRegistrationOrder({
+      registration,
+      paymentMethod: 'stripe_card',
+      extra: { stripe_currency: 'CNY' }
+    });
+    expect(rejected.statusCode).toBe(400);
+    expect(rejected.body.message).toContain('CAD');
   });
 
   it('rejects invalid bundles and payment methods', async () => {

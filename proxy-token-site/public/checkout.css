@@ -107,6 +107,17 @@ button {
   box-shadow: inset 0 0 0 1px var(--checkout-border-strong);
 }
 
+.payment-method.unavailable {
+  border-style: dashed;
+  background: #f7f7f8;
+  cursor: not-allowed;
+  opacity: .64;
+}
+
+.payment-method.unavailable:hover {
+  background: #f7f7f8;
+}
+
 .payment-logo {
   height: 36px;
   display: inline-flex;
@@ -210,6 +221,43 @@ button {
   color: #3c3c43;
   font-size: 13px;
   font-weight: 500;
+}
+
+.currency-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.currency-option {
+  min-height: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 17px;
+  border: 1px solid var(--checkout-border);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--checkout-text);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.currency-option strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.currency-option:hover {
+  border-color: var(--checkout-border-strong);
+}
+
+.currency-option.selected {
+  border-color: var(--checkout-text);
+  background: var(--checkout-text);
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(13, 13, 13, .12);
 }
 
 .checkout-select-wrap {
@@ -422,7 +470,7 @@ button {
 }
 
 .checkout-pay-button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: .55;
 }
 
@@ -549,6 +597,10 @@ button {
 
   .duration-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .currency-grid {
+    grid-template-columns: 1fr;
   }
 
   .summary-card {

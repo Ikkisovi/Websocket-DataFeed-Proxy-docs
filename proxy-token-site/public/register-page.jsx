@@ -34,7 +34,7 @@ const TIERS = [
   {
     id: "trial",
     name: "Trial",
-    price: "¥30",
+    price: "¥50",
     period: "/ 3 days",
     tagline: "短期体验",
     desc: "3 天试用 · 全部 WS 通道 · 不可续期",
@@ -69,7 +69,7 @@ const TIERS = [
   {
     id: "value",
     name: "Value",
-    price: "¥50",
+    price: "¥70",
     period: "/ month",
     tagline: "REST 二选一 · 限速",
     desc: "全部 WS 通道 + REST 股票或期权二选一 · 限速 30 req/min",
@@ -91,7 +91,7 @@ const TIERS = [
   {
     id: "standard",
     name: "Standard",
-    price: "¥80",
+    price: "¥100",
     period: "/ month",
     tagline: "主流套餐",
     desc: "全部 WS 通道 · 50 symbols · stocks + options 历史",
@@ -108,7 +108,7 @@ const TIERS = [
   {
     id: "premium",
     name: "Premium",
-    price: "¥130",
+    price: "¥150",
     period: "/ month",
     tagline: "完整接入",
     desc: "全部 WS 通道 · 500 symbols · 全部 REST 含 crypto",

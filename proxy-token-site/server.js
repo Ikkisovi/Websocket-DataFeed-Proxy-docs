@@ -175,10 +175,14 @@ const PUBLIC_REGISTRATION_TIER_IDS = new Set(['trial', 'value', 'standard', 'pre
 const PAYMENT_METHOD_IDS = new Set(['alipay', 'wechat_pay', 'stripe_card']);
 const PAYMENT_DURATION_MONTHS = [1, 2, 3, 6, 12];
 const PAYMENT_MONTHLY_PRICES_CNY_FEN = {
-  basic: 4000,
-  value: 5000,
-  standard: 8000,
-  premium: 13000
+  basic: 6000,
+  value: 7000,
+  standard: 10000,
+  premium: 15000
+};
+const STRIPE_MONTHLY_PRICES_MINOR = {
+  CAD: 3000,
+  USD: 2500
 };
 
 const PAYMENT_PLAN_DETAILS = {
@@ -336,12 +340,16 @@ function stripeConfigured() {
 }
 
 async function createStripeCheckoutSession(order, bundle, customerEmail, successUrl, cancelUrl) {
+  const providerCharge = order.provider_charge;
+  if (!providerCharge || !STRIPE_MONTHLY_PRICES_MINOR[providerCharge.currency]) {
+    throw new Error('Stripe charge currency is invalid.');
+  }
   const form = new URLSearchParams();
   form.set('mode', 'payment');
   form.set('client_reference_id', order.id);
   if (customerEmail) form.set('customer_email', customerEmail);
-  form.set('line_items[0][price_data][currency]', 'cny');
-  form.set('line_items[0][price_data][unit_amount]', String(bundle.amount_cny_fen));
+  form.set('line_items[0][price_data][currency]', providerCharge.currency.toLowerCase());
+  form.set('line_items[0][price_data][unit_amount]', String(providerCharge.amount_minor));
   form.set('line_items[0][price_data][product_data][name]', `Leandata ${bundle.name} 套餐`);
   form.set('line_items[0][price_data][product_data][description]', `${bundle.months} 个月数据访问`);
   form.set('line_items[0][quantity]', '1');
@@ -412,20 +420,50 @@ function paymentBaseUrl(req) {
 
 function enabledPaymentMethods() {
   const mockEnabled = process.env.PAYMENT_MOCK_ENABLED === 'true';
-  const methods = [];
-  if (mockEnabled || process.env.PAYMENT_ALIPAY_ENABLED !== 'false') {
-    methods.push({ id: 'alipay', name: '支付宝', color: '#1677ff' });
-  }
+  const methods = [{
+    id: 'alipay',
+    name: '支付宝',
+    color: '#1677ff',
+    available: mockEnabled || process.env.PAYMENT_ALIPAY_ENABLED === 'true',
+    status: mockEnabled || process.env.PAYMENT_ALIPAY_ENABLED === 'true'
+      ? null
+      : '等待 EasyPay 审核'
+  }];
   if (process.env.PAYMENT_WECHAT_ENABLED === 'true') {
-    methods.push({ id: 'wechat_pay', name: '微信支付', color: '#07c160' });
+    methods.push({
+      id: 'wechat_pay',
+      name: '微信支付',
+      color: '#07c160',
+      available: true,
+      status: null
+    });
   }
   methods.push({
     id: 'stripe_card',
     name: '信用卡 / 借记卡',
     color: '#635bff',
-    configured: stripeConfigured()
+    configured: stripeConfigured(),
+    available: stripeConfigured() || mockEnabled,
+    status: stripeConfigured() || mockEnabled ? null : '暂不可用',
+    currencies: Object.entries(STRIPE_MONTHLY_PRICES_MINOR).map(
+      ([currency, monthlyAmountMinor]) => ({
+        currency,
+        monthly_amount_minor: monthlyAmountMinor
+      })
+    )
   });
   return methods;
+}
+
+function stripeProviderCharge(bundle, requestedCurrency) {
+  const currency = String(requestedCurrency || 'CAD').trim().toUpperCase();
+  const monthlyAmountMinor = STRIPE_MONTHLY_PRICES_MINOR[currency];
+  if (!monthlyAmountMinor) return null;
+  return {
+    currency,
+    amount_minor: monthlyAmountMinor * bundle.months,
+    monthly_amount_minor: monthlyAmountMinor
+  };
 }
 
 function readPaymentOrders() {
@@ -462,6 +500,7 @@ function publicPaymentOrder(order) {
     bundle: publicPaymentBundle(order.bundle),
     payment_method: order.payment_method,
     provider: order.provider,
+    provider_charge: order.provider_charge || null,
     created_at: order.created_at,
     paid_at: order.paid_at || null,
     completed_at: order.completed_at || null,
@@ -1050,8 +1089,15 @@ async function handleStripeWebhook(req, res) {
     if (session.payment_status !== 'paid' && session.payment_status !== 'no_payment_required') {
       return res.json({ received: true });
     }
-    const amountMatches = Number(session.amount_total) === Number(order.bundle.amount_cny_fen);
-    const currencyMatches = String(session.currency || '').toLowerCase() === 'cny';
+    // Keep legacy CNY Checkout Sessions fulfillable if they were created before
+    // the CAD/USD card-pricing launch and complete after this deployment.
+    const expectedCharge = order.provider_charge || {
+      amount_minor: order.bundle.amount_cny_fen,
+      currency: order.bundle.currency
+    };
+    const amountMatches = Number(session.amount_total) === Number(expectedCharge.amount_minor);
+    const currencyMatches = String(session.currency || '').toUpperCase()
+      === String(expectedCharge.currency || '').toUpperCase();
     const bundleMatches = session.metadata?.bundle_id === order.bundle_id;
     if (!amountMatches || !currencyMatches || !bundleMatches) {
       updatePaymentOrder(order.id, current => ({
@@ -2412,7 +2458,7 @@ app.get('/api/payment/checkout-info', (req, res) => {
       ? suggestedBundleId
       : (context.kind === 'registration' ? 'standard-1m' : 'standard-1m'),
     mock_enabled: process.env.PAYMENT_MOCK_ENABLED === 'true',
-    pricing_notice: '本地草案价格；正式上线前需确认商户合同、税费与退款规则。'
+    pricing_notice: '人民币套餐价与 Stripe 卡支付价分开计价；结账前会显示最终币种和金额。'
   });
 });
 
@@ -2433,8 +2479,26 @@ app.post('/api/payment/orders', async (req, res) => {
   if (!PAYMENT_METHOD_IDS.has(paymentMethod)) {
     return res.status(400).json({ success: false, message: '请选择有效的支付方式。' });
   }
-  if (!enabledPaymentMethods().some(method => method.id === paymentMethod)) {
+  const paymentMethodConfig = enabledPaymentMethods().find(method => method.id === paymentMethod);
+  if (!paymentMethodConfig) {
     return res.status(400).json({ success: false, message: '该支付方式尚未启用。' });
+  }
+  if (!paymentMethodConfig.available) {
+    return res.status(503).json({
+      success: false,
+      message: paymentMethod === 'alipay'
+        ? '支付宝正在等待 EasyPay 审核，暂时不能收款。'
+        : '该支付方式暂时不可用。'
+    });
+  }
+  const providerCharge = paymentMethod === 'stripe_card'
+    ? stripeProviderCharge(bundle, req.body?.stripe_currency)
+    : null;
+  if (paymentMethod === 'stripe_card' && !providerCharge) {
+    return res.status(400).json({
+      success: false,
+      message: 'Stripe 仅支持 CAD 或 USD 结账。'
+    });
   }
 
   if (context.kind === 'registration') {
@@ -2464,6 +2528,7 @@ app.post('/api/payment/orders', async (req, res) => {
     bundle_id: bundle.id,
     bundle: publicPaymentBundle(bundle),
     payment_method: paymentMethod,
+    ...(providerCharge && { provider_charge: providerCharge }),
     provider: process.env.PAYMENT_MOCK_ENABLED === 'true'
       ? 'local_mock'
       : paymentMethod === 'stripe_card'

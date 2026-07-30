@@ -1563,7 +1563,7 @@ Authorization: Bearer c88662...720a
         <tbody>
           <tr>
             <td><span className="tier trial">Trial</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥30/3 days</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥50/3 days</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
@@ -1583,7 +1583,7 @@ Authorization: Bearer c88662...720a
           </tr>
           <tr>
             <td><span className="tier value">Value</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥50/mo</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥70/mo</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>30</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td>
@@ -1593,7 +1593,7 @@ Authorization: Bearer c88662...720a
           </tr>
           <tr>
             <td><span className="tier standard">Standard</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥80/mo</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥100/mo</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
@@ -1603,7 +1603,7 @@ Authorization: Bearer c88662...720a
           </tr>
           <tr>
             <td><span className="tier premium">Premium</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥130/mo</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥150/mo</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{"\u221E"}</td>

@@ -24,6 +24,16 @@ snapshot.
    - `checkout.session.async_payment_succeeded`
    - `checkout.session.expired`
 6. Store the endpoint signing secret as `STRIPE_WEBHOOK_SECRET`.
+
+Stripe card Checkout supports CAD and USD only. The server-authoritative
+monthly amounts are CA$30 and US$25 and are multiplied by the selected number
+of months. The RMB plan catalogue is separate from the Stripe charge currency.
+
+Until EasyPay approves the merchant, keep
+`PAYMENT_ALIPAY_ENABLED=false`. The checkout continues to display Alipay as an
+unavailable preview tile but the backend rejects Alipay order creation. Change
+the flag to `true` only after the production EasyPay endpoint and signature
+verification are ready.
 7. Keep `PAYMENT_MOCK_ENABLED=false` outside isolated local preview sessions.
 
 For localhost testing, keep the server on a test key and forward signed sandbox
