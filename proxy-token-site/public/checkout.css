@@ -1,0 +1,580 @@
+:root {
+  color-scheme: light;
+  --checkout-bg: #ffffff;
+  --checkout-text: #0d0d0d;
+  --checkout-muted: #6f6f78;
+  --checkout-soft: #f7f7f8;
+  --checkout-border: #dedee3;
+  --checkout-border-strong: #8e8e93;
+  --checkout-blue: #2563eb;
+  --checkout-green: #10a37f;
+  --checkout-danger: #c53a3a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--checkout-bg);
+  color: var(--checkout-text);
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+select {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+.checkout-shell {
+  width: min(1376px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 72px 0 40px;
+}
+
+.checkout-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.checkout-back svg {
+  width: 20px;
+  height: 20px;
+}
+
+.checkout-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 488px) minmax(390px, 432px);
+  justify-content: center;
+  gap: 72px;
+  align-items: start;
+  margin-top: 46px;
+}
+
+.checkout-section-title {
+  margin: 0 0 18px;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.payment-methods {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.payment-method {
+  min-height: 78px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: var(--checkout-soft);
+  cursor: pointer;
+  text-align: left;
+  transition: background .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.payment-method:hover {
+  background: #f1f1f3;
+}
+
+.payment-method.selected {
+  border-color: var(--checkout-border-strong);
+  background: #fff;
+  box-shadow: inset 0 0 0 1px var(--checkout-border-strong);
+}
+
+.payment-logo {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.payment-logo.alipay {
+  width: 76px;
+  gap: 5px;
+  padding: 0 8px 0 5px;
+  border-radius: 10px;
+  background: #1677ff;
+  color: #fff;
+  box-shadow: 0 5px 14px rgba(22, 119, 255, .16);
+}
+
+.alipay-symbol {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: #fff;
+  color: #1677ff;
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.alipay-wordmark {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+
+.payment-logo.stripe_card {
+  width: 76px;
+  padding: 0 9px 2px;
+  border-radius: 10px;
+  background: #635bff;
+  color: #fff;
+  box-shadow: 0 5px 14px rgba(99, 91, 255, .16);
+}
+
+.stripe-wordmark {
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -.08em;
+  line-height: 1;
+  transform: skew(-5deg);
+}
+
+.payment-logo.wechat_pay {
+  width: 42px;
+  border-radius: 10px;
+  color: #07c160;
+}
+
+.payment-logo.wechat_pay svg {
+  width: 42px;
+  height: 34px;
+}
+
+.payment-method-name {
+  display: block;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.payment-method-note {
+  display: block;
+  margin-top: 3px;
+  color: var(--checkout-muted);
+  font-size: 12px;
+}
+
+.checkout-separator {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 24px 0;
+  color: #92929b;
+  font-size: 12px;
+}
+
+.checkout-separator::before,
+.checkout-separator::after {
+  height: 1px;
+  flex: 1;
+  background: var(--checkout-border);
+  content: "";
+}
+
+.checkout-field-label {
+  display: block;
+  margin: 0 0 9px;
+  color: #3c3c43;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.checkout-select-wrap {
+  position: relative;
+}
+
+.checkout-select {
+  width: 100%;
+  height: 70px;
+  appearance: none;
+  padding: 0 48px 0 17px;
+  border: 1px solid var(--checkout-border);
+  border-radius: 14px;
+  outline: 0;
+  background: #fff;
+  color: var(--checkout-text);
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.checkout-select:focus {
+  border-color: var(--checkout-border-strong);
+  box-shadow: 0 0 0 1px var(--checkout-border-strong);
+}
+
+.checkout-select-wrap svg {
+  position: absolute;
+  top: 50%;
+  right: 17px;
+  width: 17px;
+  height: 17px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.duration-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.duration-option {
+  height: 54px;
+  border: 1px solid var(--checkout-border);
+  border-radius: 13px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.duration-option:hover {
+  border-color: var(--checkout-border-strong);
+}
+
+.duration-option.selected {
+  border-color: var(--checkout-text);
+  background: var(--checkout-text);
+  color: #fff;
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 18px;
+}
+
+.mode-option {
+  min-height: 58px;
+  border: 1px solid var(--checkout-border);
+  border-radius: 13px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.mode-option.selected {
+  border-color: var(--checkout-text);
+  box-shadow: inset 0 0 0 1px var(--checkout-text);
+}
+
+.checkout-identity {
+  margin-top: 18px;
+  padding: 15px 17px;
+  border: 1px solid var(--checkout-border);
+  border-radius: 14px;
+}
+
+.identity-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 5px 0;
+  font-size: 13px;
+}
+
+.identity-row span:first-child {
+  color: var(--checkout-muted);
+}
+
+.identity-row span:last-child {
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activation-note {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  color: #4f4f57;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.activation-note svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--checkout-green);
+}
+
+.checkout-summary {
+  position: sticky;
+  top: 36px;
+}
+
+.summary-card {
+  padding: 31px 32px 32px;
+  border: 1px solid var(--checkout-border);
+  border-radius: 30px;
+  background: #fff;
+}
+
+.summary-title {
+  margin: 0;
+  font-size: 27px;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+
+.summary-kicker {
+  margin: 24px 0 13px;
+  color: #4d4d55;
+  font-size: 13px;
+}
+
+.summary-features {
+  display: grid;
+  gap: 15px;
+  margin: 0;
+  padding: 0 0 28px;
+  list-style: none;
+}
+
+.summary-feature {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 14px;
+  line-height: 1.42;
+}
+
+.summary-feature svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--checkout-blue);
+}
+
+.summary-divider {
+  height: 1px;
+  margin: 0 0 18px;
+  background: var(--checkout-border);
+}
+
+.price-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 5px 0;
+  color: #676771;
+  font-size: 13px;
+}
+
+.price-row.total {
+  padding-top: 12px;
+  color: var(--checkout-text);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.checkout-pay-button {
+  width: 100%;
+  height: 56px;
+  margin-top: 19px;
+  border: 0;
+  border-radius: 999px;
+  background: #0d0d0d;
+  color: #fff;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  transition: opacity .15s ease, transform .15s ease;
+}
+
+.checkout-pay-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.checkout-pay-button:disabled {
+  cursor: wait;
+  opacity: .55;
+}
+
+.checkout-error {
+  margin-top: 14px;
+  color: var(--checkout-danger);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.checkout-terms {
+  margin: 20px 10px 0;
+  color: #3d3d44;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.checkout-loading {
+  min-height: 60vh;
+  display: grid;
+  place-items: center;
+  color: var(--checkout-muted);
+  font-size: 14px;
+}
+
+.success-card {
+  padding-top: 36px;
+}
+
+.success-mark {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 21px;
+  border-radius: 50%;
+  background: #e9f8f3;
+  color: var(--checkout-green);
+}
+
+.success-mark svg {
+  width: 24px;
+  height: 24px;
+}
+
+.success-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+
+.success-copy {
+  margin: 12px 0 24px;
+  color: var(--checkout-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.token-box {
+  padding: 15px;
+  border: 1px solid var(--checkout-border);
+  border-radius: 14px;
+  background: var(--checkout-soft);
+  word-break: break-all;
+}
+
+.token-label {
+  margin-bottom: 7px;
+  color: var(--checkout-muted);
+  font-size: 11px;
+}
+
+.token-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.success-actions {
+  display: grid;
+  gap: 9px;
+  margin-top: 18px;
+}
+
+.secondary-button {
+  width: 100%;
+  height: 50px;
+  border: 1px solid var(--checkout-border);
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .checkout-shell {
+    width: min(100% - 32px, 620px);
+    padding-top: 28px;
+  }
+
+  .checkout-back {
+    font-size: 22px;
+  }
+
+  .checkout-layout {
+    grid-template-columns: 1fr;
+    gap: 34px;
+    margin-top: 34px;
+  }
+
+  .checkout-summary {
+    position: static;
+  }
+}
+
+@media (max-width: 560px) {
+  .checkout-shell {
+    width: min(100% - 24px, 480px);
+  }
+
+  .payment-methods {
+    grid-template-columns: 1fr;
+  }
+
+  .duration-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .summary-card {
+    padding: 25px 22px 24px;
+    border-radius: 24px;
+  }
+
+  .identity-row {
+    display: block;
+  }
+
+  .identity-row span {
+    display: block;
+  }
+
+  .identity-row span:last-child {
+    margin-top: 4px;
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}

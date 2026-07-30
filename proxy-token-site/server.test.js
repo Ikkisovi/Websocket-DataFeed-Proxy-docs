@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 
 // Set up isolated temp dirs BEFORE requiring server
 const TEST_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'proxy-test-'));
@@ -25,14 +26,29 @@ const { app, TIERS, computeExpiry } = require('./server');
 const USERS_FILE = path.join(TEST_DATA_DIR, 'users.json');
 const PENDING_FILE = path.join(TEST_DATA_DIR, 'pending.json');
 const BULK_ORDERS_FILE = path.join(TEST_DATA_DIR, 'bulk-orders.json');
+const PAYMENT_ORDERS_FILE = path.join(TEST_DATA_DIR, 'payment-orders.json');
 const ADMIN_PASSWORD_FILE = path.join(TEST_DATA_DIR, 'admin-password.env');
+const STRIPE_PAYMENT_ENV_FILE = path.join(TEST_DATA_DIR, 'stripe-payment.env');
+
+function generateStripeTestHeader(payload, secret, timestamp = Math.floor(Date.now() / 1000)) {
+  const signature = crypto
+    .createHmac('sha256', secret)
+    .update(`${timestamp}.${payload}`, 'utf8')
+    .digest('hex');
+  return `t=${timestamp},v1=${signature}`;
+}
 
 function resetTestData() {
+  if (fs.existsSync(TEST_PROXY_FILE) && fs.lstatSync(TEST_PROXY_FILE).isDirectory()) {
+    fs.rmSync(TEST_PROXY_FILE, { recursive: true, force: true });
+  }
   fs.writeFileSync(USERS_FILE, '[]');
   fs.writeFileSync(PENDING_FILE, '[]');
   fs.writeFileSync(BULK_ORDERS_FILE, '[]');
+  fs.writeFileSync(PAYMENT_ORDERS_FILE, '[]');
   fs.writeFileSync(TEST_PROXY_FILE, '{"users":[]}');
   if (fs.existsSync(ADMIN_PASSWORD_FILE)) fs.unlinkSync(ADMIN_PASSWORD_FILE);
+  if (fs.existsSync(STRIPE_PAYMENT_ENV_FILE)) fs.unlinkSync(STRIPE_PAYMENT_ENV_FILE);
   // Clean status data so status/uptime/latency tests start fresh
   const statusFile = path.join(TEST_DATA_DIR, 'status.json');
   if (fs.existsSync(statusFile)) fs.unlinkSync(statusFile);
@@ -44,6 +60,12 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  delete process.env.PAYMENT_MOCK_ENABLED;
+  delete process.env.PAYMENT_ALIPAY_ENABLED;
+  delete process.env.PAYMENT_WECHAT_ENABLED;
+  delete process.env.PAYMENT_PUBLIC_BASE_URL;
+  delete process.env.STRIPE_SECRET_KEY;
+  delete process.env.STRIPE_WEBHOOK_SECRET;
   jest.restoreAllMocks();
 });
 
@@ -175,7 +197,7 @@ describe('POST /api/register', () => {
     }
   });
 
-  it('rejects duplicate pending username', async () => {
+  it('rejects a pending username when the identity does not match', async () => {
     await request(app).post('/api/register').send({
       username: 'dup', phone: '1', tier: 'trial', email: 'dup@example.com'
     });
@@ -183,6 +205,30 @@ describe('POST /api/register', () => {
       username: 'dup', phone: '2', tier: 'standard', email: 'dup2@example.com'
     });
     expect(res.statusCode).toBe(409);
+  });
+
+  it('resumes the same unpaid registration instead of blocking it', async () => {
+    const first = await request(app).post('/api/register').send({
+      username: 'resume-user',
+      phone: '6045550101',
+      email: 'resume@example.com'
+    });
+    expect(first.statusCode).toBe(200);
+    expect(first.body.status).toBe('payment_pending');
+
+    const resumed = await request(app).post('/api/register').send({
+      username: 'resume-user',
+      phone: '6045550101',
+      email: 'resume@example.com'
+    });
+    expect(resumed.statusCode).toBe(200);
+    expect(resumed.body.resumed).toBe(true);
+    expect(resumed.body.id).toBe(first.body.id);
+    expect(resumed.body.checkout_url).toMatch(/^\/checkout\?checkout_token=/);
+
+    const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
+    expect(pending).toHaveLength(1);
+    expect(pending[0].status).toBe('payment_pending');
   });
 
   it('defaults to standard when tier omitted', async () => {
@@ -582,6 +628,459 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).toContain('https://rt-api.leandata.uk');
     expect(docsSource).not.toContain('52.37.182.24');
     expect(docsSource).not.toContain('Hybrid architecture');
+  });
+});
+
+// ============================================================
+// Payment bundles and automatic fulfillment
+// ============================================================
+describe('Payment bundles and automatic fulfillment', () => {
+  let paymentLoginSequence = 0;
+
+  async function createRegistrationCheckout({
+    username = 'pay-user',
+    phone = '6045550199',
+    email = 'pay-user@example.com',
+    tier = 'standard',
+    mode
+  } = {}) {
+    const response = await request(app).post('/api/register').send({
+      username,
+      phone,
+      email,
+      tier,
+      ...(mode && { mode })
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.body.checkout_token).toBeTruthy();
+    return response.body;
+  }
+
+  async function createRegistrationOrder({
+    registration,
+    bundleId = 'standard-1m',
+    paymentMethod = 'alipay',
+    extra = {}
+  }) {
+    return request(app).post('/api/payment/orders').send({
+      checkout_token: registration.checkout_token,
+      bundle_id: bundleId,
+      payment_method: paymentMethod,
+      ...extra
+    });
+  }
+
+  function seedPaidAccount({
+    userId = 'paid-account',
+    phone = '6045550188',
+    tier = 'standard',
+    expiry = new Date(Date.now() + 10 * 86400000).toISOString(),
+    token = 'preserved-payment-token'
+  } = {}) {
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{
+      username: userId,
+      phone,
+      role: TIERS[tier].role,
+      tier,
+      permissions: TIERS[tier].permissions
+    }]));
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({
+      users: [{
+        token,
+        user_id: userId,
+        role: TIERS[tier].role,
+        expires_at: expiry,
+        permissions: TIERS[tier].permissions
+      }]
+    }));
+    return { userId, phone, tier, expiry, token };
+  }
+
+  async function loginPaidAccount(account = seedPaidAccount()) {
+    paymentLoginSequence += 1;
+    const login = await request(app)
+      .post('/api/account/login')
+      .set('x-forwarded-for', `203.0.113.${paymentLoginSequence}`)
+      .send({
+        credential: {
+          user_id: account.userId,
+          phone: account.phone
+        }
+      });
+    return {
+      login,
+      cookie: login.headers['set-cookie']?.[0]?.split(';')[0]
+    };
+  }
+
+  it('returns server-authoritative CNY pricing and ignores client-supplied amounts', async () => {
+    const registration = await createRegistrationCheckout();
+    const info = await request(app)
+      .get('/api/payment/checkout-info')
+      .query({ checkout_token: registration.checkout_token });
+    expect(info.statusCode).toBe(200);
+    expect(info.body.suggested_bundle_id).toBe('standard-1m');
+    expect(info.body.bundles.find(bundle => bundle.id === 'standard-3m').amount_cny_fen).toBe(24000);
+
+    const order = await createRegistrationOrder({
+      registration,
+      bundleId: 'standard-1m',
+      extra: { amount_cny_fen: 1, currency: 'USD' }
+    });
+    expect(order.statusCode).toBe(201);
+    expect(order.body.order.bundle.amount_cny_fen).toBe(8000);
+    expect(order.body.order.bundle.currency).toBe('CNY');
+  });
+
+  it('offers Alipay and Stripe card checkout while WeChat remains opt-in', async () => {
+    const registration = await createRegistrationCheckout();
+    const info = await request(app)
+      .get('/api/payment/checkout-info')
+      .query({ checkout_token: registration.checkout_token });
+    expect(info.statusCode).toBe(200);
+    expect(info.body.payment_methods.map(method => method.id)).toEqual([
+      'alipay',
+      'stripe_card'
+    ]);
+    expect(info.body.payment_methods.find(method => method.id === 'stripe_card').configured).toBe(false);
+  });
+
+  it('loads Stripe credentials only from a mode-0600 host file', async () => {
+    fs.writeFileSync(
+      STRIPE_PAYMENT_ENV_FILE,
+      [
+        'PAYMENT_PUBLIC_BASE_URL=https://leandata.uk',
+        'STRIPE_SECRET_KEY=sk_test_file_only',
+        'STRIPE_WEBHOOK_SECRET=whsec_file_only'
+      ].join('\n'),
+      { mode: 0o600 }
+    );
+    fs.chmodSync(STRIPE_PAYMENT_ENV_FILE, 0o600);
+    const registration = await createRegistrationCheckout();
+    const configured = await request(app)
+      .get('/api/payment/checkout-info')
+      .query({ checkout_token: registration.checkout_token });
+    expect(configured.statusCode).toBe(200);
+    expect(configured.body.payment_methods.find(method => method.id === 'stripe_card').configured).toBe(true);
+
+    fs.chmodSync(STRIPE_PAYMENT_ENV_FILE, 0o640);
+    const rejected = await request(app)
+      .get('/api/payment/checkout-info')
+      .query({ checkout_token: registration.checkout_token });
+    expect(rejected.statusCode).toBe(200);
+    expect(rejected.body.payment_methods.find(method => method.id === 'stripe_card').configured).toBe(false);
+  });
+
+  it('fails closed when Stripe card checkout is selected without server keys', async () => {
+    const registration = await createRegistrationCheckout();
+    const order = await createRegistrationOrder({
+      registration,
+      paymentMethod: 'stripe_card'
+    });
+    expect(order.statusCode).toBe(503);
+    expect(order.body.message).toContain('Stripe');
+    const persisted = JSON.parse(fs.readFileSync(PAYMENT_ORDERS_FILE, 'utf8'));
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0].provider).toBe('stripe_checkout');
+    expect(persisted[0].status).toBe('FAILED');
+  });
+
+  it('verifies Stripe webhooks, checks amount/currency/bundle, and fulfills idempotently', async () => {
+    process.env.PAYMENT_MOCK_ENABLED = 'true';
+    const registration = await createRegistrationCheckout({
+      username: 'stripe-webhook-user',
+      email: 'stripe-webhook-user@example.com'
+    });
+    const created = await createRegistrationOrder({
+      registration,
+      paymentMethod: 'stripe_card'
+    });
+    const orders = JSON.parse(fs.readFileSync(PAYMENT_ORDERS_FILE, 'utf8'));
+    orders[0].provider = 'stripe_checkout';
+    fs.writeFileSync(PAYMENT_ORDERS_FILE, JSON.stringify(orders));
+
+    delete process.env.PAYMENT_MOCK_ENABLED;
+    process.env.STRIPE_SECRET_KEY = 'sk_test_local_only';
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_local_test';
+    const payload = JSON.stringify({
+      id: 'evt_checkout_complete',
+      object: 'event',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: 'cs_test_complete',
+          object: 'checkout.session',
+          client_reference_id: created.body.order.id,
+          payment_intent: 'pi_test_complete',
+          payment_status: 'paid',
+          amount_total: 8000,
+          currency: 'cny',
+          metadata: {
+            order_id: created.body.order.id,
+            bundle_id: 'standard-1m'
+          }
+        }
+      }
+    });
+    const signature = generateStripeTestHeader(payload, process.env.STRIPE_WEBHOOK_SECRET);
+    const first = await request(app)
+      .post('/api/payment/stripe/webhook')
+      .set('Content-Type', 'application/json')
+      .set('stripe-signature', signature)
+      .send(payload);
+    const duplicate = await request(app)
+      .post('/api/payment/stripe/webhook')
+      .set('Content-Type', 'application/json')
+      .set('stripe-signature', signature)
+      .send(payload);
+
+    expect(first.statusCode).toBe(200);
+    expect(duplicate.statusCode).toBe(200);
+    const completed = JSON.parse(fs.readFileSync(PAYMENT_ORDERS_FILE, 'utf8'))[0];
+    expect(completed.status).toBe('COMPLETED');
+    expect(completed.provider_payment_id).toBe('pi_test_complete');
+    const returnLookup = await request(app)
+      .get(`/api/payment/orders/${created.body.order.id}`)
+      .query({ checkout_token: registration.checkout_token });
+    expect(returnLookup.statusCode).toBe(200);
+    expect(returnLookup.body.order.status).toBe('COMPLETED');
+    expect(returnLookup.body.issued_token).toEqual(expect.any(String));
+    expect(returnLookup.body.issued_token.length).toBeGreaterThan(20);
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    expect(proxy.users).toHaveLength(1);
+    expect(proxy.users[0].fulfilled_payment_orders).toEqual([created.body.order.id]);
+  });
+
+  it('rejects invalid and stale Stripe webhook signatures', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_local_only';
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_local_test';
+    const payload = JSON.stringify({
+      id: 'evt_invalid_signature',
+      object: 'event',
+      type: 'checkout.session.completed',
+      data: { object: {} }
+    });
+    const timestamp = Math.floor(Date.now() / 1000);
+    const invalid = await request(app)
+      .post('/api/payment/stripe/webhook')
+      .set('Content-Type', 'application/json')
+      .set('stripe-signature', `t=${timestamp},v1=${'0'.repeat(64)}`)
+      .send(payload);
+    const stale = await request(app)
+      .post('/api/payment/stripe/webhook')
+      .set('Content-Type', 'application/json')
+      .set(
+        'stripe-signature',
+        generateStripeTestHeader(payload, process.env.STRIPE_WEBHOOK_SECRET, timestamp - 600)
+      )
+      .send(payload);
+    expect(invalid.statusCode).toBe(400);
+    expect(stale.statusCode).toBe(400);
+  });
+
+  it('holds a paid Stripe order for manual review when the amount mismatches', async () => {
+    process.env.PAYMENT_MOCK_ENABLED = 'true';
+    const registration = await createRegistrationCheckout({
+      username: 'stripe-mismatch-user',
+      email: 'stripe-mismatch-user@example.com'
+    });
+    const created = await createRegistrationOrder({
+      registration,
+      paymentMethod: 'stripe_card'
+    });
+    const orders = JSON.parse(fs.readFileSync(PAYMENT_ORDERS_FILE, 'utf8'));
+    orders[0].provider = 'stripe_checkout';
+    fs.writeFileSync(PAYMENT_ORDERS_FILE, JSON.stringify(orders));
+
+    delete process.env.PAYMENT_MOCK_ENABLED;
+    process.env.STRIPE_SECRET_KEY = 'sk_test_local_only';
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_local_test';
+    const payload = JSON.stringify({
+      id: 'evt_checkout_mismatch',
+      object: 'event',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: 'cs_test_mismatch',
+          object: 'checkout.session',
+          client_reference_id: created.body.order.id,
+          payment_intent: 'pi_test_mismatch',
+          payment_status: 'paid',
+          amount_total: 1,
+          currency: 'cny',
+          metadata: {
+            order_id: created.body.order.id,
+            bundle_id: 'standard-1m'
+          }
+        }
+      }
+    });
+    const signature = generateStripeTestHeader(payload, process.env.STRIPE_WEBHOOK_SECRET);
+    const response = await request(app)
+      .post('/api/payment/stripe/webhook')
+      .set('Content-Type', 'application/json')
+      .set('stripe-signature', signature)
+      .send(payload);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.manual_review).toBe(true);
+    const held = JSON.parse(fs.readFileSync(PAYMENT_ORDERS_FILE, 'utf8'))[0];
+    expect(held.status).toBe('MANUAL_REVIEW');
+    expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users).toHaveLength(0);
+  });
+
+  it('rejects invalid bundles and payment methods', async () => {
+    const registration = await createRegistrationCheckout();
+    const invalidBundle = await createRegistrationOrder({
+      registration,
+      bundleId: 'trial-1m'
+    });
+    const invalidMethod = await createRegistrationOrder({
+      registration,
+      paymentMethod: 'card'
+    });
+    expect(invalidBundle.statusCode).toBe(400);
+    expect(invalidMethod.statusCode).toBe(400);
+  });
+
+  it('keeps the local mock provider disabled by default', async () => {
+    const registration = await createRegistrationCheckout();
+    const created = await createRegistrationOrder({ registration });
+    const completed = await request(app)
+      .post(`/api/payment/mock/${created.body.order.id}/complete`)
+      .send({ resume_token: created.body.resume_token });
+    expect(created.body.mock_enabled).toBe(false);
+    expect(completed.statusCode).toBe(404);
+  });
+
+  it('automatically provisions a new paid registration without admin approval', async () => {
+    process.env.PAYMENT_MOCK_ENABLED = 'true';
+    process.env.PAYMENT_WECHAT_ENABLED = 'true';
+    const registration = await createRegistrationCheckout({
+      username: 'auto-provision',
+      email: 'auto-provision@example.com'
+    });
+    const created = await createRegistrationOrder({
+      registration,
+      bundleId: 'premium-3m',
+      paymentMethod: 'wechat_pay'
+    });
+    const completed = await request(app)
+      .post(`/api/payment/mock/${created.body.order.id}/complete`)
+      .send({ resume_token: created.body.resume_token });
+
+    expect(completed.statusCode).toBe(200);
+    expect(completed.body.order.status).toBe('COMPLETED');
+    expect(completed.body.issued_token).toBeTruthy();
+
+    const localUsers = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    const localUser = localUsers.find(user => user.username === 'auto-provision');
+    expect(localUser.tier).toBe('premium');
+    expect(localUser.fulfilled_payment_orders).toEqual([created.body.order.id]);
+
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    const proxyUser = proxy.users.find(user => user.user_id === 'auto-provision');
+    expect(proxyUser.token).toBe(completed.body.issued_token);
+    expect(proxyUser.role).toBe('premium');
+    expect(proxyUser.fulfilled_payment_orders).toEqual([created.body.order.id]);
+
+    const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
+    expect(pending.find(item => item.id === registration.id).status).toBe('approved');
+  });
+
+  it('preserves an existing token, extends from current expiry, and is idempotent', async () => {
+    process.env.PAYMENT_MOCK_ENABLED = 'true';
+    const account = seedPaidAccount();
+    const { cookie } = await loginPaidAccount(account);
+    const created = await request(app)
+      .post('/api/payment/orders')
+      .set('Cookie', cookie)
+      .send({
+        bundle_id: 'standard-2m',
+        payment_method: 'alipay'
+      });
+    expect(created.statusCode).toBe(201);
+
+    const first = await request(app)
+      .post(`/api/payment/mock/${created.body.order.id}/complete`)
+      .send({ resume_token: created.body.resume_token });
+    expect(first.statusCode).toBe(200);
+    const afterFirst = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users[0];
+    const firstExpiry = afterFirst.expires_at;
+    const extensionDays = (new Date(firstExpiry) - new Date(account.expiry)) / 86400000;
+    expect(afterFirst.token).toBe(account.token);
+    expect(extensionDays).toBeGreaterThan(59.9);
+    expect(extensionDays).toBeLessThan(60.1);
+
+    const duplicate = await request(app)
+      .post(`/api/payment/mock/${created.body.order.id}/complete`)
+      .send({ resume_token: created.body.resume_token });
+    const afterDuplicate = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users[0];
+    expect(duplicate.statusCode).toBe(200);
+    expect(afterDuplicate.token).toBe(account.token);
+    expect(afterDuplicate.expires_at).toBe(firstExpiry);
+    expect(afterDuplicate.fulfilled_payment_orders).toEqual([created.body.order.id]);
+  });
+
+  it('does not expose payment orders without the account session or resume token', async () => {
+    const registration = await createRegistrationCheckout();
+    const created = await createRegistrationOrder({ registration });
+    const missing = await request(app).get(`/api/payment/orders/${created.body.order.id}`);
+    const wrong = await request(app)
+      .get(`/api/payment/orders/${created.body.order.id}`)
+      .query({ resume_token: 'wrong-token' });
+    const allowed = await request(app)
+      .get(`/api/payment/orders/${created.body.order.id}`)
+      .query({ resume_token: created.body.resume_token });
+    expect(missing.statusCode).toBe(404);
+    expect(wrong.statusCode).toBe(404);
+    expect(allowed.statusCode).toBe(200);
+  });
+
+  it('keeps a paid synchronization failure retryable without double provisioning', async () => {
+    process.env.PAYMENT_MOCK_ENABLED = 'true';
+    const registration = await createRegistrationCheckout({ username: 'retry-payment' });
+    const created = await createRegistrationOrder({ registration });
+
+    fs.unlinkSync(TEST_PROXY_FILE);
+    fs.mkdirSync(TEST_PROXY_FILE);
+    const failed = await request(app)
+      .post(`/api/payment/mock/${created.body.order.id}/complete`)
+      .send({ resume_token: created.body.resume_token });
+    expect(failed.statusCode).toBe(500);
+    expect(failed.body.retryable).toBe(true);
+    expect(failed.body.order.status).toBe('FAILED');
+
+    fs.rmSync(TEST_PROXY_FILE, { recursive: true, force: true });
+    fs.writeFileSync(TEST_PROXY_FILE, '{"users":[]}');
+    const retried = await request(app)
+      .post(`/api/payment/mock/${created.body.order.id}/complete`)
+      .send({ resume_token: created.body.resume_token });
+    expect(retried.statusCode).toBe(200);
+    expect(retried.body.order.status).toBe('COMPLETED');
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    expect(proxy.users).toHaveLength(1);
+    expect(proxy.users[0].fulfilled_payment_orders).toEqual([created.body.order.id]);
+  });
+
+  it('ships the OpenAI-style checkout UI and registration redirect contract', () => {
+    const checkoutSource = fs.readFileSync(path.join(__dirname, 'public', 'checkout-page.jsx'), 'utf8');
+    const checkoutCss = fs.readFileSync(path.join(__dirname, 'public', 'checkout.css'), 'utf8');
+    const registerSource = fs.readFileSync(path.join(__dirname, 'public', 'register-page.jsx'), 'utf8');
+    expect(checkoutSource).toContain('支付宝');
+    expect(checkoutSource).toContain('微信支付');
+    expect(checkoutSource).toContain('stripe_card');
+    expect(checkoutSource).toContain('alipay-wordmark');
+    expect(checkoutSource).toContain('stripe-wordmark');
+    expect(checkoutSource).toContain('ALIPAY');
+    expect(checkoutSource).toContain('由 Stripe 安全处理卡号与 CVV');
+    expect(checkoutSource).toContain('created.checkout_url');
+    expect(checkoutSource).toContain('无需管理员批准');
+    expect(checkoutCss).toContain('grid-template-columns: minmax(0, 488px) minmax(390px, 432px)');
+    expect(checkoutCss).toContain('background: #0d0d0d');
+    expect(registerSource).toContain('window.location.assign(data.checkout_url)');
+    expect(registerSource).toContain('创建账户并选择套餐');
+    expect(registerSource).toContain('继续选择套餐与支付');
   });
 });
 
@@ -992,6 +1491,20 @@ describe('POST /api/check-status', () => {
     });
     const res = await request(app).post('/api/check-status').send({ username: 'pend', phone: '111' });
     expect(res.body.status).toBe('pending');
+  });
+
+  it('returns a resumable checkout for an unpaid registered user', async () => {
+    await request(app).post('/api/register').send({
+      username: 'pay-later',
+      phone: '222',
+      email: 'pay-later@example.com'
+    });
+    const res = await request(app)
+      .post('/api/check-status')
+      .send({ username: 'pay-later', phone: '222' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.status).toBe('payment_pending');
+    expect(res.body.checkout_url).toMatch(/^\/checkout\?checkout_token=/);
   });
 });
 

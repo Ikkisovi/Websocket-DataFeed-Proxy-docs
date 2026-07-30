@@ -34,7 +34,7 @@ const TIERS = [
   {
     id: "trial",
     name: "Trial",
-    price: "$30",
+    price: "¥30",
     period: "/ 3 days",
     tagline: "短期体验",
     desc: "3 天试用 · 全部 WS 通道 · 不可续期",
@@ -69,7 +69,7 @@ const TIERS = [
   {
     id: "value",
     name: "Value",
-    price: "$50",
+    price: "¥50",
     period: "/ month",
     tagline: "REST 二选一 · 限速",
     desc: "全部 WS 通道 + REST 股票或期权二选一 · 限速 30 req/min",
@@ -91,7 +91,7 @@ const TIERS = [
   {
     id: "standard",
     name: "Standard",
-    price: "$80",
+    price: "¥80",
     period: "/ month",
     tagline: "主流套餐",
     desc: "全部 WS 通道 · 50 symbols · stocks + options 历史",
@@ -108,7 +108,7 @@ const TIERS = [
   {
     id: "premium",
     name: "Premium",
-    price: "$130",
+    price: "¥130",
     period: "/ month",
     tagline: "完整接入",
     desc: "全部 WS 通道 · 500 symbols · 全部 REST 含 crypto",
@@ -153,6 +153,7 @@ function RegisterPage() {
   const [checkMsg, setCheckMsg] = useRegState("");
   const [checkStatus, setCheckStatus] = useRegState(""); // "approved", "rejected", "pending", "not_found", "error"
   const [checkTokenInfo, setCheckTokenInfo] = useRegState(null); // { token, expiry, role }
+  const [checkCheckoutUrl, setCheckCheckoutUrl] = useRegState("");
   const [checkLoading, setCheckLoading] = useRegState(false);
 
   // Handle Registration Submit
@@ -168,11 +169,6 @@ function RegisterPage() {
       setRegStatus("error");
       return;
     }
-    if (tier === "value" && !mode) {
-      setRegMsg("Value 套餐请先选择 REST 数据方向（股票 或 期权）。");
-      setRegStatus("error");
-      return;
-    }
     setRegLoading(true);
     setRegMsg("");
     setRegStatus("");
@@ -184,18 +180,21 @@ function RegisterPage() {
         body: JSON.stringify({
           username: regUsername.trim(),
           phone: regPhone.trim(),
-          tier,
-          email: regEmail.trim(),
-          ...(tier === "value" && mode && { mode })
+          email: regEmail.trim()
         })
       });
       const data = await resp.json();
       if (resp.ok && data.success) {
-        setRegMsg(data.message || "注册提交成功，等待审核。");
+        if (data.checkout_url) {
+          setRegMsg(data.resumed
+            ? "已恢复账户，正在进入套餐与支付管理…"
+            : "账户信息已保存，正在进入套餐与支付管理…");
+          setRegStatus("success");
+          window.location.assign(data.checkout_url);
+          return;
+        }
+        setRegMsg(data.message || "Trial 注册已提交，等待审核。");
         setRegStatus("success");
-        setRegUsername("");
-        setRegPhone("");
-        setRegEmail("");
       } else {
         setRegMsg(data.message || "注册失败，请检查输入。");
         setRegStatus("error");
@@ -220,6 +219,7 @@ function RegisterPage() {
     setCheckMsg("");
     setCheckStatus("");
     setCheckTokenInfo(null);
+    setCheckCheckoutUrl("");
 
     try {
       const resp = await fetch('/api/check-status', {
@@ -234,6 +234,7 @@ function RegisterPage() {
       if (resp.ok && data.success) {
         setCheckMsg(data.message);
         setCheckStatus(data.status);
+        setCheckCheckoutUrl(data.checkout_url || "");
         if (data.status === 'approved' && data.token) {
           setCheckTokenInfo({ token: data.token, expiry: data.expiry, role: data.role });
         }
@@ -262,19 +263,21 @@ function RegisterPage() {
       }}>
         {/* Hero */}
         <div style={{ maxWidth: 980, margin: "0 auto" }}>
-          <div className="eyebrow" style={{ marginBottom: 14 }}>注册 · 待审核</div>
+          <div className="eyebrow" style={{ marginBottom: 14 }}>创建账户 · 套餐与支付</div>
           <h1 className="display-title" style={{ fontSize: 52, margin: "0 0 12px", lineHeight: 1.02 }}>
             新用户 <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>注册</span>
           </h1>
           <p style={{ color: "var(--ink-muted)", margin: "0 0 36px", fontSize: 15, maxWidth: 560 }}>
-            选择 Token 套餐并填写信息，或进入一次性 Bulk Download 下单。
-            Token 注册不会立即开通 — 通常 1 个工作日内完成审核。
+            先创建账户，下一步再选择套餐、时长与支付方式。中途退出也可以使用原用户名与手机号恢复，
+            不会重复创建注册流程。支付成功后自动开通，无需管理员批准。
           </p>
 
           {/* Layout: form + status side by side */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 32, alignItems: "start" }}>
             {/* Left: tiers + form */}
             <div>
+              {false && (
+              <>
               {/* Tier cards */}
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
                 <div className="eyebrow">1 · 选择服务等级</div>
@@ -488,9 +491,11 @@ function RegisterPage() {
                   </tbody>
                 </table>
               </div>
+              </>
+              )}
 
               {/* Form fields */}
-              <div className="eyebrow" style={{ marginBottom: 10 }}>2 · 账户信息</div>
+              <div className="eyebrow" style={{ marginBottom: 10 }}>1 · 创建账户</div>
               <div className="card" style={{ padding: 24 }}>
                 <form onSubmit={handleRegisterSubmit}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
@@ -544,11 +549,7 @@ function RegisterPage() {
                   }}>
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--warn)", flex: "0 0 auto" }}></span>
                     <span>
-                      您选择的套餐：
-                      <strong style={{ color: "var(--ink-strong)", margin: "0 4px" }}>
-                        {TIERS.find(t => t.id === tier).name} {TIERS.find(t => t.id === tier).price}{TIERS.find(t => t.id === tier).period}
-                      </strong>
-                      · 提交后会进入待审核队列
+                      下一步选择套餐、订阅时长和支付方式。返回本页时可使用同一账户信息继续。
                     </span>
                   </div>
 
@@ -558,7 +559,7 @@ function RegisterPage() {
                     className="btn primary" 
                     style={{ width: "100%", justifyContent: "center", marginTop: 18, padding: "12px", opacity: regLoading ? 0.7 : 1 }}
                   >
-                    {regLoading ? "提交中..." : "提交注册 →"}
+                    {regLoading ? "正在创建账户…" : "创建账户并选择套餐 →"}
                   </button>
                 </form>
 
@@ -630,9 +631,9 @@ function RegisterPage() {
                     padding: 12,
                     borderRadius: "var(--radius-md)",
                     background: checkStatus === "approved" ? "var(--ok-soft)" : 
-                                checkStatus === "pending" ? "var(--warn-soft)" : "var(--danger-soft)",
+                                ["pending", "payment_pending"].includes(checkStatus) ? "var(--warn-soft)" : "var(--danger-soft)",
                     border: checkStatus === "approved" ? "1px solid var(--ok)" : 
-                            checkStatus === "pending" ? "1px solid var(--warn)" : "1px solid var(--danger)",
+                            ["pending", "payment_pending"].includes(checkStatus) ? "1px solid var(--warn)" : "1px solid var(--danger)",
                     display: "flex",
                     gap: 10,
                     alignItems: "flex-start",
@@ -641,8 +642,8 @@ function RegisterPage() {
                       width: 6, 
                       height: 6, 
                       borderRadius: "50%", 
-                      background: checkStatus === "approved" ? "var(--ok)" : 
-                                  checkStatus === "pending" ? "var(--warn)" : "var(--danger)", 
+                      background: checkStatus === "approved" ? "var(--ok)" :
+                                  ["pending", "payment_pending"].includes(checkStatus) ? "var(--warn)" : "var(--danger)",
                       marginTop: 6, 
                       flex: "0 0 auto" 
                     }}></span>
@@ -654,6 +655,7 @@ function RegisterPage() {
                         marginBottom: 2 
                       }}>
                         {checkStatus === "approved" ? "审核已通过" : 
+                         checkStatus === "payment_pending" ? "账户已创建" :
                          checkStatus === "pending" ? "审核中" : 
                          checkStatus === "rejected" ? "审核未通过" : 
                          checkStatus === "not_found" ? "未找到记录" : "查询出错"}
@@ -661,6 +663,16 @@ function RegisterPage() {
                       <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
                         {checkMsg}
                       </div>
+                      {checkCheckoutUrl && (
+                        <button
+                          type="button"
+                          className="btn primary"
+                          onClick={() => window.location.assign(checkCheckoutUrl)}
+                          style={{ width: "100%", justifyContent: "center", marginTop: 10 }}
+                        >
+                          继续选择套餐与支付 →
+                        </button>
+                      )}
                       {checkTokenInfo && (
                         <div style={{ marginTop: 8, padding: "8px 10px", background: "var(--bg-sunken)", borderRadius: 6, fontFamily: "var(--f-mono)", fontSize: 11.5 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
@@ -684,7 +696,7 @@ function RegisterPage() {
                 <hr style={{ border: 0, borderTop: "1px solid var(--rule)", margin: "20px 0 14px" }} />
                 <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
                   <strong style={{ color: "var(--ink-strong)" }}>状态说明 · </strong>
-                  <span style={{ fontFamily: "var(--f-mono)" }}>pending → approved → rejected</span>
+                  <span style={{ fontFamily: "var(--f-mono)" }}>payment pending → active</span>
                 </div>
               </div>
 

@@ -13,6 +13,8 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const ADMIN_PASSWORD_FILE = process.env.ADMIN_PASSWORD_FILE
   || path.join(DATA_DIR, 'admin-password.env');
+const STRIPE_PAYMENT_ENV_FILE = process.env.STRIPE_PAYMENT_ENV_FILE
+  || path.join(DATA_DIR, 'stripe-payment.env');
 
 function configuredAdminPassword() {
   if (process.env.ADMIN_PASSWORD) return process.env.ADMIN_PASSWORD;
@@ -29,6 +31,11 @@ function configuredAdminPassword() {
 }
 
 app.use(cors());
+app.post(
+  '/api/payment/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  handleStripeWebhook
+);
 app.use(bodyParser.json());
 
 // Mobile UA detection — serve mobile.html for phones/tablets
@@ -42,7 +49,8 @@ app.use((req, res, next) => {
     if (req.path === '/docs' || req.path === '/docs/' || req.path === '/docs/index.html') {
       return res.sendFile(path.join(__dirname, 'public', 'docs', 'mobile.html'));
     }
-    if (req.path === '/register' || req.path === '/register.html') {
+    if ((req.path === '/register' || req.path === '/register.html')
+      && fs.existsSync(path.join(__dirname, 'public', 'register-mobile.html'))) {
       return res.sendFile(path.join(__dirname, 'public', 'register-mobile.html'));
     }
   }
@@ -54,12 +62,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Clean URL routes (no .html suffix needed)
 app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'public', 'register.html')));
 app.get('/account', (req, res) => res.sendFile(path.join(__dirname, 'public', 'account.html')));
+app.get('/checkout', (req, res) => res.sendFile(path.join(__dirname, 'public', 'checkout.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
 // --- Data paths (overridable for tests via env) ---
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const PENDING_FILE = path.join(DATA_DIR, 'pending.json');
 const BULK_ORDERS_FILE = path.join(DATA_DIR, 'bulk-orders.json');
+const PAYMENT_ORDERS_FILE = path.join(DATA_DIR, 'payment-orders.json');
 
 const CLOUD_HOST_LABEL = process.env.CLOUD_HOST_LABEL || 'Aliyun';
 const IS_CLOUD_HOST = fs.existsSync('/srv/leandata') || fs.existsSync('/mnt/leandata-v2') || fs.existsSync('/home/opc');
@@ -162,11 +172,78 @@ const TIERS = {
   }
 };
 const PUBLIC_REGISTRATION_TIER_IDS = new Set(['trial', 'value', 'standard', 'premium']);
+const PAYMENT_METHOD_IDS = new Set(['alipay', 'wechat_pay', 'stripe_card']);
+const PAYMENT_DURATION_MONTHS = [1, 2, 3, 6, 12];
+const PAYMENT_MONTHLY_PRICES_CNY_FEN = {
+  basic: 4000,
+  value: 5000,
+  standard: 8000,
+  premium: 13000
+};
+
+const PAYMENT_PLAN_DETAILS = {
+  basic: {
+    name: 'Basic',
+    summary: '轻量历史数据访问',
+    features: ['股票与期权历史查询', 'REST API 访问', '适合低频研究', '不包含实时 WebSocket'],
+    renewal_only: true
+  },
+  value: {
+    name: 'Value',
+    summary: '实时数据与单方向历史数据',
+    features: ['全部实时 WebSocket 通道', '股票或期权历史数据二选一', '30 symbols 实时订阅', '2 个并发 WS 连接'],
+    modes: ['stocks', 'options']
+  },
+  standard: {
+    name: 'Standard',
+    summary: '主流研究与交易工作流',
+    features: ['全部实时 WebSocket 通道', '股票与期权历史数据', '50 symbols 实时订阅', '3 个并发 WS 连接']
+  },
+  premium: {
+    name: 'Premium',
+    summary: '完整数据权限与最高容量',
+    features: ['全部实时 WebSocket 通道', '完整 REST 数据范围', '500 symbols 实时订阅', '包含 crypto 与 news 数据']
+  }
+};
+
+function buildPaymentBundles() {
+  const bundles = {};
+  for (const [tier, details] of Object.entries(PAYMENT_PLAN_DETAILS)) {
+    const modes = details.modes || [null];
+    for (const mode of modes) {
+      for (const months of PAYMENT_DURATION_MONTHS) {
+        const id = [tier, mode, `${months}m`].filter(Boolean).join('-');
+        const tierConfig = TIERS[tier];
+        const days = months * (tierConfig.expiryDays || 30);
+        bundles[id] = {
+          id,
+          tier,
+          mode,
+          months,
+          days,
+          currency: 'CNY',
+          amount_cny_fen: PAYMENT_MONTHLY_PRICES_CNY_FEN[tier] * months,
+          monthly_amount_cny_fen: PAYMENT_MONTHLY_PRICES_CNY_FEN[tier],
+          role: tierConfig.role,
+          permissions: resolvePermissions(tierConfig, mode),
+          name: details.name,
+          summary: details.summary,
+          features: details.features,
+          renewal_only: details.renewal_only === true
+        };
+      }
+    }
+  }
+  return bundles;
+}
+
+const PAYMENT_BUNDLES = buildPaymentBundles();
 
 // --- In-memory admin sessions ---
 const adminSessions = new Set();
 const accountSessions = new Map();
 const accountLoginAttempts = new Map();
+const paymentFulfillmentLocks = new Map();
 const ACCOUNT_SESSION_COOKIE = 'leandata_account_session';
 const ACCOUNT_SESSION_TTL_MS = Math.max(
   15 * 60 * 1000,
@@ -184,6 +261,214 @@ function readJSON(filepath, fallback = []) {
 
 function writeJSON(filepath, data) {
   fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
+}
+
+function writeJSONAtomic(filepath, data) {
+  fs.mkdirSync(path.dirname(filepath), { recursive: true });
+  const temporaryPath = `${filepath}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
+  try {
+    fs.writeFileSync(temporaryPath, JSON.stringify(data, null, 2), { mode: 0o600 });
+    fs.renameSync(temporaryPath, filepath);
+  } catch (error) {
+    try {
+      if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath);
+    } catch (_) {}
+    throw error;
+  }
+}
+
+function paymentTokenHash(token) {
+  return crypto.createHash('sha256').update(String(token || ''), 'utf8').digest('hex');
+}
+
+function paymentTokenMatches(token, expectedHash) {
+  return Boolean(token && expectedHash && safeEqual(paymentTokenHash(token), expectedHash));
+}
+
+function refreshRegistrationCheckout(pending, entry) {
+  const checkoutToken = crypto.randomBytes(32).toString('base64url');
+  entry.checkout_token_hash = paymentTokenHash(checkoutToken);
+  entry.checkout_token_issued_at = new Date().toISOString();
+  writeJSONAtomic(PENDING_FILE, pending);
+  return {
+    checkout_token: checkoutToken,
+    checkout_url: `/checkout?checkout_token=${encodeURIComponent(checkoutToken)}`
+  };
+}
+
+function loadStripePaymentEnvFile() {
+  try {
+    const stat = fs.statSync(STRIPE_PAYMENT_ENV_FILE);
+    if ((stat.mode & 0o077) !== 0) return {};
+    const values = {};
+    for (const rawLine of fs.readFileSync(STRIPE_PAYMENT_ENV_FILE, 'utf8').split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#') || !line.includes('=')) continue;
+      const splitAt = line.indexOf('=');
+      const key = line.slice(0, splitAt).trim();
+      let value = line.slice(splitAt + 1).trim();
+      if (
+        value.length >= 2
+        && ((value.startsWith('"') && value.endsWith('"'))
+          || (value.startsWith("'") && value.endsWith("'")))
+      ) value = value.slice(1, -1);
+      values[key] = value;
+    }
+    return values;
+  } catch {
+    return {};
+  }
+}
+
+function stripePaymentSetting(name) {
+  return String(process.env[name] || loadStripePaymentEnvFile()[name] || '').trim();
+}
+
+function stripeSecretKey() {
+  return stripePaymentSetting('STRIPE_SECRET_KEY');
+}
+
+function stripeConfigured() {
+  return Boolean(
+    stripeSecretKey()
+    && stripePaymentSetting('STRIPE_WEBHOOK_SECRET')
+  );
+}
+
+async function createStripeCheckoutSession(order, bundle, customerEmail, successUrl, cancelUrl) {
+  const form = new URLSearchParams();
+  form.set('mode', 'payment');
+  form.set('client_reference_id', order.id);
+  if (customerEmail) form.set('customer_email', customerEmail);
+  form.set('line_items[0][price_data][currency]', 'cny');
+  form.set('line_items[0][price_data][unit_amount]', String(bundle.amount_cny_fen));
+  form.set('line_items[0][price_data][product_data][name]', `Leandata ${bundle.name} 套餐`);
+  form.set('line_items[0][price_data][product_data][description]', `${bundle.months} 个月数据访问`);
+  form.set('line_items[0][quantity]', '1');
+  form.set('metadata[order_id]', order.id);
+  form.set('metadata[bundle_id]', bundle.id);
+  form.set('metadata[order_kind]', order.kind);
+  form.set('payment_intent_data[metadata][order_id]', order.id);
+  form.set('payment_intent_data[metadata][bundle_id]', bundle.id);
+  form.set('success_url', successUrl);
+  form.set('cancel_url', cancelUrl);
+
+  const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${stripeSecretKey()}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Idempotency-Key': `checkout-session-${order.id}`,
+      'Stripe-Version': '2026-02-25.clover',
+      'User-Agent': 'Leandata-Checkout/1.0'
+    },
+    body: form.toString()
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.error?.message || `Stripe API returned HTTP ${response.status}.`);
+  }
+  if (!payload.id || !payload.url) {
+    throw new Error('Stripe Checkout response did not include a session ID and URL.');
+  }
+  return payload;
+}
+
+function constructStripeWebhookEvent(payload, signatureHeader, webhookSecret) {
+  const signatureParts = String(signatureHeader || '').split(',');
+  let timestamp = '';
+  const signatures = [];
+  for (const part of signatureParts) {
+    const separator = part.indexOf('=');
+    if (separator < 1) continue;
+    const key = part.slice(0, separator).trim();
+    const value = part.slice(separator + 1).trim();
+    if (key === 't') timestamp = value;
+    if (key === 'v1') signatures.push(value);
+  }
+  if (!/^\d+$/.test(timestamp) || signatures.length === 0) {
+    throw new Error('Stripe-Signature header is malformed.');
+  }
+  if (Math.abs(Math.floor(Date.now() / 1000) - Number(timestamp)) > 300) {
+    throw new Error('Stripe webhook timestamp is outside the allowed tolerance.');
+  }
+  const rawPayload = Buffer.isBuffer(payload) ? payload : Buffer.from(payload || '');
+  const expected = crypto
+    .createHmac('sha256', webhookSecret)
+    .update(`${timestamp}.`, 'utf8')
+    .update(rawPayload)
+    .digest('hex');
+  if (!signatures.some(signature => safeEqual(signature, expected))) {
+    throw new Error('Stripe webhook signature does not match.');
+  }
+  return JSON.parse(rawPayload.toString('utf8'));
+}
+
+function paymentBaseUrl(req) {
+  const configured = stripePaymentSetting('PAYMENT_PUBLIC_BASE_URL');
+  if (configured) return configured.replace(/\/+$/, '');
+  return `${req.protocol}://${req.get('host')}`.replace(/\/+$/, '');
+}
+
+function enabledPaymentMethods() {
+  const mockEnabled = process.env.PAYMENT_MOCK_ENABLED === 'true';
+  const methods = [];
+  if (mockEnabled || process.env.PAYMENT_ALIPAY_ENABLED !== 'false') {
+    methods.push({ id: 'alipay', name: '支付宝', color: '#1677ff' });
+  }
+  if (process.env.PAYMENT_WECHAT_ENABLED === 'true') {
+    methods.push({ id: 'wechat_pay', name: '微信支付', color: '#07c160' });
+  }
+  methods.push({
+    id: 'stripe_card',
+    name: '信用卡 / 借记卡',
+    color: '#635bff',
+    configured: stripeConfigured()
+  });
+  return methods;
+}
+
+function readPaymentOrders() {
+  return readJSON(PAYMENT_ORDERS_FILE, []);
+}
+
+function writePaymentOrders(orders) {
+  writeJSONAtomic(PAYMENT_ORDERS_FILE, orders);
+}
+
+function publicPaymentBundle(bundle) {
+  return {
+    id: bundle.id,
+    tier: bundle.tier,
+    mode: bundle.mode || null,
+    months: bundle.months,
+    days: bundle.days,
+    currency: bundle.currency,
+    amount_cny_fen: bundle.amount_cny_fen,
+    monthly_amount_cny_fen: bundle.monthly_amount_cny_fen,
+    name: bundle.name,
+    summary: bundle.summary,
+    features: bundle.features,
+    renewal_only: bundle.renewal_only
+  };
+}
+
+function publicPaymentOrder(order) {
+  const needsAttention = order.status === 'FAILED' || order.status === 'MANUAL_REVIEW';
+  return {
+    id: order.id,
+    kind: order.kind,
+    status: order.status,
+    bundle: publicPaymentBundle(order.bundle),
+    payment_method: order.payment_method,
+    provider: order.provider,
+    created_at: order.created_at,
+    paid_at: order.paid_at || null,
+    completed_at: order.completed_at || null,
+    retryable: order.status === 'FAILED' && order.payment_status === 'PAID',
+    error: needsAttention ? (order.last_error || '支付订单需要人工检查。') : null,
+    account: order.account || null
+  };
 }
 
 function requireAdmin(req, res, next) {
@@ -438,7 +723,7 @@ function writeProxyUsersAndSync(data) {
 
 async function writeProxyUsersAndSyncAsync(data) {
   const beforeCount = data.users ? data.users.length : 0;
-  writeJSON(PROXY_USERS_FILE, data);
+  writeJSONAtomic(PROXY_USERS_FILE, data);
 
   // Post-write verification: read back and confirm user count matches
   try {
@@ -483,6 +768,328 @@ function computeRenewalExpiry(currentExpiry, days) {
   const expiry = new Date(base);
   expiry.setDate(expiry.getDate() + (Number(days) || 30));
   return expiry.toISOString();
+}
+
+function resolvePaymentCheckoutContext(req, checkoutToken) {
+  const token = String(checkoutToken || '').trim();
+  if (token) {
+    const entry = readJSON(PENDING_FILE).find(item =>
+      item.type === 'registration'
+      && item.status === 'payment_pending'
+      && paymentTokenMatches(token, item.checkout_token_hash)
+    );
+    if (!entry) return null;
+    return {
+      kind: 'registration',
+      registration: entry,
+      suggested_tier: entry.tier || 'standard',
+      suggested_mode: entry.mode || null
+    };
+  }
+
+  const resolved = resolveAccountSession(req);
+  if (!resolved) return null;
+  const localUser = findLocalAccount(resolved.session.user_id);
+  const proxyUser = findProxyAccount(resolved.session.user_id);
+  if (!localUser || !proxyUser || !proxyUser.token) return null;
+  return {
+    kind: 'renewal',
+    user_id: resolved.session.user_id,
+    localUser,
+    proxyUser,
+    suggested_tier: localUser.tier || proxyUser.role || 'standard',
+    suggested_mode: localUser.mode || null
+  };
+}
+
+function paymentBundleAllowedForContext(bundle, context) {
+  if (!bundle || !context) return false;
+  if (context.kind === 'registration') {
+    return bundle.renewal_only !== true;
+  }
+  return ['basic', 'value', 'standard', 'premium'].includes(bundle.tier);
+}
+
+function checkoutPlansForContext(context) {
+  const allowedTiers = context.kind === 'registration'
+    ? ['value', 'standard', 'premium']
+    : ['basic', 'value', 'standard', 'premium'];
+  return allowedTiers.map(tier => {
+    const details = PAYMENT_PLAN_DETAILS[tier];
+    return {
+      id: tier,
+      name: details.name,
+      summary: details.summary,
+      features: details.features,
+      modes: details.modes || [],
+      monthly_amount_cny_fen: PAYMENT_MONTHLY_PRICES_CNY_FEN[tier],
+      duration_months: PAYMENT_DURATION_MONTHS
+    };
+  });
+}
+
+function paymentOrderAccessAllowed(req, order, resumeToken, checkoutToken) {
+  if (paymentTokenMatches(resumeToken, order.resume_token_hash)) return true;
+  if (order.kind === 'registration'
+      && paymentTokenMatches(checkoutToken, order.checkout_token_hash)) {
+    return true;
+  }
+  const checkoutContext = resolvePaymentCheckoutContext(req, checkoutToken);
+  if (checkoutContext?.kind === 'registration'
+      && order.kind === 'registration'
+      && order.registration_id === checkoutContext.registration.id) {
+    return true;
+  }
+  const resolved = resolveAccountSession(req);
+  return Boolean(
+    resolved
+    && order.kind === 'renewal'
+    && order.user_id === resolved.session.user_id
+  );
+}
+
+function updatePaymentOrder(orderId, updater) {
+  const orders = readPaymentOrders();
+  const index = orders.findIndex(order => order.id === orderId);
+  if (index < 0) return null;
+  const updated = updater({ ...orders[index] }) || orders[index];
+  orders[index] = updated;
+  writePaymentOrders(orders);
+  return updated;
+}
+
+function fulfilledPaymentOrderIds(user) {
+  return Array.isArray(user?.fulfilled_payment_orders)
+    ? user.fulfilled_payment_orders.filter(Boolean)
+    : [];
+}
+
+function addFulfilledPaymentOrder(user, orderId) {
+  user.fulfilled_payment_orders = [...new Set([...fulfilledPaymentOrderIds(user), orderId])];
+}
+
+async function fulfillPaymentOrderUnlocked(orderId) {
+  let order = readPaymentOrders().find(item => item.id === orderId);
+  if (!order) throw new Error('支付订单不存在。');
+  if (order.status === 'COMPLETED') {
+    const existing = findProxyAccount(order.user_id || order.registration?.username);
+    return { order, token: existing?.token || null };
+  }
+  if (order.payment_status !== 'PAID') {
+    throw new Error('订单尚未支付。');
+  }
+
+  order = updatePaymentOrder(orderId, current => ({
+    ...current,
+    status: 'FULFILLING',
+    fulfillment_attempts: Number(current.fulfillment_attempts || 0) + 1,
+    last_fulfillment_at: new Date().toISOString(),
+    last_error: null
+  }));
+
+  const bundle = PAYMENT_BUNDLES[order.bundle_id];
+  if (!bundle
+      || bundle.amount_cny_fen !== order.bundle.amount_cny_fen
+      || bundle.currency !== order.bundle.currency) {
+    throw new Error('订单 bundle 快照校验失败。');
+  }
+
+  const targetUserId = order.kind === 'registration'
+    ? order.registration.username
+    : order.user_id;
+  const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+  if (!Array.isArray(proxyData.users)) proxyData.users = [];
+  let proxyUser = proxyData.users.find(user => user.user_id === targetUserId);
+  const proxyAlreadyApplied = proxyUser && fulfilledPaymentOrderIds(proxyUser).includes(order.id);
+
+  if (order.kind === 'renewal' && (!proxyUser || !proxyUser.token)) {
+    throw new Error('续费账户的现有 Token 不存在，无法自动续期。');
+  }
+  if (order.kind === 'registration' && proxyUser && !proxyAlreadyApplied) {
+    throw new Error('该用户名已经开通过数据访问，请使用账户管理续费。');
+  }
+
+  if (!proxyAlreadyApplied) {
+    if (!proxyUser) {
+      proxyUser = {
+        token: crypto.randomUUID(),
+        user_id: targetUserId
+      };
+      proxyData.users.push(proxyUser);
+    }
+    proxyUser.role = bundle.role;
+    proxyUser.permissions = bundle.permissions;
+    proxyUser.expires_at = computeRenewalExpiry(
+      order.kind === 'renewal' ? proxyUser.expires_at : null,
+      bundle.days
+    );
+    if (order.registration?.email) proxyUser.email = order.registration.email;
+    addFulfilledPaymentOrder(proxyUser, order.id);
+
+    const syncResult = await writeProxyUsersAndSyncAsync(proxyData);
+    if (!syncResult.ok) {
+      throw new Error(`数据服务注册表同步失败：${syncResult.message}`);
+    }
+  }
+
+  const localUsers = readJSON(USERS_FILE);
+  const localIndex = localUsers.findIndex(user => user.username === targetUserId);
+  const previousLocalUser = localIndex >= 0 ? localUsers[localIndex] : null;
+  if (order.kind === 'renewal' && !previousLocalUser) {
+    throw new Error('本地账户记录不存在，无法自动续期。');
+  }
+  const localUser = {
+    ...(previousLocalUser || {}),
+    username: targetUserId,
+    phone: order.registration?.phone || previousLocalUser?.phone,
+    email: order.registration?.email || previousLocalUser?.email,
+    role: bundle.role,
+    tier: bundle.tier,
+    permissions: bundle.permissions,
+    ...(bundle.mode ? { mode: bundle.mode } : {})
+  };
+  if (!bundle.mode) delete localUser.mode;
+  addFulfilledPaymentOrder(localUser, order.id);
+  if (localIndex >= 0) localUsers[localIndex] = localUser;
+  else localUsers.push(localUser);
+  writeJSONAtomic(USERS_FILE, localUsers);
+
+  if (order.kind === 'registration') {
+    const pending = readJSON(PENDING_FILE);
+    const registration = pending.find(item => item.id === order.registration_id);
+    if (!registration) throw new Error('注册记录不存在，无法完成自动开通。');
+    registration.status = 'approved';
+    registration.approved_at = new Date().toISOString();
+    registration.payment_order_id = order.id;
+    registration.payment_method = order.payment_method;
+    delete registration.checkout_token_hash;
+    writeJSONAtomic(PENDING_FILE, pending);
+  }
+
+  const completedAt = new Date().toISOString();
+  order = updatePaymentOrder(order.id, current => ({
+    ...current,
+    status: 'COMPLETED',
+    completed_at: completedAt,
+    ...(order.kind === 'registration' && { issued_token: proxyUser.token }),
+    account: {
+      user_id: targetUserId,
+      role: bundle.role,
+      tier: bundle.tier,
+      mode: bundle.mode || null,
+      expiry: proxyUser.expires_at,
+      token_masked: maskToken(proxyUser.token)
+    }
+  }));
+
+  if (order.kind === 'registration') {
+    const orders = readPaymentOrders();
+    let changed = false;
+    for (const sibling of orders) {
+      if (sibling.id !== order.id
+          && sibling.registration_id === order.registration_id
+          && sibling.status === 'PENDING') {
+        sibling.status = 'CANCELLED';
+        sibling.cancelled_at = completedAt;
+        sibling.last_error = '同一注册流程已由其他订单完成。';
+        changed = true;
+      }
+    }
+    if (changed) writePaymentOrders(orders);
+  }
+
+  return { order, token: proxyUser.token };
+}
+
+async function fulfillPaymentOrder(orderId) {
+  if (paymentFulfillmentLocks.has(orderId)) {
+    return paymentFulfillmentLocks.get(orderId);
+  }
+  const promise = fulfillPaymentOrderUnlocked(orderId)
+    .catch(error => {
+      updatePaymentOrder(orderId, current => ({
+        ...current,
+        status: 'FAILED',
+        last_error: error.message,
+        failed_at: new Date().toISOString()
+      }));
+      throw error;
+    })
+    .finally(() => {
+      paymentFulfillmentLocks.delete(orderId);
+    });
+  paymentFulfillmentLocks.set(orderId, promise);
+  return promise;
+}
+
+async function handleStripeWebhook(req, res) {
+  const webhookSecret = stripePaymentSetting('STRIPE_WEBHOOK_SECRET');
+  if (!stripeSecretKey() || !webhookSecret) {
+    return res.status(503).send('Stripe webhook is not configured.');
+  }
+
+  const signature = req.headers['stripe-signature'];
+  let event;
+  try {
+    event = constructStripeWebhookEvent(req.body, signature, webhookSecret);
+  } catch (error) {
+    return res.status(400).send(`Invalid Stripe signature: ${error.message}`);
+  }
+
+  const session = event.data?.object;
+  const orderId = session?.metadata?.order_id || session?.client_reference_id;
+  if (!orderId) return res.json({ received: true });
+
+  const order = readPaymentOrders().find(item => item.id === orderId);
+  if (!order || order.provider !== 'stripe_checkout') {
+    return res.json({ received: true });
+  }
+
+  if (event.type === 'checkout.session.completed'
+      || event.type === 'checkout.session.async_payment_succeeded') {
+    if (session.payment_status !== 'paid' && session.payment_status !== 'no_payment_required') {
+      return res.json({ received: true });
+    }
+    const amountMatches = Number(session.amount_total) === Number(order.bundle.amount_cny_fen);
+    const currencyMatches = String(session.currency || '').toLowerCase() === 'cny';
+    const bundleMatches = session.metadata?.bundle_id === order.bundle_id;
+    if (!amountMatches || !currencyMatches || !bundleMatches) {
+      updatePaymentOrder(order.id, current => ({
+        ...current,
+        status: 'MANUAL_REVIEW',
+        payment_status: 'PAID_MISMATCH',
+        paid_at: current.paid_at || new Date().toISOString(),
+        provider_payment_id: session.payment_intent || session.id,
+        stripe_checkout_session_id: session.id,
+        last_error: 'Stripe 回调金额、币种或 bundle 与本地订单不一致，已阻止自动开通。'
+      }));
+      return res.json({ received: true, manual_review: true });
+    }
+    updatePaymentOrder(order.id, current => ({
+      ...current,
+      payment_status: 'PAID',
+      status: current.status === 'COMPLETED' ? 'COMPLETED' : 'PAID',
+      paid_at: current.paid_at || new Date().toISOString(),
+      provider_payment_id: session.payment_intent || session.id,
+      stripe_checkout_session_id: session.id
+    }));
+    try {
+      await fulfillPaymentOrder(order.id);
+    } catch (error) {
+      return res.status(500).json({ received: false, message: error.message });
+    }
+  } else if (event.type === 'checkout.session.expired') {
+    updatePaymentOrder(order.id, current => current.payment_status === 'PAID'
+      ? current
+      : {
+          ...current,
+          status: 'CANCELLED',
+          cancelled_at: new Date().toISOString(),
+          last_error: 'Stripe Checkout session expired.'
+        });
+  }
+
+  return res.json({ received: true });
 }
 
 function getNewYorkMarketClock(now = new Date()) {
@@ -1758,6 +2365,248 @@ app.post('/mcp/alpaca', async (req, res) => {
 });
 
 // ============================================================
+// PAYMENT: Server-authoritative bundles and local mock provider
+// ============================================================
+app.use('/api/payment', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Pragma', 'no-cache');
+  next();
+});
+
+app.get('/api/payment/checkout-info', (req, res) => {
+  const context = resolvePaymentCheckoutContext(req, req.query.checkout_token);
+  if (!context) {
+    return res.status(401).json({
+      success: false,
+      message: '结账凭证已失效，请从注册页或账户管理页重新进入。'
+    });
+  }
+  const suggestedMode = context.suggested_tier === 'value'
+    ? (context.suggested_mode || 'stocks')
+    : null;
+  const suggestedBundleId = [
+    context.suggested_tier,
+    suggestedMode,
+    '1m'
+  ].filter(Boolean).join('-');
+  return res.json({
+    success: true,
+    kind: context.kind,
+    identity: context.kind === 'registration'
+      ? {
+          user_id: context.registration.username,
+          email: context.registration.email
+        }
+      : {
+          user_id: context.user_id,
+          current_tier: context.localUser.tier || context.proxyUser.role || 'standard',
+          current_expiry: context.proxyUser.expires_at || null
+        },
+    plans: checkoutPlansForContext(context),
+    bundles: Object.values(PAYMENT_BUNDLES)
+      .filter(bundle => paymentBundleAllowedForContext(bundle, context))
+      .map(publicPaymentBundle),
+    payment_methods: enabledPaymentMethods(),
+    suggested_bundle_id: PAYMENT_BUNDLES[suggestedBundleId]
+      && paymentBundleAllowedForContext(PAYMENT_BUNDLES[suggestedBundleId], context)
+      ? suggestedBundleId
+      : (context.kind === 'registration' ? 'standard-1m' : 'standard-1m'),
+    mock_enabled: process.env.PAYMENT_MOCK_ENABLED === 'true',
+    pricing_notice: '本地草案价格；正式上线前需确认商户合同、税费与退款规则。'
+  });
+});
+
+app.post('/api/payment/orders', async (req, res) => {
+  const context = resolvePaymentCheckoutContext(req, req.body?.checkout_token);
+  if (!context) {
+    return res.status(401).json({
+      success: false,
+      message: '结账凭证已失效，请重新进入结账页。'
+    });
+  }
+  const bundleId = String(req.body?.bundle_id || '').trim();
+  const paymentMethod = String(req.body?.payment_method || '').trim();
+  const bundle = PAYMENT_BUNDLES[bundleId];
+  if (!bundle || !paymentBundleAllowedForContext(bundle, context)) {
+    return res.status(400).json({ success: false, message: '请选择有效的支付套餐。' });
+  }
+  if (!PAYMENT_METHOD_IDS.has(paymentMethod)) {
+    return res.status(400).json({ success: false, message: '请选择有效的支付方式。' });
+  }
+  if (!enabledPaymentMethods().some(method => method.id === paymentMethod)) {
+    return res.status(400).json({ success: false, message: '该支付方式尚未启用。' });
+  }
+
+  if (context.kind === 'registration') {
+    const approved = findLocalAccount(context.registration.username);
+    if (approved) {
+      return res.status(409).json({
+        success: false,
+        message: '该用户名已经开通，请使用账户管理续费。'
+      });
+    }
+  }
+
+  const resumeToken = crypto.randomBytes(32).toString('base64url');
+  const now = new Date().toISOString();
+  let order = {
+    id: `pay_${crypto.randomUUID()}`,
+    kind: context.kind,
+    registration_id: context.kind === 'registration' ? context.registration.id : null,
+    registration: context.kind === 'registration'
+      ? {
+          username: context.registration.username,
+          phone: context.registration.phone,
+          email: context.registration.email
+        }
+      : null,
+    user_id: context.kind === 'renewal' ? context.user_id : null,
+    bundle_id: bundle.id,
+    bundle: publicPaymentBundle(bundle),
+    payment_method: paymentMethod,
+    provider: process.env.PAYMENT_MOCK_ENABLED === 'true'
+      ? 'local_mock'
+      : paymentMethod === 'stripe_card'
+        ? 'stripe_checkout'
+        : 'easypay',
+    status: 'PENDING',
+    payment_status: 'UNPAID',
+    resume_token_hash: paymentTokenHash(resumeToken),
+    ...(context.kind === 'registration' && {
+      checkout_token_hash: context.registration.checkout_token_hash
+    }),
+    created_at: now,
+    fulfillment_attempts: 0
+  };
+  const orders = readPaymentOrders();
+  orders.push(order);
+  writePaymentOrders(orders);
+
+  let checkoutUrl = null;
+  if (paymentMethod === 'stripe_card' && process.env.PAYMENT_MOCK_ENABLED !== 'true') {
+    if (!stripeConfigured()) {
+      updatePaymentOrder(order.id, current => ({
+        ...current,
+        status: 'FAILED',
+        last_error: 'Stripe 尚未配置。'
+      }));
+      return res.status(503).json({
+        success: false,
+        message: 'Stripe 测试/正式密钥与 webhook secret 尚未配置。'
+      });
+    }
+
+    const baseUrl = paymentBaseUrl(req);
+    const returnQuery = new URLSearchParams({
+      stripe_order: order.id,
+      ...(context.kind === 'registration' && req.body?.checkout_token
+        ? { checkout_token: String(req.body.checkout_token) }
+        : {})
+    });
+    const successUrl = `${baseUrl}/checkout?${returnQuery.toString()}`;
+    const cancelQuery = new URLSearchParams(returnQuery);
+    cancelQuery.set('stripe_cancelled', '1');
+
+    try {
+      const session = await createStripeCheckoutSession(
+        order,
+        bundle,
+        context.kind === 'registration'
+          ? context.registration.email
+          : (context.localUser.email || undefined),
+        successUrl,
+        `${baseUrl}/checkout?${cancelQuery.toString()}`
+      );
+      checkoutUrl = session.url;
+      order = updatePaymentOrder(order.id, current => ({
+        ...current,
+        stripe_checkout_session_id: session.id,
+        checkout_url: session.url
+      }));
+    } catch (error) {
+      updatePaymentOrder(order.id, current => ({
+        ...current,
+        status: 'FAILED',
+        last_error: `Stripe Checkout 创建失败：${error.message}`
+      }));
+      return res.status(502).json({
+        success: false,
+        message: '无法创建 Stripe Checkout，请稍后重试。'
+      });
+    }
+  }
+
+  return res.status(201).json({
+    success: true,
+    order: publicPaymentOrder(order),
+    resume_token: resumeToken,
+    mock_enabled: process.env.PAYMENT_MOCK_ENABLED === 'true',
+    checkout_url: checkoutUrl
+  });
+});
+
+app.get('/api/payment/orders/:id', (req, res) => {
+  const order = readPaymentOrders().find(item => item.id === req.params.id);
+  if (!order || !paymentOrderAccessAllowed(
+    req,
+    order,
+    req.query.resume_token,
+    req.query.checkout_token
+  )) {
+    return res.status(404).json({ success: false, message: '支付订单不存在。' });
+  }
+  return res.json({
+    success: true,
+    order: publicPaymentOrder(order),
+    ...(order.kind === 'registration'
+      && order.status === 'COMPLETED'
+      && order.issued_token
+      ? { issued_token: order.issued_token }
+      : {})
+  });
+});
+
+app.post('/api/payment/mock/:id/complete', async (req, res) => {
+  if (process.env.PAYMENT_MOCK_ENABLED !== 'true') {
+    return res.status(404).json({ success: false, message: '本地模拟支付未启用。' });
+  }
+  let order = readPaymentOrders().find(item => item.id === req.params.id);
+  if (!order || !paymentOrderAccessAllowed(req, order, req.body?.resume_token)) {
+    return res.status(404).json({ success: false, message: '支付订单不存在。' });
+  }
+  if (order.status === 'CANCELLED') {
+    return res.status(409).json({ success: false, message: '订单已取消。' });
+  }
+  if (order.status !== 'COMPLETED' && order.payment_status !== 'PAID') {
+    const paidAt = new Date().toISOString();
+    order = updatePaymentOrder(order.id, current => ({
+      ...current,
+      payment_status: 'PAID',
+      status: 'PAID',
+      paid_at: paidAt,
+      provider_payment_id: `mock_${crypto.randomUUID()}`
+    }));
+  }
+
+  try {
+    const fulfilled = await fulfillPaymentOrder(order.id);
+    return res.json({
+      success: true,
+      order: publicPaymentOrder(fulfilled.order),
+      issued_token: fulfilled.order.kind === 'registration' ? fulfilled.token : undefined
+    });
+  } catch (error) {
+    const failedOrder = readPaymentOrders().find(item => item.id === order.id);
+    return res.status(500).json({
+      success: false,
+      retryable: failedOrder?.payment_status === 'PAID',
+      message: error.message,
+      order: failedOrder ? publicPaymentOrder(failedOrder) : null
+    });
+  }
+});
+
+// ============================================================
 // PUBLIC: Buyer Registration
 // ============================================================
 app.post('/api/register', (req, res) => {
@@ -1800,10 +2649,35 @@ app.post('/api/register', (req, res) => {
 
   // Check if already pending
   const pending = readJSON(PENDING_FILE);
-  if (pending.find(p => p.username === cleanUsername && p.status === 'pending')) {
-    return res.status(409).json({ success: false, message: '该用户名正在审核中，请等待。' });
+  const existingPending = pending.find(p =>
+    p.type === 'registration'
+    && p.username === cleanUsername
+    && ['pending', 'payment_pending'].includes(p.status)
+  );
+  if (existingPending) {
+    const sameIdentity = existingPending.phone === cleanPhone
+      && String(existingPending.email || '').toLowerCase() === cleanEmail.toLowerCase();
+    if (existingPending.status === 'payment_pending' && sameIdentity) {
+      const checkout = refreshRegistrationCheckout(pending, existingPending);
+      return res.json({
+        success: true,
+        resumed: true,
+        status: 'payment_pending',
+        message: '已恢复未完成的账户注册，请继续选择套餐与支付。',
+        id: existingPending.id,
+        ...checkout
+      });
+    }
+    return res.status(409).json({
+      success: false,
+      error: 'registration_identity_conflict',
+      message: '该用户名已有注册记录。请使用原手机号和邮箱恢复支付，或前往账户管理。'
+    });
   }
 
+  const checkoutToken = selectedTier === 'trial'
+    ? null
+    : crypto.randomBytes(32).toString('base64url');
   const entry = {
     id: crypto.randomUUID(),
     type: 'registration',
@@ -1813,13 +2687,29 @@ app.post('/api/register', (req, res) => {
     ...(mode && { mode }),
     email: cleanEmail,
     registered_at: new Date().toISOString(),
-    status: 'pending'
+    status: selectedTier === 'trial' ? 'pending' : 'payment_pending',
+    ...(checkoutToken && { checkout_token_hash: paymentTokenHash(checkoutToken) })
   };
 
   pending.push(entry);
-  writeJSON(PENDING_FILE, pending);
+  writeJSONAtomic(PENDING_FILE, pending);
 
-  return res.json({ success: true, message: '注册成功！请等待卖家确认订单后即可生成 Token。', id: entry.id });
+  if (selectedTier === 'trial') {
+    return res.json({
+      success: true,
+      status: 'pending',
+      message: 'Trial 注册已提交，请等待管理员确认。',
+      id: entry.id
+    });
+  }
+  return res.json({
+    success: true,
+    status: 'payment_pending',
+    message: '账户信息已保存，正在进入安全结账页。',
+    id: entry.id,
+    checkout_token: checkoutToken,
+    checkout_url: `/checkout?checkout_token=${encodeURIComponent(checkoutToken)}`
+  });
 });
 
 // ============================================================
@@ -2289,7 +3179,25 @@ app.post('/api/check-status', (req, res) => {
     return res.json({ success: true, status: 'not_found', message: '未找到注册记录。' });
   }
 
-  const result = { success: true, status: entry.status, message: entry.status === 'pending' ? '审核中，请耐心等待。' : entry.status === 'rejected' ? (entry.reject_reason || '审核未通过，请联系卖家。') : '已通过！' };
+  if (entry.status === 'payment_pending') {
+    const checkout = refreshRegistrationCheckout(pending, entry);
+    return res.json({
+      success: true,
+      status: 'payment_pending',
+      message: '账户信息已保存，可以继续选择套餐与支付。',
+      ...checkout
+    });
+  }
+
+  const result = {
+    success: true,
+    status: entry.status,
+    message: entry.status === 'pending'
+        ? '审核中，请耐心等待。'
+        : entry.status === 'rejected'
+          ? (entry.reject_reason || '审核未通过，请联系卖家。')
+          : '已通过！'
+  };
 
   // If approved, look up token + expiry from proxy users.json
   if (entry.status === 'approved') {
@@ -2367,7 +3275,7 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
   if (!id) return res.status(400).json({ success: false, message: 'Missing id.' });
 
   const pending = readJSON(PENDING_FILE);
-  const entry = pending.find(p => p.id === id && p.status === 'pending');
+  const entry = pending.find(p => p.id === id && ['pending', 'payment_pending'].includes(p.status));
   if (!entry) return res.status(404).json({ success: false, message: '未找到该待审核记录。' });
 
   const tierConfig = TIERS[entry.tier] || TIERS.premium;
@@ -2390,6 +3298,7 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
     writeJSON(USERS_FILE, filtered);
     entry.status = 'approved';
     entry.approved_at = new Date().toISOString();
+    delete entry.checkout_token_hash;
     writeJSON(PENDING_FILE, pending);
   };
 

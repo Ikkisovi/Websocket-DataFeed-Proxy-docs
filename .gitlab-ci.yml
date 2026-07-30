@@ -24,11 +24,12 @@ docs_contract:
     - npx --yes esbuild@0.25.6 proxy-token-site/public/docs/docs-site.jsx --loader:.jsx=jsx --outfile=/tmp/leandata-docs-nested.js
     - npx --yes esbuild@0.25.6 proxy-token-site/public/account-page.jsx --loader:.jsx=jsx --outfile=/tmp/leandata-account-page.js
     - npx --yes esbuild@0.25.6 proxy-token-site/public/register-page.jsx --loader:.jsx=jsx --outfile=/tmp/leandata-register-page.js
+    - npx --yes esbuild@0.25.6 proxy-token-site/public/checkout-page.jsx --loader:.jsx=jsx --outfile=/tmp/leandata-checkout-page.js
     - npx --yes esbuild@0.25.6 proxy-token-site/public/token-page.jsx --loader:.jsx=jsx --outfile=/tmp/leandata-token-page.js
     - bash -n ops/gitlab_deploy_aws.sh ops/leandata_site_forced_deploy.sh ops/deploy_site_commit_pinned.sh
     - bash ops/test_deploy_contract.sh
   after_script:
-    - rm -f /tmp/leandata-docs-root.js /tmp/leandata-docs-nested.js /tmp/leandata-account-page.js /tmp/leandata-register-page.js /tmp/leandata-token-page.js
+    - rm -f /tmp/leandata-docs-root.js /tmp/leandata-docs-nested.js /tmp/leandata-account-page.js /tmp/leandata-register-page.js /tmp/leandata-checkout-page.js /tmp/leandata-token-page.js
   rules:
     - if: '$CI_COMMIT_REF_PROTECTED == "true"'
     - when: never

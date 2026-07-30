@@ -1,46 +1,4 @@
-const { useEffect: useAccountEffect, useMemo: useAccountMemo, useState: useAccountState } = React;
-
-const ACCOUNT_PLANS = [
-  {
-    id: "basic",
-    name: "Basic",
-    price: 40,
-    summary: "仅 REST · 交互历史查询",
-    detail: "无实时 WebSocket；适合轻量历史查询。",
-    wsConnections: 0,
-  },
-  {
-    id: "value",
-    name: "Value",
-    price: 50,
-    summary: "全部 WS · REST 二选一",
-    detail: "选择股票或期权方向，适合单一数据工作流。",
-    wsConnections: 2,
-    modes: [
-      { id: "stocks", label: "股票方向" },
-      { id: "options", label: "期权方向" },
-    ],
-  },
-  {
-    id: "standard",
-    name: "Standard",
-    price: 80,
-    summary: "主流套餐",
-    detail: "全部 WS 通道与股票、期权历史数据。",
-    wsConnections: 3,
-    badge: "POPULAR",
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    price: 130,
-    summary: "完整接入",
-    detail: "最大实时容量与完整 REST 权限。",
-    wsConnections: "∞",
-  },
-];
-
-const ACCOUNT_MONTH_OPTIONS = [1, 2, 3, 6, 12];
+const { useEffect: useAccountEffect, useState: useAccountState } = React;
 
 async function accountRequest(path, options = {}) {
   const response = await fetch(path, {
@@ -150,12 +108,12 @@ function AccountLogin({ onLoggedIn }) {
           <span style={{ color: "var(--accent-ink)", fontStyle: "italic" }}>不经过注册页。</span>
         </h1>
         <p style={{ maxWidth: 620, margin: "24px 0 0", color: "var(--ink-muted)", fontSize: 16 }}>
-          登录后查看当前套餐、到期时间、REST 使用量、实时 WS 连接与订阅数量，并提交续费申请。
+          登录后查看当前套餐、到期时间、REST 使用量、实时 WS 连接与订阅数量，并直接在线续费。
         </p>
         <div style={{ marginTop: 42, display: "flex", gap: 24, flexWrap: "wrap", color: "var(--ink-muted)", fontSize: 12 }}>
           <span>HttpOnly session</span>
           <span>Token 仅脱敏显示</span>
-          <span>续费需管理员确认</span>
+          <span>支付成功自动续期</span>
         </div>
       </section>
 
@@ -347,11 +305,11 @@ function AccountDashboard({ overview, loading, onRefresh, onRenew, onEmailSaved 
               <div className="eyebrow" style={{ marginBottom: 8 }}>Renewal</div>
               <h2 className="display-title" style={{ fontSize: 30, margin: "0 0 8px" }}>续费与套餐调整</h2>
               <p style={{ margin: 0, color: "var(--ink-muted)" }}>
-                选择新套餐与续费月数。提交后进入管理员审核，不会立即改动 token 或到期时间。
+                进入安全结账页选择套餐、时长和支付方式。支付成功后保留原 Token 并自动延长有效期。
               </p>
             </div>
-            <button className="btn accent" onClick={onRenew} disabled={renewal?.status === "pending"}>
-              {renewal?.status === "pending" ? "审核中" : "续费 / 更换套餐 →"}
+            <button className="btn accent" onClick={onRenew}>
+              续费 / 更换套餐 →
             </button>
           </div>
 
@@ -399,142 +357,10 @@ function AccountDashboard({ overview, loading, onRefresh, onRenew, onEmailSaved 
   );
 }
 
-function AccountRenewal({ overview, onCancel, onSubmitted }) {
-  const currentTier = overview?.account?.tier;
-  const initialTier = ACCOUNT_PLANS.some(plan => plan.id === currentTier) ? currentTier : "standard";
-  const [tier, setTier] = useAccountState(initialTier);
-  const [mode, setMode] = useAccountState(overview?.account?.mode || "");
-  const [months, setMonths] = useAccountState(1);
-  const [loading, setLoading] = useAccountState(false);
-  const [message, setMessage] = useAccountState("");
-  const selectedPlan = useAccountMemo(() => ACCOUNT_PLANS.find(plan => plan.id === tier), [tier]);
-
-  const submit = async () => {
-    setMessage("");
-    setLoading(true);
-    try {
-      const data = await accountRequest("/api/account/renew", {
-        method: "POST",
-        body: JSON.stringify({
-          tier,
-          months,
-          ...(tier === "value" && { mode }),
-        }),
-      });
-      await onSubmitted(data);
-    } catch (error) {
-      setMessage(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <main className="account-main">
-      <button className="btn ghost" onClick={onCancel} style={{ marginBottom: 22 }}>← 返回账户概览</button>
-      <div className="eyebrow" style={{ marginBottom: 10 }}>Renew plan</div>
-      <h1 className="display-title" style={{ fontSize: 52, margin: "0 0 12px" }}>选择续费套餐</h1>
-      <p style={{ color: "var(--ink-muted)", maxWidth: 680, margin: "0 0 32px" }}>
-        此页面只处理老用户续费。用户 ID 与手机号不再重复提交，申请归属于当前登录 session。
-      </p>
-
-      <div className="account-plan-grid">
-        {ACCOUNT_PLANS.map(plan => (
-          <button
-            key={plan.id}
-            className={`card account-plan ${tier === plan.id ? "selected" : ""}`}
-            onClick={() => {
-              setTier(plan.id);
-              if (plan.id !== "value") setMode("");
-            }}
-          >
-            {plan.badge && <span className="pill" style={{ position: "absolute", right: 12, top: 12 }}>{plan.badge}</span>}
-            <div className="eyebrow">{plan.name}</div>
-            <div style={{ marginTop: 14 }}>
-              <span className="display-title" style={{ fontSize: 34 }}>${plan.price}</span>
-              <span style={{ color: "var(--ink-muted)" }}> / month</span>
-            </div>
-            <div style={{ color: "var(--ink-strong)", fontWeight: 500, marginTop: 14 }}>{plan.summary}</div>
-            <div style={{ color: "var(--ink-muted)", fontSize: 12, marginTop: 7 }}>{plan.detail}</div>
-          </button>
-        ))}
-      </div>
-
-      {selectedPlan?.modes && (
-        <section className="card account-renewal" style={{ marginTop: 16 }}>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>Value 数据方向</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {selectedPlan.modes.map(option => (
-              <button
-                key={option.id}
-                className={`btn ${mode === option.id ? "accent" : ""}`}
-                onClick={() => setMode(option.id)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="card account-renewal" style={{ marginTop: 16 }}>
-        <div className="eyebrow" style={{ marginBottom: 10 }}>续费时长</div>
-        <div className="account-months">
-          {ACCOUNT_MONTH_OPTIONS.map(option => (
-            <button
-              key={option}
-              className={`btn account-month ${months === option ? "selected" : ""}`}
-              onClick={() => setMonths(option)}
-            >
-              {option} 个月
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="account-summary" style={{ marginTop: 16 }}>
-        <div className="account-pair">
-          <span className="account-pair-label">账户</span>
-          <span className="account-pair-value">{overview?.account?.user_id}</span>
-        </div>
-        <div className="account-pair">
-          <span className="account-pair-label">套餐</span>
-          <span className="account-pair-value">{selectedPlan?.name}{mode ? ` · ${mode}` : ""}</span>
-        </div>
-        <div className="account-pair">
-          <span className="account-pair-label">续费时长</span>
-          <span className="account-pair-value">{months} 个月 · {months * 30} 天</span>
-        </div>
-        <div className="account-pair">
-          <span className="account-pair-label">参考金额</span>
-          <span className="account-pair-value">${(selectedPlan?.price || 0) * months}</span>
-        </div>
-        <div style={{ marginTop: 12, color: "var(--ink-muted)", fontSize: 12 }}>
-          金额为套餐月价的参考合计；最终订单由管理员确认。批准后从当前有效期末尾继续延长，已到期账户则从批准时间起计算。
-        </div>
-      </section>
-
-      {message && <div className="account-alert error" style={{ marginTop: 16 }}>{message}</div>}
-
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
-        <button className="btn" onClick={onCancel}>取消</button>
-        <button
-          className="btn primary"
-          onClick={submit}
-          disabled={loading || (tier === "value" && !mode)}
-        >
-          {loading ? "提交中…" : "提交续费申请 →"}
-        </button>
-      </div>
-    </main>
-  );
-}
-
 function AccountPage() {
   const [authenticated, setAuthenticated] = useAccountState(null);
   const [overview, setOverview] = useAccountState(null);
   const [loading, setLoading] = useAccountState(false);
-  const [view, setView] = useAccountState("dashboard");
   const [notice, setNotice] = useAccountState("");
 
   const loadOverview = async () => {
@@ -567,7 +393,6 @@ function AccountPage() {
     } catch (_) {}
     setAuthenticated(false);
     setOverview(null);
-    setView("dashboard");
   };
 
   if (authenticated === null) {
@@ -596,25 +421,13 @@ function AccountPage() {
           {notice}
         </div>
       )}
-      {view === "renew" ? (
-        <AccountRenewal
-          overview={overview}
-          onCancel={() => setView("dashboard")}
-          onSubmitted={async data => {
-            setNotice(data.message);
-            await loadOverview();
-            setView("dashboard");
-          }}
-        />
-      ) : (
-        <AccountDashboard
-          overview={overview}
-          loading={loading}
-          onRefresh={() => loadOverview().catch(() => {})}
-          onRenew={() => setView("renew")}
-          onEmailSaved={() => loadOverview().catch(() => {})}
-        />
-      )}
+      <AccountDashboard
+        overview={overview}
+        loading={loading}
+        onRefresh={() => loadOverview().catch(() => {})}
+        onRenew={() => window.location.assign("/checkout")}
+        onEmailSaved={() => loadOverview().catch(() => {})}
+      />
     </div>
   );
 }
