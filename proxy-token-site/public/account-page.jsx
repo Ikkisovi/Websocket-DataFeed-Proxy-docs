@@ -213,12 +213,41 @@ function AccountKpi({ label, value, note }) {
   );
 }
 
-function AccountDashboard({ overview, loading, onRefresh, onRenew }) {
+function AccountDashboard({ overview, loading, onRefresh, onRenew, onEmailSaved }) {
   const account = overview?.account || {};
   const rest = overview?.usage?.rest;
   const ws = overview?.usage?.ws;
   const renewal = overview?.renewal;
   const expired = account.days_remaining === 0;
+  const [email, setEmail] = useAccountState(account.email || "");
+  const [emailSaving, setEmailSaving] = useAccountState(false);
+  const [emailMessage, setEmailMessage] = useAccountState("");
+  const [emailMessageType, setEmailMessageType] = useAccountState("success");
+
+  useAccountEffect(() => {
+    setEmail(account.email || "");
+  }, [account.email]);
+
+  const saveEmail = async event => {
+    event.preventDefault();
+    setEmailMessage("");
+    setEmailSaving(true);
+    try {
+      const data = await accountRequest("/api/account/email", {
+        method: "POST",
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      setEmail(data.email);
+      setEmailMessageType("success");
+      setEmailMessage(data.message);
+      await onEmailSaved();
+    } catch (error) {
+      setEmailMessageType("error");
+      setEmailMessage(error.message);
+    } finally {
+      setEmailSaving(false);
+    }
+  };
 
   return (
     <main className="account-main">
@@ -264,6 +293,36 @@ function AccountDashboard({ overview, loading, onRefresh, onRenew }) {
           value={formatAccountNumber(ws?.subscriptions)}
           note="当前活跃主题订阅"
         />
+
+        <section className="card account-renewal account-span-12">
+          <div className="eyebrow" style={{ marginBottom: 8 }}>Notification email · optional</div>
+          <h2 className="display-title" style={{ fontSize: 30, margin: "0 0 8px" }}>通知邮箱</h2>
+          <p style={{ margin: "0 0 18px", color: "var(--ink-muted)", maxWidth: 760 }}>
+            邮箱为可选项。Endpoint 变更、新 endpoint 上线及更多数据支持会通过此邮箱通知。
+          </p>
+          <form className="account-email-form" onSubmit={saveEmail}>
+            <input
+              className="input"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={event => setEmail(event.target.value)}
+              placeholder="name@example.com"
+              aria-label="通知邮箱（可选）"
+            />
+            <button
+              className="btn primary"
+              disabled={emailSaving || !email.trim() || email.trim() === (account.email || "")}
+            >
+              {emailSaving ? "保存中…" : account.email ? "更新邮箱" : "保存邮箱"}
+            </button>
+          </form>
+          {emailMessage && (
+            <div className={`account-alert ${emailMessageType}`} style={{ marginTop: 12 }}>
+              {emailMessage}
+            </div>
+          )}
+        </section>
 
         <section className="card account-renewal account-span-8">
           <div style={{ display: "flex", justifyContent: "space-between", gap: 20, alignItems: "flex-start" }}>
@@ -536,6 +595,7 @@ function AccountPage() {
           loading={loading}
           onRefresh={() => loadOverview().catch(() => {})}
           onRenew={() => setView("renew")}
+          onEmailSaved={() => loadOverview().catch(() => {})}
         />
       )}
     </div>

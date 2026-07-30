@@ -1011,6 +1011,7 @@
           </div>
           <div class="card-meta">
             <span><span class="meta-label">手机</span><span class="mono">${escHtml(item.phone || '—')}</span></span>
+            ${item.email ? `<span><span class="meta-label">邮箱</span><a class="mono" href="mailto:${encodeURIComponent(item.email)}">${escHtml(item.email)}</a></span>` : ''}
             <span><span class="meta-label">注册</span>${time}</span>
             ${rejectReason}
           </div>

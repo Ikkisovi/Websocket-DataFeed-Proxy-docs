@@ -567,6 +567,7 @@ describe('Account portal', () => {
     phone = '6045550100',
     tier = 'standard',
     mode,
+    email,
     expiry = computeExpiry(TIERS.standard),
     token = 'account-token-1234567890'
   } = {}) {
@@ -576,6 +577,7 @@ describe('Account portal', () => {
       role: TIERS[tier].role,
       tier,
       ...(mode && { mode }),
+      ...(email && { email }),
       permissions: mode ? TIERS[tier].modes[mode] : TIERS[tier].permissions
     }]));
     fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({
@@ -584,10 +586,11 @@ describe('Account portal', () => {
         user_id: userId,
         role: TIERS[tier].role,
         expires_at: expiry,
+        ...(email && { email }),
         permissions: mode ? TIERS[tier].modes[mode] : TIERS[tier].permissions
       }]
     }));
-    return { userId, phone, token, expiry };
+    return { userId, phone, token, expiry, email };
   }
 
   async function loginAccount(account = seedAccount()) {
@@ -679,7 +682,7 @@ describe('Account portal', () => {
   });
 
   it('returns only the authenticated account overview and scoped usage', async () => {
-    const account = seedAccount();
+    const account = seedAccount({ email: 'account@example.com' });
     const { cookie } = await loginAccount(account);
     jest.spyOn(global, 'fetch').mockImplementation(async url => {
       if (String(url).includes('/v1/account/usage')) {
@@ -711,6 +714,7 @@ describe('Account portal', () => {
 
     expect(overview.statusCode).toBe(200);
     expect(overview.body.account.user_id).toBe(account.userId);
+    expect(overview.body.account.email).toBe(account.email);
     expect(overview.body.account.token_masked).toMatch(/^accoun.*7890$/);
     expect(overview.body.usage.rest.requests).toBe(42);
     expect(overview.body.usage.ws.active_connections).toBe(2);
@@ -719,14 +723,66 @@ describe('Account portal', () => {
     expect(JSON.stringify(overview.body)).not.toContain(account.token);
   });
 
-  it('requires login for account overview and renewal', async () => {
+  it('requires login for account overview, email updates, and renewal', async () => {
     const overview = await request(app).get('/api/account/overview');
+    const email = await request(app).post('/api/account/email').send({
+      email: 'account@example.com'
+    });
     const renewal = await request(app).post('/api/account/renew').send({
       tier: 'standard',
       months: 1
     });
     expect(overview.statusCode).toBe(401);
+    expect(email.statusCode).toBe(401);
     expect(renewal.statusCode).toBe(401);
+  });
+
+  it('validates and persists an authenticated email without changing account access fields', async () => {
+    const account = seedAccount();
+    const beforeProxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users[0];
+    const { cookie } = await loginAccount(account);
+
+    const invalid = await request(app)
+      .post('/api/account/email')
+      .set('Cookie', cookie)
+      .send({ email: 'not-an-email' });
+    expect(invalid.statusCode).toBe(400);
+
+    const saved = await request(app)
+      .post('/api/account/email')
+      .set('Cookie', cookie)
+      .send({ email: 'saved@example.com' });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.body.email).toBe('saved@example.com');
+
+    const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    expect(users[0].email).toBe('saved@example.com');
+    expect(proxy.users[0].email).toBe('saved@example.com');
+    expect(proxy.users[0].token).toBe(beforeProxy.token);
+    expect(proxy.users[0].role).toBe(beforeProxy.role);
+    expect(proxy.users[0].expires_at).toBe(beforeProxy.expires_at);
+    expect(proxy.users[0].permissions).toEqual(beforeProxy.permissions);
+
+    const overview = await request(app).get('/api/account/overview').set('Cookie', cookie);
+    expect(overview.statusCode).toBe(200);
+    expect(overview.body.account.email).toBe('saved@example.com');
+  });
+
+  it('fails closed if either authenticated account record disappears', async () => {
+    const account = seedAccount({ email: 'original@example.com' });
+    const { cookie } = await loginAccount(account);
+    const usersBefore = fs.readFileSync(USERS_FILE, 'utf8');
+    fs.writeFileSync(TEST_PROXY_FILE, '{"users":[]}');
+
+    const saved = await request(app)
+      .post('/api/account/email')
+      .set('Cookie', cookie)
+      .send({ email: 'changed@example.com' });
+
+    expect(saved.statusCode).toBe(401);
+    expect(fs.readFileSync(USERS_FILE, 'utf8')).toBe(usersBefore);
+    expect(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).toBe('{"users":[]}');
   });
 
   it('creates a pending renewal for the logged-in account and selected months', async () => {
@@ -909,6 +965,13 @@ describe('Admin portal UI', () => {
     expect(res.text).toContain('包括已过期账号');
   });
 
+  it('renders registration email addresses in ordinary user cards', async () => {
+    const res = await request(app).get('/admin');
+    expect(res.statusCode).toBe(200);
+    expect(res.text).toContain('<span class="meta-label">邮箱</span>');
+    expect(res.text).toContain('mailto:');
+  });
+
   it('shows saved Bulk requests, contact details, custom endpoint text, and quote controls', async () => {
     const res = await request(app).get('/admin');
     expect(res.statusCode).toBe(200);
@@ -919,6 +982,17 @@ describe('Admin portal UI', () => {
     expect(res.text).toContain('自定义 endpoint / 数据需求');
     expect(res.text).toContain('标记已报价 / 已联系');
     expect(res.text).toContain('quoted_price');
+  });
+});
+
+describe('Account portal UI', () => {
+  it('offers an optional persisted notification email field with release-notice copy', async () => {
+    const res = await request(app).get('/account-page.jsx');
+    expect(res.statusCode).toBe(200);
+    expect(res.text).toContain('type="email"');
+    expect(res.text).toContain('/api/account/email');
+    expect(res.text).toContain('Endpoint 变更、新 endpoint 上线及更多数据支持');
+    expect(res.text).toContain('Notification email · optional');
   });
 });
 

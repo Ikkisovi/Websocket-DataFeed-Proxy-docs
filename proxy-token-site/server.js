@@ -2081,6 +2081,7 @@ app.get('/api/account/overview', requireAccount, async (req, res) => {
       role: proxyUser.role || localUser.role || 'standard',
       tier: localUser.tier || proxyUser.role || 'standard',
       mode: localUser.mode || null,
+      email: proxyUser.email || localUser.email || null,
       expiry,
       days_remaining: daysRemaining,
       token_masked: maskToken(proxyUser.token)
@@ -2094,6 +2095,73 @@ app.get('/api/account/overview', requireAccount, async (req, res) => {
       }
     },
     renewal: publicRenewalStatus(latestRenewalFor(userId))
+  });
+});
+
+app.post('/api/account/email', requireAccount, (req, res) => {
+  const email = String(req.body?.email || '').trim();
+  if (!email || email.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return res.status(400).json({
+      success: false,
+      error: 'invalid_email',
+      message: '请填写有效的通知邮箱。'
+    });
+  }
+
+  let usersRaw;
+  let proxyRaw;
+  let users;
+  let proxyData;
+  try {
+    usersRaw = fs.readFileSync(USERS_FILE, 'utf8');
+    proxyRaw = fs.readFileSync(PROXY_USERS_FILE, 'utf8');
+    users = JSON.parse(usersRaw);
+    proxyData = JSON.parse(proxyRaw);
+  } catch {
+    return res.status(500).json({
+      success: false,
+      error: 'account_registry_unreadable',
+      message: '账户资料暂时无法读取，邮箱未保存。'
+    });
+  }
+
+  const localMatches = Array.isArray(users)
+    ? users.filter(user => user.username === req.account.userId)
+    : [];
+  const proxyMatches = Array.isArray(proxyData?.users)
+    ? proxyData.users.filter(user => user.user_id === req.account.userId)
+    : [];
+  if (localMatches.length !== 1 || proxyMatches.length !== 1 || !proxyMatches[0].token) {
+    return res.status(409).json({
+      success: false,
+      error: 'account_registry_mismatch',
+      message: '账户资料不一致，邮箱未保存；请联系管理员核对。'
+    });
+  }
+
+  localMatches[0].email = email;
+  proxyMatches[0].email = email;
+
+  try {
+    // The shared registry is a single-file bind mount in production, so it
+    // must be updated in place. Validate both identities before either write,
+    // then restore both original payloads if the second write fails.
+    writeJSON(PROXY_USERS_FILE, proxyData);
+    writeJSON(USERS_FILE, users);
+  } catch {
+    try { fs.writeFileSync(PROXY_USERS_FILE, proxyRaw); } catch (_) {}
+    try { fs.writeFileSync(USERS_FILE, usersRaw); } catch (_) {}
+    return res.status(500).json({
+      success: false,
+      error: 'account_email_persist_failed',
+      message: '邮箱保存失败，原账户资料已保留，请稍后重试。'
+    });
+  }
+
+  return res.json({
+    success: true,
+    email,
+    message: '通知邮箱已保存。'
   });
 });
 
