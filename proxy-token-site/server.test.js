@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const { execFileSync } = require('child_process');
 
 // Set up isolated temp dirs BEFORE requiring server
 const TEST_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'proxy-test-'));
@@ -819,7 +820,7 @@ describe('Payment bundles and automatic fulfillment', () => {
       registration,
       bundleId: 'premium-3m',
       paymentMethod: 'stripe_card',
-      extra: { stripe_currency: 'USD', amount_minor: 1 }
+      extra: { stripe_currency: 'USD', checkout_locale: 'en', amount_minor: 1 }
     });
     expect(response.statusCode).toBe(201);
     expect(response.body.checkout_url).toContain('checkout.stripe.com');
@@ -828,6 +829,9 @@ describe('Payment bundles and automatic fulfillment', () => {
     expect(url).toBe('https://api.stripe.com/v1/checkout/sessions');
     expect(form.get('line_items[0][price_data][currency]')).toBe('usd');
     expect(form.get('line_items[0][price_data][unit_amount]')).toBe('7500');
+    expect(form.get('locale')).toBe('en');
+    expect(form.get('line_items[0][price_data][product_data][name]')).toBe('Leandata Premium Plan');
+    expect(form.get('line_items[0][price_data][product_data][description]')).toBe('3 months of data access');
     expect(form.get('metadata[bundle_id]')).toBe('premium-3m');
   });
 
@@ -1173,6 +1177,44 @@ describe('Payment bundles and automatic fulfillment', () => {
     expect(registerSource).toContain('window.location.assign(data.checkout_url)');
     expect(registerSource).toContain('创建账户并选择套餐');
     expect(registerSource).toContain('继续选择套餐与支付');
+  });
+
+  it('ships a persistent bilingual switcher on every site entry page', async () => {
+    const publicDir = path.join(__dirname, 'public');
+    const languageSource = fs.readFileSync(path.join(publicDir, 'language.js'), 'utf8');
+    const entryPages = [
+      'index.html',
+      'register.html',
+      'account.html',
+      'checkout.html',
+      'admin.html',
+      path.join('docs', 'index.html')
+    ];
+    for (const entryPage of entryPages) {
+      expect(fs.readFileSync(path.join(publicDir, entryPage), 'utf8')).toContain('src="/language.js"');
+    }
+    expect(languageSource).toContain('leandata.language');
+    expect(languageSource).toContain('leandata:languagechange');
+    expect(
+      execFileSync(process.execPath, [path.join(__dirname, 'scripts', 'verify-language.mjs')], {
+        encoding: 'utf8'
+      }).trim()
+    ).toBe('language switcher ok');
+  });
+
+  it('falls back to the responsive bilingual pages when mobile-only files are absent', async () => {
+    const mobileUserAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile/15E148';
+    const [home, docs, register] = await Promise.all([
+      request(app).get('/').set('User-Agent', mobileUserAgent),
+      request(app).get('/docs/').set('User-Agent', mobileUserAgent),
+      request(app).get('/register').set('User-Agent', mobileUserAgent)
+    ]);
+    expect(home.statusCode).toBe(200);
+    expect(docs.statusCode).toBe(200);
+    expect(register.statusCode).toBe(200);
+    expect(home.text).toContain('src="/language.js"');
+    expect(docs.text).toContain('src="/language.js"');
+    expect(register.text).toContain('src="/language.js"');
   });
 });
 

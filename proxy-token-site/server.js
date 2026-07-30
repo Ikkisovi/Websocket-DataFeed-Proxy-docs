@@ -43,11 +43,14 @@ app.use((req, res, next) => {
   const ua = (req.headers['user-agent'] || '').toLowerCase();
   const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i.test(ua);
   if (isMobile) {
-    if (req.path === '/' || req.path === '/index.html') {
-      return res.sendFile(path.join(__dirname, 'public', 'mobile.html'));
+    const mobileHome = path.join(__dirname, 'public', 'mobile.html');
+    const mobileDocs = path.join(__dirname, 'public', 'docs', 'mobile.html');
+    if ((req.path === '/' || req.path === '/index.html') && fs.existsSync(mobileHome)) {
+      return res.sendFile(mobileHome);
     }
-    if (req.path === '/docs' || req.path === '/docs/' || req.path === '/docs/index.html') {
-      return res.sendFile(path.join(__dirname, 'public', 'docs', 'mobile.html'));
+    if ((req.path === '/docs' || req.path === '/docs/' || req.path === '/docs/index.html')
+      && fs.existsSync(mobileDocs)) {
+      return res.sendFile(mobileDocs);
     }
     if ((req.path === '/register' || req.path === '/register.html')
       && fs.existsSync(path.join(__dirname, 'public', 'register-mobile.html'))) {
@@ -345,13 +348,23 @@ async function createStripeCheckoutSession(order, bundle, customerEmail, success
     throw new Error('Stripe charge currency is invalid.');
   }
   const form = new URLSearchParams();
+  const checkoutLocale = order.checkout_locale === 'en' ? 'en' : 'zh';
   form.set('mode', 'payment');
+  form.set('locale', checkoutLocale);
   form.set('client_reference_id', order.id);
   if (customerEmail) form.set('customer_email', customerEmail);
   form.set('line_items[0][price_data][currency]', providerCharge.currency.toLowerCase());
   form.set('line_items[0][price_data][unit_amount]', String(providerCharge.amount_minor));
-  form.set('line_items[0][price_data][product_data][name]', `Leandata ${bundle.name} 套餐`);
-  form.set('line_items[0][price_data][product_data][description]', `${bundle.months} 个月数据访问`);
+  form.set(
+    'line_items[0][price_data][product_data][name]',
+    checkoutLocale === 'en' ? `Leandata ${bundle.name} Plan` : `Leandata ${bundle.name} 套餐`
+  );
+  form.set(
+    'line_items[0][price_data][product_data][description]',
+    checkoutLocale === 'en'
+      ? `${bundle.months} ${bundle.months === 1 ? 'month' : 'months'} of data access`
+      : `${bundle.months} 个月数据访问`
+  );
   form.set('line_items[0][quantity]', '1');
   form.set('metadata[order_id]', order.id);
   form.set('metadata[bundle_id]', bundle.id);
@@ -2528,6 +2541,7 @@ app.post('/api/payment/orders', async (req, res) => {
     bundle_id: bundle.id,
     bundle: publicPaymentBundle(bundle),
     payment_method: paymentMethod,
+    checkout_locale: req.body?.checkout_locale === 'en' ? 'en' : 'zh',
     ...(providerCharge && { provider_charge: providerCharge }),
     provider: process.env.PAYMENT_MOCK_ENABLED === 'true'
       ? 'local_mock'

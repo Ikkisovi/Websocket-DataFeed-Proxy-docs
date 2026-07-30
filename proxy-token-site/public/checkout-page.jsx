@@ -40,7 +40,7 @@ function CheckoutIcon({ name }) {
 function PaymentMethodIcon({ method }) {
   if (method === "alipay") {
     return (
-      <span className="payment-logo alipay" aria-hidden="true">
+      <span className="payment-logo alipay" aria-hidden="true" data-no-i18n="true">
         <span className="alipay-symbol">支</span>
         <span className="alipay-wordmark">ALIPAY</span>
       </span>
@@ -271,6 +271,7 @@ function CheckoutPage() {
           checkout_token: checkoutToken || undefined,
           bundle_id: bundle.id,
           payment_method: method,
+          checkout_locale: window.LeandataI18n?.getLanguage?.() === "en" ? "en" : "zh",
           ...(method === "stripe_card" && { stripe_currency: stripeCurrency }),
         }),
       });
