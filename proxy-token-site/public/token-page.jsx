@@ -15,7 +15,6 @@ function TokenTopbar({ portalOpen, setPortalOpen }) {
         <a href="/docs/" style={{ cursor: "pointer" }}>Docs</a>
         <a href="/docs/#status" style={{ cursor: "pointer" }}>Status</a>
         <a href="/docs/#usage" style={{ cursor: "pointer" }}>Usage</a>
-        <a href="/account" style={{ cursor: "pointer" }}>Account</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
@@ -24,7 +23,6 @@ function TokenTopbar({ portalOpen, setPortalOpen }) {
             Open Portal
           </button>
         )}
-        <span className="pill"><span className="live"></span> portal · production</span>
         <a href="/account" className="btn accent" style={{ padding: "6px 10px", fontSize: 12 }}>Manage account →</a>
         <a href="/admin.html" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>Admin →</a>
       </div>

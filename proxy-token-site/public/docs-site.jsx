@@ -1,42 +1,11 @@
-// ── StatusBody component (inlined from status-body.jsx) ──
+// ── StatusBody component ──
+// Fetches live data from /api/status, /api/uptime, /api/latency, /api/incidents.
+// Auto-refreshes every 30 s.
 
-// status-body.jsx — Status page for the Public Docs Site
-// Two components: REST API (Cloudflare → ThinkCentre) and WebSocket (direct → EC2)
-// Surfaces: overall status header, per-component cards (uptime + latency p50/p95/p99 + sparkline),
-//           90-day uptime grid, latency chart with range toggle, and incident log.
-//
-// Data is mocked here (static docs site). To wire to real telemetry, replace `useStatusData`
-// with a fetcher pointed at /api/status, /api/uptime, /api/latency.
-
-const { useState: useStatusState, useMemo: useStatusMemo, useEffect: useStatusEffect } = React;
-
-// ── deterministic pseudo-random for mock data ───────────────────────────
-function seeded(seed) {
-  let s = seed;
-  return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-}
-
-// 90-day uptime: array of 0/1/2 (operational/degraded/outage)
-function makeUptime(seed, baseUptime = 0.998) {
-  const rng = seeded(seed);
-  return Array.from({ length: 90 }, () => {
-    const r = rng();
-    if (r > baseUptime + 0.001) return 2;
-    if (r > baseUptime - 0.01) return 1;
-    return 0;
-  });
-}
-
-// 24h latency (24 points, one per hour). REST higher baseline, WS very low.
-function makeLatency(seed, base, jitter) {
-  const rng = seeded(seed);
-  return Array.from({ length: 24 }, (_, i) => {
-    const hourFactor = 1 + 0.18 * Math.sin((i / 24) * 2 * Math.PI - Math.PI / 2); // market-hours bulge
-    return Math.round(base * hourFactor + (rng() - 0.5) * jitter);
-  });
-}
+const { useState: useStatusState, useEffect: useStatusEffect, useCallback: useStatusCallback, useRef: useStatusRef } = React;
 
 function pctUp(arr) {
+  if (!arr || arr.length === 0) return "—";
   const good = arr.filter(v => v === 0).length;
   return ((good / arr.length) * 100).toFixed(2);
 }
@@ -80,6 +49,7 @@ function UptimeGrid({ data }) {
 
 // ── stats / quantiles helper ────────────────────────────────────────────
 function quantile(arr, q) {
+  if (!arr || arr.length === 0) return 0;
   const sorted = [...arr].sort((a, b) => a - b);
   const pos = (sorted.length - 1) * q;
   const base = Math.floor(pos);
@@ -96,9 +66,9 @@ function ComponentCard({ name, route, status, uptime90, latency24h, unit = "ms",
   const last7 = uptime90.slice(-7);
   const last1 = uptime90.slice(-1);
 
-  const statusLabel = status === "operational" ? "Operational" : status === "degraded" ? "Degraded" : "Outage";
-  const statusColor = status === "operational" ? "var(--ok)" : status === "degraded" ? "var(--warn)" : "var(--danger)";
-  const statusBg    = status === "operational" ? "var(--ok-soft)" : status === "degraded" ? "var(--warn-soft)" : "var(--danger-soft)";
+  const statusLabel = status === "operational" ? "Operational" : status === "degraded" ? "Degraded" : status === "loading" ? "Loading…" : "Outage";
+  const statusColor = status === "operational" ? "var(--ok)" : status === "loading" ? "var(--ink-muted)" : status === "degraded" ? "var(--warn)" : "var(--danger)";
+  const statusBg    = status === "operational" ? "var(--ok-soft)" : status === "loading" ? "var(--bg-canvas)" : status === "degraded" ? "var(--warn-soft)" : "var(--danger-soft)";
 
   return (
     <div className="card" style={{ padding: 20 }}>
@@ -165,42 +135,66 @@ function Stat({ label, value, unit, size = "md" }) {
   );
 }
 
-// ── multi-series latency chart — uses real data from props ─────────────
-function LatencyChart({ rest, ws, range }) {
-  const restSeries = rest.length > 0 ? rest : [0];
-  const wsSeries = ws.length > 0 ? ws : [0];
+// ── multi-series latency chart ──────────────────────────────────────────
+function LatencyChart({ range }) {
+  const [chartData, setChartData] = useStatusState({ rest: [], rt: [], ws: [] });
+
+  useStatusEffect(() => {
+    let cancelled = false;
+    fetch(`/api/latency?range=${range}`)
+      .then(r => r.json())
+      .then(d => {
+        if (!cancelled) setChartData({
+          rest: (d.rest || []).map(v => v ?? 0),
+          rt: (d.rt || []).map(v => v ?? 0),
+          ws: (d.ws || []).map(v => v ?? 0),
+        });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [range]);
+
+  const restSeries = chartData.rest;
+  const rtSeries = chartData.rt;
+  const wsSeries = chartData.ws;
+
+  if (restSeries.length === 0 && rtSeries.length === 0 && wsSeries.length === 0) {
+    return (
+      <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 12 }}>
+        Collecting latency data…
+      </div>
+    );
+  }
 
   const W = 720, H = 200, PAD_L = 44, PAD_R = 12, PAD_T = 16, PAD_B = 28;
   const plotW = W - PAD_L - PAD_R;
   const plotH = H - PAD_T - PAD_B;
 
-  const max = Math.max(...restSeries) * 1.1;
-  const xStep = plotW / (restSeries.length - 1);
+  const allVals = [...restSeries, ...rtSeries, ...wsSeries].filter(v => v > 0);
+  const max = allVals.length > 0 ? Math.max(...allVals) * 1.15 : 100;
 
-  const restPath = restSeries.map((v, i) => `${i === 0 ? "M" : "L"}${PAD_L + i * xStep},${PAD_T + plotH - (v / max) * plotH}`).join(" ");
-  const wsPath = wsSeries.map((v, i) => `${i === 0 ? "M" : "L"}${PAD_L + i * xStep},${PAD_T + plotH - (v / max) * plotH}`).join(" ");
+  function makePath(series) {
+    if (series.length < 2) return "";
+    const step = plotW / (series.length - 1);
+    return series.map((v, i) => `${i === 0 ? "M" : "L"}${PAD_L + i * step},${PAD_T + plotH - (v / max) * plotH}`).join(" ");
+  }
 
-  const gridLines = [0, 50, 100, 150];
+  const gridStep = max <= 20 ? 5 : max <= 100 ? 25 : max <= 500 ? 100 : 250;
+  const gridLines = [];
+  for (let g = 0; g <= max; g += gridStep) gridLines.push(g);
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }}>
-      {/* grid */}
-      {gridLines.filter(g => g <= max).map(g => (
+      {gridLines.map(g => (
         <g key={g}>
           <line x1={PAD_L} x2={W - PAD_R} y1={PAD_T + plotH - (g / max) * plotH} y2={PAD_T + plotH - (g / max) * plotH} stroke="var(--rule)" strokeDasharray="2 3"/>
           <text x={PAD_L - 6} y={PAD_T + plotH - (g / max) * plotH + 3} textAnchor="end" fontSize="9" fontFamily="var(--f-mono)" fill="var(--ink-soft)">{g}ms</text>
         </g>
       ))}
-      {/* axis baseline */}
       <line x1={PAD_L} x2={W - PAD_R} y1={PAD_T + plotH} y2={PAD_T + plotH} stroke="var(--rule-strong)"/>
-      {/* time ticks */}
       {[0, 0.25, 0.5, 0.75, 1].map(p => {
         const x = PAD_L + plotW * p;
-        const label = range === "24h"
-          ? `${Math.round(p * 24)}h`
-          : range === "7d"
-          ? `${Math.round(p * 7)}d`
-          : `${Math.round(p * 30)}d`;
+        const label = range === "24h" ? `${Math.round(p * 24)}h` : range === "7d" ? `${Math.round(p * 7)}d` : `${Math.round(p * 30)}d`;
         return (
           <g key={p}>
             <line x1={x} x2={x} y1={PAD_T + plotH} y2={PAD_T + plotH + 3} stroke="var(--rule-strong)"/>
@@ -208,66 +202,68 @@ function LatencyChart({ rest, ws, range }) {
           </g>
         );
       })}
-      {/* REST series */}
-      <path d={restPath} fill="none" stroke="var(--accent-ink)" strokeWidth="1.5"/>
-      {/* WS series */}
-      <path d={wsPath} fill="none" stroke="oklch(0.55 0.16 295)" strokeWidth="1.5"/>
+      <path d={makePath(restSeries)} fill="none" stroke="var(--accent-ink)" strokeWidth="1.5"/>
+      <path d={makePath(rtSeries)} fill="none" stroke="oklch(0.65 0.18 160)" strokeWidth="1.5"/>
+      <path d={makePath(wsSeries)} fill="none" stroke="oklch(0.55 0.16 295)" strokeWidth="1.5"/>
     </svg>
   );
 }
 
-// ── data hook — fetches real data from /api/status, /api/uptime, /api/latency ──
-function useStatusData() {
-  const [data, setData] = useStatusState(null);
+// ── data hook (live) ──────────────────────────────────────────────────
+const EMPTY_STATUS = {
+  rest: { name: "Historical REST API", route: "https://api.leandata.uk", status: "loading", uptime90: [], latency24h: [] },
+  rt:   { name: "Realtime REST API", route: "https://rt-api.leandata.uk", status: "loading", uptime90: [], latency24h: [] },
+  ws:   { name: "WebSocket stream", route: "wss://leandata.uk/stream/*", status: "loading", uptime90: [], latency24h: [] },
+  incidents: [],
+  timestamp: null,
+};
 
-  useStatusEffect(() => {
-    let cancelled = false;
-
-    async function fetchAll() {
-      try {
-        const [statusRes, uptimeRes, latencyRes] = await Promise.all([
-          fetch('/api/status').then(r => r.json()),
-          fetch('/api/uptime').then(r => r.json()),
-          fetch('/api/latency?range=24h').then(r => r.json()),
-        ]);
-        if (cancelled) return;
-        setData({
-          rest: {
-            name: statusRes.components.rest.name,
-            route: statusRes.components.rest.route,
-            status: statusRes.components.rest.status,
-            uptime90: uptimeRes.rest.map(pct => pct >= 99.9 ? 0 : pct >= 99 ? 1 : 2),
-            latency24h: latencyRes.rest.filter(v => v !== null),
-          },
-          ws: {
-            name: statusRes.components.ws.name,
-            route: statusRes.components.ws.route,
-            status: statusRes.components.ws.status,
-            uptime90: uptimeRes.ws.map(pct => pct >= 99.9 ? 0 : pct >= 99 ? 1 : 2),
-            latency24h: latencyRes.ws.filter(v => v !== null),
-          },
-        });
-      } catch (_) {
-        // Silently keep previous data
-      }
-    }
-
-    fetchAll();
-    const interval = setInterval(fetchAll, 30000); // refresh every 30s
-    return () => { cancelled = true; clearInterval(interval); };
-  }, []);
-
-  // Show loading state until first fetch completes
-  if (!data) {
-    return {
-      rest: { name: "REST API", route: "api.leandata.uk · Cloudflare → ThinkCentre", status: "operational", uptime90: Array(90).fill(0), latency24h: [0] },
-      ws: { name: "WebSocket stream", route: "ws://52.37.182.24:8767 · EC2 direct", status: "operational", uptime90: Array(90).fill(0), latency24h: [0] },
-    };
-  }
-  return data;
+function uptimePctToGrid(pcts) {
+  return (pcts || []).map(p => p >= 99.9 ? 0 : p >= 95 ? 1 : 2);
 }
 
-// ── incidents — fetched from /api/incidents ────────────────────────────
+function useStatusData() {
+  const [data, setData] = useStatusState(EMPTY_STATUS);
+
+  const fetchAll = useStatusCallback(async () => {
+    try {
+      const [statusRes, uptimeRes, latencyRes, incidentsRes] = await Promise.all([
+        fetch("/api/status").then(r => r.json()),
+        fetch("/api/uptime").then(r => r.json()),
+        fetch("/api/latency?range=24h").then(r => r.json()),
+        fetch("/api/incidents").then(r => r.json()),
+      ]);
+      const filterNull = arr => (arr || []).filter(v => v !== null);
+      const mapComponent = (key) => ({
+        name: EMPTY_STATUS[key]?.name || statusRes.components[key]?.name || key,
+        route: EMPTY_STATUS[key]?.route || "",
+        status: statusRes.components[key]?.status || "loading",
+        uptime90: uptimePctToGrid(uptimeRes[key]),
+        latency24h: filterNull(latencyRes[key]),
+      });
+      setData({
+        rest: mapComponent("rest"),
+        rt: mapComponent("rt"),
+        ws: mapComponent("ws"),
+        incidents: (incidentsRes.incidents || []).map(inc => ({
+          ...inc,
+          date: inc.date ? inc.date.slice(0, 10) : "",
+        })),
+        timestamp: statusRes.timestamp,
+      });
+    } catch (e) {
+      console.error("Status fetch error:", e);
+    }
+  }, []);
+
+  useStatusEffect(() => {
+    fetchAll();
+    const id = setInterval(fetchAll, 30000);
+    return () => clearInterval(id);
+  }, [fetchAll]);
+
+  return data;
+}
 
 function SeverityChip({ s }) {
   const map = {
@@ -295,45 +291,29 @@ function SeverityChip({ s }) {
 function StatusBody() {
   const data = useStatusData();
   const [range, setRange] = useStatusState("24h");
-  const [incidents, setIncidents] = useStatusState([]);
-  const [latencyData, setLatencyData] = useStatusState({ rest: [], ws: [] });
 
-  useStatusEffect(() => {
-    fetch('/api/incidents')
-      .then(r => r.json())
-      .then(d => setIncidents(d.incidents || []))
-      .catch(() => {});
-  }, []);
+  const isLoading = data.rest.status === "loading" || data.rt.status === "loading" || data.ws.status === "loading";
+  const allOp = data.rest.status === "operational" && data.rt.status === "operational" && data.ws.status === "operational";
+  const anyOutage = data.rest.status === "outage" || data.rt.status === "outage" || data.ws.status === "outage";
+  const overall = isLoading ? "loading" : allOp ? "operational" : anyOutage ? "outage" : "degraded";
 
-  useStatusEffect(() => {
-    fetch(`/api/latency?range=${range}`)
-      .then(r => r.json())
-      .then(d => setLatencyData({ rest: (d.rest || []).filter(v => v !== null), ws: (d.ws || []).filter(v => v !== null) }))
-      .catch(() => {});
-  }, [range]);
+  const overallLabel = overall === "loading" ? "Checking systems…" : overall === "operational" ? "All systems operational" : overall === "outage" ? "Service disruption" : "Partial degradation";
+  const overallColor = overall === "loading" ? "var(--ink-muted)" : overall === "operational" ? "var(--ok)" : overall === "outage" ? "var(--danger)" : "var(--warn)";
+  const overallBg    = overall === "loading" ? "var(--bg-canvas)" : overall === "operational" ? "var(--ok-soft)" : overall === "outage" ? "var(--danger-soft)" : "var(--warn-soft)";
 
-  const overall = (data.rest.status === "operational" && data.ws.status === "operational")
-    ? "operational"
-    : (data.rest.status === "outage" || data.ws.status === "outage")
-      ? "outage"
-      : "degraded";
-
-  const overallLabel = overall === "operational" ? "All systems operational" : overall === "outage" ? "Service disruption" : "Partial degradation";
-  const overallColor = overall === "operational" ? "var(--ok)" : overall === "outage" ? "var(--danger)" : "var(--warn)";
-  const overallBg    = overall === "operational" ? "var(--ok-soft)" : overall === "outage" ? "var(--danger-soft)" : "var(--warn-soft)";
-
-  const now = new Date();
-  const lastUpdated = now.toISOString().replace("T", " ").slice(0, 16) + " UTC";
+  const lastUpdated = data.timestamp
+    ? data.timestamp.replace("T", " ").slice(0, 16) + " UTC"
+    : "loading…";
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div>
       {/* ── Overview ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>System</div>
       <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>Status</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 24px", maxWidth: 620 }}>
-        Live health of the REST API (Cloudflare → ThinkCentre) and WebSocket stream (EC2 direct).
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 24px" }}>
+        Live health of the historical REST API, realtime REST API, and secure WebSocket stream on the public leandata.uk domains.
         Uptime is sampled every minute; latency percentiles are computed over a rolling 60-minute window.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>REST API（Cloudflare → ThinkCentre）与 WebSocket 流（EC2 直连）的实时健康指标。可用性按分钟采样，延迟分位数按 60 分钟滚动窗口计算。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>这里展示 leandata.uk 公共域名下历史 REST、实时 REST 与安全 WebSocket 的健康状态。可用性按分钟采样，延迟分位数按 60 分钟滚动窗口计算。</span>
       </p>
 
       {/* Hero status banner */}
@@ -363,8 +343,9 @@ function StatusBody() {
 
       {/* ── Components ── */}
       <h2 id="components" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Components</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 40 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 40 }}>
         <ComponentCard {...data.rest} unit="ms" color="var(--accent-ink)"/>
+        <ComponentCard {...data.rt} unit="ms" color="oklch(0.65 0.18 160)"/>
         <ComponentCard {...data.ws} unit="ms" color="oklch(0.55 0.16 295)"/>
       </div>
 
@@ -395,6 +376,9 @@ function StatusBody() {
             <span style={{ width: 12, height: 2, background: "var(--accent-ink)" }}/> REST API
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--ink-muted)" }}>
+            <span style={{ width: 12, height: 2, background: "oklch(0.65 0.18 160)" }}/> RT API
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--ink-muted)" }}>
             <span style={{ width: 12, height: 2, background: "oklch(0.55 0.16 295)" }}/> WebSocket
           </span>
           <span style={{ flex: 1 }}/>
@@ -402,16 +386,16 @@ function StatusBody() {
             {range} · ms · client → response
           </span>
         </div>
-        <LatencyChart rest={latencyData.rest} ws={latencyData.ws} range={range}/>
+        <LatencyChart range={range}/>
       </div>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
-        REST latency includes Cloudflare edge → ThinkCentre origin round-trip plus server processing.
+        REST latency includes public TLS routing, cache or upstream resolution, and server processing.
         WebSocket latency is the auth-response round-trip after socket open; message delivery has near-zero added latency once the stream is warm.
       </p>
 
       {/* ── Uptime grid ── */}
       <h2 id="uptime" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>90-day uptime</h2>
-      <div className="card" style={{ padding: 20, marginBottom: 12, borderLeft: "none", borderRight: "none", borderRadius: 0 }}>
+      <div className="card" style={{ padding: 20, marginBottom: 12 }}>
         <UptimeBlock label="REST API" data={data.rest.uptime90} />
         <hr style={{ border: 0, borderTop: "1px solid var(--rule)", margin: "18px 0" }}/>
         <UptimeBlock label="WebSocket stream" data={data.ws.uptime90} />
@@ -430,21 +414,14 @@ function StatusBody() {
 
       {/* ── Incidents ── */}
       <h2 id="incidents" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Recent incidents</h2>
-      <div style={{ borderTop: "1px solid var(--rule)" }}>
-        {incidents.length === 0 && (
-          <div style={{ padding: "24px 0", color: "var(--ink-soft)", fontSize: 13, textAlign: "center" }}>
-            No incidents recorded yet. Outages and restarts are logged automatically.
-          </div>
-        )}
-        {incidents.map((inc, i) => {
-          const d = inc.date ? new Date(inc.date) : null;
-          const dateStr = d ? d.toISOString().slice(0, 10) : '—';
-          const timeStr = d ? d.toISOString().slice(11, 16) + ' UTC' : '';
-          return (
+      {data.incidents.length === 0 ? (
+        <p style={{ color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 12 }}>No incidents recorded.</p>
+      ) : (
+        <div style={{ borderTop: "1px solid var(--rule)" }}>
+          {data.incidents.map((inc, i) => (
             <div key={inc.id || i} style={{ padding: "16px 0", borderBottom: "1px solid var(--rule)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{dateStr}</span>
-                <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{timeStr}</span>
+                <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{inc.date}</span>
                 <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>·</span>
                 <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>{inc.component}</span>
                 <span style={{ flex: 1 }}/>
@@ -454,18 +431,18 @@ function StatusBody() {
               <div style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-strong)", marginBottom: 4 }}>{inc.title}</div>
               {inc.summary && <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: 0, lineHeight: 1.55 }}>{inc.summary}</p>}
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Methodology ── */}
       <h2 id="methodology" className="display-title" style={{ fontSize: 28, margin: "40px 0 12px" }}>Methodology</h2>
-      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px", maxWidth: 620 }}>
-        Probes run from <code className="ic">us-west-2</code>, <code className="ic">us-east-1</code>, and <code className="ic">eu-west-1</code> every 60 seconds.
-        REST checks: <code className="ic">GET /v2/stocks/quotes/latest?symbols=AAPL</code> with a known token. WebSocket checks: connect, auth, expect <code className="ic">{"{T:\"success\"}"}</code> within 5 s.
-        Uptime is the fraction of checks that completed with HTTP 2xx (REST) or a valid auth response (WS) within the SLO window.
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Probes run on-demand from the token portal when the status page is viewed, and sample on each page refresh (every 30 s).
+        REST checks use the service health endpoints; WebSocket checks use the public <code className="ic">wss://leandata.uk/stream</code> route.
+        Uptime is the fraction of probes that returned success within the timeout window, aggregated daily over 90 days.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>
-          探针位于 us-west-2、us-east-1、eu-west-1，每 60 秒采样一次。REST 检查命中已知 token 的最新报价接口；WS 检查建连后等待认证回执。可用性 = 在 SLO 窗口内 HTTP 2xx 或认证成功的探针比例。
+          探针在状态页浏览时按需运行，每 30 秒自动刷新。REST 检查服务健康端点，WS 检查公开安全 WebSocket 路由。可用性按天聚合，展示 90 天。
         </span>
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 48px" }}>
@@ -505,38 +482,72 @@ function UptimeBlock({ label, data }) {
 
 const { useState } = React;
 
-function DocsTopbar({ active = "proxy" }) {
+function DocsTopbar({ active = "proxy", onNav }) {
   return (
     <div className="topbar">
       <div className="brand">
         <span className="dot"></span>
-        <span><strong>Public Docs Site</strong></span>
+        <span><strong>Proxy Docs</strong></span>
       </div>
       <div className="divider"></div>
       <div className="nav">
-        <a className={active === "proxy" ? "active" : ""}>Proxy API</a>
-        <a className={active === "ws" ? "active" : ""}>WS usage</a>
-        <a className={active === "status" ? "active" : ""}>Status</a>
+        <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>Proxy API</a>
+        <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>Bulk Download</a>
+        <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>WS usage</a>
+        <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>Status</a>
+        <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>Usage</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
-        <span className="pill"><span className="live"></span> v2.6 · live</span>
-        <a className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.34c-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.74.54 1.49v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0z"/></svg>
-          ikkisovi/Websocket-DataFeed-Proxy-docs
-        </a>
+        <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>Token portal →</a>
       </div>
     </div>
   );
 }
 
-function DocsSite({ initialTab = "proxy" } = {}) {
-  const [tab, setTab] = useState(initialTab);
+function IndexOptionsBanner() {
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      flexWrap: "wrap",
+      padding: "10px 18px",
+      borderBottom: "1px solid var(--accent-rule)",
+      background: "var(--accent-soft)",
+      color: "var(--accent-ink)",
+      fontSize: 13,
+    }}>
+      <span style={{
+        padding: "2px 7px",
+        borderRadius: 999,
+        background: "var(--accent-ink)",
+        color: "var(--ink-inverse)",
+        fontFamily: "var(--f-mono)",
+        fontSize: 10,
+        fontWeight: 600,
+        letterSpacing: ".08em",
+        textTransform: "uppercase",
+      }}>New</span>
+      <strong>Alpaca supports index options now.</strong>
+      <span>
+        Proxy contract discovery and realtime option streams are live for SPX/SPXW, VIX/VIXW, DJX and XSP.
+        <span style={{ color: "var(--ink-muted)" }}> 指数期权合约查询与实时行情现已支持。</span>
+      </span>
+    </div>
+  );
+}
+
+function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
+  const validTabs = ["proxy", "bulk", "ws", "status", "usage"];
+  const hashTab = typeof window !== "undefined" && window.location.hash ? window.location.hash.slice(1) : "";
+  const startTab = validTabs.includes(hashTab) ? hashTab : initialTab;
+  const [tab, setTab] = useState(startTab);
 
   React.useEffect(() => {
     const scrollToHash = () => {
       const id = decodeURIComponent(window.location.hash.slice(1));
-      if (!id) return;
+      if (!id || validTabs.includes(id)) return;
       window.requestAnimationFrame(() => {
         document.getElementById(id)?.scrollIntoView({ block: "start" });
       });
@@ -546,19 +557,15 @@ function DocsSite({ initialTab = "proxy" } = {}) {
     return () => window.removeEventListener("hashchange", scrollToHash);
   }, [tab]);
 
-  let isEmbedded = false;
-  try {
-    isEmbedded = window.self !== window.top;
-  } catch (e) {
-    isEmbedded = true;
-  }
+  const showTopbar = !hideTopbar;
 
   return (
     <div className="proxy-app" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      {!isEmbedded && <DocsTopbar active={tab} />}
+      {showTopbar && <DocsTopbar active={tab} onNav={setTab} />}
+      <IndexOptionsBanner />
 
       {/* Hero */}
-      <div style={{
+      <div className="docs-hero" style={{
         padding: "44px 64px 28px",
         borderBottom: "1px solid var(--rule)",
         background: "var(--bg-paper)",
@@ -576,31 +583,27 @@ function DocsSite({ initialTab = "proxy" } = {}) {
         </p>
 
         {/* Tab strip */}
-        <div style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
+        <div className="docs-tabs" style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
           <Tab id="proxy" tab={tab} setTab={setTab} label="Proxy API" count="45+ endpoints" />
+          <Tab id="bulk" tab={tab} setTab={setTab} label="Bulk Download" count="¥50 / 50GB" />
           <Tab id="ws" tab={tab} setTab={setTab} label="WS usage" count="6 channels" />
           <Tab id="status" tab={tab} setTab={setTab} label="Status" count="live" />
+          <Tab id="usage" tab={tab} setTab={setTab} label="Usage" count="30d" />
           <div style={{ flex: 1 }}></div>
-          <div style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
-            last sync · 2026-05-25 hybrid architecture (CF REST + EC2 WS)
+          <div className="docs-last-sync" style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
+            last sync · 2026-07-29 · public REST / RT / WSS
           </div>
         </div>
       </div>
 
       {/* Content */}
-      {tab === "status" ? (
-        <main style={{ padding: "40px 56px", background: "var(--bg-canvas)", display: "flex", justifyContent: "center" }}>
-          <StatusBody />
+      <div style={{ display: "grid", gridTemplateColumns: (tab === "status" || tab === "usage" || tab === "bulk") ? "1fr" : "220px 1fr 220px", flex: 1 }}>
+        {tab !== "status" && tab !== "usage" && tab !== "bulk" && <SideNav tab={tab} />}
+        <main className={tab === "bulk" ? "bulk-main" : ""} style={{ padding: (tab === "status" || tab === "usage" || tab === "bulk") ? "36px 32px" : "40px 56px", background: "var(--bg-canvas)" }}>
+          {tab === "proxy" ? <ProxyApiBody /> : tab === "bulk" ? <BulkOrderBody /> : tab === "ws" ? <WsUsageBody /> : tab === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…")) : (React.createElement(StatusBody))}
         </main>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 220px", flex: 1 }}>
-          <SideNav tab={tab} />
-          <main style={{ padding: "40px 56px", background: "var(--bg-canvas)" }}>
-            {tab === "proxy" ? <ProxyApiBody /> : <WsUsageBody />}
-          </main>
-          <OnThisPage tab={tab} />
-        </div>
-      )}
+        {tab !== "status" && tab !== "usage" && tab !== "bulk" && <OnThisPage tab={tab} />}
+      </div>
     </div>
   );
 }
@@ -892,11 +895,11 @@ function TokenCard() {
   );
 }
 
-// Hybrid architecture: REST via Cloudflare→ThinkCentre, WS via EC2 direct
+// Stable public endpoints. Origin routing can move during failover.
 const REST_BASE  = "https://api.leandata.uk";
+const RT_BASE    = "https://rt-api.leandata.uk";
 const TOKEN_BASE = "https://leandata.uk";
-const WS_HOST    = "52.37.182.24";
-const WS_BASE    = `ws://${WS_HOST}:8767`;
+const WS_BASE    = "wss://leandata.uk/stream";
 
 function ParamRow({ name, type, required, desc }) {
   return (
@@ -1178,6 +1181,330 @@ function StockEndpointSection({ endpoint }) {
   );
 }
 
+const BULK_SCHEMA_OPTIONS = [
+  {
+    id: "stock_minute",
+    category: "Stocks",
+    label: "Stock bars · 1 minute",
+    detail: "SIP minute OHLCV · measured average ~49 MB per ticker for the reference archive",
+  },
+  {
+    id: "stock_daily",
+    category: "Stocks",
+    label: "Stock bars · daily",
+    detail: "SIP daily OHLCV · measured average ~0.4 MB per ticker",
+  },
+  {
+    id: "options_eod_theta",
+    category: "Options",
+    label: "Option EOD · complete chain",
+    detail: "ThetaData complete-chain EOD · measured average ~360 MB per underlying",
+  },
+  {
+    id: "options_eod_alpaca",
+    category: "Options",
+    label: "Option EOD · traded contracts",
+    detail: "Alpaca traded-contract EOD · measured average ~76 MB per underlying",
+  },
+  {
+    id: "options_oi",
+    category: "Options",
+    label: "Option open interest",
+    detail: "Historical contract-level OI · measured average ~167 MB per underlying",
+  },
+  {
+    id: "options_contracts",
+    category: "Options",
+    label: "Option contracts",
+    detail: "Contract reference rows · measured average ~27 MB per underlying",
+  },
+];
+
+function formatBulkBytes(bytes) {
+  if (!Number.isFinite(bytes)) return "—";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1000 && unit < units.length - 1) {
+    value /= 1000;
+    unit += 1;
+  }
+  return `${value >= 100 ? value.toFixed(0) : value.toFixed(2)} ${units[unit]}`;
+}
+
+function BulkOrderBody() {
+  const [tickerText, setTickerText] = React.useState("AAPL, MSFT, NVDA");
+  const [schemas, setSchemas] = React.useState(["options_eod_theta", "options_oi", "stock_minute"]);
+  const [start, setStart] = React.useState("2021-01-01");
+  const [end, setEnd] = React.useState("2026-07-22");
+  const [estimate, setEstimate] = React.useState(null);
+  const [username, setUsername] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [customRequest, setCustomRequest] = React.useState("");
+  const [note, setNote] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [message, setMessage] = React.useState("");
+  const [messageType, setMessageType] = React.useState("");
+
+  const tickers = [...new Set(
+    tickerText.split(/[\s,]+/).map(value => value.trim().toUpperCase()).filter(Boolean)
+  )];
+
+  const invalidateEstimate = () => {
+    setEstimate(null);
+    setMessage("");
+    setMessageType("");
+  };
+
+  const toggleSchema = id => {
+    setSchemas(current => current.includes(id)
+      ? current.filter(value => value !== id)
+      : [...current, id]);
+    invalidateEstimate();
+  };
+
+  const requestEstimate = async () => {
+    setLoading(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch("/api/bulk/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tickers, schemas, start, end }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.message || "Estimate failed.");
+      setEstimate(data);
+    } catch (error) {
+      setMessage(error.message);
+      setMessageType("error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitOrder = async () => {
+    if (schemas.length === 0 && !customRequest.trim()) {
+      setMessage("请选择至少一个数据集，或填写自定义 endpoint / 数据需求。");
+      setMessageType("error");
+      return;
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+      setMessage("请输入有效邮箱。");
+      setMessageType("error");
+      return;
+    }
+    setLoading(true);
+    setMessage("");
+    setMessageType("");
+    try {
+      const response = await fetch("/api/bulk/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tickers,
+          schemas,
+          start,
+          end,
+          username: username.trim(),
+          phone: phone.trim(),
+          email: email.trim(),
+          custom_request: customRequest.trim(),
+          note,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.message || "Order request failed.");
+      setMessage(
+        data.manual_quote_required
+          ? `申请 ${data.order_id.slice(0, 8)} 已提交 · Kai 会根据联系方式与你确认并人工报价`
+          : `订单 ${data.order_id.slice(0, 8)} 已提交 · 当前估价 ¥${data.estimated_price ?? "待确认"}`
+      );
+      setMessageType("success");
+    } catch (error) {
+      setMessage(error.message);
+      setMessageType("error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>One-off product · manual fulfillment</div>
+      <h2 className="display-title" style={{ fontSize: 44, margin: "0 0 10px" }}>Bulk Download</h2>
+      <p style={{ color: "var(--ink-muted)", maxWidth: 780, margin: "0 0 28px", lineHeight: 1.65 }}>
+        Bulk Download 是一次性数据导出，不再作为 Basic REST 月度套餐销售。
+        当前估价基于已测量的 2021-01-01 至 2026-07-22 完整归档窗口：
+        前 50 GB 为 ¥50，之后每开始 1 GB 加 ¥1。最终价格按实际交付切片的未压缩字节计算。
+      </p>
+
+      <div className="bulk-layout" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.35fr) minmax(300px, .75fr)", gap: 20, alignItems: "start" }}>
+        <div>
+          <div className="card" style={{ padding: 22, marginBottom: 18 }}>
+            <div className="eyebrow" style={{ marginBottom: 10 }}>1 · Tickers</div>
+            <textarea
+              className="input mono"
+              value={tickerText}
+              onChange={event => { setTickerText(event.target.value); invalidateEstimate(); }}
+              rows={4}
+              placeholder="AAPL, MSFT, NVDA"
+              style={{ width: "100%", resize: "vertical", lineHeight: 1.6 }}
+            />
+            <div style={{ marginTop: 8, color: "var(--ink-soft)", fontSize: 12 }}>
+              {tickers.length} unique ticker{tickers.length === 1 ? "" : "s"} · 最多 1,000 个
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 22, marginBottom: 18 }}>
+            <div className="eyebrow" style={{ marginBottom: 10 }}>2 · Requested range</div>
+            <div className="bulk-date-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <label style={{ color: "var(--ink-muted)", fontSize: 12 }}>Start
+                <input className="input mono" type="date" value={start} onChange={event => { setStart(event.target.value); invalidateEstimate(); }} style={{ width: "100%", marginTop: 6 }} />
+              </label>
+              <label style={{ color: "var(--ink-muted)", fontSize: 12 }}>End
+                <input className="input mono" type="date" value={end} onChange={event => { setEnd(event.target.value); invalidateEstimate(); }} style={{ width: "100%", marginTop: 6 }} />
+              </label>
+            </div>
+            <div style={{ marginTop: 8, color: "var(--ink-soft)", fontSize: 12 }}>
+              当前自动估价使用完整参考窗口；日期范围会保存在订单中，由交付时按实际切片结算。
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 22 }}>
+            <div className="eyebrow" style={{ marginBottom: 12 }}>3 · Measured datasets</div>
+            <div className="bulk-dataset-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+              {BULK_SCHEMA_OPTIONS.map(option => {
+                const active = schemas.includes(option.id);
+                return (
+                  <button
+                    type="button"
+                    key={option.id}
+                    onClick={() => toggleSchema(option.id)}
+                    style={{
+                      textAlign: "left",
+                      padding: 14,
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      border: `1px solid ${active ? "var(--accent)" : "var(--rule)"}`,
+                      background: active ? "var(--accent-soft)" : "var(--bg-paper)",
+                      color: "var(--ink-base)",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 5 }}>
+                      <strong>{option.label}</strong>
+                      <span className="mono" style={{ fontSize: 10, color: "var(--accent-ink)" }}>{active ? "SELECTED" : ""}</span>
+                    </div>
+                    <div className="mono" style={{ fontSize: 10, color: "var(--ink-soft)", marginBottom: 6 }}>{option.category} · {option.id}</div>
+                    <div style={{ color: "var(--ink-muted)", fontSize: 12, lineHeight: 1.45 }}>{option.detail}</div>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ borderTop: "1px solid var(--rule)", marginTop: 18, paddingTop: 18 }}>
+              <label style={{ color: "var(--ink-strong)", fontSize: 13, fontWeight: 600 }}>
+                没找到需要的 endpoint / dataset？
+              </label>
+              <textarea
+                className="input"
+                value={customRequest}
+                onChange={event => {
+                  setCustomRequest(event.target.value);
+                  setMessage("");
+                  setMessageType("");
+                }}
+                maxLength={2000}
+                rows={5}
+                placeholder={"可直接描述需求，例如：\n需要 /v1/options/snapshot/gex 的历史每日快照，标的为 SPY、QQQ，日期 2024-01-01 至今，希望 CSV 交付。"}
+                style={{ width: "100%", resize: "vertical", lineHeight: 1.55, marginTop: 8 }}
+              />
+              <div style={{ marginTop: 7, color: "var(--ink-soft)", fontSize: 12 }}>
+                可以不选择上面的标准数据集。提交后会进入 admin，由 Kai 根据你留下的电话和邮箱人工联系报价。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card bulk-estimate-panel" style={{ padding: 22, position: "sticky", top: 20 }}>
+          <div className="eyebrow" style={{ marginBottom: 12 }}>Estimate & order</div>
+          {estimate ? (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                <div style={{ padding: 12, background: "var(--bg-canvas)", borderRadius: 7 }}>
+                  <div className="eyebrow">Billable raw</div>
+                  <div className="display-title" style={{ fontSize: 24 }}>{formatBulkBytes(estimate.estimated_raw_bytes)}</div>
+                </div>
+                <div style={{ padding: 12, background: "var(--bg-canvas)", borderRadius: 7 }}>
+                  <div className="eyebrow">Expected transfer</div>
+                  <div className="display-title" style={{ fontSize: 24 }}>{formatBulkBytes(estimate.estimated_transfer_bytes)}</div>
+                </div>
+              </div>
+              <div style={{ borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)", padding: "14px 0", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <span style={{ color: "var(--ink-muted)" }}>Reference-window estimate</span>
+                <strong className="display-title" style={{ fontSize: 34 }}>¥{estimate.pricing?.estimated_price ?? "—"}</strong>
+              </div>
+            </>
+          ) : (
+            <p style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55, margin: "0 0 18px" }}>
+              标准数据集可生成参考估价；自定义 endpoint 申请会直接进入人工报价队列。
+              订单提交时服务器会重新计算标准数据集价格，不能使用浏览器篡改后的价格。
+            </p>
+          )}
+
+          <button
+            type="button"
+            className="btn"
+            onClick={requestEstimate}
+            disabled={loading || tickers.length === 0 || schemas.length === 0}
+            style={{ width: "100%", justifyContent: "center" }}
+          >
+            {loading ? "Calculating…" : "Calculate size & price"}
+          </button>
+
+          <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--rule)", display: "flex", flexDirection: "column", gap: 9 }}>
+            <div style={{ color: "var(--ink-muted)", fontSize: 12, lineHeight: 1.5 }}>
+              联系方式用于确认数据范围、交付格式和最终报价。
+            </div>
+            <input className="input" placeholder="Username · required" value={username} onChange={event => setUsername(event.target.value)} />
+            <input className="input" placeholder="Phone · required" value={phone} onChange={event => setPhone(event.target.value)} />
+            <input className="input" type="email" placeholder="Email · required" value={email} onChange={event => setEmail(event.target.value)} />
+            <textarea className="input" rows={3} placeholder="Delivery format or additional notes · optional" value={note} onChange={event => setNote(event.target.value)} />
+            <button
+              type="button"
+              className="btn primary"
+              onClick={submitOrder}
+              disabled={
+                loading
+                || !username.trim()
+                || !phone.trim()
+                || !email.trim()
+                || (schemas.length === 0 && !customRequest.trim())
+                || (schemas.length > 0 && tickers.length === 0)
+              }
+              style={{ width: "100%", justifyContent: "center" }}
+            >
+              Submit request →
+            </button>
+          </div>
+
+          {message && (
+            <div style={{
+              marginTop: 12,
+              padding: 10,
+              borderRadius: 6,
+              color: messageType === "success" ? "var(--ok)" : "var(--danger)",
+              background: messageType === "success" ? "var(--ok-soft)" : "var(--danger-soft)",
+              fontSize: 12,
+            }}>{message}</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProxyApiBody() {
   return (
     <div style={{ maxWidth: 760 }}>
@@ -1187,22 +1514,24 @@ function ProxyApiBody() {
       <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>Overview</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 16px", maxWidth: 640 }}>
         The Stock Options Proxy has two surfaces: a <strong style={{ color: "var(--ink-strong)" }}>token portal</strong> for registration and token issuance,
-        and a <strong style={{ color: "var(--ink-strong)" }}>data proxy</strong> for market data (REST via Cloudflare, WS via EC2 direct).
+        and a <strong style={{ color: "var(--ink-strong)" }}>data proxy</strong> for historical REST, realtime REST, and secure WebSocket market data.
         Once you have a token, use it to call historical and realtime endpoints without managing your own Alpaca / ThetaData credentials.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Stock Options Proxy 提供两类服务：Token 门户负责账户注册与 Token 签发；数据代理负责行情数据，其中 REST 走 Cloudflare 边缘，WebSocket 直连 EC2。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Stock Options Proxy 提供两类服务：Token 门户负责注册、账户与 Token；数据代理通过稳定的公共域名提供历史 REST、实时 REST 与安全 WebSocket 行情。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
         <thead><tr><th>Surface</th><th>Public URL</th><th>Auth</th></tr></thead>
         <tbody>
           <tr><td>Token portal</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TOKEN_BASE}</td><td style={{ fontSize: 12 }}>username + phone</td></tr>
           <tr><td>REST data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{REST_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
+          <tr><td>REST real-time proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{RT_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
           <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{WS_BASE}/*</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
         </tbody>
       </table>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13 }}>
-        <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Hybrid architecture</strong> — REST historical data is served via <strong>Cloudflare</strong> global edge (leandata.uk),
-        while realtime <strong>WebSocket</strong> streams connect directly to EC2 for lowest latency to Alpaca.
-        <br/><span style={{ color: "var(--ink-soft)" }}>REST 历史数据通过 Cloudflare 全球边缘节点提供（leandata.uk）；WebSocket 实时流直连 EC2，以降低到 Alpaca 上游的链路延迟。</span>
+        <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Stable public endpoints</strong> — use <code>api.leandata.uk</code> for historical REST,
+        <code>rt-api.leandata.uk</code> for realtime REST, and <code>wss://leandata.uk/stream/*</code> for streaming.
+        All data surfaces accept the same token. Origin hosts and cache tiers may move during failover, so clients should never pin a raw server IP.
+        <br/><span style={{ color: "var(--ink-soft)" }}>历史 REST、实时 REST 与 WebSocket 均使用稳定域名和同一 Token。故障切换时源站与缓存层可能调整，客户端不应绑定裸 IP。</span>
       </div>
 
       <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Authentication</h2>
@@ -1223,8 +1552,9 @@ Authorization: Bearer c88662...720a
 
       <h2 id="tiers-permissions" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Tiers &amp; permissions</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Five plans control access to channels, symbols, rate limits, and REST endpoints.
-        <span style={{ color: "var(--ink-soft)", fontSize: 13 }}>五个套餐等级控制通道、标的、限速和接口权限。</span>
+        Four public token plans control access to channels, symbols, rate limits, and REST endpoints.
+        Basic is shown only for existing-account compatibility and is closed to new registration; Bulk Download is the separate one-off product above.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>公开注册提供四种 Token 套餐。Basic 仅为老账户兼容，不再开放新注册；批量导出请使用上方独立的 Bulk Download。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
@@ -1243,13 +1573,13 @@ Authorization: Bearer c88662...720a
           </tr>
           <tr>
             <td><span className="tier basic">Basic</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$40/mo</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Legacy · closed</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>— (REST only)</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>600</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td>
-            <td style={{ fontSize: 12 }}>stocks + options history · no realtime</td>
+            <td style={{ fontSize: 12 }}>existing accounts only · no new registration</td>
           </tr>
           <tr>
             <td><span className="tier value">Value</span></td>
@@ -1302,18 +1632,22 @@ Authorization: Bearer c88662...720a
       <ParamTable rows={[
         { name: "username", type: "string", required: true, desc: "Unique display name (must not exist in approved users)" },
         { name: "phone",    type: "string", required: true, desc: "Mobile number used to verify identity on token generation" },
-        { name: "tier",     type: "string", required: false, desc: "trial | basic | value | standard | premium (default: standard)." },
+        { name: "email",    type: "string", required: true, desc: "Valid email used for account identity, service notices, and future login verification." },
+        { name: "tier",     type: "string", required: false, desc: "trial | value | standard | premium (default: standard). Basic is retired for new registrations." },
         { name: "mode",     type: "string", required: false, desc: "stocks | options — required when tier is value. Determines which data vertical is enabled." },
       ]} />
       <pre className="code" style={{ marginBottom: 28 }}>
 {`// Request
-{ "username": "tonnysun", "phone": "18717931119", "tier": "premium" }
+{ "username": "tonnysun", "phone": "18717931119", "email": "tonny@example.com", "tier": "premium" }
 
 // Value tier — mode required
-{ "username": "qianyu", "phone": "13800138000", "tier": "value", "mode": "options" }
+{ "username": "qianyu", "phone": "13800138000", "email": "qianyu@example.com", "tier": "value", "mode": "options" }
 
 // Response 200
 { "success": true, "message": "注册成功！请等待卖家确认订单后即可生成 Token。", "id": "61ce4f82-..." }
+
+// Error 400 — Basic is no longer a public registration tier
+{ "success": false, "error": "retired_registration_tier", "message": "Basic REST 月度套餐已停止新注册..." }
 
 // Error 409 — username already taken
 { "success": false, "message": "该用户名已被使用，请换一个。" }`}
@@ -2508,7 +2842,8 @@ await ws.send(json.dumps({
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Live OPRA options feed. Subscribe using OCC symbols in the <code>trades</code> and <code>quotes</code> lists.
         All tiers except Basic.
-        <strong style={{ color: "var(--ink-strong)" }}> Index options (SPX, SPXW, NDX, RUT) are not available via WebSocket</strong> — the upstream Alpaca feed only covers equity and ETF options. Use the REST <code>/v1/history/options/bars</code> endpoint with <code>provider=thetadata</code> for index option history.
+        <strong style={{ color: "var(--ink-strong)" }}> Index options are supported</strong> for Alpaca's current SPX/SPXW, VIX/VIXW, DJX and XSP families.
+        Use the normal OCC contract symbol; the proxy handles Alpaca's required MsgPack upstream frames and keeps the public <code>/stream/options</code> contract unchanged.
       </p>
 
       <h2 id="crypto" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>crypto</h2>
@@ -2628,6 +2963,84 @@ async def with_reconnect(token, uri, handler, backoff=1):
       </p>
       <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         Best practice: process each message quickly (or offload to a queue) rather than doing heavy work inside the receive loop.
+      </p>
+
+      <h2 id="performance" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Performance tips</h2>
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        The proxy serves cached responses in under 1ms. Most client-perceived latency comes from network round-trips and TLS handshakes. These tips can cut TTFB by 50–80%.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>代理返回缓存响应不到 1ms，客户端感知到的延迟主要来自网络往返和 TLS 握手。以下建议可将 TTFB 降低 50–80%。</span>
+      </p>
+
+      <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Use GET for cacheable endpoints</h3>
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Where an endpoint supports both methods, prefer GET for idempotent history reads. Repeated requests can be served by the proxy's hot or archive cache; inspect <code>X-Cache</code> and <code>X-Cache-Tier</code> instead of assuming a specific edge provider.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>对同时支持 GET 与 POST 的端点，幂等历史查询优先使用 GET。重复请求可能命中热缓存或归档缓存，请查看 X-Cache / X-Cache-Tier，不要依赖特定边缘供应商。</span>
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`# POST — JSON body
+curl -X POST https://api.leandata.uk/v1/history/bars \\
+  -d '{"token":"TOKEN","symbol":"AAPL","start":"2025-01-01","end":"2025-12-31","timeframe":"1Day"}'
+
+# GET — cache-friendly for idempotent reads
+curl "https://api.leandata.uk/v1/history/bars?token=TOKEN&symbol=AAPL&start=2025-01-01&end=2025-12-31&timeframe=1Day"
+
+# Check cache status in response headers:
+# cf-cache-status: HIT    → served from edge (~20ms)
+# cf-cache-status: MISS   → fetched from origin, now cached for next request`}
+      </pre>
+
+      <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Reuse connections</h3>
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Each new HTTPS request pays ~100ms for TCP + TLS handshake. Use a persistent session (HTTP/2 or keep-alive) to amortize this across all requests.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>每个新 HTTPS 请求需约 100ms 用于 TCP + TLS 握手。使用持久连接（HTTP/2 或 keep-alive）可将此开销分摊到所有请求。</span>
+      </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`# Python — use requests.Session for connection reuse
+import requests
+
+session = requests.Session()
+session.headers["Authorization"] = "Bearer TOKEN"
+
+# First request: ~150ms (TLS handshake + response)
+r1 = session.get("https://api.leandata.uk/v1/history/bars",
+                  params={"symbol": "AAPL", "start": "2025-01-01",
+                          "end": "2025-12-31", "timeframe": "1Day"})
+
+# Subsequent requests: ~20-40ms (connection reused)
+r2 = session.get("https://api.leandata.uk/v1/history/bars",
+                  params={"symbol": "MSFT", "start": "2025-01-01",
+                          "end": "2025-12-31", "timeframe": "1Day"})
+
+# JavaScript — fetch() reuses connections by default
+// Node.js: use undici or node-fetch with keepAlive agent
+import { Agent } from 'undici'
+const agent = new Agent({ keepAliveTimeout: 30000 })`}
+      </pre>
+
+      <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Choose the right endpoint</h3>
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Two REST base URLs are available. Use the one that fits your query type.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>提供两个 REST 基础 URL，根据查询类型选择合适的。</span>
+      </p>
+      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
+        <thead>
+          <tr><th>Base URL</th><th>Best for</th><th>Edge cache TTL</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>api.leandata.uk</td>
+            <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>Historical bars, EOD, contracts, news</td>
+            <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>7 days</td>
+          </tr>
+          <tr>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>rt-api.leandata.uk</td>
+            <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>Snapshots, crypto orderbooks, real-time quotes</td>
+            <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>60 seconds</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
+        Both endpoints return identical data and accept the same authentication. The difference is caching duration and upstream routing.
       </p>
     </div>
   );

@@ -211,9 +211,9 @@ function LatencyChart({ range }) {
 
 // ── data hook (live) ──────────────────────────────────────────────────
 const EMPTY_STATUS = {
-  rest: { name: "REST API", route: "api.leandata.uk · Cloudflare → ThinkCentre", status: "loading", uptime90: [], latency24h: [] },
-  rt:   { name: "RT API", route: "rt-api.leandata.uk · Cloudflare → EC2", status: "loading", uptime90: [], latency24h: [] },
-  ws:   { name: "WebSocket stream", route: "ws://52.37.182.24:8767 · EC2 direct", status: "loading", uptime90: [], latency24h: [] },
+  rest: { name: "Historical REST API", route: "https://api.leandata.uk", status: "loading", uptime90: [], latency24h: [] },
+  rt:   { name: "Realtime REST API", route: "https://rt-api.leandata.uk", status: "loading", uptime90: [], latency24h: [] },
+  ws:   { name: "WebSocket stream", route: "wss://leandata.uk/stream/*", status: "loading", uptime90: [], latency24h: [] },
   incidents: [],
   timestamp: null,
 };
@@ -235,8 +235,8 @@ function useStatusData() {
       ]);
       const filterNull = arr => (arr || []).filter(v => v !== null);
       const mapComponent = (key) => ({
-        name: statusRes.components[key]?.name || key,
-        route: statusRes.components[key]?.route || "",
+        name: EMPTY_STATUS[key]?.name || statusRes.components[key]?.name || key,
+        route: EMPTY_STATUS[key]?.route || "",
         status: statusRes.components[key]?.status || "loading",
         uptime90: uptimePctToGrid(uptimeRes[key]),
         latency24h: filterNull(latencyRes[key]),
@@ -311,9 +311,9 @@ function StatusBody() {
       <div className="eyebrow" style={{ marginBottom: 10 }}>System</div>
       <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>Status</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 24px" }}>
-        Live health of the REST API (Cloudflare → ThinkCentre), RT API (Cloudflare → EC2), and WebSocket stream (EC2 direct).
+        Live health of the historical REST API, realtime REST API, and secure WebSocket stream on the public leandata.uk domains.
         Uptime is sampled every minute; latency percentiles are computed over a rolling 60-minute window.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>REST API（Cloudflare → ThinkCentre）、RT API（Cloudflare → EC2）与 WebSocket 流（EC2 直连）的实时健康指标。可用性按分钟采样，延迟分位数按 60 分钟滚动窗口计算。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>这里展示 leandata.uk 公共域名下历史 REST、实时 REST 与安全 WebSocket 的健康状态。可用性按分钟采样，延迟分位数按 60 分钟滚动窗口计算。</span>
       </p>
 
       {/* Hero status banner */}
@@ -389,7 +389,7 @@ function StatusBody() {
         <LatencyChart range={range}/>
       </div>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
-        REST latency includes Cloudflare edge → ThinkCentre origin round-trip plus server processing.
+        REST latency includes public TLS routing, cache or upstream resolution, and server processing.
         WebSocket latency is the auth-response round-trip after socket open; message delivery has near-zero added latency once the stream is warm.
       </p>
 
@@ -439,11 +439,10 @@ function StatusBody() {
       <h2 id="methodology" className="display-title" style={{ fontSize: 28, margin: "40px 0 12px" }}>Methodology</h2>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Probes run on-demand from the token portal when the status page is viewed, and sample on each page refresh (every 30 s).
-        REST checks: <code className="ic">GET /health</code> against the local proxy (<code className="ic">localhost:8768</code>).
-        WebSocket checks: TCP connect to <code className="ic">52.37.182.24:8767</code> (EC2).
+        REST checks use the service health endpoints; WebSocket checks use the public <code className="ic">wss://leandata.uk/stream</code> route.
         Uptime is the fraction of probes that returned success within the timeout window, aggregated daily over 90 days.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>
-          探针在状态页浏览时按需运行，每 30 秒自动刷新。REST 检查命中本地代理 /health；WS 检查 TCP 连接 EC2 端口。可用性 = 超时窗口内成功探针比例，按天聚合，展示 90 天。
+          探针在状态页浏览时按需运行，每 30 秒自动刷新。REST 检查服务健康端点，WS 检查公开安全 WebSocket 路由。可用性按天聚合，展示 90 天。
         </span>
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 48px" }}>
@@ -488,23 +487,53 @@ function DocsTopbar({ active = "proxy", onNav }) {
     <div className="topbar">
       <div className="brand">
         <span className="dot"></span>
-        <span><strong>Public Docs Site</strong></span>
+        <span><strong>Proxy Docs</strong></span>
       </div>
       <div className="divider"></div>
       <div className="nav">
         <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>Proxy API</a>
+        <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>Bulk Download</a>
         <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>WS usage</a>
         <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>Status</a>
         <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>Usage</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
-        <span className="pill"><span className="live"></span> v2.6 · live</span>
-        <a className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.34c-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.74.54 1.49v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0z"/></svg>
-          ikkisovi/Websocket-DataFeed-Proxy-docs
-        </a>
+        <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>Token portal →</a>
       </div>
+    </div>
+  );
+}
+
+function IndexOptionsBanner() {
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      flexWrap: "wrap",
+      padding: "10px 18px",
+      borderBottom: "1px solid var(--accent-rule)",
+      background: "var(--accent-soft)",
+      color: "var(--accent-ink)",
+      fontSize: 13,
+    }}>
+      <span style={{
+        padding: "2px 7px",
+        borderRadius: 999,
+        background: "var(--accent-ink)",
+        color: "var(--ink-inverse)",
+        fontFamily: "var(--f-mono)",
+        fontSize: 10,
+        fontWeight: 600,
+        letterSpacing: ".08em",
+        textTransform: "uppercase",
+      }}>New</span>
+      <strong>Alpaca supports index options now.</strong>
+      <span>
+        Proxy contract discovery and realtime option streams are live for SPX/SPXW, VIX/VIXW, DJX and XSP.
+        <span style={{ color: "var(--ink-muted)" }}> 指数期权合约查询与实时行情现已支持。</span>
+      </span>
     </div>
   );
 }
@@ -533,6 +562,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
   return (
     <div className="proxy-app" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       {showTopbar && <DocsTopbar active={tab} onNav={setTab} />}
+      <IndexOptionsBanner />
 
       {/* Hero */}
       <div className="docs-hero" style={{
@@ -561,7 +591,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
           <Tab id="usage" tab={tab} setTab={setTab} label="Usage" count="30d" />
           <div style={{ flex: 1 }}></div>
           <div className="docs-last-sync" style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
-            last sync · 2026-05-25 hybrid architecture (CF REST + EC2 WS)
+            last sync · 2026-07-29 · public REST / RT / WSS
           </div>
         </div>
       </div>
@@ -865,12 +895,11 @@ function TokenCard() {
   );
 }
 
-// Hybrid architecture: REST via Cloudflare→ThinkCentre, WS via EC2 direct
+// Stable public endpoints. Origin routing can move during failover.
 const REST_BASE  = "https://api.leandata.uk";
 const RT_BASE    = "https://rt-api.leandata.uk";
 const TOKEN_BASE = "https://leandata.uk";
-const WS_HOST    = "52.37.182.24";
-const WS_BASE    = `ws://${WS_HOST}:8767`;
+const WS_BASE    = "wss://leandata.uk/stream";
 
 function ParamRow({ name, type, required, desc }) {
   return (
@@ -1485,9 +1514,9 @@ function ProxyApiBody() {
       <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>Overview</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 16px", maxWidth: 640 }}>
         The Stock Options Proxy has two surfaces: a <strong style={{ color: "var(--ink-strong)" }}>token portal</strong> for registration and token issuance,
-        and a <strong style={{ color: "var(--ink-strong)" }}>data proxy</strong> for market data (REST via Cloudflare, WS via EC2 direct).
+        and a <strong style={{ color: "var(--ink-strong)" }}>data proxy</strong> for historical REST, realtime REST, and secure WebSocket market data.
         Once you have a token, use it to call historical and realtime endpoints without managing your own Alpaca / ThetaData credentials.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Stock Options Proxy 提供两类服务：Token 门户负责账户注册与 Token 签发；数据代理负责行情数据，其中 REST 走 Cloudflare 边缘，WebSocket 直连 EC2。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Stock Options Proxy 提供两类服务：Token 门户负责注册、账户与 Token；数据代理通过稳定的公共域名提供历史 REST、实时 REST 与安全 WebSocket 行情。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
         <thead><tr><th>Surface</th><th>Public URL</th><th>Auth</th></tr></thead>
@@ -1499,10 +1528,10 @@ function ProxyApiBody() {
         </tbody>
       </table>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13 }}>
-        <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Hybrid architecture</strong> — REST historical data is served via <strong>Cloudflare</strong> global edge (<code>api.leandata.uk</code>, 7-day edge cache).
-        Real-time REST endpoints (snapshots, orderbooks) are available at <code>rt-api.leandata.uk</code> (60s edge cache, faster upstream).
-        <strong>WebSocket</strong> streams connect directly to EC2 for lowest latency to Alpaca. All three surfaces accept the same token.
-        <br/><span style={{ color: "var(--ink-soft)" }}>REST 历史数据通过 Cloudflare 全球边缘节点提供（api.leandata.uk，7 天边缘缓存）。实时 REST 端点（快照、订单簿）可用 rt-api.leandata.uk（60 秒边缘缓存，更快的上游）。WebSocket 实时流直连 EC2。三个入口使用同一 Token。</span>
+        <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Stable public endpoints</strong> — use <code>api.leandata.uk</code> for historical REST,
+        <code>rt-api.leandata.uk</code> for realtime REST, and <code>wss://leandata.uk/stream/*</code> for streaming.
+        All data surfaces accept the same token. Origin hosts and cache tiers may move during failover, so clients should never pin a raw server IP.
+        <br/><span style={{ color: "var(--ink-soft)" }}>历史 REST、实时 REST 与 WebSocket 均使用稳定域名和同一 Token。故障切换时源站与缓存层可能调整，客户端不应绑定裸 IP。</span>
       </div>
 
       <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Authentication</h2>
@@ -2813,7 +2842,8 @@ await ws.send(json.dumps({
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Live OPRA options feed. Subscribe using OCC symbols in the <code>trades</code> and <code>quotes</code> lists.
         All tiers except Basic.
-        <strong style={{ color: "var(--ink-strong)" }}> Index options (SPX, SPXW, NDX, RUT) are not available via WebSocket</strong> — the upstream Alpaca feed only covers equity and ETF options. Use the REST <code>/v1/history/options/bars</code> endpoint with <code>provider=thetadata</code> for index option history.
+        <strong style={{ color: "var(--ink-strong)" }}> Index options are supported</strong> for Alpaca's current SPX/SPXW, VIX/VIXW, DJX and XSP families.
+        Use the normal OCC contract symbol; the proxy handles Alpaca's required MsgPack upstream frames and keeps the public <code>/stream/options</code> contract unchanged.
       </p>
 
       <h2 id="crypto" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>crypto</h2>
@@ -2943,15 +2973,15 @@ async def with_reconnect(token, uri, handler, backoff=1):
 
       <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Use GET for cacheable endpoints</h3>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        All data endpoints accept both GET (query params) and POST (JSON body). <strong>GET requests are edge-cached</strong> at the nearest Cloudflare POP — repeat queries are served in ~20ms without hitting the origin server. POST requests always go through the tunnel to origin.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>所有数据端点同时支持 GET（查询参数）和 POST（JSON body）。<strong>GET 请求在最近的 Cloudflare POP 边缘缓存</strong>——重复查询约 20ms 返回，无需到达源站。POST 请求总是通过隧道到达源站。</span>
+        Where an endpoint supports both methods, prefer GET for idempotent history reads. Repeated requests can be served by the proxy's hot or archive cache; inspect <code>X-Cache</code> and <code>X-Cache-Tier</code> instead of assuming a specific edge provider.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>对同时支持 GET 与 POST 的端点，幂等历史查询优先使用 GET。重复请求可能命中热缓存或归档缓存，请查看 X-Cache / X-Cache-Tier，不要依赖特定边缘供应商。</span>
       </p>
       <pre className="code" style={{ marginBottom: 12 }}>
-{`# Slow — POST bypasses edge cache (always hits origin)
+{`# POST — JSON body
 curl -X POST https://api.leandata.uk/v1/history/bars \\
   -d '{"token":"TOKEN","symbol":"AAPL","start":"2025-01-01","end":"2025-12-31","timeframe":"1Day"}'
 
-# Fast — GET is edge-cached (repeat requests served from POP)
+# GET — cache-friendly for idempotent reads
 curl "https://api.leandata.uk/v1/history/bars?token=TOKEN&symbol=AAPL&start=2025-01-01&end=2025-12-31&timeframe=1Day"
 
 # Check cache status in response headers:
