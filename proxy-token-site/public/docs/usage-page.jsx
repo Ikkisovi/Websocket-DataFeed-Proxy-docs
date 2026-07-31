@@ -1,6 +1,6 @@
-// usage-page.jsx — Per-user Usage / Quota dashboard
-// Surfaces what the audit log (POST /v1/admin/audit) and stats endpoint
-// (POST /v1/admin/stats) already expose, in the warm-paper docs aesthetic:
+// usage-page.jsx — Static Usage / Quota dashboard preview
+// This is a visual placeholder, not a view of the audit log, stats endpoint,
+// account activity, production traffic, or billable usage:
 //
 //   · KPI strip — REST today, cache hit %, WS subs vs plan limit, token expiry
 //   · Daily REST request volume   (bar chart, 30d, hover tooltip)
@@ -8,8 +8,9 @@
 //   · WS symbols subscribed over time vs plan ceiling
 //   · Recent audit events table   (last 50)
 //
-// All numbers are mocked here (seeded pseudo-random) — wire to /v1/admin/audit
-// and /v1/admin/stats for real data. Data shape matches the upstream API exactly.
+// PLACEHOLDER ONLY. All numbers below are seeded demo data. This public page is
+// deliberately labelled as non-production until a server-side, authenticated
+// usage ledger is wired in. Do not present these values as account usage or billing.
 
 const { useState: useUsageState, useMemo: useUsageMemo, useEffect: useUsageEffect, useCallback: useUsageCb } = React;
 
@@ -593,43 +594,28 @@ function MiniBar({ ratio, color = "var(--accent)" }) {
 }
 
 function UsagePage() {
-  // Username state — persisted in localStorage
-  const [username, setUsername] = useUsageState(() => {
-    try { return localStorage.getItem("usage-username") || ""; } catch (_) { return ""; }
-  });
-  const [usernameInput, setUsernameInput] = useUsageState(username);
-
-  // Real data fetching
-  const { audit: rawAudit, stats, error, loading, refresh } = useUsageData(username);
-
-  // Aggregate audit events or fall back to mock data
-  const hasRealData = !!(rawAudit && rawAudit.events && rawAudit.events.length > 0);
-  const agg = useUsageMemo(() => hasRealData ? aggregateAuditData(rawAudit.events) : null, [rawAudit]);
-
   const mockRequests = useUsageMemo(() => makeDailyRequests(), []);
   const mockCache    = useUsageMemo(() => makeDailyCache(), []);
   const mockWs       = useUsageMemo(() => makeDailyWs(), []);
   const mockAudit    = useUsageMemo(() => makeAuditEvents(), []);
 
-  const requests = agg ? agg.dailyRequests : mockRequests;
-  const cache    = agg ? agg.dailyCache : mockCache;
-  const wsData   = agg ? agg.dailyWs : mockWs;
-  const audit    = agg ? agg.recentEvents : mockAudit;
+  const requests = mockRequests;
+  const cache    = mockCache;
+  const wsData   = mockWs;
+  const audit    = mockAudit;
 
   const [hoverReq, setHoverReq] = useUsageState(null);
   const [auditFilter, setAuditFilter] = useUsageState("all"); // all | http | ws
 
-  // KPIs from real stats or defaults
-  const userStats = stats && stats.user_stats ? stats.user_stats : {};
   const todayReq = requests[requests.length - 1];
   const monthReqTotal = requests.reduce((s, d) => s + d.total, 0);
   const monthCacheTotal = cache.reduce((s, d) => s + d.total, 0);
   const monthCacheHits  = cache.reduce((s, d) => s + d.hits, 0);
   const hitRate = monthCacheTotal > 0 ? monthCacheHits / monthCacheTotal : 0;
-  const wsCurrent = userStats.ws_symbols || 0;
+  const wsCurrent = wsData[wsData.length - 1].peak;
   const wsCeiling = 500;
   const restPerMinLimit = 300;
-  const restPerMinUsed = userStats.rest_requests_1min || 0;
+  const restPerMinUsed = 0;
 
   const filteredAudit = audit.filter(e => {
     if (auditFilter === "all") return true;
@@ -638,50 +624,19 @@ function UsagePage() {
     return true;
   });
 
-  function handleUsernameSubmit(e) {
-    e.preventDefault();
-    try { localStorage.setItem("usage-username", usernameInput); } catch (_) {}
-    setUsername(usernameInput);
-  }
-
   return (
     <div>
-      {/* Username input bar */}
-      {(!username || error) && (
-        <div className="card" style={{ padding: 16, marginBottom: 20, borderLeft: "3px solid var(--accent)" }}>
-          <form onSubmit={handleUsernameSubmit} style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <span style={{ fontFamily: "var(--f-mono)", fontSize: 12, color: "var(--ink-muted)", whiteSpace: "nowrap" }}>
-              {error ? `Error: ${error}` : "Enter your username to view usage data"}
-            </span>
-            <input
-              type="text"
-              value={usernameInput}
-              onChange={e => setUsernameInput(e.target.value)}
-              placeholder="your_username"
-              style={{
-                flex: 1, padding: "6px 10px", fontFamily: "var(--f-mono)", fontSize: 12,
-                border: "1px solid var(--rule-strong)", borderRadius: 4,
-                background: "var(--bg-paper)", color: "var(--ink-strong)",
-              }}
-            />
-            <button type="submit" className="btn" style={{ fontSize: 12, padding: "6px 14px" }}>Load</button>
-          </form>
+      <div role="alert" style={{ margin: "20px 32px 0", padding: "16px 20px", border: "2px solid var(--warn)", borderRadius: "var(--radius-lg)", background: "var(--bg-paper)" }}>
+        <div style={{ fontFamily: "var(--f-mono)", fontSize: 12, fontWeight: 600, color: "var(--warn)", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>
+          Placeholder · 非真实用量
         </div>
-      )}
-
-      {loading && (
-        <div style={{ textAlign: "center", padding: 40, fontFamily: "var(--f-mono)", fontSize: 12, color: "var(--ink-muted)" }}>
-          Loading usage data…
+        <div style={{ color: "var(--ink-strong)", fontSize: 14, lineHeight: 1.6 }}>
+          此页是静态样式预览（摆设）。所有请求数、缓存命中率、WS 订阅、频道、审计事件及时间戳均为固定演示数据，
+          不代表任何账户、生产流量或计费。真实的当前连接/请求状态请登录 <a href="/account" style={{ color: "var(--accent-ink)" }}>Account Management</a> 查看。
         </div>
-      )}
+      </div>
 
-      {!hasRealData && username && !loading && !error && (
-        <div style={{ background: "var(--bg-soft)", border: "1px solid var(--rule)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: "var(--ink-muted)", fontFamily: "var(--f-mono)" }}>
-          No audit events found — showing mock data. Make some API calls first, or check that the proxy has usage logging enabled.
-        </div>
-      )}
-
-      {/* Hero / user header */}
+      {/* Placeholder header */}
       <div style={{
         padding: "36px 64px 28px",
         borderBottom: "1px solid var(--rule)",
@@ -689,19 +644,15 @@ function UsagePage() {
       }}>
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 32, flexWrap: "wrap" }}>
           <div style={{ minWidth: 360 }}>
-            <div className="eyebrow" style={{ marginBottom: 12 }}>Account · usage</div>
+            <div className="eyebrow" style={{ marginBottom: 12 }}>Usage · static preview</div>
             <h1 className="display-title" style={{ fontSize: 52, margin: "0 0 6px", lineHeight: 1.02 }}>
-              {username || "—"} <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>usage</span>
+              <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>Placeholder</span> usage
             </h1>
             <p style={{ color: "var(--ink-muted)", margin: 0, fontSize: 14 }}>
-              Rolling 30-day window · derived from <code className="ic">POST /v1/admin/audit</code> &nbsp;and&nbsp;
-              <code className="ic">POST /v1/admin/stats</code>
-              {username && <span style={{ marginLeft: 12 }}><a href="#" onClick={e => { e.preventDefault(); setUsername(""); setUsernameInput(""); try { localStorage.removeItem("usage-username"); } catch(_){} }} style={{ fontSize: 12, color: "var(--accent)" }}>switch user</a></span>}
+              Fixed seeded sample data · no account lookup · no live refresh
             </p>
           </div>
 
-          {/* User meta block */}
-          {username && (
           <div style={{
             display: "flex", gap: 28, alignItems: "stretch",
             border: "1px solid var(--rule)", borderRadius: "var(--radius-lg)",
@@ -709,19 +660,18 @@ function UsagePage() {
             fontFamily: "var(--f-mono)", fontSize: 12,
           }}>
             <div>
-              <div style={{ color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".1em", fontSize: 10, marginBottom: 4 }}>User</div>
-              <span style={{ color: "var(--ink-strong)" }}>{username}</span>
+              <div style={{ color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".1em", fontSize: 10, marginBottom: 4 }}>Source</div>
+              <span style={{ color: "var(--ink-strong)" }}>fixed seed</span>
             </div>
             <div>
-              <div style={{ color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".1em", fontSize: 10, marginBottom: 4 }}>Events</div>
-              <span style={{ color: "var(--ink-strong)" }}>{rawAudit ? fmtNumber(rawAudit.total) : "—"}</span>
+              <div style={{ color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".1em", fontSize: 10, marginBottom: 4 }}>Ledger</div>
+              <span style={{ color: "var(--ink-strong)" }}>not connected</span>
             </div>
             <div>
               <div style={{ color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".1em", fontSize: 10, marginBottom: 4 }}>Status</div>
-              <span style={{ color: hasRealData ? "var(--ok)" : "var(--ink-muted)" }}>{hasRealData ? "Active" : "No data"}</span>
+              <span style={{ color: "var(--warn)" }}>placeholder</span>
             </div>
           </div>
-          )}
         </div>
       </div>
 
@@ -731,51 +681,51 @@ function UsagePage() {
         {/* KPI strip */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 28 }}>
           <Kpi
-            label="REST requests · today"
+            label="REST requests · sample"
             value={fmtNumber(todayReq.total)}
-            sub={`/ ${fmtNumber(monthReqTotal)} this month`}
+            sub={`sample / ${fmtNumber(monthReqTotal)} fixed total`}
             footer={
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>
-                  <span>now · {restPerMinUsed}/min</span>
-                  <span>limit · {restPerMinLimit}/min</span>
+                  <span>not live · {restPerMinUsed}/min</span>
+                  <span>illustrative limit · {restPerMinLimit}/min</span>
                 </div>
                 <MiniBar ratio={restPerMinUsed / restPerMinLimit} />
               </>
             }
           />
           <Kpi
-            label="Cache hit rate · 30d"
+            label="Cache hit rate · sample"
             value={`${(hitRate * 100).toFixed(1)}%`}
             accent="var(--ok)"
             sub={`${fmtNumber(monthCacheHits)} hits`}
             footer={
               <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>
-                {fmtNumber(monthCacheTotal - monthCacheHits)} misses · X-Cache: HIT skip rate-limit
+                {fmtNumber(monthCacheTotal - monthCacheHits)} simulated misses · not a production cache rate
               </div>
             }
           />
           <Kpi
-            label="WS subs · live"
+            label="WS subs · sample"
             value={`${wsCurrent}`}
             sub={`/ ${wsCeiling} symbols`}
             footer={
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>
-                  <span>3 channels active</span>
-                  <span>{Math.round((wsCurrent / wsCeiling) * 100)}% used</span>
+                  <span>illustrative channels</span>
+                  <span>{Math.round((wsCurrent / wsCeiling) * 100)}% simulated</span>
                 </div>
                 <MiniBar ratio={wsCurrent / wsCeiling} color="var(--accent)" />
               </>
             }
           />
           <Kpi
-            label="Total events · 30d"
-            value={rawAudit ? fmtNumber(rawAudit.total) : "—"}
-            sub="audit events"
+            label="Total events · sample"
+            value={fmtNumber(audit.length)}
+            sub="simulated audit events"
             footer={
               <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>
-                REST + WS combined
+                fixed example only
               </div>
             }
           />
@@ -785,10 +735,10 @@ function UsagePage() {
         <div className="card" style={{ padding: 24, marginBottom: 20 }}>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 8 }}>
             <div>
-              <div className="eyebrow" style={{ marginBottom: 6 }}>Daily REST volume</div>
+              <div className="eyebrow" style={{ marginBottom: 6 }}>Daily REST volume · sample</div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
                 <span className="display-title" style={{ fontSize: 28, lineHeight: 1 }}>{fmtNumber(monthReqTotal)}</span>
-                <span style={{ fontFamily: "var(--f-mono)", fontSize: 12, color: "var(--ink-muted)" }}>requests · last 30 days</span>
+                <span style={{ fontFamily: "var(--f-mono)", fontSize: 12, color: "var(--ink-muted)" }}>simulated requests · fixed 30-day sample</span>
               </div>
             </div>
             <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
@@ -808,10 +758,10 @@ function UsagePage() {
           <div className="card" style={{ padding: 20 }}>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 8 }}>
               <div>
-                <div className="eyebrow" style={{ marginBottom: 6 }}>Cache · hit vs miss</div>
+                <div className="eyebrow" style={{ marginBottom: 6 }}>Cache · hit vs miss · sample</div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
                   <span className="display-title" style={{ fontSize: 24, lineHeight: 1, color: "var(--ok)" }}>{(hitRate * 100).toFixed(1)}%</span>
-                  <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>30d hit ratio</span>
+                  <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>simulated 30d ratio</span>
                 </div>
               </div>
               <div style={{ display: "flex", gap: 12 }}>
@@ -831,14 +781,14 @@ function UsagePage() {
           <div className="card" style={{ padding: 20 }}>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 8 }}>
               <div>
-                <div className="eyebrow" style={{ marginBottom: 6 }}>WS subscriptions · peak per day</div>
+                <div className="eyebrow" style={{ marginBottom: 6 }}>WS subscriptions · sample peak/day</div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
                   <span className="display-title" style={{ fontSize: 24, lineHeight: 1 }}>{wsCurrent}</span>
-                  <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>live · {wsCeiling} ceiling</span>
+                  <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>simulated · {wsCeiling} ceiling</span>
                 </div>
               </div>
               <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>
-                premium · 6 channels · ∞ connections
+                static example · not a connection inventory
               </div>
             </div>
             <WsLineChart data={wsData} ceiling={wsCeiling} />
@@ -849,13 +799,13 @@ function UsagePage() {
         <div className="card" style={{ padding: 0, marginBottom: 20, overflow: "hidden" }}>
           <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--rule)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div className="eyebrow">Active WS channels · right now</div>
+              <div className="eyebrow">Illustrative WS channels · sample</div>
               <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)", marginTop: 4 }}>
-                3 of 6 channels currently authed
+                Fixed example rows; no live WebSocket session is read here.
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
-              <button className="btn ghost" style={{ fontSize: 12, padding: "6px 10px" }}>Refresh</button>
+              <button className="btn ghost" disabled style={{ fontSize: 12, padding: "6px 10px", cursor: "not-allowed" }}>Static preview</button>
             </div>
           </div>
           <table className="tbl">
@@ -919,9 +869,9 @@ function UsagePage() {
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--rule)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
             <div>
-              <div className="eyebrow">Recent audit events</div>
+              <div className="eyebrow">Illustrative audit events · sample</div>
               <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)", marginTop: 4 }}>
-                <code className="ic">POST /v1/admin/audit?limit=50</code> · periodic snapshot · most recent first
+                Fixed seeded examples · no proxy audit ledger is displayed here
               </div>
             </div>
             <div style={{ display: "flex", gap: 4, background: "var(--bg-sunken)", padding: 3, borderRadius: 6 }}>
@@ -1009,15 +959,15 @@ function UsagePage() {
           </table>
           <div style={{ padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--rule)", background: "var(--bg-sunken)" }}>
             <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-muted)" }}>
-              Showing 24 of {filteredAudit.length} · audit.jsonl tails every 60s
+              Showing 24 of {filteredAudit.length} simulated events · not refreshed from production
             </span>
-            <a className="btn ghost" style={{ fontSize: 12, padding: "6px 10px" }}>Export JSON →</a>
+            <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>Export unavailable for placeholder data</span>
           </div>
         </div>
 
         {/* Footer note */}
         <div style={{ marginTop: 28, fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)", letterSpacing: ".04em", textAlign: "center" }}>
-          usage snapshot · refreshes every 60s · all times America/New_York
+          placeholder only · fixed seeded sample data · not account usage, telemetry, or billing
         </div>
       </div>
     </div>
