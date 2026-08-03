@@ -3017,6 +3017,13 @@ import { Agent } from 'undici'
 const agent = new Agent({ keepAliveTimeout: 30000 })`}
       </pre>
 
+      <h3 id="fmp-fundamentals-routing" style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>FMP fundamentals routing</h3>
+      <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 20px", fontSize: 13, lineHeight: 1.65 }}>
+        <strong style={{ color: "var(--ink-strong)" }}>Not a public API route yet.</strong> FMP income statements, balance sheets, and cash-flow statements have been imported into the private ThinkCentre archive-reader, but <code>/stable/income-statement</code>, <code>/stable/balance-sheet-statement</code>, <code>/stable/cash-flow-statement</code>, and the matching <code>/v1/pit/fmp/*</code> routes are not registered on <code>api.leandata.uk</code>.
+        Public requests therefore do not currently reach ThinkCentre for FMP fundamentals. A future public release will authenticate the user at AWS, use a separate internal service credential for the AWS-to-ThinkCentre hop, and stream the response back through AWS; it will never forward a user bearer token to ThinkCentre. Reusing an HTTPS session only reuses the connection to AWS and does not grant access to private routes.
+        <br/><span style={{ color: "var(--ink-soft)" }}>FMP 三张财务报表已导入 ThinkCentre 私有 archive-reader，但目前尚未注册到 <code>api.leandata.uk</code>：公开用户请求不会通过这组路径到达 ThinkCentre。未来公开发布时，AWS 先认证用户，再以独立内部凭据访问 ThinkCentre 并经 AWS 回传；不会转发用户 Bearer Token。HTTP 会话复用只复用到 AWS 的连接，不会取得私有路由权限。</span>
+      </div>
+
       <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Choose the right endpoint</h3>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Two REST base URLs are available. Use the one that fits your query type.
