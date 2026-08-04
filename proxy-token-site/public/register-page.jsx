@@ -298,7 +298,7 @@ function RegisterPage() {
     <div className="proxy-app" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <RegisterTopbar />
 
-      <div style={{
+      <div className="register-content" style={{
         flex: 1,
         minHeight: 0,
         overflow: "auto",
@@ -306,9 +306,9 @@ function RegisterPage() {
         padding: "48px 64px 64px",
       }}>
         {/* Hero */}
-        <div style={{ maxWidth: 980, margin: "0 auto" }}>
+        <div className="register-shell" style={{ maxWidth: 980, margin: "0 auto" }}>
           <div className="eyebrow" style={{ marginBottom: 14 }}>创建账户 · Free 计划</div>
-          <h1 className="display-title" style={{ fontSize: 52, margin: "0 0 12px", lineHeight: 1.02 }}>
+          <h1 className="display-title register-title" style={{ fontSize: 52, margin: "0 0 12px", lineHeight: 1.02 }}>
             新用户 <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>注册</span>
           </h1>
           <p style={{ color: "var(--ink-muted)", margin: "0 0 36px", fontSize: 15, maxWidth: 560 }}>
@@ -317,7 +317,7 @@ function RegisterPage() {
           </p>
 
           {/* Layout: form + status side by side */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 32, alignItems: "start" }}>
+          <div className="register-layout" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 320px", gap: 32, alignItems: "start" }}>
             {/* Left: Free registration form */}
             <div>
               {false && (
@@ -551,7 +551,7 @@ function RegisterPage() {
                       </div>
                     </div>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+                  <div className="register-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
                     <div>
                       <label className="label">用户名</label>
                       <input 
@@ -658,8 +658,8 @@ function RegisterPage() {
             </div>
 
             {/* Right: status-check card */}
-            <aside>
-              <div className="card" style={{ padding: 20, position: "sticky", top: 24 }}>
+            <aside className="register-status">
+              <div className="card register-status-card" style={{ padding: 20, position: "sticky", top: 24 }}>
                 <div className="eyebrow" style={{ marginBottom: 8 }}>查询进度</div>
                 <h3 className="display-title" style={{ fontSize: 22, margin: "0 0 6px" }}>已注册？</h3>
                 <p style={{ color: "var(--ink-muted)", fontSize: 12.5, margin: "0 0 16px" }}>
