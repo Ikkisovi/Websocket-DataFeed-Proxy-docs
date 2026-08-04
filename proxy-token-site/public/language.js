@@ -369,7 +369,48 @@
     "未指定 ticker": "No ticker specified",
     "自定义 endpoint / 数据需求": "Custom endpoint / data request",
     "Admin 备注": "Admin notes",
-    "leandata.uk 更新 / Service update": "leandata.uk service update"
+    "leandata.uk 更新 / Service update": "leandata.uk service update",
+
+    // Navigation and buttons
+    "Docs": "文档",
+    "Status": "状态",
+    "Usage": "用量",
+    "Open Portal": "打开入口",
+    "Manage account →": "管理账户 →",
+    "Admin →": "管理后台 →",
+    "Token portal →": "Token 入口 →",
+    "Proxy API": "代理 API",
+    "FMP data": "FMP 数据",
+    "Bulk Download": "批量下载",
+    "WS usage": "WS 用法",
+    "Proxy Docs": "代理文档",
+
+    // Token page
+    "Get your": "获取您的",
+    "access": "访问",
+    "token": "令牌",
+    "Approved accounts only. Enter the username and phone number on file — we'll mint a fresh UUID and push it to the upstream proxy.": "仅限已审核账户。输入注册时的用户名和手机号，我们将生成新的 UUID 并推送到上游代理。",
+    "Username": "用户名",
+    "Phone number": "手机号",
+    "Generate token →": "生成令牌 →",
+    "Generating...": "生成中...",
+    "Please enter both username and phone number.": "请输入用户名和手机号。",
+    "Network error or server is down. Please try again later.": "网络错误或服务器停机。请稍后重试。",
+    "Token copied to clipboard!": "令牌已复制到剪贴板！",
+    "Access · 30 day token": "访问 · 30 天令牌",
+
+    // Status labels
+    "Operational": "正常运行",
+    "Degraded": "性能下降",
+    "Outage": "服务中断",
+    "Loading…": "加载中…",
+
+    // Docs sections
+    "The": "该",
+    "Proxy API": "代理 API",
+    "covers REST endpoints and tier management;": "涵盖 REST 端点和套餐管理；",
+    "WS usage": "WS 用法",
+    "covers the 6 realtime streaming channels.": "涵盖 6 个实时流通道。"
   }));
 
   const orderedTranslations = [...translations.entries()]

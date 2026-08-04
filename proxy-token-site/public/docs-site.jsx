@@ -59,6 +59,7 @@ function quantile(arr, q) {
 
 // ── component cards ──────────────────────────────────────────────────────
 function ComponentCard({ name, route, status, uptime90, latency24h, unit = "ms", color = "var(--accent-ink)" }) {
+  const t = (text) => window.LeandataI18n?.translate(text) || text;
   const p50 = quantile(latency24h, 0.5);
   const p95 = quantile(latency24h, 0.95);
   const p99 = quantile(latency24h, 0.99);
@@ -66,7 +67,7 @@ function ComponentCard({ name, route, status, uptime90, latency24h, unit = "ms",
   const last7 = uptime90.slice(-7);
   const last1 = uptime90.slice(-1);
 
-  const statusLabel = status === "operational" ? "Operational" : status === "degraded" ? "Degraded" : status === "loading" ? "Loading…" : "Outage";
+  const statusLabel = status === "operational" ? t("Operational") : status === "degraded" ? t("Degraded") : status === "loading" ? t("Loading…") : t("Outage");
   const statusColor = status === "operational" ? "var(--ok)" : status === "loading" ? "var(--ink-muted)" : status === "degraded" ? "var(--warn)" : "var(--danger)";
   const statusBg    = status === "operational" ? "var(--ok-soft)" : status === "loading" ? "var(--bg-canvas)" : status === "degraded" ? "var(--warn-soft)" : "var(--danger-soft)";
 
@@ -483,25 +484,27 @@ function UptimeBlock({ label, data }) {
 const { useState } = React;
 
 function DocsTopbar({ active = "proxy", onNav }) {
+  const t = (text) => window.LeandataI18n?.translate(text) || text;
+
   return (
     <div className="topbar">
       <div className="brand">
         <span className="dot"></span>
-        <span><strong>Proxy Docs</strong></span>
+        <span><strong>{t("Proxy Docs")}</strong></span>
       </div>
       <div className="divider"></div>
       <div className="nav">
-        <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>Proxy API</a>
-        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>FMP data</a>
-        <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>Bulk Download</a>
-        <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>WS usage</a>
-        <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>Status</a>
-        <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>Usage</a>
+        <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>{t("Proxy API")}</a>
+        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>{t("FMP data")}</a>
+        <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>{t("Bulk Download")}</a>
+        <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>{t("WS usage")}</a>
+        <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>{t("Status")}</a>
+        <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>{t("Usage")}</a>
         <a href="/updates" style={{ cursor: "pointer" }}>更新 / Updates</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
-        <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>Token portal →</a>
+        <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>{t("Token portal →")}</a>
       </div>
     </div>
   );

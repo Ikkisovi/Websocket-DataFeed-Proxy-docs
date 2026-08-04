@@ -82,6 +82,80 @@ const PENDING_FILE = path.join(DATA_DIR, 'pending.json');
 const BULK_ORDERS_FILE = path.join(DATA_DIR, 'bulk-orders.json');
 const PAYMENT_ORDERS_FILE = path.join(DATA_DIR, 'payment-orders.json');
 const PRODUCT_FEEDBACK_FILE = path.join(DATA_DIR, 'product-update-feedback.json');
+const EMAIL_VERIFICATION_FILE = path.join(DATA_DIR, 'email-verifications.json');
+const EMAIL_TEMPLATE_FILE = path.join(DATA_DIR, 'email-template.json');
+const EMAIL_ENV_FILE = process.env.EMAIL_ENV_FILE || path.join(DATA_DIR, 'email.env');
+
+const EMAIL_CODE_TTL_MS = 10 * 60 * 1000;
+const EMAIL_CODE_RESEND_COOLDOWN_MS = Number(process.env.EMAIL_CODE_RESEND_COOLDOWN_MS || 60 * 1000);
+const EMAIL_CODE_MAX_ATTEMPTS = 5;
+const EMAIL_CODE_SEND_WINDOW_MS = 60 * 60 * 1000;
+const EMAIL_CODE_SEND_MAX = 5;
+
+function readPrivateEnvFile(filepath) {
+  try {
+    const stat = fs.statSync(filepath);
+    if ((stat.mode & 0o077) !== 0) return {};
+    const values = {};
+    for (const rawLine of fs.readFileSync(filepath, 'utf8').split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) continue;
+      const separator = line.indexOf('=');
+      if (separator <= 0) continue;
+      const key = line.slice(0, separator).trim();
+      let value = line.slice(separator + 1).trim();
+      if (value.length >= 2
+        && ((value.startsWith('"') && value.endsWith('"'))
+          || (value.startsWith("'") && value.endsWith("'")))) {
+        value = value.slice(1, -1);
+      }
+      values[key] = value;
+    }
+    return values;
+  } catch {
+    return {};
+  }
+}
+
+const EMAIL_TEMPLATE_PLACEHOLDERS = ['code', 'email', 'expires_minutes', 'site_name'];
+const verificationSendAttempts = new Map();
+const testVerificationEmails = [];
+
+function currentEmailConfig() {
+  const announceEnvFile = process.env.ANNOUNCE_SMTP_ENV_FILE
+    || path.join(DATA_DIR, 'announce-smtp.env');
+  return {
+    ...readPrivateEnvFile(EMAIL_ENV_FILE),
+    ...readPrivateEnvFile(announceEnvFile),
+    ...process.env
+  };
+}
+
+function emailSetting(name) {
+  return String(currentEmailConfig()[name] || '').trim();
+}
+
+const DEFAULT_EMAIL_TEMPLATE = {
+  subject: '{{site_name}} 邮箱验证码',
+  text: [
+    '您好，',
+    '',
+    '您正在注册 {{site_name}}。',
+    '您的邮箱验证码是：{{code}}',
+    '',
+    '验证码在 {{expires_minutes}} 分钟内有效。',
+    '如果不是您本人操作，请忽略此邮件。'
+  ].join('\n'),
+  html: [
+    '<div style="font-family:Arial,sans-serif;line-height:1.7;color:#25211d">',
+    '<p>您好，</p>',
+    '<p>您正在注册 {{site_name}}。</p>',
+    '<p>您的邮箱验证码是：</p>',
+    '<p style="font-size:32px;font-weight:700;letter-spacing:0.28em;color:#176b72">{{code}}</p>',
+    '<p>验证码在 {{expires_minutes}} 分钟内有效。如果不是您本人操作，请忽略此邮件。</p>',
+    '</div>'
+  ].join('')
+};
 
 const CLOUD_HOST_LABEL = process.env.CLOUD_HOST_LABEL || 'Aliyun';
 const IS_CLOUD_HOST = fs.existsSync('/srv/leandata') || fs.existsSync('/mnt/leandata-v2') || fs.existsSync('/home/opc');
@@ -301,6 +375,155 @@ function writeJSONAtomic(filepath, data) {
     } catch (_) {}
     throw error;
   }
+}
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isValidEmail(value) {
+  return value.length >= 3
+    && value.length <= 254
+    && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function verificationCodeHash(challengeId, code) {
+  const secret = emailSetting('EMAIL_VERIFY_SECRET');
+  if (!secret) throw new Error('EMAIL_VERIFY_SECRET is not configured');
+  return crypto
+    .createHmac('sha256', secret)
+    .update(`${challengeId}:${code}`, 'utf8')
+    .digest('hex');
+}
+
+function verificationRequestKey(req, email) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  const address = forwarded || req.socket?.remoteAddress || 'unknown';
+  return `${email}:${address}`;
+}
+
+function checkVerificationSendRate(req, email) {
+  const key = verificationRequestKey(req, email);
+  const now = Date.now();
+  const recent = (verificationSendAttempts.get(key) || [])
+    .filter(timestamp => now - timestamp < EMAIL_CODE_SEND_WINDOW_MS);
+  verificationSendAttempts.set(key, recent);
+  if (recent.length >= EMAIL_CODE_SEND_MAX) {
+    return {
+      allowed: false,
+      retryAfter: Math.max(1, Math.ceil((recent[0] + EMAIL_CODE_SEND_WINDOW_MS - now) / 1000))
+    };
+  }
+  recent.push(now);
+  verificationSendAttempts.set(key, recent);
+  return { allowed: true, retryAfter: 0 };
+}
+
+function readEmailTemplate() {
+  const stored = readJSON(EMAIL_TEMPLATE_FILE, {});
+  return {
+    subject: String(stored.subject || DEFAULT_EMAIL_TEMPLATE.subject),
+    text: String(stored.text || DEFAULT_EMAIL_TEMPLATE.text),
+    html: String(stored.html || DEFAULT_EMAIL_TEMPLATE.html),
+    updated_at: stored.updated_at || null
+  };
+}
+
+function renderEmailTemplate(templateValue, variables) {
+  return String(templateValue).replace(/\{\{([a-z_]+)\}\}/gi, (full, key) => (
+    Object.prototype.hasOwnProperty.call(variables, key) ? String(variables[key]) : full
+  ));
+}
+
+function validateEmailTemplate(input) {
+  const template = {
+    subject: String(input?.subject || '').trim(),
+    text: String(input?.text || ''),
+    html: String(input?.html || '')
+  };
+  if (!template.subject || template.subject.length > 200) {
+    return { error: '邮件主题不能为空且不能超过 200 个字符。' };
+  }
+  if (!template.text.trim() || template.text.length > 20_000) {
+    return { error: '纯文本模板不能为空且不能超过 20000 个字符。' };
+  }
+  if (!template.html.trim() || template.html.length > 50_000) {
+    return { error: 'HTML 模板不能为空且不能超过 50000 个字符。' };
+  }
+
+  const placeholders = new Set();
+  for (const content of [template.subject, template.text, template.html]) {
+    for (const match of content.matchAll(/\{\{([a-z_]+)\}\}/gi)) placeholders.add(match[1]);
+  }
+  const unknown = [...placeholders].filter(name => !EMAIL_TEMPLATE_PLACEHOLDERS.includes(name));
+  if (unknown.length) {
+    return { error: `存在不支持的占位符：${unknown.map(name => `{{${name}}}`).join(', ')}` };
+  }
+  if (!template.text.includes('{{code}}') || !template.html.includes('{{code}}')) {
+    return { error: '纯文本和 HTML 模板都必须包含 {{code}}。' };
+  }
+  return { template };
+}
+
+function emailTemplatePreview(template) {
+  const variables = {
+    code: '123456',
+    email: 'demo@example.com',
+    expires_minutes: Math.floor(EMAIL_CODE_TTL_MS / 60_000),
+    site_name: 'leandata proxy'
+  };
+  return {
+    subject: renderEmailTemplate(template.subject, variables),
+    text: renderEmailTemplate(template.text, variables),
+    html: renderEmailTemplate(template.html, variables)
+  };
+}
+
+function emailSmtpConfig() {
+  const settings = currentEmailConfig();
+  const host = String(settings.SMTP_HOST || '').trim();
+  const user = String(settings.SMTP_USER || '').trim();
+  const password = String(settings.SMTP_PASSWORD || '').trim();
+  const port = Number(settings.SMTP_PORT || 587);
+  const from = String(settings.MAIL_FROM || user).trim();
+  if (!host || !user || !password || !Number.isInteger(port) || port < 1 || port > 65535) return null;
+  if (!ANNOUNCE_EMAIL_RE.test(from)) return null;
+  return {
+    host,
+    port,
+    user,
+    password,
+    from,
+    fromName: String(settings.MAIL_FROM_NAME || 'leandata.uk').trim()
+  };
+}
+
+async function sendVerificationEmail(email, code) {
+  const template = readEmailTemplate();
+  const variables = {
+    code,
+    email,
+    expires_minutes: Math.floor(EMAIL_CODE_TTL_MS / 60_000),
+    site_name: 'leandata proxy'
+  };
+  const text = renderEmailTemplate(template.text, variables);
+  const html = renderEmailTemplate(template.html, variables);
+  const subject = renderEmailTemplate(template.subject, variables);
+  if (emailSetting('EMAIL_TEST_MODE') === 'memory') {
+    testVerificationEmails.push({ email, code, subject, text, html, sent_at: new Date().toISOString() });
+    return { messageId: `test-${testVerificationEmails.length}` };
+  }
+  const config = emailSmtpConfig();
+  if (!config) throw new Error('SMTP email configuration is incomplete');
+  return sendSmtpMail({ config, to: email, subject, text, html });
+}
+
+function getLastTestVerificationEmail() {
+  return testVerificationEmails[testVerificationEmails.length - 1] || null;
+}
+
+function clearTestVerificationEmails() {
+  testVerificationEmails.length = 0;
 }
 
 function isSingleFileBindMountReplaceError(error) {
@@ -4235,8 +4458,32 @@ function wrapBase64(value) {
   return Buffer.from(String(value), 'utf8').toString('base64').match(/.{1,76}/g)?.join('\r\n') || '';
 }
 
-function buildSmtpMessage({ from, fromName, to, subject, text }) {
+function buildSmtpMessage({ from, fromName, to, subject, text, html }) {
   const fromHeader = fromName ? `${encodeMailHeader(fromName)} <${from}>` : from;
+  if (html) {
+    const boundary = `=_leandata_${crypto.randomBytes(12).toString('hex')}`;
+    return [
+      `From: ${fromHeader}`,
+      `To: ${to}`,
+      `Subject: ${encodeMailHeader(subject)}`,
+      `Date: ${new Date().toUTCString()}`,
+      `Message-ID: <${crypto.randomUUID()}@leandata.uk>`,
+      'MIME-Version: 1.0',
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      '',
+      `--${boundary}`,
+      'Content-Type: text/plain; charset=UTF-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      wrapBase64(text),
+      `--${boundary}`,
+      'Content-Type: text/html; charset=UTF-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      wrapBase64(html),
+      `--${boundary}--`
+    ].join('\r\n');
+  }
   return [
     `From: ${fromHeader}`,
     `To: ${to}`,
@@ -4251,7 +4498,7 @@ function buildSmtpMessage({ from, fromName, to, subject, text }) {
   ].join('\r\n');
 }
 
-async function sendSmtpMail({ config, to, subject, text }) {
+async function sendSmtpMail({ config, to, subject, text, html }) {
   let socket;
   try {
     if (config.port === 465) {
@@ -4279,7 +4526,8 @@ async function sendSmtpMail({ config, to, subject, text }) {
       fromName: config.fromName,
       to,
       subject,
-      text
+      text,
+      html
     });
     const dotStuffed = message
       .split('\r\n')

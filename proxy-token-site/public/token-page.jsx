@@ -4,6 +4,8 @@
 const { useState } = React;
 
 function TokenTopbar({ portalOpen, setPortalOpen }) {
+  const t = (text) => window.LeandataI18n?.translate(text) || text;
+
   return (
     <div className="topbar">
       <div className="brand">
@@ -12,20 +14,20 @@ function TokenTopbar({ portalOpen, setPortalOpen }) {
       </div>
       <div className="divider"></div>
       <div className="nav">
-        <a href="/docs/" style={{ cursor: "pointer" }}>Docs</a>
-        <a href="/docs/#status" style={{ cursor: "pointer" }}>Status</a>
-        <a href="/docs/#usage" style={{ cursor: "pointer" }}>Usage</a>
+        <a href="/docs/" style={{ cursor: "pointer" }}>{t("Docs")}</a>
+        <a href="/docs/#status" style={{ cursor: "pointer" }}>{t("Status")}</a>
+        <a href="/docs/#usage" style={{ cursor: "pointer" }}>{t("Usage")}</a>
         <a href="/updates" style={{ cursor: "pointer" }}>更新 / Updates</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
         {!portalOpen && (
           <button className="btn ghost" onClick={() => setPortalOpen(true)} style={{ marginRight: 12, padding: "6px 10px", fontSize: 12 }}>
-            Open Portal
+            {t("Open Portal")}
           </button>
         )}
-        <a href="/account" className="btn accent" style={{ padding: "6px 10px", fontSize: 12 }}>Manage account →</a>
-        <a href="/admin.html" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>Admin →</a>
+        <a href="/account" className="btn accent" style={{ padding: "6px 10px", fontSize: 12 }}>{t("Manage account →")}</a>
+        <a href="/admin.html" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>{t("Admin →")}</a>
       </div>
     </div>
   );
@@ -35,17 +37,19 @@ function TokenPage() {
   const [portalOpen, setPortalOpen] = useState(true);
   const [user, setUser] = useState("");
   const [phone, setPhone] = useState("");
-  
+
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [tokenData, setTokenData] = useState(null); // { token, expiry, role }
 
+  const t = (text) => window.LeandataI18n?.translate(text) || text;
+
   const handleGenerate = async () => {
     if (!user || !phone) {
-      setErrorMsg("Please enter both username and phone number.");
+      setErrorMsg(t("Please enter both username and phone number."));
       return;
     }
-    
+
     setLoading(true);
     setErrorMsg("");
     setTokenData(null);
@@ -70,7 +74,7 @@ function TokenPage() {
       }
     } catch (error) {
       console.error('Error:', error);
-      setErrorMsg('Network error or server is down. Please try again later.');
+      setErrorMsg(t('Network error or server is down. Please try again later.'));
     } finally {
       setLoading(false);
     }
@@ -79,7 +83,7 @@ function TokenPage() {
   const handleCopy = () => {
     if (tokenData && tokenData.token) {
       navigator.clipboard.writeText(tokenData.token);
-      alert("Token copied to clipboard!");
+      alert(t("Token copied to clipboard!"));
     }
   };
 
@@ -108,22 +112,21 @@ function TokenPage() {
         {portalOpen && (
         <div style={{ position: "relative", padding: "56px 48px", background: "var(--bg-paper)", borderRight: "1px solid var(--rule)", overflow: "auto" }}>
           <button onClick={() => setPortalOpen(false)} style={{ position: "absolute", top: 16, right: 16, background: "transparent", border: "none", cursor: "pointer", fontSize: 20, color: "var(--ink-muted)" }}>✕</button>
-          <div className="eyebrow" style={{ marginBottom: 14 }}>Access · 30 day token</div>
+          <div className="eyebrow" style={{ marginBottom: 14 }}>{t("Access · 30 day token")}</div>
           <h1 className="display-title" style={{ fontSize: 44, margin: "0 0 12px", lineHeight: 1.0 }}>
-            Get your <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>access</span> token
+            {t("Get your")} <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>{t("access")}</span> {t("token")}
           </h1>
           <p style={{ color: "var(--ink-muted)", margin: "0 0 32px", fontSize: 14, maxWidth: 360 }}>
-            Approved accounts only. Enter the username and phone number on file —
-            we'll mint a fresh UUID and push it to the upstream proxy.
+            {t("Approved accounts only. Enter the username and phone number on file — we'll mint a fresh UUID and push it to the upstream proxy.")}
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <div>
-              <label className="label">Username</label>
+              <label className="label">{t("Username")}</label>
               <input className="input mono" value={user} onChange={e => setUser(e.target.value)} />
             </div>
             <div>
-              <label className="label">Phone number</label>
+              <label className="label">{t("Phone number")}</label>
               <input className="input mono" value={phone} onChange={e => setPhone(e.target.value)} />
             </div>
             <button
@@ -132,7 +135,7 @@ function TokenPage() {
               onClick={handleGenerate}
               disabled={loading}
             >
-              {loading ? "Generating..." : "Generate token →"}
+              {loading ? t("Generating...") : t("Generate token →")}
             </button>
           </div>
           
