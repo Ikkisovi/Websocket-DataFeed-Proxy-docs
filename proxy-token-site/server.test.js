@@ -258,6 +258,27 @@ describe('POST /api/register', () => {
     expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users).toEqual([]);
   });
 
+  it('supports the production single-file registry bind mount', async () => {
+    const rename = fs.renameSync;
+    jest.spyOn(fs, 'renameSync').mockImplementation((source, destination) => {
+      if (destination === TEST_PROXY_FILE) {
+        const error = new Error('device or resource busy');
+        error.code = 'EBUSY';
+        throw error;
+      }
+      return rename(source, destination);
+    });
+    const response = await request(app).post('/api/register').send({
+      username: 'bind-mounted-registry',
+      phone: '123',
+      email: 'bind-mounted-registry@example.com',
+      tier: 'free'
+    });
+    expect(response.statusCode).toBe(201);
+    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))).toHaveLength(1);
+    expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users).toHaveLength(1);
+  });
+
   it('matches the full identity tuple, not username alone', async () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
       username: ' legacy-user ',

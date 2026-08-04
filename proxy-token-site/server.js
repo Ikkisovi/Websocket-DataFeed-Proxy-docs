@@ -303,6 +303,32 @@ function writeJSONAtomic(filepath, data) {
   }
 }
 
+function isSingleFileBindMountReplaceError(error) {
+  return ['EBUSY', 'EXDEV'].includes(String(error?.code || ''));
+}
+
+function writeProxyUsersFile(data) {
+  try {
+    writeJSONAtomic(PROXY_USERS_FILE, data);
+    return;
+  } catch (error) {
+    if (!isSingleFileBindMountReplaceError(error)) throw error;
+
+    // Production exposes this registry to the UI as a writable single-file bind
+    // mount. Linux rejects renaming over that mount point, so retain the normal
+    // atomic path everywhere else and use a fsync'd in-place write only here.
+    const serialized = JSON.stringify(data, null, 2);
+    const descriptor = fs.openSync(PROXY_USERS_FILE, 'r+');
+    try {
+      fs.ftruncateSync(descriptor, 0);
+      fs.writeFileSync(descriptor, serialized, 'utf8');
+      fs.fsyncSync(descriptor);
+    } finally {
+      fs.closeSync(descriptor);
+    }
+  }
+}
+
 const PRODUCT_UPDATES = [
   {
     id: 'fmp-premium-eod-2026-08',
@@ -886,7 +912,7 @@ function writeProxyUsersAndSync(data) {
 
 async function writeProxyUsersAndSyncAsync(data) {
   const beforeCount = data.users ? data.users.length : 0;
-  writeJSONAtomic(PROXY_USERS_FILE, data);
+  writeProxyUsersFile(data);
 
   // Post-write verification: read back and confirm user count matches
   try {
@@ -986,8 +1012,13 @@ async function provisionFreeRegistration(entry) {
     const syncResult = await writeProxyUsersAndSyncAsync(nextProxyData);
     if (!syncResult.ok) throw new Error('数据服务注册表同步失败。');
     writeJSONAtomic(USERS_FILE, nextUsers);
-  } catch (_) {
-    try { writeJSONAtomic(PROXY_USERS_FILE, proxyData); } catch (_) {}
+  } catch (cause) {
+    console.error('[REGISTRATION] Free provisioning failed', {
+      code: cause?.code || 'unknown',
+      syscall: cause?.syscall || null,
+      message: String(cause?.message || 'unknown').slice(0, 160)
+    });
+    try { writeProxyUsersFile(proxyData); } catch (_) {}
     try { writeJSONAtomic(USERS_FILE, users); } catch (_) {}
     const error = new Error('Free 计划开通失败，请稍后重试。');
     error.statusCode = 503;
