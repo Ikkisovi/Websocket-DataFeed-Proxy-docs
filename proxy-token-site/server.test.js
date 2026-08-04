@@ -630,6 +630,15 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).not.toContain('52.37.182.24');
     expect(docsSource).not.toContain('Hybrid architecture');
   });
+
+  it('documents the public FMP compatibility routes and their private archive provenance', () => {
+    expect(docsSource).toContain('Public on <code>api.leandata.uk</code>');
+    expect(docsSource).toContain('/stable/income-statement');
+    expect(docsSource).toContain('/v1/pit/fmp/*');
+    expect(docsSource).toContain('X-Cache-Tier: thinkcentre_archive');
+    expect(docsSource).toContain('X-FMP-Package-SHA256');
+    expect(docsSource).not.toContain('Not a public API route yet.');
+  });
 });
 
 // ============================================================
