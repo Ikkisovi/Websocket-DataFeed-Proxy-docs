@@ -85,7 +85,7 @@ function UpdatesPage() {
         <div className="eyebrow" style={{ marginBottom: 10 }}>产品日志 · Product log</div>
         <h1 className="display-title" style={{ fontSize: 48, margin: "0 0 12px" }}>最近改动与留言</h1>
         <p style={{ color: "var(--ink-muted)", maxWidth: 720, lineHeight: 1.7, margin: "0 0 32px" }}>
-          这里记录数据产品的近期变化。Premium 用户现在可以试用 sample-universe 的 FMP fundamentals Beta；页面会明确哪些字段已经验证、哪些仍在计划中。
+          这里记录数据产品的近期变化，包括 Index options 支持与 Premium FMP fundamentals Beta；每条更新都会说明当前可用范围和下一步计划。
         </p>
         {notice && <div style={{ padding: "10px 14px", marginBottom: 20, border: "1px solid var(--accent-rule)", background: "var(--accent-soft)", color: "var(--accent-ink)", borderRadius: 8 }}>{notice}</div>}
         <div className="updates-grid">

@@ -715,6 +715,12 @@ describe('Product updates and account-scoped feedback', () => {
     const updates = await request(app).get('/api/product-updates');
     expect(updates.statusCode).toBe(200);
     expect(updates.body.updates[0].title).toContain('Premium');
+    expect(updates.body.updates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        title: expect.stringContaining('Index options'),
+        body: expect.stringContaining('SPX / SPXW')
+      })
+    ]));
     const unauthorized = await request(app).get('/api/product-updates/feedback/mine');
     expect(unauthorized.statusCode).toBe(401);
   });

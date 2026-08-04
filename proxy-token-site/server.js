@@ -296,6 +296,15 @@ const PRODUCT_UPDATES = [
     body: '我们采购的上游批量数据已开放 sample-universe 试用。欢迎反馈数据缺口、字段需求或上游修订问题。',
     body_en: 'Our purchased upstream bulk snapshot is now in a sample-universe Beta. Tell us about missing data, fields, or upstream revisions.',
     tag: 'FMP · Premium'
+  },
+  {
+    id: 'index-options-support-2026-07',
+    date: '2026-07-29',
+    title: 'Index options 支持已上线',
+    title_en: 'Index options support is live',
+    body: '现已支持 SPX / SPXW、VIX / VIXW、DJX 与 XSP 的实时订阅和已发布 REST 数据能力；具体请求方式见 Index Data 文档。',
+    body_en: 'Realtime subscriptions and documented REST data access are available for SPX/SPXW, VIX/VIXW, DJX, and XSP. See Index Data in the docs.',
+    tag: 'Options · Index'
   }
 ];
 
