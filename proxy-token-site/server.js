@@ -144,7 +144,12 @@ const DEFAULT_EMAIL_TEMPLATE = {
     '您的邮箱验证码是：{{code}}',
     '',
     '验证码在 {{expires_minutes}} 分钟内有效。',
-    '如果不是您本人操作，请忽略此邮件。'
+    '如果不是您本人操作，请忽略此邮件。',
+    '',
+    '---',
+    'Leandata Technologies Ltd.',
+    '700 W Georgia St, Vancouver, BC V7Y 1B6, Canada',
+    'https://leandata.uk'
   ].join('\n'),
   html: [
     '<div style="font-family:Arial,sans-serif;line-height:1.7;color:#25211d">',
@@ -153,6 +158,12 @@ const DEFAULT_EMAIL_TEMPLATE = {
     '<p>您的邮箱验证码是：</p>',
     '<p style="font-size:32px;font-weight:700;letter-spacing:0.28em;color:#176b72">{{code}}</p>',
     '<p>验证码在 {{expires_minutes}} 分钟内有效。如果不是您本人操作，请忽略此邮件。</p>',
+    '<hr style="border:0;border-top:1px solid #e0e0e0;margin:24px 0 16px" />',
+    '<p style="font-size:12px;color:#888888;line-height:1.6;margin:0">',
+    '  <strong>Leandata Technologies Ltd.</strong><br />',
+    '  700 W Georgia St, Vancouver, BC V7Y 1B6, Canada<br />',
+    '  <a href="https://leandata.uk" style="color:#176b72;text-decoration:none">https://leandata.uk</a>',
+    '</p>',
     '</div>'
   ].join('')
 };
