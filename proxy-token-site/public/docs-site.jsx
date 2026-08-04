@@ -541,9 +541,16 @@ function IndexOptionsBanner() {
 }
 
 function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
-  const validTabs = ["proxy", "fmp", "bulk", "ws", "status", "usage"];
+  const validTabs = ["proxy", "fmp", "fmp-fundamentals", "bulk", "ws", "status", "usage"];
+  const fmpOverviewIds = ["fmp-data-overview", "fmp-snapshot-boundary", "fmp-future-data-families"];
   const hashTab = typeof window !== "undefined" && window.location.hash ? window.location.hash.slice(1) : "";
-  const startTab = validTabs.includes(hashTab) ? hashTab : initialTab;
+  const startTab = validTabs.includes(hashTab)
+    ? hashTab
+    : fmpOverviewIds.includes(hashTab)
+      ? "fmp"
+      : hashTab.startsWith("fmp-")
+        ? "fmp-fundamentals"
+        : initialTab;
   const [tab, setTab] = useState(startTab);
 
   React.useEffect(() => {
@@ -560,10 +567,12 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
   }, [tab]);
 
   const showTopbar = !hideTopbar;
+  const visibleTab = tab === "fmp-fundamentals" ? "fmp" : tab;
+  const threeColumnTab = tab === "proxy" || tab === "ws" || tab === "fmp-fundamentals";
 
   return (
     <div className="proxy-app" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      {showTopbar && <DocsTopbar active={tab} onNav={setTab} />}
+      {showTopbar && <DocsTopbar active={visibleTab} onNav={setTab} />}
       <IndexOptionsBanner />
 
       {/* Hero */}
@@ -586,12 +595,12 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
 
         {/* Tab strip */}
         <div className="docs-tabs" style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
-          <Tab id="proxy" tab={tab} setTab={setTab} label="Proxy API" count="45+ endpoints" />
-          <Tab id="fmp" tab={tab} setTab={setTab} label="FMP data" count="coverage &amp; plan" />
-          <Tab id="bulk" tab={tab} setTab={setTab} label="Bulk Download" count="¥50 / 50GB" />
-          <Tab id="ws" tab={tab} setTab={setTab} label="WS usage" count="6 channels" />
-          <Tab id="status" tab={tab} setTab={setTab} label="Status" count="live" />
-          <Tab id="usage" tab={tab} setTab={setTab} label="Usage" count="30d" />
+          <Tab id="proxy" tab={visibleTab} setTab={setTab} label="Proxy API" count="45+ endpoints" />
+          <Tab id="fmp" tab={visibleTab} setTab={setTab} label="FMP data" count="overview" />
+          <Tab id="bulk" tab={visibleTab} setTab={setTab} label="Bulk Download" count="¥50 / 50GB" />
+          <Tab id="ws" tab={visibleTab} setTab={setTab} label="WS usage" count="6 channels" />
+          <Tab id="status" tab={visibleTab} setTab={setTab} label="Status" count="live" />
+          <Tab id="usage" tab={visibleTab} setTab={setTab} label="Usage" count="30d" />
           <div style={{ flex: 1 }}></div>
           <div className="docs-last-sync" style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
             last sync · 2026-07-29 · public REST / RT / WSS
@@ -600,12 +609,12 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
       </div>
 
       {/* Content */}
-      <div style={{ display: "grid", gridTemplateColumns: (tab === "status" || tab === "usage" || tab === "bulk" || tab === "fmp") ? "1fr" : "220px 1fr 220px", flex: 1 }}>
-        {tab !== "status" && tab !== "usage" && tab !== "bulk" && tab !== "fmp" && <SideNav tab={tab} />}
-        <main className={tab === "bulk" ? "bulk-main" : ""} style={{ padding: (tab === "status" || tab === "usage" || tab === "bulk" || tab === "fmp") ? "36px 32px" : "40px 56px", background: "var(--bg-canvas)" }}>
-          {tab === "proxy" ? <ProxyApiBody /> : tab === "fmp" ? <FmpArchiveBody /> : tab === "bulk" ? <BulkOrderBody /> : tab === "ws" ? <WsUsageBody /> : tab === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…")) : (React.createElement(StatusBody))}
+      <div className="docs-content-grid" style={{ display: "grid", gridTemplateColumns: threeColumnTab ? "220px 1fr 220px" : "1fr", flex: 1 }}>
+        {threeColumnTab && <SideNav tab={tab} />}
+        <main className={tab === "bulk" ? "bulk-main" : ""} style={{ padding: threeColumnTab ? "40px 56px" : "36px 32px", background: "var(--bg-canvas)" }}>
+          {tab === "proxy" ? <ProxyApiBody /> : tab === "fmp" ? <FmpDataOverview openFundamentals={() => setTab("fmp-fundamentals")} /> : tab === "fmp-fundamentals" ? <FmpFundamentalsBody /> : tab === "bulk" ? <BulkOrderBody /> : tab === "ws" ? <WsUsageBody /> : tab === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…")) : (React.createElement(StatusBody))}
         </main>
-        {tab !== "status" && tab !== "usage" && tab !== "bulk" && tab !== "fmp" && <OnThisPage tab={tab} />}
+        {threeColumnTab && <OnThisPage tab={tab} />}
       </div>
     </div>
   );
@@ -683,6 +692,17 @@ function SideNav({ tab }) {
     { title: "Crypto Data", items: ["orderbooks"] },
     { title: "Admin endpoints", items: ["login", "pending", "approve", "reject"] },
     { title: "Reference", items: ["Error codes", "Rate limits"] },
+  ] : tab === "fmp-fundamentals" ? [
+    { title: "FMP Fundamentals", items: ["FMP fundamentals overview", "Request contract", "Response metadata"] },
+    { title: "Market history", items: ["historical-price-eod/full"] },
+    { title: "Market snapshots", items: ["quote", "quote-short", "aftermarket-quote", "aftermarket-trade", "stock-price-change", "market-capitalization", "historical-market-capitalization", "batch-quote", "batch-quote-short", "batch-aftermarket-quote", "batch-aftermarket-trade", "market-capitalization-batch"] },
+    { title: "Company reference", items: ["profile", "stock-peers", "key-executives", "company-notes", "financial-reports-dates", "employee-count", "historical-employee-count", "shares-float", "shares-float-all", "dividends", "splits"] },
+    { title: "Financial statements", items: ["income-statement", "balance-sheet-statement", "cash-flow-statement", "PIT statements"] },
+    { title: "Ratios & metrics", items: ["ratios", "ratios-ttm", "key-metrics", "key-metrics-ttm"] },
+    { title: "Growth & valuation", items: ["income-statement-growth", "balance-sheet-statement-growth", "cash-flow-statement-growth", "financial-growth", "enterprise-values", "financial-scores"] },
+    { title: "Research & valuation", items: ["analyst-estimates", "price-target-summary", "price-target-consensus", "discounted-cash-flow", "custom-discounted-cash-flow", "levered-discounted-cash-flow", "custom-levered-discounted-cash-flow", "owner-earnings", "earnings", "grades", "grades-consensus", "grades-historical", "ratings-snapshot", "ratings-historical"] },
+    { title: "Revenue & directories", items: ["revenue-geographic-segmentation", "revenue-product-segmentation", "available-countries", "available-exchanges", "available-industries", "available-sectors", "cik-list", "delisted-companies", "financial-statement-symbol-list", "stock-list", "symbol-change"] },
+    { title: "Coverage", items: ["Snapshot boundary", "Future data families"] },
   ] : tab === "ws" ? [
     { title: "Connecting", items: ["Endpoint", "Auth message", "Heartbeat"] },
     { title: "Channels", items: ["stocks", "options", "crypto", "news", "overnight"] },
@@ -713,8 +733,30 @@ function SideNav({ tab }) {
     const indent      = BASE_PAD + depth * INDENT_STEP;
 
     // Map sidebar labels to actual document IDs
-    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits'};
-    const getId = (label) => ID_MAP[label] || slugify(label);
+    const FMP_ID_MAP = {
+      "FMP fundamentals overview": "fmp-fundamentals-overview",
+      "Request contract": "fmp-request-contract",
+      "Response metadata": "fmp-response-metadata",
+      "historical-price-eod/full": "fmp-historical-price-eod",
+      "income-statement": "fmp-income-statement",
+      "balance-sheet-statement": "fmp-balance-sheet-statement",
+      "cash-flow-statement": "fmp-cash-flow-statement",
+      "PIT statements": "fmp-pit-statements",
+      "ratios": "fmp-ratios",
+      "ratios-ttm": "fmp-ratios-ttm",
+      "key-metrics": "fmp-key-metrics",
+      "key-metrics-ttm": "fmp-key-metrics-ttm",
+      "income-statement-growth": "fmp-income-statement-growth",
+      "balance-sheet-statement-growth": "fmp-balance-sheet-statement-growth",
+      "cash-flow-statement-growth": "fmp-cash-flow-statement-growth",
+      "financial-growth": "fmp-financial-growth",
+      "enterprise-values": "fmp-enterprise-values",
+      "financial-scores": "fmp-financial-scores",
+    };
+    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'FMP fundamentals overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families'};
+    const getId = (label) => tab === "fmp-fundamentals"
+      ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
+      : ID_MAP[label] || slugify(label);
 
     return (
       <div style={{ marginBottom: hasChildren ? 0 : 8 }}>
@@ -801,6 +843,14 @@ function OnThisPage({ tab }) {
   }, [tab]);
   const items = tab === "proxy"
     ? ["Request", "Response", "Validation", "Examples", "Errors"]
+    : tab === "fmp-fundamentals"
+    ? [
+      ["FMP overview", "fmp-fundamentals-overview"],
+      ["Request examples", "fmp-request-examples"],
+      ["Endpoint sections", "fmp-endpoint-subsections"],
+      ["Request contract", "fmp-request-contract"],
+      ["Response metadata", "fmp-response-metadata"],
+    ]
     : tab === "ws"
     ? ["Connect", "Authenticate", "Subscribe", "Message shapes", "Reconnect"]
     : ["Overview", "Components", "Latency", "Uptime", "Incidents"];
@@ -812,11 +862,15 @@ function OnThisPage({ tab }) {
     }}>
       <div className="eyebrow" style={{ marginBottom: 12, color: "var(--ink-soft)" }}>On this page</div>
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-        {items.map((it, i) => (
+        {items.map((item, i) => {
+          const label = Array.isArray(item) ? item[0] : item;
+          const id = Array.isArray(item) ? item[1] : slugify(item);
+          return (
           <li key={i}>
-            <a href={"#" + slugify(it)} style={{textDecoration: "none",  color: activeId === slugify(it) ? "var(--ink-strong)" : "var(--ink-muted)" }}>{it}</a>
+            <a href={"#" + id} style={{textDecoration: "none",  color: activeId === id ? "var(--ink-strong)" : "var(--ink-muted)" }}>{label}</a>
           </li>
-        ))}
+          );
+        })}
       </ul>
 
       <TokenCard />
@@ -1508,7 +1562,69 @@ function BulkOrderBody() {
   );
 }
 
-function FmpArchiveBody() {
+function FmpDataOverview({ openFundamentals }) {
+  const panel = {
+    background: "var(--bg-paper)",
+    border: "1px solid var(--rule)",
+    borderRadius: 10,
+    padding: "18px 20px",
+  };
+  return (
+    <div style={{ maxWidth: 860, margin: "0 auto" }}>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>FMP-compatible archive data · Premium</div>
+      <h2 id="fmp-data-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>FMP data / FMP 数据说明</h2>
+      <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
+        这是 Leandata 的 FMP-compatible immutable archive surface：使用 Leandata Bearer token，返回保留的原始 FMP-shaped JSON。
+        详细 request、response 和每条 route 不放在这一页；请进入左侧 API reference 的 <strong style={{ color: "var(--ink-strong)" }}>FMP Fundamentals</strong> session。
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 22 }}>
+        <div style={panel}>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Access</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Premium</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Use <code>Authorization: Bearer TOKEN</code>. Do not pass an FMP <code>apikey</code>.</div>
+        </div>
+        <div style={panel}>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Package identity</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Immutable snapshot</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Responses identify the captured package. A later upstream revision does not rewrite that package.</div>
+        </div>
+        <div style={panel}>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>PIT boundary</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Not universal</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Only statement PIT routes have an explicit visibility policy. Snapshot families are not strict PIT.</div>
+        </div>
+      </div>
+      <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 22 }}>
+        <strong style={{ color: "var(--accent-ink)" }}>Endpoint reference moved.</strong>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> Use the FMP Fundamentals sidebar session for individual endpoint sections, exact parameters, response metadata and coverage.</span>
+        <button onClick={openFundamentals} className="btn" style={{ marginLeft: 12, padding: "7px 11px", fontSize: 12 }}>Open FMP Fundamentals →</button>
+      </div>
+      <h3 id="fmp-snapshot-boundary" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>Snapshot, revisions and future vintages</h3>
+      <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, margin: "0 0 22px" }}>
+        This package is a captured bulk snapshot. Upstream filings, amendments and normalization can revise historical values later. Package pinning reproduces one captured vintage, but does not alone prove what was knowable on every historical date. We will add independent versioned PIT-like refreshes with capture and visibility timestamps; native FMP forwarding remains a separate future surface.
+      </p>
+      <h3 id="fmp-future-data-families" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>Future data families</h3>
+      <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, margin: 0 }}>
+        Revision-heavy families such as estimates, earnings, ratings and DCF need their own contract before any PIT claim. Ultimate will separately add institutional and ETF holdings, with the same immutable-vintage discipline.
+      </p>
+    </div>
+  );
+}
+
+function FmpEndpointSection({ id, route, title, params, note }) {
+  return (
+    <section style={{ padding: "20px 0", borderTop: "1px solid var(--rule)" }}>
+      <h3 id={id} className="display-title" style={{ fontSize: 25, margin: "0 0 7px" }}>{title}</h3>
+      <div style={{ fontFamily: "var(--f-mono)", fontSize: 13, color: "var(--accent-ink)", marginBottom: 8 }}>{route}</div>
+      <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65, margin: "0 0 10px" }}>
+        <code>GET</code> or <code>POST</code> with <code>Authorization: Bearer TOKEN</code>. Parameters: {params}.
+      </p>
+      <p style={{ color: "var(--ink-soft)", fontSize: 13, lineHeight: 1.55, margin: 0 }}>{note}</p>
+    </section>
+  );
+}
+
+function FmpFundamentalsBody() {
   const panel = {
     background: "var(--bg-paper)",
     border: "1px solid var(--rule)",
@@ -1516,11 +1632,61 @@ function FmpArchiveBody() {
     padding: "18px 20px",
   };
   const mono = { fontFamily: "var(--f-mono)", fontSize: 12 };
+  const rawSnapshotEndpoints = [
+    ["/stable/quote", "最新报价 / Quote", "symbol; optional limit", "当前 package 内的原始报价快照。不是实时行情，也不会走上游补数。"],
+    ["/stable/quote-short", "简版报价 / Quote short", "symbol; optional limit", "简版字段按 source 原样返回。"],
+    ["/stable/aftermarket-quote", "盘后报价 / Aftermarket quote", "symbol; optional limit", "仅代表已捕获的盘后快照。"],
+    ["/stable/aftermarket-trade", "盘后成交 / Aftermarket trade", "symbol; optional limit", "仅代表已捕获的盘后成交快照。"],
+    ["/stable/stock-price-change", "价格变化 / Stock price change", "symbol; optional limit", "源端计算字段作为 package snapshot 返回。"],
+    ["/stable/market-capitalization", "市值快照 / Market capitalization", "symbol; optional limit", "当前捕获市值，不是严格历史 PIT。"],
+    ["/stable/historical-market-capitalization", "历史市值 / Historical market capitalization", "symbol; optional from, to, limit", "日期筛选只作用于 source row 的 date 字段；没有匹配数据时返回完整导入语义下的空数组。"],
+    ["/stable/batch-quote", "批量报价 / Batch quote", "optional symbols, limit", "只查询 package 中已捕获的 batch response；可用 symbols 缩小其中的记录。"],
+    ["/stable/batch-quote-short", "批量简版报价 / Batch quote short", "optional symbols, limit", "只查询 package 中已捕获的 batch response。"],
+    ["/stable/batch-aftermarket-quote", "批量盘后报价 / Batch aftermarket quote", "optional symbols, limit", "只查询 package 中已捕获的 batch response。"],
+    ["/stable/batch-aftermarket-trade", "批量盘后成交 / Batch aftermarket trade", "optional symbols, limit", "只查询 package 中已捕获的 batch response。"],
+    ["/stable/market-capitalization-batch", "批量市值 / Market capitalization batch", "optional symbols, limit", "只查询 package 中已捕获的 batch response。"],
+    ["/stable/profile", "公司资料 / Profile", "exactly one of symbol or cik; optional limit", "symbol 和 CIK 是两个独立的已捕获 source member；不把它当作实时 company master。"],
+    ["/stable/stock-peers", "同业公司 / Stock peers", "symbol; optional limit", "上游识别的 peers snapshot。"],
+    ["/stable/key-executives", "管理层 / Key executives", "symbol; optional limit", "公司资料快照；人员信息可能随后变化。"],
+    ["/stable/company-notes", "公司备注 / Company notes", "symbol; optional limit", "原始 source notes，不进行本地解释或归一化。"],
+    ["/stable/financial-reports-dates", "财报日期 / Financial reports dates", "symbol; optional limit", "披露日历快照，不构成可见性时间线。"],
+    ["/stable/employee-count", "员工数 / Employee count", "symbol; optional limit", "当前 source snapshot。"],
+    ["/stable/historical-employee-count", "员工数历史 / Historical employee count", "symbol; optional limit", "历史字段的已捕获 package vintage。"],
+    ["/stable/shares-float", "流通股 / Shares float", "symbol; optional limit", "当前 source snapshot。"],
+    ["/stable/shares-float-all", "全部流通股列表 / Shares float all", "optional limit", "只包含本 package 捕获到的分页。"],
+    ["/stable/dividends", "分红 / Dividends", "symbol; optional from, to, limit", "事件行按 source 原样返回；修订不会回写本 package。"],
+    ["/stable/splits", "拆股 / Splits", "symbol; optional from, to, limit", "事件行按 source 原样返回。"],
+    ["/stable/analyst-estimates", "分析师预期 / Analyst estimates", "symbol; optional limit", "目前仅是已捕获的 annual source snapshot；绝不宣称为 estimates PIT。"],
+    ["/stable/price-target-summary", "目标价摘要 / Price target summary", "symbol; optional limit", "当前 package snapshot。"],
+    ["/stable/price-target-consensus", "目标价共识 / Price target consensus", "symbol; optional limit", "当前 package snapshot。"],
+    ["/stable/discounted-cash-flow", "DCF / Discounted cash flow", "symbol; optional limit", "源端 DCF 结果；模型输入与修订历史未在此 endpoint 重建。"],
+    ["/stable/custom-discounted-cash-flow", "自定义 DCF / Custom DCF", "symbol; optional limit", "源端自定义 DCF snapshot。"],
+    ["/stable/levered-discounted-cash-flow", "杠杆 DCF / Levered DCF", "symbol; optional limit", "源端 leverage-aware DCF snapshot。"],
+    ["/stable/custom-levered-discounted-cash-flow", "自定义杠杆 DCF / Custom levered DCF", "symbol; optional limit", "源端自定义 leverage-aware DCF snapshot。"],
+    ["/stable/owner-earnings", "Owner earnings", "symbol; optional limit", "源端计算字段的 immutable snapshot。"],
+    ["/stable/earnings", "业绩事件 / Earnings", "symbol; optional from, to, limit", "事件行已捕获但没有独立 revision/PIT contract。"],
+    ["/stable/grades", "评级 / Grades", "symbol; optional limit", "原始评级记录 snapshot。"],
+    ["/stable/grades-consensus", "评级共识 / Grades consensus", "symbol; optional limit", "当前共识 snapshot。"],
+    ["/stable/grades-historical", "评级历史 / Grades historical", "symbol; optional limit", "已捕获历史 rows，不等于历史每时点可见性。"],
+    ["/stable/ratings-snapshot", "评分 / Ratings snapshot", "symbol; optional limit", "当前评分 snapshot。"],
+    ["/stable/ratings-historical", "评分历史 / Ratings historical", "symbol; optional limit", "已捕获历史 rows，不等于 revision timeline。"],
+    ["/stable/revenue-geographic-segmentation", "地域收入 / Revenue geographic segmentation", "symbol; optional limit", "公司披露的地域收入 source rows。"],
+    ["/stable/revenue-product-segmentation", "产品收入 / Revenue product segmentation", "symbol; optional limit", "公司披露的产品收入 source rows。"],
+    ["/stable/available-countries", "可用国家 / Available countries", "optional limit", "仅当前 package captured catalog。"],
+    ["/stable/available-exchanges", "可用交易所 / Available exchanges", "optional limit", "仅当前 package captured catalog。"],
+    ["/stable/available-industries", "可用行业 / Available industries", "optional limit", "仅当前 package captured catalog。"],
+    ["/stable/available-sectors", "可用板块 / Available sectors", "optional limit", "仅当前 package captured catalog。"],
+    ["/stable/cik-list", "CIK 列表 / CIK list", "optional limit", "只包含当前 package 捕获的分页。"],
+    ["/stable/delisted-companies", "退市公司 / Delisted companies", "optional limit", "只包含当前 package 捕获的分页。"],
+    ["/stable/financial-statement-symbol-list", "财报 ticker 列表 / Financial statement symbol list", "optional limit", "可作为当前 package 覆盖的辅助目录，不等于全 FMP universe。"],
+    ["/stable/stock-list", "股票目录 / Stock list", "optional limit", "只包含当前 package captured catalog。"],
+    ["/stable/symbol-change", "Ticker 变更 / Symbol change", "optional limit", "历史变更 source rows；不作为 symbol identity 的唯一依据。"],
+  ];
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
       <div className="eyebrow" style={{ marginBottom: 10 }}>FMP-compatible financial data · Premium</div>
-      <h2 className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>FMP data / FMP 数据：请求、已验证范围与后续计划</h2>
+      <h2 id="fmp-fundamentals-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>FMP Fundamentals API reference</h2>
       <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
         这里列出可以直接调用的接口、返回示例和当前覆盖。FMP fundamentals Beta 目前向 Premium 账户开放。
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Copy a request, inspect the current coverage, then read how revisions and future vintages will work.</span>
@@ -1539,14 +1705,14 @@ function FmpArchiveBody() {
         </div>
         <div style={panel}>
           <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>当前 Beta · Current</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Statements + derived fundamentals</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>除三类核心报表外，本次扩展增加 ratios、key metrics、TTM、growth、enterprise values 与 financial scores。可用 period 取决于 endpoint 与当前 package。</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Statements + raw snapshot families</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>除三类核心报表和 ratios/metrics 外，现已提供 quotes、profile、公司资料、估计、评级、DCF、收入分部和目录等 raw FMP-shaped snapshot endpoints。</div>
         </div>
       </div>
 
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 28 }}>
         <strong style={{ color: "var(--accent-ink)" }}>Beta 已开放。</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> Premium 用户现在可以查询 sample-universe 的 statements 与 derived fundamentals。欢迎留言反馈缺失 ticker、字段、period 或希望优先支持的数据族。</span>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> Premium 用户现在可以查询 sample-universe 的 statements、derived fundamentals 与 raw snapshot endpoint families。欢迎留言反馈缺失 ticker、字段、period 或希望优先支持的数据族。</span>
       </div>
 
       <div style={{ ...panel, marginBottom: 28 }}>
@@ -1556,9 +1722,9 @@ function FmpArchiveBody() {
         </p>
       </div>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Statement request examples · 财务数据请求示例</h3>
+      <h3 id="fmp-request-examples" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Request examples · 请求示例</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 14px", maxWidth: 830 }}>
-        发送 HTTPS <code>GET</code> 请求到 <code>https://api.leandata.uk</code>，并携带 Leandata Bearer token。Premium Beta 当前支持已验证 sample-universe 的三类核心报表；需要固定某次已发布数据版本时，使用 package-pinned 路径。
+        发送 HTTPS <code>GET</code> 请求到 <code>https://api.leandata.uk</code>，并携带 Leandata Bearer token。raw snapshot 与三类核心报表都使用 FMP-style path；需要固定某次已发布数据版本时，使用 package-pinned 路径。
       </p>
 
       <h3 className="display-title" style={{ fontSize: 28, margin: "28px 0 10px" }}>Available endpoints</h3>
@@ -1582,8 +1748,50 @@ function FmpArchiveBody() {
         </table>
       </div>
 
+      <h3 id="fmp-endpoint-subsections" className="display-title" style={{ fontSize: 28, margin: "32px 0 4px" }}>Endpoint subsections · 接口分节</h3>
+      <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 4px" }}>
+        Each published endpoint has a stable anchor in the sidebar. All non-PIT fundamentals below are immutable package snapshots, not universal point-in-time facts.
+      </p>
+      <FmpEndpointSection id="fmp-historical-price-eod" route="/stable/historical-price-eod/full" title="Historical price EOD" params={<><code>symbol</code>, <code>from</code>, <code>to</code></>} note="EOD price history is a separately imported historical dataset; use the returned package identity for reproducible archive research." />
+      <FmpEndpointSection id="fmp-income-statement" route="/stable/income-statement" title="Income statement" params={<><code>symbol</code>, optional <code>period=annual|quarter</code>, <code>limit</code></>} note="Raw FMP-shaped statement rows. Use the PIT route only when an explicit vintage and as_of boundary are required." />
+      <FmpEndpointSection id="fmp-balance-sheet-statement" route="/stable/balance-sheet-statement" title="Balance-sheet statement" params={<><code>symbol</code>, optional <code>period=annual|quarter</code>, <code>limit</code></>} note="Raw FMP-shaped statement rows; sparse fields remain null or absent when the source did not provide them." />
+      <FmpEndpointSection id="fmp-cash-flow-statement" route="/stable/cash-flow-statement" title="Cash-flow statement" params={<><code>symbol</code>, optional <code>period=annual|quarter</code>, <code>limit</code></>} note="Raw FMP-shaped statement rows. Do not infer zero from an absent source field." />
+      <FmpEndpointSection id="fmp-pit-statements" route="/v1/pit/fmp/{income-statement|balance-sheet-statement|cash-flow-statement}" title="Package-pinned PIT statements" params={<><code>symbol</code>, <code>period</code>, <code>as_of</code>, <code>package_sha256</code></>} note="These are the only current FMP family routes with an explicit accepted-date visibility policy. package_sha256 and as_of are mandatory." />
+      <FmpEndpointSection id="fmp-ratios" route="/stable/ratios" title="Financial ratios" params={<><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></>} note="Package snapshot only. Ratios can be revised by later source normalization." />
+      <FmpEndpointSection id="fmp-ratios-ttm" route="/stable/ratios-ttm" title="Trailing-twelve-month ratios" params={<><code>symbol</code>, optional <code>limit</code></>} note="TTM is source-defined and not an independently reconstructed PIT series." />
+      <FmpEndpointSection id="fmp-key-metrics" route="/stable/key-metrics" title="Key metrics" params={<><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></>} note="Package snapshot only; raw FMP-shaped rows are returned unchanged." />
+      <FmpEndpointSection id="fmp-key-metrics-ttm" route="/stable/key-metrics-ttm" title="Trailing-twelve-month key metrics" params={<><code>symbol</code>, optional <code>limit</code></>} note="TTM fields are source-defined; clients should tolerate missing fields." />
+      <FmpEndpointSection id="fmp-income-statement-growth" route="/stable/income-statement-growth" title="Income-statement growth" params={<><code>symbol</code>, current package <code>period=annual</code>, <code>limit</code></>} note="Growth is a package snapshot and does not claim a historical revision timeline." />
+      <FmpEndpointSection id="fmp-balance-sheet-statement-growth" route="/stable/balance-sheet-statement-growth" title="Balance-sheet growth" params={<><code>symbol</code>, current package <code>period=annual</code>, <code>limit</code></>} note="Growth is a package snapshot and does not claim a historical revision timeline." />
+      <FmpEndpointSection id="fmp-cash-flow-statement-growth" route="/stable/cash-flow-statement-growth" title="Cash-flow growth" params={<><code>symbol</code>, current package <code>period=annual</code>, <code>limit</code></>} note="Growth is a package snapshot and does not claim a historical revision timeline." />
+      <FmpEndpointSection id="fmp-financial-growth" route="/stable/financial-growth" title="Financial growth" params={<><code>symbol</code>, current package <code>period=annual</code>, <code>limit</code></>} note="Use package identity when comparing a later refresh against this captured vintage." />
+      <FmpEndpointSection id="fmp-enterprise-values" route="/stable/enterprise-values" title="Enterprise values" params={<><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></>} note="Valuation history is a package snapshot; it is not advertised as strict PIT." />
+      <FmpEndpointSection id="fmp-financial-scores" route="/stable/financial-scores" title="Financial scores" params={<><code>symbol</code>, optional <code>limit</code></>} note="Altman/Piotroski-style scores are returned from the archived source payload." />
+      <h3 className="display-title" style={{ fontSize: 28, margin: "32px 0 4px" }}>Raw snapshot endpoint families · 原始快照接口</h3>
+      <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65, margin: "0 0 4px" }}>
+        以下 endpoints 返回 package 内保存的原始 FMP-shaped JSON。它们全是 Premium-only、archive-only；不会把未列出的 route 转发给原生 FMP，也不会在 archive miss 时静默补数。
+      </p>
+      {rawSnapshotEndpoints.map(([route, title, params, note]) => (
+        <FmpEndpointSection key={route} id={`fmp-${route.slice("/stable/".length)}`} route={route} title={title} params={params} note={note} />
+      ))}
+
       <pre className="code" style={{ marginBottom: 22 }}>
-{`# Income statement — annual or quarter
+{`# Raw quote snapshot — values below are illustrative, not live prices
+curl "https://api.leandata.uk/stable/quote?symbol=AAPL" \\
+  -H "Authorization: Bearer TOKEN"
+
+[
+  {
+    "symbol": "EXAMPLE",
+    "name": "Example Corp.",
+    "price": 123.45,
+    "change": 1.23,
+    "changesPercentage": 1.01,
+    "timestamp": 1785715200
+  }
+]
+
+# Income statement — annual or quarter
 curl "https://api.leandata.uk/stable/income-statement?symbol=AAPL&period=annual&limit=5" \\
   -H "Authorization: Bearer TOKEN"
 
@@ -1652,7 +1860,7 @@ Content-Type: application/json
         Derived endpoints also return the original FMP-shaped JSON array. A ratios response can contain fields such as <code>currentRatio</code>, <code>quickRatio</code>, <code>debtToEquityRatio</code>, <code>priceToEarningsRatio</code> and <code>returnOnEquity</code>; TTM field names normally end in <code>TTM</code>. Treat missing or null fields as source data, not as zero.
       </p>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Parameters and result handling</h3>
+      <h3 id="fmp-request-contract" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Parameters and result handling</h3>
       <div style={{ overflowX: "auto", marginBottom: 22 }}>
         <table className="tbl card" style={{ width: "100%", minWidth: 700, overflow: "hidden" }}>
           <thead><tr><th>Parameter</th><th>Use</th><th>Notes</th></tr></thead>
@@ -1666,11 +1874,12 @@ Content-Type: application/json
         </table>
       </div>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>当前覆盖与边界 · Current coverage</h3>
+      <h3 id="fmp-response-metadata" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Response metadata and current coverage</h3>
       <ul style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
-        <li><strong style={{ color: "var(--ink-strong)" }}>Current package scope:</strong> Premium sample-universe fundamentals Beta，覆盖三类 statements，以及 ratios/key metrics annual、quarter、TTM，三类 statement growth、financial growth、enterprise values 与 financial scores。</li>
-        <li><strong style={{ color: "var(--ink-strong)" }}>Still not advertised as available:</strong> analyst estimates、earnings revisions、ratings、DCF、institutional/ETF holdings，以及任意 native FMP endpoint。它们需要独立的数据契约、修订语义与验证。</li>
-        <li><strong style={{ color: "var(--ink-strong)" }}>Universe boundary:</strong> 这是 sample-universe Beta，不代表所有 ticker 都有相同覆盖；请求无数据时请按 404/空结果处理。</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>Current package scope:</strong> Premium sample-universe Beta 覆盖 typed statements/ratios/metrics/growth/valuation，以及 quote、profile、公司资料、估计、评级、DCF、收入分部、batch response 与目录等 raw snapshot families。</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>Raw endpoint response:</strong> raw snapshot family 无数据时返回 <code>[]</code>，并带 completion metadata；这表示该不可变 package 已完整导入，但 source 在这次捕获中没有匹配 row。</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>Still not advertised as available:</strong> institutional holdings、ETF holdings，以及任意 native FMP forwarding。后两者会有独立的数据来源、刷新与修订契约。</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>Universe boundary:</strong> 这是 sample-universe Beta，不代表所有 ticker 或 catalog 都有相同覆盖；没有匹配数据时请处理空数组。</li>
       </ul>
 
       <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>为什么这还不是严格 PIT · Why snapshots can change</h3>
@@ -1680,10 +1889,10 @@ Content-Type: application/json
         <li><strong style={{ color: "var(--ink-strong)" }}>Expect missing fields:</strong> company, period, and filing availability vary. Client code should tolerate absent or null values rather than inferring a value.</li>
       </ul>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Future plan</h3>
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Future plan · 后续计划</h3>
       <ol style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
         <li>继续扩展 sample-universe 与字段验证，并为 statements、ratios、metrics、growth 和 valuation 返回结果保留明确 package identity。</li>
-        <li>下一阶段评估 estimates、earnings、ratings 与 DCF；这些修订性更强的数据不会因为存在于 ZIP 中就自动开放。</li>
+        <li>为 estimates、earnings、ratings、DCF 和 event families 增加独立版本化 capture/visible 时间；目前开放的是 immutable snapshot，而不是它们的严格 PIT 版本。</li>
         <li>Connect native FMP as a distinct forwarding surface for broader endpoint coverage. It will have its own availability and refresh policy and will not overwrite published package snapshots.</li>
         <li>发布独立版本化的 PIT-like 周度或固定频率刷新，公开 capture/visible 时间并保留 immutable vintages；native FMP 转发保持独立。</li>
       </ol>

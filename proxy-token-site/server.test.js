@@ -638,18 +638,25 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).not.toContain('Hybrid architecture');
   });
 
-  it('explains FMP request examples, current data scope, and roadmap without internal routing details', () => {
-    const fmpStart = docsSource.indexOf('function FmpArchiveBody()');
+  it('separates the FMP overview from the individual endpoint reference without internal routing details', () => {
+    const overviewStart = docsSource.indexOf('function FmpDataOverview(');
+    const fmpStart = docsSource.indexOf('function FmpFundamentalsBody()');
     const fmpEnd = docsSource.indexOf('function ProxyApiBody()');
+    const overviewSource = docsSource.slice(overviewStart, fmpStart);
     const fmpSource = docsSource.slice(fmpStart, fmpEnd);
 
     expect(docsSource).toContain('Tab id="fmp"');
-    expect(fmpSource).toContain('FMP data');
+    expect(docsSource).toContain('tab === "fmp-fundamentals"');
+    expect(overviewStart).toBeGreaterThanOrEqual(0);
     expect(fmpStart).toBeGreaterThanOrEqual(0);
     expect(fmpEnd).toBeGreaterThan(fmpStart);
+    expect(overviewSource).toContain('FMP data / FMP 数据说明');
+    expect(overviewSource).toContain('Open FMP Fundamentals');
+    expect(fmpSource).toContain('FMP Fundamentals API reference');
     expect(fmpSource).toContain('FMP-compatible financial data');
-    expect(fmpSource).toContain('Statement request examples');
-    expect(fmpSource).toContain('Available endpoints');
+    expect(fmpSource).toContain('Request examples');
+    expect(fmpSource).toContain('Raw quote snapshot');
+    expect(fmpSource).toContain('Endpoint subsections');
     expect(fmpSource).toContain('Authorization: Bearer TOKEN');
     expect(fmpSource).toContain('/stable/income-statement');
     expect(fmpSource).toContain('/v1/pit/fmp/*');
@@ -657,8 +664,8 @@ describe('Registration and bulk product UI contract', () => {
     expect(fmpSource).toContain('reportedCurrency');
     expect(fmpSource).toContain('acceptedDate');
     expect(fmpSource).toContain('netIncome');
-    expect(fmpSource).toContain('当前覆盖与边界');
-    expect(fmpSource).toContain('sample-universe fundamentals Beta');
+    expect(fmpSource).toContain('Response metadata and current coverage');
+    expect(fmpSource).toContain('Sample-universe fundamentals Beta');
     expect(fmpSource).toContain('为什么这还不是严格 PIT');
     expect(fmpSource).toContain('Future plan');
     expect(fmpSource).toContain('PIT-like');
@@ -669,10 +676,12 @@ describe('Registration and bulk product UI contract', () => {
     expect(fmpSource).not.toContain('Service credential');
     expect(fmpSource).not.toContain('X-Cache');
     expect(fmpSource).not.toContain('X-FMP-Package-SHA256');
-    expect(fmpSource).toContain('已验证覆盖');
+    expect(fmpSource).toContain('已验证覆盖 · Verified now');
     expect(fmpSource).toContain('后续计划');
     expect(fmpSource).toContain('Premium 账户');
     expect(fmpSource).not.toContain('本页把请求格式、已验证覆盖范围和后续计划分开说明');
+    expect(docsSource).toContain('hashTab.startsWith("fmp-")');
+    expect(docsSource).toContain('FMP_ID_MAP[label] || `fmp-${slugify(label)}`');
   });
 
   it('adds a bilingual updates banner and updates page entry point', () => {

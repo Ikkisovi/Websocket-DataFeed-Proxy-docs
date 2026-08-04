@@ -282,6 +282,17 @@ code.inline, .ic {
   }
 }
 @media (max-width: 720px) {
+  .docs-content-grid {
+    display: block !important;
+  }
+  .docs-content-grid > nav,
+  .docs-content-grid > aside {
+    display: none !important;
+  }
+  .docs-content-grid > main {
+    min-width: 0;
+    padding: 28px 16px !important;
+  }
   .topbar {
     gap: 8px;
     padding-inline: 12px;
