@@ -492,7 +492,7 @@ function DocsTopbar({ active = "proxy", onNav }) {
       <div className="divider"></div>
       <div className="nav">
         <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>Proxy API</a>
-        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>FMP statements</a>
+        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>FMP data</a>
         <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>Bulk Download</a>
         <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>WS usage</a>
         <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>Status</a>
@@ -586,7 +586,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
         {/* Tab strip */}
         <div className="docs-tabs" style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
           <Tab id="proxy" tab={tab} setTab={setTab} label="Proxy API" count="45+ endpoints" />
-          <Tab id="fmp" tab={tab} setTab={setTab} label="FMP statements" count="3 endpoints" />
+          <Tab id="fmp" tab={tab} setTab={setTab} label="FMP data" count="coverage &amp; plan" />
           <Tab id="bulk" tab={tab} setTab={setTab} label="Bulk Download" count="¥50 / 50GB" />
           <Tab id="ws" tab={tab} setTab={setTab} label="WS usage" count="6 channels" />
           <Tab id="status" tab={tab} setTab={setTab} label="Status" count="live" />

@@ -622,9 +622,9 @@ describe('Registration and bulk product UI contract', () => {
     expect(tokenPageSource).toContain('<DocsSite hideTopbar={true} />');
     expect(tokenPageSource).not.toContain('portal · production');
     expect(tokenPageSource).not.toContain('>Account</a>');
-    expect(rootIndexSource).toContain('src="/docs/docs-site.jsx?v=fmp-statements-complete-guide-v1"');
+    expect(rootIndexSource).toContain('src="/docs/docs-site.jsx?v=fmp-data-guide-v1"');
     expect(rootIndexSource).not.toContain('src="docs-site.jsx"');
-    expect(docsIndexSource).toContain('src="docs-site.jsx?v=fmp-statements-complete-guide-v1"');
+    expect(docsIndexSource).toContain('src="docs-site.jsx?v=fmp-data-guide-v1"');
     expect(docsSource.match(/Alpaca supports index options now\./g)).toHaveLength(1);
   });
 
@@ -642,6 +642,7 @@ describe('Registration and bulk product UI contract', () => {
     const fmpSource = docsSource.slice(fmpStart, fmpEnd);
 
     expect(docsSource).toContain('Tab id="fmp"');
+    expect(fmpSource).toContain('FMP data');
     expect(fmpStart).toBeGreaterThanOrEqual(0);
     expect(fmpEnd).toBeGreaterThan(fmpStart);
     expect(fmpSource).toContain('FMP-compatible financial data');
