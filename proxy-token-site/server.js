@@ -63,6 +63,7 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Clean URL routes (no .html suffix needed)
+app.get('/updates', (req, res) => res.sendFile(path.join(__dirname, 'public', 'updates.html')));
 app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'public', 'register.html')));
 app.get('/account', (req, res) => res.sendFile(path.join(__dirname, 'public', 'account.html')));
 app.get('/checkout', (req, res) => res.sendFile(path.join(__dirname, 'public', 'checkout.html')));
@@ -73,6 +74,7 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const PENDING_FILE = path.join(DATA_DIR, 'pending.json');
 const BULK_ORDERS_FILE = path.join(DATA_DIR, 'bulk-orders.json');
 const PAYMENT_ORDERS_FILE = path.join(DATA_DIR, 'payment-orders.json');
+const PRODUCT_FEEDBACK_FILE = path.join(DATA_DIR, 'product-update-feedback.json');
 
 const CLOUD_HOST_LABEL = process.env.CLOUD_HOST_LABEL || 'Aliyun';
 const IS_CLOUD_HOST = fs.existsSync('/srv/leandata') || fs.existsSync('/mnt/leandata-v2') || fs.existsSync('/home/opc');
@@ -251,6 +253,7 @@ const adminSessions = new Set();
 const accountSessions = new Map();
 const accountLoginAttempts = new Map();
 const paymentFulfillmentLocks = new Map();
+const productFeedbackAttempts = new Map();
 const ACCOUNT_SESSION_COOKIE = 'leandata_account_session';
 const ACCOUNT_SESSION_TTL_MS = Math.max(
   15 * 60 * 1000,
@@ -282,6 +285,36 @@ function writeJSONAtomic(filepath, data) {
     } catch (_) {}
     throw error;
   }
+}
+
+const PRODUCT_UPDATES = [
+  {
+    id: 'fmp-premium-eod-2026-08',
+    date: '2026-08-04',
+    title: 'Premium 用户可试用 FMP fundamentals Beta',
+    title_en: 'FMP fundamentals Beta for Premium',
+    body: '我们采购的上游批量数据已开放 sample-universe 试用。欢迎反馈数据缺口、字段需求或上游修订问题。',
+    body_en: 'Our purchased upstream bulk snapshot is now in a sample-universe Beta. Tell us about missing data, fields, or upstream revisions.',
+    tag: 'FMP · Premium'
+  }
+];
+
+function publicProductFeedback(entry) {
+  return {
+    id: entry.id,
+    message: entry.message,
+    created_at: entry.created_at,
+    status: entry.status || 'received'
+  };
+}
+
+function productFeedbackAllowed(userId) {
+  const key = String(userId || '');
+  const now = Date.now();
+  const recent = (productFeedbackAttempts.get(key) || [])
+    .filter(timestamp => now - timestamp < 60 * 60 * 1000);
+  productFeedbackAttempts.set(key, recent);
+  return recent.length < 5;
 }
 
 function paymentTokenHash(token) {
@@ -3216,6 +3249,52 @@ app.post('/api/account/renew', requireAccount, (req, res) => {
     message: '续费申请已提交，请等待管理员确认订单。',
     renewal: publicRenewalStatus(entry)
   });
+});
+
+// ============================================================
+// PRODUCT UPDATES: public changelog + account-scoped feedback
+// ============================================================
+app.get('/api/product-updates', (_req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=60');
+  return res.json({ success: true, updates: PRODUCT_UPDATES });
+});
+
+app.get('/api/product-updates/feedback/mine', requireAccount, (req, res) => {
+  const entries = readJSON(PRODUCT_FEEDBACK_FILE, [])
+    .filter(entry => entry.user_id === req.account.userId)
+    .sort((left, right) => String(right.created_at || '').localeCompare(String(left.created_at || '')))
+    .map(publicProductFeedback);
+  return res.json({ success: true, feedback: entries });
+});
+
+app.post('/api/product-updates/feedback', requireAccount, (req, res) => {
+  if (!productFeedbackAllowed(req.account.userId)) {
+    return res.status(429).json({ success: false, error: 'feedback_rate_limited', message: '留言次数已达上限，请稍后再试。' });
+  }
+  const message = String(req.body?.message || '').trim();
+  if (!message || message.length > 2000) {
+    return res.status(400).json({ success: false, error: 'invalid_feedback', message: '留言不能为空，且最多 2000 个字符。' });
+  }
+  const now = new Date().toISOString();
+  const entry = {
+    id: `feedback_${crypto.randomUUID()}`,
+    user_id: req.account.userId,
+    message,
+    created_at: now,
+    status: 'received'
+  };
+  const entries = readJSON(PRODUCT_FEEDBACK_FILE, []);
+  entries.push(entry);
+  try {
+    writeJSONAtomic(PRODUCT_FEEDBACK_FILE, entries);
+  } catch {
+    return res.status(500).json({ success: false, error: 'feedback_persist_failed', message: '留言保存失败，请稍后重试。' });
+  }
+  productFeedbackAttempts.set(req.account.userId, [
+    ...(productFeedbackAttempts.get(req.account.userId) || []),
+    Date.now()
+  ]);
+  return res.status(201).json({ success: true, feedback: publicProductFeedback(entry) });
 });
 
 app.post('/api/renew', (_req, res) => {

@@ -15,6 +15,7 @@ function TokenTopbar({ portalOpen, setPortalOpen }) {
         <a href="/docs/" style={{ cursor: "pointer" }}>Docs</a>
         <a href="/docs/#status" style={{ cursor: "pointer" }}>Status</a>
         <a href="/docs/#usage" style={{ cursor: "pointer" }}>Usage</a>
+        <a href="/updates" style={{ cursor: "pointer" }}>更新 / Updates</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
@@ -85,6 +86,22 @@ function TokenPage() {
   return (
     <div className="proxy-app" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <TokenTopbar portalOpen={portalOpen} setPortalOpen={setPortalOpen} />
+
+      <a href="/updates" style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 16,
+        padding: "11px 22px",
+        background: "var(--accent-soft)",
+        borderBottom: "1px solid var(--accent-rule)",
+        color: "var(--accent-ink)",
+        textDecoration: "none",
+        fontSize: 13,
+      }}>
+        <span><strong>新提醒 · Premium 用户现可试用 FMP fundamentals Beta</strong>　我们采购的上游批量数据已开放 sample-universe 试用；欢迎反馈字段、缺口或修订问题。</span>
+        <span style={{ fontFamily: "var(--f-mono)", whiteSpace: "nowrap" }}>查看更新 / View updates →</span>
+      </a>
 
       <div style={{ display: "grid", gridTemplateColumns: portalOpen ? "minmax(420px, 440px) 1fr" : "1fr", flex: 1, minHeight: 0 }}>
         {/* Left: form */}

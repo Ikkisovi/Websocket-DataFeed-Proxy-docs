@@ -28,6 +28,7 @@ const USERS_FILE = path.join(TEST_DATA_DIR, 'users.json');
 const PENDING_FILE = path.join(TEST_DATA_DIR, 'pending.json');
 const BULK_ORDERS_FILE = path.join(TEST_DATA_DIR, 'bulk-orders.json');
 const PAYMENT_ORDERS_FILE = path.join(TEST_DATA_DIR, 'payment-orders.json');
+const PRODUCT_FEEDBACK_FILE = path.join(TEST_DATA_DIR, 'product-update-feedback.json');
 const ADMIN_PASSWORD_FILE = path.join(TEST_DATA_DIR, 'admin-password.env');
 const STRIPE_PAYMENT_ENV_FILE = path.join(TEST_DATA_DIR, 'stripe-payment.env');
 
@@ -47,6 +48,7 @@ function resetTestData() {
   fs.writeFileSync(PENDING_FILE, '[]');
   fs.writeFileSync(BULK_ORDERS_FILE, '[]');
   fs.writeFileSync(PAYMENT_ORDERS_FILE, '[]');
+  if (fs.existsSync(PRODUCT_FEEDBACK_FILE)) fs.unlinkSync(PRODUCT_FEEDBACK_FILE);
   fs.writeFileSync(TEST_PROXY_FILE, '{"users":[]}');
   if (fs.existsSync(ADMIN_PASSWORD_FILE)) fs.unlinkSync(ADMIN_PASSWORD_FILE);
   if (fs.existsSync(STRIPE_PAYMENT_ENV_FILE)) fs.unlinkSync(STRIPE_PAYMENT_ENV_FILE);
@@ -655,11 +657,11 @@ describe('Registration and bulk product UI contract', () => {
     expect(fmpSource).toContain('reportedCurrency');
     expect(fmpSource).toContain('acceptedDate');
     expect(fmpSource).toContain('netIncome');
-    expect(fmpSource).toContain('Current coverage and limitations');
-    expect(fmpSource).toContain('historical EOD price bars');
-    expect(fmpSource).toContain('Native FMP data: caveats');
+    expect(fmpSource).toContain('当前覆盖与边界');
+    expect(fmpSource).toContain('sample-universe fundamentals Beta');
+    expect(fmpSource).toContain('为什么这还不是严格 PIT');
     expect(fmpSource).toContain('Future plan');
-    expect(fmpSource).toContain('Weekly is the initial candidate');
+    expect(fmpSource).toContain('PIT-like');
     expect(fmpSource).not.toContain('Request session and route');
     expect(fmpSource).not.toContain('AWS');
     expect(fmpSource).not.toContain('ThinkCentre');
@@ -667,6 +669,77 @@ describe('Registration and bulk product UI contract', () => {
     expect(fmpSource).not.toContain('Service credential');
     expect(fmpSource).not.toContain('X-Cache');
     expect(fmpSource).not.toContain('X-FMP-Package-SHA256');
+    expect(fmpSource).toContain('已验证覆盖');
+    expect(fmpSource).toContain('后续计划');
+    expect(fmpSource).toContain('Premium 账户');
+    expect(fmpSource).not.toContain('本页把请求格式、已验证覆盖范围和后续计划分开说明');
+  });
+
+  it('adds a bilingual updates banner and updates page entry point', () => {
+    const updatesHtml = fs.readFileSync(path.join(__dirname, 'public', 'updates.html'), 'utf8');
+    const updatesSource = fs.readFileSync(path.join(__dirname, 'public', 'updates-page.jsx'), 'utf8');
+    expect(tokenPageSource).toContain('Premium 用户现可试用 FMP fundamentals Beta');
+    expect(tokenPageSource).toContain('href="/updates"');
+    expect(updatesHtml).toContain('updates-page.jsx');
+    expect(updatesSource).toContain('近期改动');
+    expect(updatesSource).toContain('PIT-like');
+    expect(updatesSource).toContain('我的留言');
+    expect(updatesSource).toContain('/api/product-updates/feedback');
+  });
+});
+
+describe('Product updates and account-scoped feedback', () => {
+  function seedFeedbackAccount() {
+    const account = {
+      userId: 'feedback-user',
+      phone: '6045550188',
+      token: 'feedback-token',
+      expiry: new Date(Date.now() + 86400000).toISOString()
+    };
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{
+      username: account.userId,
+      phone: account.phone,
+      role: 'premium',
+      tier: 'premium'
+    }]));
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({ users: [{
+      user_id: account.userId,
+      token: account.token,
+      role: 'premium',
+      expires_at: account.expiry
+    }] }));
+    return account;
+  }
+
+  it('serves public update entries and requires account auth for feedback', async () => {
+    const updates = await request(app).get('/api/product-updates');
+    expect(updates.statusCode).toBe(200);
+    expect(updates.body.updates[0].title).toContain('Premium');
+    const unauthorized = await request(app).get('/api/product-updates/feedback/mine');
+    expect(unauthorized.statusCode).toBe(401);
+  });
+
+  it('persists feedback and only returns it to the logged-in user', async () => {
+    const account = seedFeedbackAccount();
+    const login = await request(app).post('/api/account/login').send({
+      credential: { user_id: account.userId, phone: account.phone }
+    });
+    const cookie = login.headers['set-cookie'][0].split(';')[0];
+    const created = await request(app)
+      .post('/api/product-updates/feedback')
+      .set('Cookie', cookie)
+      .send({ message: '请优先加入 quarterly statements。' });
+    expect(created.statusCode).toBe(201);
+    expect(created.body.feedback.message).toContain('quarterly');
+    expect(JSON.parse(fs.readFileSync(PRODUCT_FEEDBACK_FILE, 'utf8'))).toHaveLength(1);
+    const mine = await request(app).get('/api/product-updates/feedback/mine').set('Cookie', cookie);
+    expect(mine.statusCode).toBe(200);
+    expect(mine.body.feedback).toHaveLength(1);
+    const invalid = await request(app)
+      .post('/api/product-updates/feedback')
+      .set('Cookie', cookie)
+      .send({ message: '' });
+    expect(invalid.statusCode).toBe(400);
   });
 });
 

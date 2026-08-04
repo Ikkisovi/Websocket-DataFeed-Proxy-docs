@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>更新与留言 — Leandata</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tokens.css">
+<style>
+  html, body { margin: 0; min-height: 100%; background: var(--bg-canvas); }
+  body { font-family: "IBM Plex Sans", system-ui, sans-serif; color: var(--ink-strong); }
+  #root { min-height: 100vh; }
+  .updates-shell { max-width: 980px; margin: 0 auto; padding: 48px 24px 72px; }
+  .updates-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr); gap: 24px; align-items: start; }
+  @media (max-width: 760px) { .updates-grid { grid-template-columns: 1fr; } .updates-shell { padding: 28px 16px 48px; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<script type="text/babel" src="/updates-page.jsx"></script>
+<script type="text/babel" data-presets="react">
+  ReactDOM.createRoot(document.getElementById('root')).render(<UpdatesPage />);
+</script>
+</body>
+</html>

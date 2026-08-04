@@ -497,6 +497,7 @@ function DocsTopbar({ active = "proxy", onNav }) {
         <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>WS usage</a>
         <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>Status</a>
         <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>Usage</a>
+        <a href="/updates" style={{ cursor: "pointer" }}>更新 / Updates</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
@@ -1518,11 +1519,11 @@ function FmpArchiveBody() {
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
-      <div className="eyebrow" style={{ marginBottom: 10 }}>FMP-compatible financial data</div>
-      <h2 className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>FMP data: requests, coverage &amp; plan</h2>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>FMP-compatible financial data · Premium</div>
+      <h2 className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>FMP data / FMP 数据：请求、已验证范围与后续计划</h2>
       <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
-        This page separates request shape, verified coverage, and planned work so a familiar FMP path is never mistaken for a blanket native-FMP pass-through.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>本页把请求格式、已验证覆盖范围和后续计划分开说明；FMP 风格路径不代表已完整转发所有原生 FMP endpoint。</span>
+        这里列出可以直接调用的接口、返回示例和当前覆盖。FMP fundamentals Beta 目前向 Premium 账户开放。
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Copy a request, inspect the current coverage, then read how revisions and future vintages will work.</span>
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 28 }}>
@@ -1532,25 +1533,32 @@ function FmpArchiveBody() {
           <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Send <code>Authorization: Bearer TOKEN</code>. Do not add an FMP <code>apikey</code> or <code>api_key</code>.</div>
         </div>
         <div style={panel}>
-          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Verified package today</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Historical EOD prices</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>The received FMP Premium ZIP is historical daily price data. It is not a financial-statement or ratios package.</div>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>已验证覆盖 · Verified now</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Sample-universe fundamentals Beta</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Premium 可访问当前已导入并验证的 sample-universe 批量快照；具体字段以已发布接口和返回结果为准。</div>
         </div>
         <div style={panel}>
-          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Statement compatibility</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Planned after verified import</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Income, balance-sheet, and cash-flow routes are shown below as the public contract; they are enabled only with a complete verified statement package.</div>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>当前 Beta · Current</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>三类核心报表</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>已验证的 sample-universe 覆盖包括 income statement、balance sheet、cash flow；AAPL、MSFT、NVDA 已做请求验证，annual/quarter 以返回结果为准。</div>
         </div>
       </div>
 
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 28 }}>
-        <strong style={{ color: "var(--accent-ink)" }}>Availability status.</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> The FMP ZIP currently received and verified for this product contains historical EOD price bars. Do not treat the statement examples below as a currently complete public statement dataset until a separate financial-statements package has been imported and published.</span>
+        <strong style={{ color: "var(--accent-ink)" }}>Beta 已开放。</strong>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> Premium 用户现在可以查询 sample-universe 的三类核心财务报表。我们会根据留言优先扩展 ticker、字段与财务数据族。</span>
+      </div>
+
+      <div style={{ ...panel, marginBottom: 28 }}>
+        <h3 className="display-title" style={{ fontSize: 24, margin: "0 0 8px" }}>批量快照、修订与 PIT-like 计划</h3>
+        <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, margin: 0 }}>
+          当前数据来自我们采购并导入的 bulk snapshot。上游可能在事后修订历史值，因此单次快照不自动等于严格 PIT。后续会增加单独版本化的 PIT-like 周度或固定频率刷新，记录 capture time 与 visible time，并保留不可变 vintage。Native FMP endpoint forwarding 会作为独立兼容层建设。
+        </p>
       </div>
 
       <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Statement request examples</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 14px", maxWidth: 830 }}>
-        When the matching statement package is published, send an HTTPS <code>GET</code> request to <code>https://api.leandata.uk</code> with your Leandata Bearer token. The standard paths follow FMP-style names; use the PIT path when a query must pin an explicit package and time.
+        发送 HTTPS <code>GET</code> 请求到 <code>https://api.leandata.uk</code>，并携带 Leandata Bearer token。Premium Beta 当前支持已验证 sample-universe 的三类核心报表；需要固定某次已发布数据版本时，使用 package-pinned 路径。
       </p>
 
       <h3 className="display-title" style={{ fontSize: 28, margin: "28px 0 10px" }}>Available endpoints</h3>
@@ -1622,31 +1630,36 @@ Content-Type: application/json
         </table>
       </div>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Current coverage and limitations</h3>
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>当前覆盖与边界 · Current coverage</h3>
       <ul style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
-        <li><strong style={{ color: "var(--ink-strong)" }}>Current package scope:</strong> historical EOD price bars. It does not establish income-statement, balance-sheet, cash-flow, or ratios coverage by itself.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>Current package scope:</strong> Premium sample-universe fundamentals Beta，已验证 income statement、balance sheet、cash flow；AAPL、MSFT、NVDA 已做请求验证。</li>
         <li><strong style={{ color: "var(--ink-strong)" }}>Not advertised as available:</strong> ratios, growth, TTM, estimates, analyst data, and arbitrary native FMP endpoints. Each needs its own raw-data scope and published contract.</li>
-        <li><strong style={{ color: "var(--ink-strong)" }}>Statement readiness:</strong> a statement route is published only after the supporting annual/quarter package has a complete verified import. Until then, the request examples are a compatibility contract, not a promise of data availability.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>Universe boundary:</strong> 这是 sample-universe Beta，不代表所有 ticker 都有相同覆盖；请求无数据时请按 404/空结果处理。</li>
       </ul>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Native FMP data: caveats</h3>
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>为什么这还不是严格 PIT · Why snapshots can change</h3>
       <ul style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
-        <li><strong style={{ color: "var(--ink-strong)" }}>Latest data can change:</strong> later filings, amendments, and normalization can change what a latest-style financial response contains. Use a published PIT request for research that must be reproducible.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>历史值可能变化：</strong> later filings, amendments, and FMP normalization can revise earlier periods. A package-pinned request reproduces one captured vintage, but that vintage does not by itself prove what was knowable on every historical date.</li>
         <li><strong style={{ color: "var(--ink-strong)" }}>Endpoint families are different datasets:</strong> price history, statements, ratios, estimates, and TTM/growth are not interchangeable. Presence of one does not imply coverage of another.</li>
         <li><strong style={{ color: "var(--ink-strong)" }}>Expect missing fields:</strong> company, period, and filing availability vary. Client code should tolerate absent or null values rather than inferring a value.</li>
       </ul>
 
       <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Future plan</h3>
       <ol style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
-        <li>Import and publish separate annual and quarterly packages for the three core statements, with explicit package identity and PIT reads.</li>
+        <li>扩展 sample-universe 与字段验证，并为 annual/quarter 返回结果保留明确 package identity。</li>
         <li>Add ratios, TTM, growth, estimates, and additional financial families only through separate source packages, validation, and documented endpoint contracts.</li>
         <li>Connect native FMP as a distinct forwarding surface for broader endpoint coverage. It will have its own availability and refresh policy and will not overwrite published package snapshots.</li>
-        <li>Publish a scheduled PIT refresh cadence for the native-data layer. Weekly is the initial candidate; the live cadence will be stated here before launch.</li>
+        <li>发布独立版本化的 PIT-like 周度或固定频率刷新，公开 capture/visible 时间并保留 immutable vintages；native FMP 转发保持独立。</li>
       </ol>
+
+      <div style={{ ...panel, marginBottom: 8 }}>
+        <strong style={{ color: "var(--accent-ink)" }}>Ultimate 计划。</strong>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> Ultimate 将增加 institutional holdings disclosures、ETF holdings 及相关数据族；它们同样存在上游修订问题，必须沿用 capture time、visible time 与 immutable vintage 语义。</span>
+      </div>
 
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 8 }}>
         <strong style={{ color: "var(--accent-ink)" }}>Request tip.</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> Use your Leandata Bearer token—never an FMP <code>apikey</code> or <code>api_key</code>. For reproducible research, save the published <code>as_of</code> and <code>package_sha256</code> beside the query.</span>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> Use your Leandata Bearer token—never an FMP <code>apikey</code> or <code>api_key</code>. To reproduce one captured vintage, save its <code>as_of</code> and <code>package_sha256</code> beside the query.</span>
       </div>
     </div>
   );
