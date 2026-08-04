@@ -191,7 +191,6 @@ const TIERS = {
     }
   }
 };
-const PUBLIC_REGISTRATION_TIER_IDS = new Set(['free', 'trial', 'value', 'standard', 'premium']);
 const PAYMENT_METHOD_IDS = new Set(['alipay', 'wechat_pay', 'stripe_card']);
 const PAYMENT_DURATION_MONTHS = [1, 2, 3, 6, 12];
 const PAYMENT_MONTHLY_PRICES_CNY_FEN = {
@@ -719,7 +718,7 @@ function clearAccountLoginFailures(req) {
 }
 
 function findLocalAccount(userId) {
-  return readJSON(USERS_FILE).find(user => user.username === userId) || null;
+  return readJSON(USERS_FILE).find(user => accountRegistryId(user) === userId) || null;
 }
 
 function findProxyAccount(userId) {
@@ -729,61 +728,47 @@ function findProxyAccount(userId) {
 
 const ACCOUNT_EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-function persistAccountEmail(userId, email) {
-  let usersRaw;
-  let proxyRaw;
-  let users;
-  let proxyData;
-  try {
-    usersRaw = fs.readFileSync(USERS_FILE, 'utf8');
-    proxyRaw = fs.readFileSync(PROXY_USERS_FILE, 'utf8');
-    users = JSON.parse(usersRaw);
-    proxyData = JSON.parse(proxyRaw);
-  } catch {
-    return {
-      ok: false,
-      status: 500,
-      error: 'account_registry_unreadable',
-      message: '账户资料暂时无法读取，邮箱未保存。'
-    };
-  }
+function canonicalAccountIdentity({ username, phone, email }) {
+  return {
+    username: String(username || '').trim().toLocaleLowerCase('en-US'),
+    phone: String(phone || '').trim(),
+    email: String(email || '').trim().toLocaleLowerCase('en-US')
+  };
+}
 
-  const localMatches = Array.isArray(users)
-    ? users.filter(user => user.username === userId)
-    : [];
-  const proxyMatches = Array.isArray(proxyData?.users)
-    ? proxyData.users.filter(user => user.user_id === userId)
-    : [];
-  if (localMatches.length !== 1 || proxyMatches.length !== 1 || !proxyMatches[0].token) {
-    return {
-      ok: false,
-      status: 409,
-      error: 'account_registry_mismatch',
-      message: '账户资料不一致，邮箱未保存；请联系管理员核对。'
-    };
-  }
+function hasCompleteAccountIdentity(identity) {
+  return Boolean(identity.username && identity.phone && identity.email);
+}
 
-  localMatches[0].email = email;
-  proxyMatches[0].email = email;
+function sameAccountIdentity(record, identity) {
+  const candidate = canonicalAccountIdentity(record || {});
+  return hasCompleteAccountIdentity(candidate)
+    && candidate.username === identity.username
+    && candidate.phone === identity.phone
+    && candidate.email === identity.email;
+}
 
-  try {
-    // The shared registry is a single-file bind mount in production, so it
-    // must be updated in place. Validate both identities before either write,
-    // then restore both original payloads if the second write fails.
-    writeJSON(PROXY_USERS_FILE, proxyData);
-    writeJSON(USERS_FILE, users);
-  } catch {
-    try { fs.writeFileSync(PROXY_USERS_FILE, proxyRaw); } catch (_) {}
-    try { fs.writeFileSync(USERS_FILE, usersRaw); } catch (_) {}
-    return {
-      ok: false,
-      status: 500,
-      error: 'account_email_persist_failed',
-      message: '邮箱保存失败，原账户资料已保留，请稍后重试。'
-    };
-  }
+function accountRegistryId(record) {
+  return String(record?.account_id || record?.username || '').trim();
+}
 
-  return { ok: true, email };
+function accountRegistryIdForNewIdentity(identity, displayUsername, users, proxyUsers) {
+  const usernameAlreadyUsed = [
+    ...(Array.isArray(users) ? users : []),
+    ...(Array.isArray(proxyUsers) ? proxyUsers : [])
+  ].some(record => canonicalAccountIdentity(record).username === identity.username);
+  if (!usernameAlreadyUsed) return String(displayUsername || '').trim();
+
+  const suffix = crypto
+    .createHash('sha256')
+    .update(`${identity.username}\u0000${identity.phone}\u0000${identity.email}`, 'utf8')
+    .digest('hex')
+    .slice(0, 20);
+  return `account-${suffix}`;
+}
+
+function findLocalAccountByIdentity(identity) {
+  return readJSON(USERS_FILE).filter(user => sameAccountIdentity(user, identity));
 }
 
 function maskToken(token) {
@@ -837,7 +822,7 @@ function requireAccount(req, res, next) {
 
 function latestRenewalFor(userId) {
   return readJSON(PENDING_FILE)
-    .filter(item => item.type === 'renewal' && item.username === userId)
+    .filter(item => item.type === 'renewal' && accountRegistryId(item) === userId)
     .sort((left, right) => String(right.requested_at || '').localeCompare(String(left.requested_at || '')))[0] || null;
 }
 
@@ -960,9 +945,15 @@ async function provisionFreeRegistration(entry) {
   const users = readJSON(USERS_FILE);
   const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
   if (!Array.isArray(proxyData.users)) proxyData.users = [];
-  if (users.some(user => String(user.username || '').trim() === entry.username)
-      || proxyData.users.some(user => String(user.user_id || '').trim() === entry.username)) {
-    const error = new Error('该用户名已有访问凭据；请使用已有账户。');
+  const accountId = entry.account_id || accountRegistryIdForNewIdentity(
+    canonicalAccountIdentity(entry),
+    entry.username,
+    users,
+    proxyData.users
+  );
+  if (users.some(user => accountRegistryId(user) === accountId)
+      || proxyData.users.some(user => String(user.user_id || '').trim() === accountId)) {
+    const error = new Error('该账户组合已有访问凭据；请使用账户管理。');
     error.statusCode = 409;
     throw error;
   }
@@ -973,6 +964,7 @@ async function provisionFreeRegistration(entry) {
     username: entry.username,
     phone: entry.phone,
     email: entry.email,
+    account_id: accountId,
     role: tierConfig.role,
     tier: 'free',
     permissions,
@@ -981,7 +973,7 @@ async function provisionFreeRegistration(entry) {
   };
   const proxyUser = {
     token,
-    user_id: entry.username,
+    user_id: accountId,
     email: entry.email,
     role: tierConfig.role,
     expires_at: expiresAt,
@@ -1115,7 +1107,9 @@ async function fulfillPaymentOrderUnlocked(orderId) {
   let order = readPaymentOrders().find(item => item.id === orderId);
   if (!order) throw new Error('支付订单不存在。');
   if (order.status === 'COMPLETED') {
-    const existing = findProxyAccount(order.user_id || order.registration?.username);
+    const existing = findProxyAccount(
+      order.user_id || accountRegistryId(order.registration)
+    );
     return { order, token: existing?.token || null };
   }
   if (order.payment_status !== 'PAID') {
@@ -1138,7 +1132,7 @@ async function fulfillPaymentOrderUnlocked(orderId) {
   }
 
   const targetUserId = order.kind === 'registration'
-    ? order.registration.username
+    ? accountRegistryId(order.registration)
     : order.user_id;
   const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
   if (!Array.isArray(proxyData.users)) proxyData.users = [];
@@ -1176,16 +1170,17 @@ async function fulfillPaymentOrderUnlocked(orderId) {
   }
 
   const localUsers = readJSON(USERS_FILE);
-  const localIndex = localUsers.findIndex(user => user.username === targetUserId);
+  const localIndex = localUsers.findIndex(user => accountRegistryId(user) === targetUserId);
   const previousLocalUser = localIndex >= 0 ? localUsers[localIndex] : null;
   if (order.kind === 'renewal' && !previousLocalUser) {
     throw new Error('本地账户记录不存在，无法自动续期。');
   }
   const localUser = {
     ...(previousLocalUser || {}),
-    username: targetUserId,
+    username: order.registration?.username || previousLocalUser?.username,
     phone: order.registration?.phone || previousLocalUser?.phone,
     email: order.registration?.email || previousLocalUser?.email,
+    account_id: targetUserId,
     role: bundle.role,
     tier: bundle.tier,
     permissions: bundle.permissions,
@@ -2745,7 +2740,7 @@ app.get('/api/payment/checkout-info', (req, res) => {
           email: context.registration.email
         }
       : {
-          user_id: context.user_id,
+          user_id: context.localUser.username || context.user_id,
           current_tier: context.localUser.tier || context.proxyUser.role || 'standard',
           current_expiry: context.proxyUser.expires_at || null
         },
@@ -2805,7 +2800,7 @@ app.post('/api/payment/orders', async (req, res) => {
   }
 
   if (context.kind === 'registration') {
-    const approved = findLocalAccount(context.registration.username);
+    const approved = findLocalAccount(accountRegistryId(context.registration));
     if (approved) {
       return res.status(409).json({
         success: false,
@@ -3018,10 +3013,15 @@ app.post('/api/payment/mock/:id/complete', async (req, res) => {
 // PUBLIC: Buyer Registration
 // ============================================================
 app.post('/api/register', async (req, res) => {
-  const { username, phone, tier, mode, email } = req.body;
+  const { username, phone, tier, email } = req.body;
   const cleanUsername = (username || '').trim();
   const cleanPhone = (phone || '').trim();
   const cleanEmail = typeof email === 'string' ? email.trim() : '';
+  const identity = canonicalAccountIdentity({
+    username: cleanUsername,
+    phone: cleanPhone,
+    email: cleanEmail
+  });
 
   if (!cleanUsername || !cleanPhone || !cleanEmail) {
     return res.status(400).json({ success: false, message: '用户名、手机号和邮箱都是必填的。' });
@@ -3029,125 +3029,73 @@ app.post('/api/register', async (req, res) => {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cleanEmail)) {
     return res.status(400).json({ success: false, message: '邮箱格式不正确。' });
   }
-
-  const selectedTier = tier || 'standard';
-  if (!PUBLIC_REGISTRATION_TIER_IDS.has(selectedTier)) {
-    if (selectedTier === 'basic') {
-      return res.status(400).json({
-        success: false,
-        error: 'retired_registration_tier',
-        message: 'Basic REST 月度套餐已停止新注册，请使用一次性 Bulk Download，或选择其他 Token 套餐。'
-      });
-    }
-    return res.status(400).json({ success: false, message: '无效的服务等级。' });
+  if (!hasCompleteAccountIdentity(identity)) {
+    return res.status(400).json({ success: false, message: '用户名、手机号和邮箱必须共同构成账户标识。' });
   }
 
-  // Value tier requires a mode selection
-  if (selectedTier === 'value') {
-    if (!mode || !TIERS.value.modes[mode]) {
-      return res.status(400).json({ success: false, message: '请选择数据方向：stocks 或 options。' });
-    }
+  const requestedTier = String(tier || 'free').trim().toLowerCase();
+  if (requestedTier !== 'free') {
+    return res.status(400).json({
+      success: false,
+      error: 'registration_is_free_only',
+      message: '注册默认开通 Free。付费套餐请先注册并从账户管理中心升级。'
+    });
   }
+  const selectedTier = 'free';
 
-  // Check if username already taken in approved users
   const users = readJSON(USERS_FILE);
-  if (users.find(u => String(u.username || '').trim() === cleanUsername)) {
-    return res.status(409).json({ success: false, message: '该用户名已被使用。老用户请点击“老用户续费”，不要重新注册同名 ID。' });
-  }
-
-  // Check if already pending
-  const pending = readJSON(PENDING_FILE);
-  const existingPending = pending.find(p =>
-    p.type === 'registration'
-    && String(p.username || '').trim() === cleanUsername
-    && ['pending', 'payment_pending'].includes(p.status)
-  );
-  if (existingPending) {
-    const sameIdentity = existingPending.phone === cleanPhone
-      && String(existingPending.email || '').toLowerCase() === cleanEmail.toLowerCase();
-    if (existingPending.status === 'payment_pending' && sameIdentity) {
-      const checkout = refreshRegistrationCheckout(pending, existingPending);
+  const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+  const proxyUsers = Array.isArray(proxyData.users) ? proxyData.users : [];
+  const existingUser = users.find(user => sameAccountIdentity(user, identity));
+  if (existingUser) {
+    const proxyUser = proxyUsers.find(user => user.user_id === accountRegistryId(existingUser));
+    if (proxyUser?.token) {
+      const tierId = existingUser.tier || proxyUser.role || 'free';
       return res.json({
         success: true,
-        resumed: true,
-        status: 'payment_pending',
-        message: '已恢复未完成的账户注册，请继续选择套餐与支付。',
-        id: existingPending.id,
-        ...checkout
+        status: 'existing_account',
+        message: '该用户名、手机号和邮箱的组合已开通。请前往账户管理升级或查看用量。',
+        account_url: '/account',
+        tier: tierId,
+        current_plan: publicPlan(tierId)
       });
     }
-    return res.status(409).json({
-      success: false,
-      error: 'registration_identity_conflict',
-      message: '该用户名已有注册记录。请使用原手机号和邮箱恢复支付，或前往账户管理。'
+    return res.json({
+      success: true,
+      status: 'sync_pending',
+      message: '该账户组合正在同步到数据服务；请稍后从账户管理登录。'
     });
   }
 
-  if (selectedTier === 'free') {
-    const entry = {
-      id: crypto.randomUUID(),
-      type: 'registration',
-      username: cleanUsername,
-      phone: cleanPhone,
-      tier: 'free',
-      email: cleanEmail,
-      registered_at: new Date().toISOString()
-    };
-    try {
-      const provisioned = await provisionFreeRegistration(entry);
-      return res.status(201).json({
-        success: true,
-        status: 'approved',
-        message: 'Free 计划已启用。请立即复制并安全保存你的 Token。',
-        token: provisioned.token,
-        expiry: provisioned.expiresAt,
-        role: provisioned.role,
-        tier: 'free',
-        current_plan: publicPlan('free')
-      });
-    } catch (error) {
-      return res.status(error.statusCode || 500).json({
-        success: false,
-        message: error.message || '无法启用 Free 计划。'
-      });
-    }
-  }
-
-  const checkoutToken = selectedTier === 'trial'
-    ? null
-    : crypto.randomBytes(32).toString('base64url');
+  const accountId = accountRegistryIdForNewIdentity(identity, cleanUsername, users, proxyUsers);
   const entry = {
     id: crypto.randomUUID(),
     type: 'registration',
     username: cleanUsername,
     phone: cleanPhone,
     tier: selectedTier,
-    ...(mode && { mode }),
     email: cleanEmail,
-    registered_at: new Date().toISOString(),
-    status: selectedTier === 'trial' ? 'pending' : 'payment_pending',
-    ...(checkoutToken && { checkout_token_hash: paymentTokenHash(checkoutToken) })
+    account_id: accountId,
+    registered_at: new Date().toISOString()
   };
-
-  pending.push(entry);
-  writeJSONAtomic(PENDING_FILE, pending);
-
-  if (selectedTier === 'trial') {
-    return res.json({
+  try {
+    const provisioned = await provisionFreeRegistration(entry);
+    return res.status(201).json({
       success: true,
-      status: 'pending',
-      message: 'Trial 注册已提交，请等待管理员确认。',
-      id: entry.id
+      status: 'approved',
+      message: 'Free 计划已启用。请立即复制并安全保存你的 Token。',
+      token: provisioned.token,
+      expiry: provisioned.expiresAt,
+      role: provisioned.role,
+      tier: 'free',
+      current_plan: publicPlan('free')
+    });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || '无法启用 Free 计划。'
     });
   }
-  return res.json({
-    success: true,
-    status: 'payment_pending',
-    message: '账户信息已保存，正在进入安全结账页。',
-    id: entry.id,
-    checkout_token: checkoutToken,
-    checkout_url: `/checkout?checkout_token=${encodeURIComponent(checkoutToken)}`
-  });
 });
 
 // ============================================================
@@ -3404,47 +3352,39 @@ app.post('/api/account/login', (req, res) => {
     return res.status(429).json({ success: false, message: '登录尝试过多，请 15 分钟后重试。' });
   }
   const credential = req.body?.credential;
-  const userId = String(credential?.user_id || '').trim();
+  const username = String(credential?.user_id || '').trim();
   const phone = String(credential?.phone || '').trim();
   const email = String(req.body?.email || '').trim();
-  if (!userId || !phone || userId.length > 128 || phone.length > 64) {
-    return res.status(400).json({ success: false, message: '请提供有效的用户 ID 和手机号凭证。' });
+  if (!username || !phone || !email || username.length > 128 || phone.length > 64) {
+    return res.status(400).json({ success: false, message: '请提供注册时的用户名、手机号和邮箱。' });
   }
-  if (email && (email.length > 254 || !ACCOUNT_EMAIL_RE.test(email))) {
+  if (email.length > 254 || !ACCOUNT_EMAIL_RE.test(email)) {
     return res.status(400).json({
       success: false,
       error: 'invalid_email',
-      message: '请填写有效的通知邮箱，或将其留空。'
+      message: '请填写有效的注册邮箱。'
     });
   }
 
-  const localUser = findLocalAccount(userId);
-  const proxyUser = findProxyAccount(userId);
-  if (!localUser || !localUser.phone || !safeEqual(localUser.phone, phone) || !proxyUser || !proxyUser.token) {
+  const identity = canonicalAccountIdentity({ username, phone, email });
+  const localMatches = findLocalAccountByIdentity(identity);
+  const localUser = localMatches.length === 1 ? localMatches[0] : null;
+  const accountId = localUser ? accountRegistryId(localUser) : '';
+  const proxyUser = accountId ? findProxyAccount(accountId) : null;
+  if (!localUser || !proxyUser || !proxyUser.token) {
     recordAccountLoginFailure(req);
-    return res.status(401).json({ success: false, message: '用户 ID 或手机号不匹配。' });
-  }
-
-  if (email) {
-    const persisted = persistAccountEmail(userId, email);
-    if (!persisted.ok) {
-      return res.status(persisted.status).json({
-        success: false,
-        error: persisted.error,
-        message: persisted.message
-      });
-    }
+    return res.status(401).json({ success: false, message: '用户名、手机号或邮箱不匹配。' });
   }
 
   clearAccountLoginFailures(req);
-  const sessionId = createAccountSession(userId);
+  const sessionId = createAccountSession(accountId);
   setAccountSessionCookie(res, sessionId);
   return res.json({
     success: true,
     account: {
-      user_id: userId,
+      user_id: localUser.username,
       role: proxyUser.role || localUser.role || 'standard',
-      email: email || proxyUser.email || localUser.email || null,
+      email: localUser.email || proxyUser.email || null,
       expiry: proxyUser.expires_at || null
     }
   });
@@ -3461,7 +3401,7 @@ app.get('/api/account/session', requireAccount, (req, res) => {
   return res.json({
     success: true,
     account: {
-      user_id: req.account.userId,
+      user_id: req.account.localUser.username || req.account.userId,
       role: req.account.proxyUser.role || req.account.localUser.role || 'standard',
       expiry: req.account.proxyUser.expires_at || null
     }
@@ -3484,7 +3424,7 @@ app.get('/api/account/overview', requireAccount, async (req, res) => {
   return res.json({
     success: true,
     account: {
-      user_id: userId,
+      user_id: localUser.username || userId,
       role: proxyUser.role || localUser.role || 'standard',
       tier: localUser.tier || proxyUser.role || 'standard',
       mode: localUser.mode || null,
@@ -3506,28 +3446,10 @@ app.get('/api/account/overview', requireAccount, async (req, res) => {
 });
 
 app.post('/api/account/email', requireAccount, (req, res) => {
-  const email = String(req.body?.email || '').trim();
-  if (!email || email.length > 254 || !ACCOUNT_EMAIL_RE.test(email)) {
-    return res.status(400).json({
-      success: false,
-      error: 'invalid_email',
-      message: '请填写有效的通知邮箱。'
-    });
-  }
-
-  const persisted = persistAccountEmail(req.account.userId, email);
-  if (!persisted.ok) {
-    return res.status(persisted.status).json({
-      success: false,
-      error: persisted.error,
-      message: persisted.message
-    });
-  }
-
-  return res.json({
-    success: true,
-    email,
-    message: '通知邮箱已保存。'
+  return res.status(410).json({
+    success: false,
+    error: 'account_identity_immutable',
+    message: '注册邮箱是账户标识的一部分，不能在线修改。'
   });
 });
 
@@ -3546,7 +3468,7 @@ app.post('/api/account/renew', requireAccount, (req, res) => {
   }
 
   const pending = readJSON(PENDING_FILE);
-  const alreadyPending = pending.find(p => p.username === req.account.userId && p.status === 'pending' && p.type === 'renewal');
+  const alreadyPending = pending.find(p => accountRegistryId(p) === req.account.userId && p.status === 'pending' && p.type === 'renewal');
   if (alreadyPending) {
     return res.status(409).json({ success: false, message: '该账号已有续费申请正在审核中，请等待管理员确认。', id: alreadyPending.id });
   }
@@ -3555,8 +3477,10 @@ app.post('/api/account/renew', requireAccount, (req, res) => {
   const entry = {
     id: crypto.randomUUID(),
     type: 'renewal',
-    username: req.account.userId,
+    username: req.account.localUser.username,
     phone: req.account.localUser.phone,
+    email: req.account.localUser.email,
+    account_id: req.account.userId,
     tier: selectedTier,
     ...(selectedTier === 'value' && { mode }),
     months,
@@ -3631,26 +3555,23 @@ app.post('/api/renew', (_req, res) => {
 });
 
 // ============================================================
-// PUBLIC: Buyer check status (by username + phone)
+// PUBLIC: Buyer check status (by username + phone + email)
 // ============================================================
 app.post('/api/check-status', (req, res) => {
-  const { username, phone } = req.body;
-  if (!username || !phone) {
-    return res.status(400).json({ success: false, message: '请提供用户名和手机号。' });
+  const { username, phone, email } = req.body;
+  const identity = canonicalAccountIdentity({ username, phone, email });
+  if (!hasCompleteAccountIdentity(identity)) {
+    return res.status(400).json({ success: false, message: '请提供注册时的用户名、手机号和邮箱。' });
   }
 
-  const pending = readJSON(PENDING_FILE);
-  const entry = pending.find(p => p.username === username.trim() && p.phone === phone.trim());
-
-  if (!entry) {
-    const users = readJSON(USERS_FILE);
-    const approved = users.find(u => u.username === username.trim() && (!u.phone || u.phone === phone.trim()));
-    if (approved) {
+  const users = readJSON(USERS_FILE);
+  const approved = users.find(user => sameAccountIdentity(user, identity));
+  if (approved) {
       // Look up proxy users.json for token + expiry
       let maskedToken = null, expiresAt = null, role = null;
       try {
         const proxyData = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
-        const proxyUser = (proxyData.users || []).find(u => u.user_id === approved.username);
+        const proxyUser = (proxyData.users || []).find(u => u.user_id === accountRegistryId(approved));
         if (proxyUser?.token) {
           const t = proxyUser.token;
           maskedToken = t.slice(0, 6) + '····' + t.slice(-4);
@@ -3666,27 +3587,28 @@ app.post('/api/check-status', (req, res) => {
           message: '账户正在同步到数据服务；请稍后重新查询。'
         });
       }
-      return res.json({
-        success: true,
-        status: 'approved',
-        message: '已通过！',
-        token: maskedToken,
-        expiry: expiresAt,
-        role,
-        tier,
-        current_plan: publicPlan(tier)
-      });
-    }
-    return res.json({ success: true, status: 'not_found', message: '未找到注册记录。' });
-  }
-
-  if (entry.status === 'payment_pending') {
-    const checkout = refreshRegistrationCheckout(pending, entry);
     return res.json({
       success: true,
-      status: 'payment_pending',
-      message: '账户信息已保存，可以继续选择套餐与支付。',
-      ...checkout
+      status: 'approved',
+      message: '账户已开通。',
+      token: maskedToken,
+      expiry: expiresAt,
+      role,
+      tier,
+      current_plan: publicPlan(tier)
+    });
+  }
+
+  const pending = readJSON(PENDING_FILE);
+  const entry = pending.find(p => sameAccountIdentity(p, identity));
+  if (!entry) {
+    return res.json({ success: true, status: 'not_found', message: '未找到注册记录。' });
+  }
+  if (entry.status === 'payment_pending') {
+    return res.json({
+      success: true,
+      status: 'free_registration_available',
+      message: '旧版未完成支付申请不会占用此账户组合。请重新提交 Free 注册；付费升级请在账户管理中完成。'
     });
   }
 
@@ -3704,7 +3626,7 @@ app.post('/api/check-status', (req, res) => {
   if (entry.status === 'approved') {
     try {
       const proxyData = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
-      const proxyUser = (proxyData.users || []).find(u => u.user_id === entry.username);
+      const proxyUser = (proxyData.users || []).find(u => u.user_id === accountRegistryId(entry));
       if (proxyUser?.token) {
         const t = proxyUser.token;
         result.token = t.slice(0, 6) + '····' + t.slice(-4);
@@ -3784,18 +3706,20 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
   const tierConfig = TIERS[entry.tier] || TIERS.premium;
   const perms = resolvePermissions(tierConfig, entry.mode);
   const isRenewal = entry.type === 'renewal';
+  const targetUserId = accountRegistryId(entry);
 
   const users = readJSON(USERS_FILE);
-  const existingLocalUser = users.find(u => u.username === entry.username);
+  const existingLocalUser = users.find(user => accountRegistryId(user) === targetUserId);
   const persistApproval = () => {
-    const filtered = users.filter(u => u.username !== entry.username);
+    const filtered = users.filter(user => accountRegistryId(user) !== targetUserId);
     filtered.push({
       username: entry.username,
       phone: entry.phone || existingLocalUser?.phone,
+      email: entry.email || existingLocalUser?.email,
+      account_id: targetUserId,
       role: tierConfig.role,
       tier: entry.tier,
       ...(entry.mode && { mode: entry.mode }),
-      ...(entry.email && { email: entry.email }),
       permissions: perms
     });
     writeJSON(USERS_FILE, filtered);
@@ -3814,7 +3738,7 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
     }
     if (!proxyData.users) proxyData.users = [];
 
-    const existing = proxyData.users.find(u => u.user_id === entry.username);
+    const existing = proxyData.users.find(u => u.user_id === targetUserId);
     if (isRenewal && (!existing || !existing.token)) {
       return res.status(409).json({
         success: false,
@@ -3853,10 +3777,10 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
     const token = crypto.randomUUID();
     const expiresAt = computeExpiry(tierConfig);
 
-    proxyData.users = proxyData.users.filter(u => u.user_id !== entry.username);
+    proxyData.users = proxyData.users.filter(u => u.user_id !== targetUserId);
     proxyData.users.push({
       token,
-      user_id: entry.username,
+      user_id: targetUserId,
       role: tierConfig.role,
       expires_at: expiresAt,
       permissions: perms,
@@ -4576,14 +4500,19 @@ app.post('/api/admin/reject', requireAdmin, (req, res) => {
 // ADMIN: Delete a user from all registries (local + shared proxy registry)
 // ============================================================
 app.post('/api/admin/delete-user', requireAdmin, async (req, res) => {
-  const { username } = req.body;
-  if (!username) return res.status(400).json({ success: false, message: 'Missing username.' });
+  const accountId = String(req.body?.account_id || '').trim();
+  if (!accountId) {
+    return res.status(400).json({
+      success: false,
+      message: 'Missing account_id. Deletion must target one exact account.'
+    });
+  }
 
   const logs = [];
 
   // 1. Remove from local approved users
   const users = readJSON(USERS_FILE);
-  const userIdx = users.findIndex(u => u.username === username);
+  const userIdx = users.findIndex(user => accountRegistryId(user) === accountId);
   if (userIdx >= 0) {
     users.splice(userIdx, 1);
     writeJSON(USERS_FILE, users);
@@ -4592,7 +4521,7 @@ app.post('/api/admin/delete-user', requireAdmin, async (req, res) => {
 
   // 2. Remove from pending
   const pending = readJSON(PENDING_FILE);
-  const pendIdx = pending.findIndex(p => p.username === username);
+  const pendIdx = pending.findIndex(entry => accountRegistryId(entry) === accountId);
   if (pendIdx >= 0) {
     pending.splice(pendIdx, 1);
     writeJSON(PENDING_FILE, pending);
@@ -4606,7 +4535,7 @@ app.post('/api/admin/delete-user', requireAdmin, async (req, res) => {
       proxyData = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
     }
     const before = (proxyData.users || []).length;
-    proxyData.users = (proxyData.users || []).filter(u => u.user_id !== username);
+    proxyData.users = (proxyData.users || []).filter(user => user.user_id !== accountId);
     const after = proxyData.users.length;
 
     if (before > after) {
@@ -4621,10 +4550,10 @@ app.post('/api/admin/delete-user', requireAdmin, async (req, res) => {
   }
 
   if (logs.length === 0) {
-    return res.status(404).json({ success: false, message: `User "${username}" not found in any registry.` });
+    return res.status(404).json({ success: false, message: `Account "${accountId}" not found in any registry.` });
   }
 
-  return res.json({ success: true, message: `Deleted "${username}".`, logs });
+  return res.json({ success: true, message: `Deleted account "${accountId}".`, logs });
 });
 
 // ============================================================
@@ -4713,14 +4642,15 @@ app.post('/api/admin/sync-users', requireAdmin, async (req, res) => {
 // ORIGINAL: Generate token (for approved users)
 // ============================================================
 app.post('/api/generate-token', async (req, res) => {
-  const { username, phone } = req.body;
+  const { username, phone, email } = req.body;
 
-  if (!username) {
-    return res.status(400).json({ success: false, message: 'Username is required.' });
+  if (!username || !phone || !email) {
+    return res.status(400).json({ success: false, message: 'Username, phone, and email are required.' });
   }
 
   const localUsers = readJSON(USERS_FILE);
-  const validCustomer = localUsers.find(u => u.username === username && (!u.phone || u.phone === phone));
+  const identity = canonicalAccountIdentity({ username, phone, email });
+  const validCustomer = localUsers.find(user => sameAccountIdentity(user, identity));
 
   if (!validCustomer) {
     return res.status(401).json({ success: false, message: 'User not found or payment pending.' });
@@ -4733,7 +4663,8 @@ app.post('/api/generate-token', async (req, res) => {
     }
     if (!proxyData.users) proxyData.users = [];
 
-    const existing = proxyData.users.find(u => u.user_id === validCustomer.username);
+    const accountId = accountRegistryId(validCustomer);
+    const existing = proxyData.users.find(u => u.user_id === accountId);
     if (existing) {
       const tier = validCustomer.tier || existing.role;
       return res.json({
@@ -4755,14 +4686,14 @@ app.post('/api/generate-token', async (req, res) => {
 
     const newProxyUser = {
       token,
-      user_id: validCustomer.username,
+      user_id: accountId,
       role: tierConfig.role,
       expires_at: expiresAt,
       permissions: perms,
       ...(validCustomer.email && { email: validCustomer.email })
     };
 
-    proxyData.users = proxyData.users.filter(u => u.user_id !== validCustomer.username);
+    proxyData.users = proxyData.users.filter(u => u.user_id !== accountId);
     proxyData.users.push(newProxyUser);
 
     const syncResult = await writeProxyUsersAndSyncAsync(proxyData);

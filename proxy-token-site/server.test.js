@@ -193,31 +193,23 @@ describe('POST /api/register', () => {
     expect(res.body.success).toBe(false);
   });
 
-  it('returns 400 for invalid tier', async () => {
+  it('ignores any client-selected paid tier and keeps registration Free-only', async () => {
     const res = await request(app).post('/api/register').send({
-      username: 'test', phone: '123', tier: 'nonexistent', email: 'test@example.com'
+      username: 'test', phone: '123', tier: 'premium', email: 'test@example.com'
     });
     expect(res.statusCode).toBe(400);
-    expect(res.body.message).toMatch(/无效/);
+    expect(res.body.error).toBe('registration_is_free_only');
+    expect(JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'))).toEqual([]);
   });
 
-  it('accepts the four public token tier IDs', async () => {
-    for (const tier of ['trial', 'value', 'standard', 'premium']) {
-      resetTestData();
-      const body = {
-        username: `user_${tier}`,
-        phone: '123',
-        tier,
-        email: `user_${tier}@example.com`
-      };
-      if (tier === 'value') body.mode = 'stocks';
-      const res = await request(app).post('/api/register').send(body);
-      expect(res.statusCode).toBe(200);
-      expect(res.body.success).toBe(true);
-
-      const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
-      expect(pending.find(p => p.username === `user_${tier}`).tier).toBe(tier);
-    }
+  it('does not create a pending payment record during registration', async () => {
+    const res = await request(app).post('/api/register').send({
+      username: 'free-only', phone: '123', email: 'free-only@example.com'
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.body.tier).toBe('free');
+    expect(res.body.checkout_token).toBeUndefined();
+    expect(JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'))).toEqual([]);
   });
 
   it('activates Free immediately and returns its bounded current plan', async () => {
@@ -266,11 +258,12 @@ describe('POST /api/register', () => {
     expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users).toEqual([]);
   });
 
-  it('normalizes stored usernames before rejecting a duplicate Free registration', async () => {
+  it('matches the full identity tuple, not username alone', async () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
       username: ' legacy-user ',
       phone: '123',
-      role: 'standard'
+      role: 'standard',
+      email: 'legacy@example.com'
     }]));
     const response = await request(app).post('/api/register').send({
       username: 'legacy-user',
@@ -278,27 +271,37 @@ describe('POST /api/register', () => {
       email: 'legacy-user@example.com',
       tier: 'free'
     });
-    expect(response.statusCode).toBe(409);
+    expect(response.statusCode).toBe(201);
   });
 
-  it('rejects a pending username when the identity does not match', async () => {
-    await request(app).post('/api/register').send({
-      username: 'dup', phone: '1', tier: 'trial', email: 'dup@example.com'
+  it('is idempotent for an exact identity and separates same usernames with other tuple values', async () => {
+    const first = await request(app).post('/api/register').send({
+      username: 'dup', phone: '1', email: 'dup@example.com'
     });
-    const res = await request(app).post('/api/register').send({
-      username: 'dup', phone: '2', tier: 'standard', email: 'dup2@example.com'
+    const same = await request(app).post('/api/register').send({
+      username: 'dup', phone: '1', email: 'dup@example.com'
     });
-    expect(res.statusCode).toBe(409);
+    const other = await request(app).post('/api/register').send({
+      username: 'dup', phone: '2', email: 'dup2@example.com'
+    });
+    expect(first.statusCode).toBe(201);
+    expect(same.statusCode).toBe(200);
+    expect(same.body.status).toBe('existing_account');
+    expect(same.body.token).toBeUndefined();
+    expect(other.statusCode).toBe(201);
+    const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    expect(users).toHaveLength(2);
+    expect(users[0].account_id).not.toBe(users[1].account_id);
   });
 
-  it('resumes the same unpaid registration instead of blocking it', async () => {
+  it('returns the existing Free account for repeated registration', async () => {
     const first = await request(app).post('/api/register').send({
       username: 'resume-user',
       phone: '6045550101',
       email: 'resume@example.com'
     });
-    expect(first.statusCode).toBe(200);
-    expect(first.body.status).toBe('payment_pending');
+    expect(first.statusCode).toBe(201);
+    expect(first.body.status).toBe('approved');
 
     const resumed = await request(app).post('/api/register').send({
       username: 'resume-user',
@@ -306,31 +309,28 @@ describe('POST /api/register', () => {
       email: 'resume@example.com'
     });
     expect(resumed.statusCode).toBe(200);
-    expect(resumed.body.resumed).toBe(true);
-    expect(resumed.body.id).toBe(first.body.id);
-    expect(resumed.body.checkout_url).toMatch(/^\/checkout\?checkout_token=/);
-
-    const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
-    expect(pending).toHaveLength(1);
-    expect(pending[0].status).toBe('payment_pending');
+    expect(resumed.body.status).toBe('existing_account');
+    expect(resumed.body.token).toBeUndefined();
+    expect(JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'))).toEqual([]);
   });
 
-  it('defaults to standard when tier omitted', async () => {
+  it('defaults to Free when tier omitted', async () => {
     await request(app).post('/api/register').send({
       username: 'noTier', phone: '1', email: 'notier@example.com'
     });
     const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
-    expect(pending[0].tier).toBe('standard');
+    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0].tier).toBe('free');
   });
 
-  it('rejects value tier without mode', async () => {
+  it('does not expose paid tier validation on registration', async () => {
     const res = await request(app).post('/api/register').send({
       username: 'valueNoMode', phone: '1', tier: 'value', email: 'value@example.com'
     });
     expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('registration_is_free_only');
   });
 
-  it('stores mode for value tier', async () => {
+  it('ignores paid mode on registration', async () => {
     const res = await request(app).post('/api/register').send({
       username: 'valueUser',
       phone: '1',
@@ -338,9 +338,8 @@ describe('POST /api/register', () => {
       mode: 'options',
       email: 'valueuser@example.com'
     });
-    expect(res.statusCode).toBe(200);
-    const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
-    expect(pending[0].mode).toBe('options');
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('registration_is_free_only');
   });
 
   it('returns 400 for an invalid email', async () => {
@@ -360,21 +359,19 @@ describe('POST /api/register', () => {
     expect(JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'))).toEqual([]);
   });
 
-  it('rejects Basic as a retired public registration tier', async () => {
+  it('rejects paid Basic registration tier', async () => {
     const res = await request(app).post('/api/register').send({
       username: 'oldBasic', phone: '1', tier: 'basic', email: 'basic@example.com'
     });
     expect(res.statusCode).toBe(400);
-    expect(res.body.error).toBe('retired_registration_tier');
+    expect(res.body.error).toBe('registration_is_free_only');
   });
 
-  it('stores the required email on the pending entry', async () => {
+  it('stores the required email on the Free account', async () => {
     const res = await request(app).post('/api/register').send({
       username: 'mailUser', phone: '1', tier: 'standard', email: 'mailuser@example.com'
     });
-    expect(res.statusCode).toBe(200);
-    const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
-    expect(pending[0].email).toBe('mailuser@example.com');
+    expect(res.statusCode).toBe(400);
   });
 });
 
@@ -783,12 +780,14 @@ describe('Product updates and account-scoped feedback', () => {
     const account = {
       userId: 'feedback-user',
       phone: '6045550188',
+      email: 'feedback-user@example.com',
       token: 'feedback-token',
       expiry: new Date(Date.now() + 86400000).toISOString()
     };
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
       username: account.userId,
       phone: account.phone,
+      email: account.email,
       role: 'premium',
       tier: 'premium'
     }]));
@@ -796,6 +795,7 @@ describe('Product updates and account-scoped feedback', () => {
       user_id: account.userId,
       token: account.token,
       role: 'premium',
+      email: account.email,
       expires_at: account.expiry
     }] }));
     return account;
@@ -818,7 +818,8 @@ describe('Product updates and account-scoped feedback', () => {
   it('persists feedback and only returns it to the logged-in user', async () => {
     const account = seedFeedbackAccount();
     const login = await request(app).post('/api/account/login').send({
-      credential: { user_id: account.userId, phone: account.phone }
+      credential: { user_id: account.userId, phone: account.phone },
+      email: account.email
     });
     const cookie = login.headers['set-cookie'][0].split(';')[0];
     const created = await request(app)
@@ -852,16 +853,23 @@ describe('Payment bundles and automatic fulfillment', () => {
     tier = 'standard',
     mode
   } = {}) {
-    const response = await request(app).post('/api/register').send({
+    const checkoutToken = crypto.randomBytes(24).toString('base64url');
+    const entry = {
+      id: crypto.randomUUID(),
+      type: 'registration',
       username,
       phone,
       email,
       tier,
-      ...(mode && { mode })
-    });
-    expect(response.statusCode).toBe(200);
-    expect(response.body.checkout_token).toBeTruthy();
-    return response.body;
+      ...(mode && { mode }),
+      status: 'payment_pending',
+      registered_at: new Date().toISOString(),
+      requested_at: new Date().toISOString(),
+      checkout_token_hash: crypto.createHash('sha256').update(checkoutToken).digest('hex'),
+      checkout_token_issued_at: new Date().toISOString()
+    };
+    fs.writeFileSync(PENDING_FILE, JSON.stringify([entry]));
+    return { ...entry, checkout_token: checkoutToken };
   }
 
   async function createRegistrationOrder({
@@ -886,6 +894,7 @@ describe('Payment bundles and automatic fulfillment', () => {
     userId = 'paid-account',
     phone = '6045550188',
     tier = 'standard',
+    email = 'paid-account@example.com',
     expiry = new Date(Date.now() + 10 * 86400000).toISOString(),
     token = 'preserved-payment-token'
   } = {}) {
@@ -894,6 +903,7 @@ describe('Payment bundles and automatic fulfillment', () => {
       phone,
       role: TIERS[tier].role,
       tier,
+      email,
       permissions: TIERS[tier].permissions
     }]));
     fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({
@@ -903,9 +913,10 @@ describe('Payment bundles and automatic fulfillment', () => {
         role: TIERS[tier].role,
         expires_at: expiry,
         permissions: TIERS[tier].permissions
+        ,email
       }]
     }));
-    return { userId, phone, tier, expiry, token };
+    return { userId, phone, email, tier, expiry, token };
   }
 
   async function loginPaidAccount(account = seedPaidAccount()) {
@@ -917,7 +928,8 @@ describe('Payment bundles and automatic fulfillment', () => {
         credential: {
           user_id: account.userId,
           phone: account.phone
-        }
+        },
+        email: account.email
       });
     return {
       login,
@@ -1593,9 +1605,9 @@ describe('Payment bundles and automatic fulfillment', () => {
     expect(checkoutSource).toContain('无需管理员批准');
     expect(checkoutCss).toContain('grid-template-columns: minmax(0, 488px) minmax(390px, 432px)');
     expect(checkoutCss).toContain('background: #0d0d0d');
-    expect(registerSource).toContain('window.location.assign(data.checkout_url)');
-    expect(registerSource).toContain('创建账户并选择套餐');
-    expect(registerSource).toContain('继续选择套餐与支付');
+    expect(registerSource).not.toContain('创建账户并选择套餐');
+    expect(registerSource).not.toContain('继续选择套餐与支付');
+    expect(registerSource).toContain('/account');
   });
 
   it('ships a persistent bilingual switcher on every site entry page', async () => {
@@ -1648,7 +1660,7 @@ describe('Account portal', () => {
     phone = '6045550100',
     tier = 'standard',
     mode,
-    email,
+    email = 'account-user@example.com',
     expiry = computeExpiry(TIERS.standard),
     token = 'account-token-1234567890'
   } = {}) {
@@ -1658,7 +1670,7 @@ describe('Account portal', () => {
       role: TIERS[tier].role,
       tier,
       ...(mode && { mode }),
-      ...(email && { email }),
+      email,
       permissions: mode ? TIERS[tier].modes[mode] : TIERS[tier].permissions
     }]));
     fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({
@@ -1667,7 +1679,7 @@ describe('Account portal', () => {
         user_id: userId,
         role: TIERS[tier].role,
         expires_at: expiry,
-        ...(email && { email }),
+        email,
         permissions: mode ? TIERS[tier].modes[mode] : TIERS[tier].permissions
       }]
     }));
@@ -1683,7 +1695,8 @@ describe('Account portal', () => {
         credential: {
           user_id: account.userId,
           phone: account.phone
-        }
+        },
+        email: account.email
       });
     const cookie = login.headers['set-cookie']?.[0]?.split(';')[0];
     return { login, cookie };
@@ -1693,7 +1706,8 @@ describe('Account portal', () => {
     const account = seedAccount();
     const missing = await request(app).post('/api/account/login').send({
       user_id: account.userId,
-      phone: account.phone
+      phone: account.phone,
+      email: account.email
     });
     expect(missing.statusCode).toBe(400);
 
@@ -1704,7 +1718,8 @@ describe('Account portal', () => {
         credential: {
           user_id: account.userId,
           phone: 'wrong-phone'
-        }
+        },
+        email: account.email
       });
     expect(mismatch.statusCode).toBe(401);
     expect(mismatch.body.message).not.toContain(account.userId);
@@ -1723,66 +1738,30 @@ describe('Account portal', () => {
     expect(JSON.stringify(login.body)).not.toContain(account.token);
   });
 
-  it('keeps login email optional and validates it when supplied', async () => {
+  it('requires email as part of the login identity', async () => {
     const account = seedAccount();
     const invalid = await request(app)
       .post('/api/account/login')
       .set('x-forwarded-for', '198.51.100.223')
       .send({
-        credential: {
-          user_id: account.userId,
-          phone: account.phone
-        },
-        email: 'not-an-email'
+        credential: { user_id: account.userId, phone: account.phone }
       });
     expect(invalid.statusCode).toBe(400);
-    expect(invalid.body.error).toBe('invalid_email');
-
-    const { login } = await loginAccount(account);
-    expect(login.statusCode).toBe(200);
-    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0].email).toBeUndefined();
-    expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users[0].email).toBeUndefined();
   });
 
-  it('persists a supplied login email only after the account credentials match', async () => {
+  it('rejects a login with a mismatched email', async () => {
     const account = seedAccount();
-    const beforeProxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users[0];
-
     const rejected = await request(app)
       .post('/api/account/login')
       .set('x-forwarded-for', '198.51.100.224')
       .send({
         credential: {
           user_id: account.userId,
-          phone: 'wrong-phone'
+          phone: account.phone
         },
         email: 'attacker@example.com'
       });
     expect(rejected.statusCode).toBe(401);
-    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0].email).toBeUndefined();
-    expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users[0].email).toBeUndefined();
-
-    const accepted = await request(app)
-      .post('/api/account/login')
-      .set('x-forwarded-for', '198.51.100.225')
-      .send({
-        credential: {
-          user_id: account.userId,
-          phone: account.phone
-        },
-        email: 'login-saved@example.com'
-      });
-    expect(accepted.statusCode).toBe(200);
-    expect(accepted.body.account.email).toBe('login-saved@example.com');
-
-    const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
-    expect(users[0].email).toBe('login-saved@example.com');
-    expect(proxy.users[0].email).toBe('login-saved@example.com');
-    expect(proxy.users[0].token).toBe(beforeProxy.token);
-    expect(proxy.users[0].role).toBe(beforeProxy.role);
-    expect(proxy.users[0].expires_at).toBe(beforeProxy.expires_at);
-    expect(proxy.users[0].permissions).toEqual(beforeProxy.permissions);
   });
 
   it('rate limits repeated failures without penalizing successful logins', async () => {
@@ -1795,7 +1774,8 @@ describe('Account portal', () => {
           credential: {
             user_id: account.userId,
             phone: account.phone
-          }
+          },
+          email: account.email
         });
       expect(login.statusCode).toBe(200);
     }
@@ -1808,7 +1788,8 @@ describe('Account portal', () => {
           credential: {
             user_id: account.userId,
             phone: 'wrong-phone'
-          }
+          },
+          email: account.email
         });
       expect(failure.statusCode).toBe(401);
     }
@@ -1819,7 +1800,8 @@ describe('Account portal', () => {
         credential: {
           user_id: account.userId,
           phone: 'wrong-phone'
-        }
+        },
+        email: account.email
       });
     expect(limited.statusCode).toBe(429);
   });
@@ -1880,36 +1862,14 @@ describe('Account portal', () => {
     expect(renewal.statusCode).toBe(401);
   });
 
-  it('validates and persists an authenticated email without changing account access fields', async () => {
+  it('does not allow changing email because it is part of account identity', async () => {
     const account = seedAccount();
-    const beforeProxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users[0];
     const { cookie } = await loginAccount(account);
-
-    const invalid = await request(app)
-      .post('/api/account/email')
-      .set('Cookie', cookie)
-      .send({ email: 'not-an-email' });
-    expect(invalid.statusCode).toBe(400);
-
     const saved = await request(app)
       .post('/api/account/email')
       .set('Cookie', cookie)
       .send({ email: 'saved@example.com' });
-    expect(saved.statusCode).toBe(200);
-    expect(saved.body.email).toBe('saved@example.com');
-
-    const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
-    expect(users[0].email).toBe('saved@example.com');
-    expect(proxy.users[0].email).toBe('saved@example.com');
-    expect(proxy.users[0].token).toBe(beforeProxy.token);
-    expect(proxy.users[0].role).toBe(beforeProxy.role);
-    expect(proxy.users[0].expires_at).toBe(beforeProxy.expires_at);
-    expect(proxy.users[0].permissions).toEqual(beforeProxy.permissions);
-
-    const overview = await request(app).get('/api/account/overview').set('Cookie', cookie);
-    expect(overview.statusCode).toBe(200);
-    expect(overview.body.account.email).toBe('saved@example.com');
+    expect(saved.statusCode).toBe(410);
   });
 
   it('fails closed if either authenticated account record disappears', async () => {
@@ -2034,19 +1994,19 @@ describe('POST /api/check-status', () => {
   });
 
   it('returns not_found for unknown user', async () => {
-    const res = await request(app).post('/api/check-status').send({ username: 'nobody', phone: '000' });
+    const res = await request(app).post('/api/check-status').send({ username: 'nobody', phone: '000', email: 'nobody@example.com' });
     expect(res.body.status).toBe('not_found');
   });
 
-  it('returns pending for registered user', async () => {
+  it('returns approved for registered Free user', async () => {
     await request(app).post('/api/register').send({
-      username: 'pend', phone: '111', tier: 'trial', email: 'pend@example.com'
+      username: 'pend', phone: '111', email: 'pend@example.com'
     });
-    const res = await request(app).post('/api/check-status').send({ username: 'pend', phone: '111' });
-    expect(res.body.status).toBe('pending');
+    const res = await request(app).post('/api/check-status').send({ username: 'pend', phone: '111', email: 'pend@example.com' });
+    expect(res.body.status).toBe('approved');
   });
 
-  it('returns a resumable checkout for an unpaid registered user', async () => {
+  it('does not create a resumable checkout for a Free registration', async () => {
     await request(app).post('/api/register').send({
       username: 'pay-later',
       phone: '222',
@@ -2054,22 +2014,23 @@ describe('POST /api/check-status', () => {
     });
     const res = await request(app)
       .post('/api/check-status')
-      .send({ username: 'pay-later', phone: '222' });
+      .send({ username: 'pay-later', phone: '222', email: 'pay-later@example.com' });
     expect(res.statusCode).toBe(200);
-    expect(res.body.status).toBe('payment_pending');
-    expect(res.body.checkout_url).toMatch(/^\/checkout\?checkout_token=/);
+    expect(res.body.status).toBe('approved');
+    expect(res.body.checkout_url).toBeUndefined();
   });
 
   it('fails closed instead of reporting an unsynced account as approved', async () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
       username: 'unsynced-free',
       phone: '333',
+      email: 'unsynced@example.com',
       tier: 'free',
       role: 'free'
     }]));
     const res = await request(app)
       .post('/api/check-status')
-      .send({ username: 'unsynced-free', phone: '333' });
+      .send({ username: 'unsynced-free', phone: '333', email: 'unsynced@example.com' });
     expect(res.statusCode).toBe(200);
     expect(res.body.status).toBe('sync_pending');
     expect(res.body.token).toBeUndefined();
@@ -2158,7 +2119,7 @@ describe('Admin portal UI', () => {
 });
 
 describe('Account portal UI', () => {
-  it('offers optional persisted notification email fields on login and after login', async () => {
+  it('requires the immutable identity email and exposes the account-only upgrade entry', async () => {
     const res = await request(app).get('/account-page.jsx');
     expect(res.statusCode).toBe(200);
     const loginSource = res.text.slice(
@@ -2166,12 +2127,12 @@ describe('Account portal UI', () => {
       res.text.indexOf('function AccountKpi')
     );
     expect(loginSource).toContain('type="email"');
-    expect(loginSource).toContain('通知邮箱（可选）');
-    expect(loginSource).toContain('...(email.trim() && { email: email.trim() })');
-    expect(loginSource).toContain('Endpoint 变更、新 endpoint 上线及更多数据支持');
-    expect(res.text).toContain('/api/account/email');
-    expect(res.text).toContain('Endpoint 变更、新 endpoint 上线及更多数据支持');
-    expect(res.text).toContain('Notification email · optional');
+    expect(loginSource).toContain('注册邮箱');
+    expect(loginSource).toContain('email: email.trim()');
+    expect(loginSource).toContain('邮箱是账户身份的一部分，不能在线修改。');
+    expect(loginSource).toContain('required');
+    expect(res.text).toContain('选择升级套餐');
+    expect(res.text).not.toContain('Notification email · optional');
   });
 });
 
@@ -2187,6 +2148,29 @@ describe('POST /api/admin/approve', () => {
     adminToken = login.body.token;
   });
 
+  function seedPendingRegistration({
+    id = crypto.randomUUID(),
+    username,
+    phone = '123',
+    email,
+    tier,
+    mode
+  }) {
+    fs.writeFileSync(PENDING_FILE, JSON.stringify([{
+      id,
+      type: 'registration',
+      username,
+      phone,
+      email,
+      account_id: username,
+      tier,
+      ...(mode && { mode }),
+      registered_at: new Date().toISOString(),
+      status: 'pending'
+    }]));
+    return id;
+  }
+
   it('approves and writes correct role for each tier', async () => {
     const tierTests = [
       { tier: 'trial', expectedRole: 'standard' },
@@ -2197,15 +2181,12 @@ describe('POST /api/admin/approve', () => {
 
     for (const { tier, expectedRole, mode: m } of tierTests) {
       resetTestData();
-      const body = {
+      const id = seedPendingRegistration({
         username: `u_${tier}`,
-        phone: '123',
+        email: `u_${tier}@example.com`,
         tier,
-        email: `u_${tier}@example.com`
-      };
-      if (m) body.mode = m;
-      const reg = await request(app).post('/api/register').send(body);
-      const id = reg.body.id;
+        mode: m
+      });
 
       const res = await request(app).post('/api/admin/approve')
         .set('x-admin-token', adminToken)
@@ -2229,12 +2210,14 @@ describe('POST /api/admin/approve', () => {
   });
 
   it('trial tier gets 3-day expiry in proxy', async () => {
-    const reg = await request(app).post('/api/register').send({
-      username: 'trial_exp', phone: '123', tier: 'trial', email: 'trial_exp@example.com'
+    const id = seedPendingRegistration({
+      username: 'trial_exp',
+      email: 'trial_exp@example.com',
+      tier: 'trial'
     });
     await request(app).post('/api/admin/approve')
       .set('x-admin-token', adminToken)
-      .send({ id: reg.body.id });
+      .send({ id });
 
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const user = proxy.users.find(u => u.user_id === 'trial_exp');
@@ -2251,12 +2234,14 @@ describe('POST /api/admin/approve', () => {
   });
 
   it('carries registration email into users.json and the proxy registry', async () => {
-    const reg = await request(app).post('/api/register').send({
-      username: 'mailFlow', phone: '123', tier: 'standard', email: 'mailflow@example.com'
+    const id = seedPendingRegistration({
+      username: 'mailFlow',
+      email: 'mailflow@example.com',
+      tier: 'standard'
     });
     const res = await request(app).post('/api/admin/approve')
       .set('x-admin-token', adminToken)
-      .send({ id: reg.body.id });
+      .send({ id });
     expect(res.body.success).toBe(true);
 
     const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
@@ -2301,17 +2286,26 @@ describe('POST /api/admin/reject', () => {
     const login = await request(app).post('/api/admin/login').send({ password: 'admin123' });
     const adminToken = login.body.token;
 
-    const reg = await request(app).post('/api/register').send({
-      username: 'rejectme', phone: '999', tier: 'trial', email: 'rejectme@example.com'
-    });
+    const id = 'reject-pending';
+    fs.writeFileSync(PENDING_FILE, JSON.stringify([{
+      id,
+      type: 'registration',
+      username: 'rejectme',
+      phone: '999',
+      email: 'rejectme@example.com',
+      account_id: 'rejectme',
+      tier: 'trial',
+      registered_at: new Date().toISOString(),
+      status: 'pending'
+    }]));
 
     const res = await request(app).post('/api/admin/reject')
       .set('x-admin-token', adminToken)
-      .send({ id: reg.body.id, reason: 'test rejection' });
+      .send({ id, reason: 'test rejection' });
 
     expect(res.body.success).toBe(true);
 
-    const check = await request(app).post('/api/check-status').send({ username: 'rejectme', phone: '999' });
+    const check = await request(app).post('/api/check-status').send({ username: 'rejectme', phone: '999', email: 'rejectme@example.com' });
     expect(check.body.status).toBe('rejected');
   });
 });
@@ -2326,18 +2320,18 @@ describe('POST /api/generate-token', () => {
   });
 
   it('returns 401 for unknown user', async () => {
-    const res = await request(app).post('/api/generate-token').send({ username: 'nobody', phone: '000' });
+    const res = await request(app).post('/api/generate-token').send({ username: 'nobody', phone: '000', email: 'nobody@example.com' });
     expect(res.statusCode).toBe(401);
   });
 
   it('generates token for approved user', async () => {
     // Pre-populate an approved user
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
-      username: 'gentest', phone: '555', role: 'premium', tier: 'premium',
+      username: 'gentest', phone: '555', email: 'gentest@example.com', role: 'premium', tier: 'premium',
       permissions: TIERS.premium.permissions
     }]));
 
-    const res = await request(app).post('/api/generate-token').send({ username: 'gentest', phone: '555' });
+    const res = await request(app).post('/api/generate-token').send({ username: 'gentest', phone: '555', email: 'gentest@example.com' });
     expect(res.body.success).toBe(true);
     expect(res.body.token).toBeDefined();
     expect(res.body.role).toBe('premium');
@@ -2349,11 +2343,11 @@ describe('POST /api/generate-token', () => {
 
   it('returns syncOk in response (async sync)', async () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
-      username: 'synctest', phone: '777', role: 'basic', tier: 'basic',
+      username: 'synctest', phone: '777', email: 'synctest@example.com', role: 'basic', tier: 'basic',
       permissions: TIERS.basic.permissions
     }]));
 
-    const res = await request(app).post('/api/generate-token').send({ username: 'synctest', phone: '777' });
+    const res = await request(app).post('/api/generate-token').send({ username: 'synctest', phone: '777', email: 'synctest@example.com' });
     expect(res.body.success).toBe(true);
     // syncOk should be present (true if SCP succeeded, false if it failed)
     expect(res.body).toHaveProperty('syncOk');
@@ -2362,11 +2356,11 @@ describe('POST /api/generate-token', () => {
 
   it('writes proxy file in correct format (token + user_id, NOT username + phone)', async () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
-      username: 'formattest', phone: '888', role: 'premium', tier: 'premium',
+      username: 'formattest', phone: '888', email: 'formattest@example.com', role: 'premium', tier: 'premium',
       permissions: TIERS.premium.permissions
     }]));
 
-    await request(app).post('/api/generate-token').send({ username: 'formattest', phone: '888' });
+    await request(app).post('/api/generate-token').send({ username: 'formattest', phone: '888', email: 'formattest@example.com' });
 
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const user = proxy.users.find(u => u.user_id === 'formattest');
@@ -2386,17 +2380,17 @@ describe('POST /api/generate-token', () => {
 
   it('returns existing token without re-registering', async () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
-      username: 'existing', phone: '999', role: 'standard', tier: 'standard',
+      username: 'existing', phone: '999', email: 'existing@example.com', role: 'standard', tier: 'standard',
       permissions: TIERS.standard.permissions
     }]));
 
     // First call generates token
-    const res1 = await request(app).post('/api/generate-token').send({ username: 'existing', phone: '999' });
+    const res1 = await request(app).post('/api/generate-token').send({ username: 'existing', phone: '999', email: 'existing@example.com' });
     expect(res1.body.success).toBe(true);
     const firstToken = res1.body.token;
 
     // Second call returns existing token
-    const res2 = await request(app).post('/api/generate-token').send({ username: 'existing', phone: '999' });
+    const res2 = await request(app).post('/api/generate-token').send({ username: 'existing', phone: '999', email: 'existing@example.com' });
     expect(res2.body.success).toBe(true);
     expect(res2.body.token).toBe(firstToken);
     expect(res2.body.message).toMatch(/已存在/);
@@ -2412,11 +2406,11 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
     fs.writeFileSync(TEST_PROXY_FILE, '{"users":[]}');
 
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
-      username: 'fmtcheck', phone: '111', role: 'premium', tier: 'premium',
+      username: 'fmtcheck', phone: '111', email: 'fmtcheck@example.com', role: 'premium', tier: 'premium',
       permissions: TIERS.premium.permissions
     }]));
 
-    await request(app).post('/api/generate-token').send({ username: 'fmtcheck', phone: '111' });
+    await request(app).post('/api/generate-token').send({ username: 'fmtcheck', phone: '111', email: 'fmtcheck@example.com' });
 
     const raw = fs.readFileSync(TEST_PROXY_FILE, 'utf8');
     const parsed = JSON.parse(raw);
@@ -2430,11 +2424,11 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
 
   it('proxy file entries must have user_id field (not username)', async () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
-      username: 'idcheck', phone: '222', role: 'basic', tier: 'basic',
+      username: 'idcheck', phone: '222', email: 'idcheck@example.com', role: 'basic', tier: 'basic',
       permissions: TIERS.basic.permissions
     }]));
 
-    await request(app).post('/api/generate-token').send({ username: 'idcheck', phone: '222' });
+    await request(app).post('/api/generate-token').send({ username: 'idcheck', phone: '222', email: 'idcheck@example.com' });
 
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const user = proxy.users[proxy.users.length - 1];
@@ -2447,11 +2441,11 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
 
   it('proxy file entries must have token field', async () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
-      username: 'tokenchk', phone: '333', role: 'standard', tier: 'standard',
+      username: 'tokenchk', phone: '333', email: 'tokenchk@example.com', role: 'standard', tier: 'standard',
       permissions: TIERS.standard.permissions
     }]));
 
-    const res = await request(app).post('/api/generate-token').send({ username: 'tokenchk', phone: '333' });
+    const res = await request(app).post('/api/generate-token').send({ username: 'tokenchk', phone: '333', email: 'tokenchk@example.com' });
 
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const user = proxy.users.find(u => u.user_id === 'tokenchk');
@@ -2463,11 +2457,11 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
 
   it('proxy file entries must have expires_at field', async () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
-      username: 'expcheck', phone: '444', role: 'trial', tier: 'trial',
+      username: 'expcheck', phone: '444', email: 'expcheck@example.com', role: 'trial', tier: 'trial',
       permissions: TIERS.trial.permissions
     }]));
 
-    await request(app).post('/api/generate-token').send({ username: 'expcheck', phone: '444' });
+    await request(app).post('/api/generate-token').send({ username: 'expcheck', phone: '444', email: 'expcheck@example.com' });
 
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const user = proxy.users.find(u => u.user_id === 'expcheck');
@@ -2494,14 +2488,36 @@ describe('POST /api/admin/approve — async sync', () => {
     adminToken = login.body.token;
   });
 
+  function seedPendingRegistration({
+    id = crypto.randomUUID(),
+    username,
+    phone = '555',
+    email,
+    tier = 'standard'
+  }) {
+    fs.writeFileSync(PENDING_FILE, JSON.stringify([{
+      id,
+      type: 'registration',
+      username,
+      phone,
+      email,
+      account_id: username,
+      tier,
+      registered_at: new Date().toISOString(),
+      status: 'pending'
+    }]));
+    return id;
+  }
+
   it('approve response includes sync status in message', async () => {
-    const reg = await request(app).post('/api/register').send({
-      username: 'asyncapprove', phone: '555', tier: 'standard', email: 'async@example.com'
+    const id = seedPendingRegistration({
+      username: 'asyncapprove',
+      email: 'async@example.com'
     });
 
     const res = await request(app).post('/api/admin/approve')
       .set('x-admin-token', adminToken)
-      .send({ id: reg.body.id });
+      .send({ id });
 
     expect(res.body.success).toBe(true);
     // Message should contain either "并同步" (synced) or "但同步失败" (sync failed)
@@ -2524,27 +2540,30 @@ describe('POST /api/admin/approve — async sync', () => {
       }]
     }));
 
-    // Register + approve same username
-    const reg = await request(app).post('/api/register').send({
-      username: 'existuser2', phone: '777', tier: 'standard', email: 'existuser2@example.com'
+    const id = seedPendingRegistration({
+      username: 'existuser2',
+      phone: '777',
+      email: 'existuser2@example.com'
     });
 
     const res = await request(app).post('/api/admin/approve')
       .set('x-admin-token', adminToken)
-      .send({ id: reg.body.id });
+      .send({ id });
 
     expect(res.body.success).toBe(true);
     expect(res.body.message).toMatch(/同步/);
   });
 
   it('approve writes proxy file in correct format', async () => {
-    const reg = await request(app).post('/api/register').send({
-      username: 'approvefmt', phone: '888', tier: 'standard', email: 'approvefmt@example.com'
+    const id = seedPendingRegistration({
+      username: 'approvefmt',
+      phone: '888',
+      email: 'approvefmt@example.com'
     });
 
     await request(app).post('/api/admin/approve')
       .set('x-admin-token', adminToken)
-      .send({ id: reg.body.id });
+      .send({ id });
 
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const user = proxy.users.find(u => u.user_id === 'approvefmt');

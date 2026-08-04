@@ -86,7 +86,7 @@ function AccountLogin({ onLoggedIn }) {
             user_id: userId.trim(),
             phone: phone.trim(),
           },
-          ...(email.trim() && { email: email.trim() }),
+          email: email.trim(),
         }),
       });
       setPhone("");
@@ -122,18 +122,18 @@ function AccountLogin({ onLoggedIn }) {
           <div className="eyebrow" style={{ marginBottom: 10 }}>账户登录</div>
           <h2 className="display-title" style={{ fontSize: 36, margin: "0 0 10px" }}>验证账户凭证</h2>
           <p style={{ color: "var(--ink-muted)", margin: "0 0 28px" }}>
-            用户 ID 与注册手机号共同构成唯一登录凭证。邮箱可选填写。
+            注册时的用户名、手机号和邮箱共同构成唯一登录凭证。
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
-              <label className="label">用户 ID</label>
+              <label className="label">用户名</label>
               <input
                 className="input mono"
                 autoComplete="username"
                 value={userId}
                 onChange={event => setUserId(event.target.value)}
-                placeholder="your-user-id"
+                placeholder="注册时使用的用户名"
                 required
               />
             </div>
@@ -150,7 +150,7 @@ function AccountLogin({ onLoggedIn }) {
               />
             </div>
             <div>
-              <label className="label">通知邮箱（可选）</label>
+              <label className="label">注册邮箱</label>
               <input
                 className="input"
                 type="email"
@@ -158,9 +158,10 @@ function AccountLogin({ onLoggedIn }) {
                 value={email}
                 onChange={event => setEmail(event.target.value)}
                 placeholder="name@example.com"
+                required
               />
               <div style={{ marginTop: 7, color: "var(--ink-muted)", fontSize: 11, lineHeight: 1.5 }}>
-                Endpoint 变更、新 endpoint 上线及更多数据支持会通过此邮箱通知。
+                邮箱是账户身份的一部分，不能在线修改。
               </div>
             </div>
             <button className="btn primary" disabled={loading} style={{ justifyContent: "center", padding: 12 }}>
@@ -188,42 +189,12 @@ function AccountKpi({ label, value, note }) {
   );
 }
 
-function AccountDashboard({ overview, loading, onRefresh, onRenew, onEmailSaved }) {
+function AccountDashboard({ overview, loading, onRefresh, onRenew }) {
   const account = overview?.account || {};
   const rest = overview?.usage?.rest;
   const ws = overview?.usage?.ws;
   const renewal = overview?.renewal;
   const expired = account.days_remaining === 0;
-  const [email, setEmail] = useAccountState(account.email || "");
-  const [emailSaving, setEmailSaving] = useAccountState(false);
-  const [emailMessage, setEmailMessage] = useAccountState("");
-  const [emailMessageType, setEmailMessageType] = useAccountState("success");
-
-  useAccountEffect(() => {
-    setEmail(account.email || "");
-  }, [account.email]);
-
-  const saveEmail = async event => {
-    event.preventDefault();
-    setEmailMessage("");
-    setEmailSaving(true);
-    try {
-      const data = await accountRequest("/api/account/email", {
-        method: "POST",
-        body: JSON.stringify({ email: email.trim() }),
-      });
-      setEmail(data.email);
-      setEmailMessageType("success");
-      setEmailMessage(data.message);
-      await onEmailSaved();
-    } catch (error) {
-      setEmailMessageType("error");
-      setEmailMessage(error.message);
-    } finally {
-      setEmailSaving(false);
-    }
-  };
-
   return (
     <main className="account-main">
       <div className="account-grid">
@@ -269,47 +240,17 @@ function AccountDashboard({ overview, loading, onRefresh, onRenew, onEmailSaved 
           note="当前活跃主题订阅"
         />
 
-        <section className="card account-renewal account-span-12">
-          <div className="eyebrow" style={{ marginBottom: 8 }}>Notification email · optional</div>
-          <h2 className="display-title" style={{ fontSize: 30, margin: "0 0 8px" }}>通知邮箱</h2>
-          <p style={{ margin: "0 0 18px", color: "var(--ink-muted)", maxWidth: 760 }}>
-            邮箱为可选项。Endpoint 变更、新 endpoint 上线及更多数据支持会通过此邮箱通知。
-          </p>
-          <form className="account-email-form" onSubmit={saveEmail}>
-            <input
-              className="input"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={event => setEmail(event.target.value)}
-              placeholder="name@example.com"
-              aria-label="通知邮箱（可选）"
-            />
-            <button
-              className="btn primary"
-              disabled={emailSaving || !email.trim() || email.trim() === (account.email || "")}
-            >
-              {emailSaving ? "保存中…" : account.email ? "更新邮箱" : "保存邮箱"}
-            </button>
-          </form>
-          {emailMessage && (
-            <div className={`account-alert ${emailMessageType}`} style={{ marginTop: 12 }}>
-              {emailMessage}
-            </div>
-          )}
-        </section>
-
         <section className="card account-renewal account-span-8">
           <div style={{ display: "flex", justifyContent: "space-between", gap: 20, alignItems: "flex-start" }}>
             <div>
-              <div className="eyebrow" style={{ marginBottom: 8 }}>Renewal</div>
-              <h2 className="display-title" style={{ fontSize: 30, margin: "0 0 8px" }}>续费与套餐调整</h2>
+              <div className="eyebrow" style={{ marginBottom: 8 }}>Upgrade & renewal</div>
+              <h2 className="display-title" style={{ fontSize: 30, margin: "0 0 8px" }}>选择升级套餐</h2>
               <p style={{ margin: 0, color: "var(--ink-muted)" }}>
-                进入安全结账页选择套餐、时长和支付方式。支付成功后保留原 Token 并自动延长有效期。
+                在这里进入安全结账页选择 Value、Standard 或 Premium、时长和支付方式。支付成功后保留原 Token 并自动延长有效期。
               </p>
             </div>
             <button className="btn accent" onClick={onRenew}>
-              续费 / 更换套餐 →
+              选择升级套餐 →
             </button>
           </div>
 
@@ -426,7 +367,6 @@ function AccountPage() {
         loading={loading}
         onRefresh={() => loadOverview().catch(() => {})}
         onRenew={() => window.location.assign("/checkout")}
-        onEmailSaved={() => loadOverview().catch(() => {})}
       />
     </div>
   );

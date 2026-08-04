@@ -164,8 +164,7 @@ function planAccessSummary(plan) {
 }
 
 function RegisterPage() {
-  const [tier, setTier] = useRegState("standard");
-  const [mode, setMode] = useRegState("");  // "stocks" or "options" for value tier
+  const tier = "free";
 
   // Registration Form State
   const [regUsername, setRegUsername] = useRegState("");
@@ -175,14 +174,15 @@ function RegisterPage() {
   const [regStatus, setRegStatus] = useRegState(""); // "success", "error"
   const [activatedAccess, setActivatedAccess] = useRegState(null);
   const [regLoading, setRegLoading] = useRegState(false);
+  const [existingAccount, setExistingAccount] = useRegState(false);
 
   // Status Query Form State
   const [checkUsername, setCheckUsername] = useRegState("");
   const [checkPhone, setCheckPhone] = useRegState("");
+  const [checkEmail, setCheckEmail] = useRegState("");
   const [checkMsg, setCheckMsg] = useRegState("");
   const [checkStatus, setCheckStatus] = useRegState(""); // "approved", "rejected", "pending", "not_found", "error"
   const [checkTokenInfo, setCheckTokenInfo] = useRegState(null); // { token, expiry, role, plan }
-  const [checkCheckoutUrl, setCheckCheckoutUrl] = useRegState("");
   const [checkLoading, setCheckLoading] = useRegState(false);
 
   // Handle Registration Submit
@@ -198,15 +198,11 @@ function RegisterPage() {
       setRegStatus("error");
       return;
     }
-    if (tier === "value" && !mode) {
-      setRegMsg("Value 套餐请先选择股票或期权方向。");
-      setRegStatus("error");
-      return;
-    }
     setRegLoading(true);
     setRegMsg("");
     setRegStatus("");
     setActivatedAccess(null);
+    setExistingAccount(false);
 
     try {
       const resp = await fetch('/api/register', {
@@ -216,8 +212,7 @@ function RegisterPage() {
           username: regUsername.trim(),
           phone: regPhone.trim(),
           email: regEmail.trim(),
-          tier,
-          ...(tier === "value" && mode && { mode })
+          tier: "free"
         })
       });
       const data = await resp.json();
@@ -232,15 +227,13 @@ function RegisterPage() {
           setRegStatus("success");
           return;
         }
-        if (data.checkout_url) {
-          setRegMsg(data.resumed
-            ? "已恢复账户，正在进入套餐与支付管理…"
-            : "账户信息已保存，正在进入套餐与支付管理…");
+        if (data.status === "existing_account") {
+          setExistingAccount(true);
+          setRegMsg(data.message || "该账户已存在，请从账户管理进入升级与用量页面。");
           setRegStatus("success");
-          window.location.assign(data.checkout_url);
           return;
         }
-        setRegMsg(data.message || "Trial 注册已提交，等待审核。");
+        setRegMsg(data.message || "账户已创建。");
         setRegStatus("success");
       } else {
         setRegMsg(data.message || "注册失败，请检查输入。");
@@ -257,8 +250,8 @@ function RegisterPage() {
   // Handle Check Status
   const handleCheckStatus = async (e) => {
     e.preventDefault();
-    if (!checkUsername.trim() || !checkPhone.trim()) {
-      setCheckMsg("请填写用户名和手机号。");
+    if (!checkUsername.trim() || !checkPhone.trim() || !checkEmail.trim()) {
+      setCheckMsg("请填写注册时的用户名、手机号和邮箱。");
       setCheckStatus("error");
       return;
     }
@@ -266,7 +259,6 @@ function RegisterPage() {
     setCheckMsg("");
     setCheckStatus("");
     setCheckTokenInfo(null);
-    setCheckCheckoutUrl("");
 
     try {
       const resp = await fetch('/api/check-status', {
@@ -274,14 +266,14 @@ function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: checkUsername.trim(),
-          phone: checkPhone.trim()
+          phone: checkPhone.trim(),
+          email: checkEmail.trim()
         })
       });
       const data = await resp.json();
       if (resp.ok && data.success) {
         setCheckMsg(data.message);
         setCheckStatus(data.status);
-        setCheckCheckoutUrl(data.checkout_url || "");
         if (data.status === 'approved' && data.token) {
           setCheckTokenInfo({
             token: data.token,
@@ -315,18 +307,18 @@ function RegisterPage() {
       }}>
         {/* Hero */}
         <div style={{ maxWidth: 980, margin: "0 auto" }}>
-          <div className="eyebrow" style={{ marginBottom: 14 }}>创建账户 · 套餐与支付</div>
+          <div className="eyebrow" style={{ marginBottom: 14 }}>创建账户 · Free 计划</div>
           <h1 className="display-title" style={{ fontSize: 52, margin: "0 0 12px", lineHeight: 1.02 }}>
             新用户 <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>注册</span>
           </h1>
           <p style={{ color: "var(--ink-muted)", margin: "0 0 36px", fontSize: 15, maxWidth: 560 }}>
-            先创建账户，下一步再选择套餐、时长与支付方式。中途退出也可以使用原用户名与手机号恢复，
-            不会重复创建注册流程。支付成功后自动开通，无需管理员批准。
+            注册默认开通 Free：可查看最近 31 个日历日的 REST 数据，并可订阅最多 10 条 WebSocket。
+            需要更多历史、额度或实时订阅，请在账户管理中升级。
           </p>
 
           {/* Layout: form + status side by side */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 32, alignItems: "start" }}>
-            {/* Left: tiers + form */}
+            {/* Left: Free registration form */}
             <div>
               {false && (
               <>
@@ -546,61 +538,18 @@ function RegisterPage() {
               </>
               )}
 
-              {/* Plan and account form */}
-              <div className="eyebrow" style={{ marginBottom: 10 }}>1 · 选择套餐并创建账户</div>
+              {/* Free account registration */}
+              <div className="eyebrow" style={{ marginBottom: 10 }}>1 · 创建 Free 账户</div>
               <div className="card" style={{ padding: 24 }}>
                 <form onSubmit={handleRegisterSubmit}>
                   <div style={{ marginBottom: 20 }}>
-                    <label className="label">套餐</label>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 8 }}>
-                      {TIERS.filter(item => ["free", "value", "standard", "premium"].includes(item.id)).map(item => {
-                        const selected = tier === item.id;
-                        return (
-                          <button
-                            type="button"
-                            key={item.id}
-                            onClick={() => {
-                              setTier(item.id);
-                              if (item.id === "value") setMode(current => current || "stocks");
-                              else setMode("");
-                            }}
-                            className="btn"
-                            style={{
-                              minHeight: 72,
-                              display: "block",
-                              textAlign: "left",
-                              borderColor: selected ? "var(--ink-strong)" : "var(--rule)",
-                              background: selected ? "var(--accent-soft)" : "var(--bg-canvas)",
-                              boxShadow: selected ? "0 1px 0 var(--ink-strong)" : "none",
-                            }}
-                          >
-                            <strong style={{ display: "block", color: "var(--ink-strong)" }}>{item.name} · {item.price}</strong>
-                            <span style={{ display: "block", marginTop: 3, color: "var(--ink-muted)", fontSize: 11, lineHeight: 1.4 }}>
-                              {item.id === "free" ? "最近 31 天 REST · 10 WS" : item.tagline}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {tier === "value" && (
-                      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                        {TIERS.find(item => item.id === "value").modes.map(item => (
-                          <button
-                            type="button"
-                            key={item.id}
-                            className="btn"
-                            onClick={() => setMode(item.id)}
-                            style={{
-                              flex: 1,
-                              borderColor: mode === item.id ? "var(--ink-strong)" : "var(--rule)",
-                              background: mode === item.id ? "var(--bg-paper)" : "var(--bg-canvas)",
-                            }}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
+                    <div style={{ padding: 14, border: "1px solid var(--accent-rule)", borderRadius: "var(--radius-md)", background: "var(--accent-soft)" }}>
+                      <div className="eyebrow" style={{ color: "var(--accent-ink)", marginBottom: 6 }}>Default plan · Free</div>
+                      <strong style={{ color: "var(--ink-strong)" }}>注册后立即开通</strong>
+                      <div style={{ marginTop: 4, color: "var(--ink-muted)", fontSize: 12.5, lineHeight: 1.55 }}>
+                        REST 可查询最近 31 个日历日；账户总计最多 10 条 WS 订阅。需要更多数据或额度，请注册完成后前往账户管理升级。
                       </div>
-                    )}
+                    </div>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
                     <div>
@@ -652,11 +601,7 @@ function RegisterPage() {
                     background: "var(--bg-canvas)",
                   }}>
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--warn)", flex: "0 0 auto" }}></span>
-                    <span>
-                      {tier === "free"
-                        ? "Free 注册后立即开通；REST 仅最近 31 个日历日，账户总计最多 10 条 WS 订阅。"
-                        : "下一步选择订阅时长和支付方式。返回本页时可使用同一账户信息继续。"}
-                    </span>
+                    <span>用户名、手机号和邮箱共同确定账户。相同组合会恢复已有账户；同名但不同电话或邮箱可以独立注册。</span>
                   </div>
 
                   <button 
@@ -665,7 +610,7 @@ function RegisterPage() {
                     className="btn primary" 
                     style={{ width: "100%", justifyContent: "center", marginTop: 18, padding: "12px", opacity: regLoading ? 0.7 : 1 }}
                   >
-                    {regLoading ? "正在创建账户…" : tier === "free" ? "注册并立即开通 Free →" : "创建账户并选择套餐 →"}
+                    {regLoading ? "正在创建账户…" : "注册并立即开通 Free →"}
                   </button>
                 </form>
 
@@ -693,6 +638,12 @@ function RegisterPage() {
                   </div>
                 )}
 
+                {existingAccount && (
+                  <a href="/account" className="btn accent" style={{ width: "100%", justifyContent: "center", marginTop: 14 }}>
+                    进入账户管理并升级 →
+                  </a>
+                )}
+
                 {activatedAccess && (
                   <div className="card" style={{ marginTop: 14, padding: 16, background: "var(--accent-soft)", borderColor: "var(--accent-rule)" }}>
                     <div className="eyebrow" style={{ marginBottom: 8, color: "var(--accent-ink)" }}>Current plan</div>
@@ -712,7 +663,7 @@ function RegisterPage() {
                 <div className="eyebrow" style={{ marginBottom: 8 }}>查询进度</div>
                 <h3 className="display-title" style={{ fontSize: 22, margin: "0 0 6px" }}>已注册？</h3>
                 <p style={{ color: "var(--ink-muted)", fontSize: 12.5, margin: "0 0 16px" }}>
-                  使用注册时的用户名和手机号查询审核状态。
+                  使用注册时的用户名、手机号和邮箱查询账户状态。
                 </p>
 
                 <form onSubmit={handleCheckStatus}>
@@ -729,6 +680,14 @@ function RegisterPage() {
                       placeholder="手机号" 
                       value={checkPhone}
                       onChange={(e) => setCheckPhone(e.target.value)}
+                      required
+                    />
+                    <input
+                      className="input"
+                      type="email"
+                      placeholder="注册邮箱"
+                      value={checkEmail}
+                      onChange={(e) => setCheckEmail(e.target.value)}
                       required
                     />
                     <button 
@@ -780,16 +739,6 @@ function RegisterPage() {
                       <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
                         {checkMsg}
                       </div>
-                      {checkCheckoutUrl && (
-                        <button
-                          type="button"
-                          className="btn primary"
-                          onClick={() => window.location.assign(checkCheckoutUrl)}
-                          style={{ width: "100%", justifyContent: "center", marginTop: 10 }}
-                        >
-                          继续选择套餐与支付 →
-                        </button>
-                      )}
                       {checkTokenInfo && (
                         <div style={{ marginTop: 8, padding: "8px 10px", background: "var(--bg-sunken)", borderRadius: 6, fontFamily: "var(--f-mono)", fontSize: 11.5 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
@@ -822,7 +771,7 @@ function RegisterPage() {
                 <hr style={{ border: 0, borderTop: "1px solid var(--rule)", margin: "20px 0 14px" }} />
                 <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
                   <strong style={{ color: "var(--ink-strong)" }}>状态说明 · </strong>
-                  <span style={{ fontFamily: "var(--f-mono)" }}>payment pending → active</span>
+                  <span style={{ fontFamily: "var(--f-mono)" }}>Free → active · upgrade in /account</span>
                 </div>
               </div>
 
