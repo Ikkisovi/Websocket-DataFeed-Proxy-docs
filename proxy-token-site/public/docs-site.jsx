@@ -1571,41 +1571,46 @@ function FmpDataOverview({ openFundamentals }) {
   };
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
-      <div className="eyebrow" style={{ marginBottom: 10 }}>FMP-compatible archive data · Premium</div>
-      <h2 id="fmp-data-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>FMP data / FMP 数据说明</h2>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>Financial fundamentals data · Premium</div>
+      <h2 id="fmp-data-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>Financial Data / 财务数据</h2>
       <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
-        这是 Leandata 的 FMP-compatible immutable archive surface：使用 Leandata Bearer token，返回保留的原始 FMP-shaped JSON。
-        详细 request、response 和每条 route 不放在这一页；请进入左侧 API reference 的 <strong style={{ color: "var(--ink-strong)" }}>FMP Fundamentals</strong> session。
+        通过 Leandata 获取美股财务数据，包括财报、财务指标、公司资料等。使用您的 Leandata token 即可访问，无需额外的 API 密钥。
+        <br/>Access US stock financial data including statements, metrics, and company profiles. Use your Leandata token—no additional API keys needed.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 14 }}>详细接口文档请查看左侧 <strong style={{ color: "var(--ink-strong)" }}>FMP Fundamentals</strong> 部分。</span>
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 22 }}>
         <div style={panel}>
-          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Access</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Premium</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Use <code>Authorization: Bearer TOKEN</code>. Do not pass an FMP <code>apikey</code>.</div>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>访问权限 / Access</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Premium 账户</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>使用您的 Leandata token 认证，无需额外的 API 密钥。<br/>Use <code>Authorization: Bearer YOUR_TOKEN</code> header.</div>
         </div>
         <div style={panel}>
-          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Package identity</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Immutable snapshot</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Responses identify the captured package. A later upstream revision does not rewrite that package.</div>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>数据类型 / Data Types</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>财报 + 指标 + 公司资料</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>包括损益表、资产负债表、现金流量表、财务比率、关键指标、公司简介等。<br/>Income statements, balance sheets, ratios, metrics, profiles, and more.</div>
         </div>
         <div style={panel}>
-          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>PIT boundary</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Not universal</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Only statement PIT routes have an explicit visibility policy. Snapshot families are not strict PIT.</div>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>覆盖范围 / Coverage</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>美股主要公司</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>当前支持美股主要上市公司的历史财务数据。如有特定公司需求，请联系我们。<br/>Major US-listed companies. Contact us for specific coverage requests.</div>
         </div>
       </div>
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 22 }}>
-        <strong style={{ color: "var(--accent-ink)" }}>Endpoint reference moved.</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> Use the FMP Fundamentals sidebar session for individual endpoint sections, exact parameters, response metadata and coverage.</span>
-        <button onClick={openFundamentals} className="btn" style={{ marginLeft: 12, padding: "7px 11px", fontSize: 12 }}>Open FMP Fundamentals →</button>
+        <strong style={{ color: "var(--accent-ink)" }}>查看完整接口文档</strong>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> 左侧 FMP Fundamentals 部分包含所有接口的详细参数、返回示例和使用说明。<br/>See the FMP Fundamentals section for complete API documentation with parameters and examples.</span>
+        <button onClick={openFundamentals} className="btn" style={{ marginLeft: 12, padding: "7px 11px", fontSize: 12 }}>打开文档 / Open Docs →</button>
       </div>
-      <h3 id="fmp-snapshot-boundary" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>Snapshot, revisions and future vintages</h3>
+      <h3 id="fmp-snapshot-boundary" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>数据更新说明 / Data Updates</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, margin: "0 0 22px" }}>
-        This package is a captured bulk snapshot. Upstream filings, amendments and normalization can revise historical values later. Package pinning reproduces one captured vintage, but does not alone prove what was knowable on every historical date. We will add independent versioned PIT-like refreshes with capture and visibility timestamps; native FMP forwarding remains a separate future surface.
+        财务数据基于公司公开披露的财报。公司可能会修订过往财报（如重述、更正等），我们会定期更新数据以反映这些变化。如需特定日期的历史数据版本，请联系我们。
+        <br/><br/>
+        Financial data is based on publicly filed company reports. Companies may revise past statements (restatements, corrections), and we update our data accordingly. Contact us if you need historical data as of a specific date.
       </p>
-      <h3 id="fmp-future-data-families" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>Future data families</h3>
+      <h3 id="fmp-future-data-families" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>即将推出 / Coming Soon</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-        Revision-heavy families such as estimates, earnings, ratings and DCF need their own contract before any PIT claim. Ultimate will separately add institutional and ETF holdings, with the same immutable-vintage discipline.
+        我们正在逐步增加更多数据类型，包括：分析师预测、机构持仓、ETF 持仓等。如有特定需求，欢迎联系我们。
+        <br/><br/>
+        We're expanding coverage to include: analyst estimates, institutional holdings, ETF holdings, and more. Contact us with your specific data needs.
       </p>
     </div>
   );
