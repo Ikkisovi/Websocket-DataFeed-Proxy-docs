@@ -1,0 +1,24 @@
+{
+  "uptime": {
+    "rest": [],
+    "ws": [],
+    "rt": []
+  },
+  "latency": {
+    "rest": [],
+    "ws": [],
+    "rt": []
+  },
+  "incidents": [
+    {
+      "id": "mse8dbg4n3rn",
+      "date": "2026-08-04T05:41:40.276Z",
+      "component": "Token Portal",
+      "severity": "resolved",
+      "title": "Service restart",
+      "summary": "token-site server started on port 3000",
+      "duration": null,
+      "resolved": true
+    }
+  ]
+}
