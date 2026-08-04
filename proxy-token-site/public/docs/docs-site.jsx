@@ -1539,14 +1539,14 @@ function FmpArchiveBody() {
         </div>
         <div style={panel}>
           <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>当前 Beta · Current</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>三类核心报表</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>已验证的 sample-universe 覆盖包括 income statement、balance sheet、cash flow；AAPL、MSFT、NVDA 已做请求验证，annual/quarter 以返回结果为准。</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Statements + derived fundamentals</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>除三类核心报表外，本次扩展增加 ratios、key metrics、TTM、growth、enterprise values 与 financial scores。可用 period 取决于 endpoint 与当前 package。</div>
         </div>
       </div>
 
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 28 }}>
         <strong style={{ color: "var(--accent-ink)" }}>Beta 已开放。</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> Premium 用户现在可以查询 sample-universe 的三类核心财务报表。我们会根据留言优先扩展 ticker、字段与财务数据族。</span>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> Premium 用户现在可以查询 sample-universe 的 statements 与 derived fundamentals。欢迎留言反馈缺失 ticker、字段、period 或希望优先支持的数据族。</span>
       </div>
 
       <div style={{ ...panel, marginBottom: 28 }}>
@@ -1556,7 +1556,7 @@ function FmpArchiveBody() {
         </p>
       </div>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Statement request examples</h3>
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Statement request examples · 财务数据请求示例</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 14px", maxWidth: 830 }}>
         发送 HTTPS <code>GET</code> 请求到 <code>https://api.leandata.uk</code>，并携带 Leandata Bearer token。Premium Beta 当前支持已验证 sample-universe 的三类核心报表；需要固定某次已发布数据版本时，使用 package-pinned 路径。
       </p>
@@ -1569,6 +1569,14 @@ function FmpArchiveBody() {
             <tr><td style={mono}>/stable/income-statement</td><td>Income statement</td><td><code>symbol</code>, optional <code>period</code>, <code>limit</code></td></tr>
             <tr><td style={mono}>/stable/balance-sheet-statement</td><td>Balance sheet</td><td><code>symbol</code>, optional <code>period</code>, <code>limit</code></td></tr>
             <tr><td style={mono}>/stable/cash-flow-statement</td><td>Cash-flow statement</td><td><code>symbol</code>, optional <code>period</code>, <code>limit</code></td></tr>
+            <tr><td style={mono}>/stable/ratios</td><td>Financial ratios</td><td><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></td></tr>
+            <tr><td style={mono}>/stable/ratios-ttm</td><td>Trailing-twelve-month ratios</td><td><code>symbol</code></td></tr>
+            <tr><td style={mono}>/stable/key-metrics</td><td>Key metrics</td><td><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></td></tr>
+            <tr><td style={mono}>/stable/key-metrics-ttm</td><td>Trailing-twelve-month key metrics</td><td><code>symbol</code></td></tr>
+            <tr><td style={mono}>/stable/*-statement-growth</td><td>Income, balance-sheet, or cash-flow growth</td><td><code>symbol</code>, current package: <code>period=annual</code></td></tr>
+            <tr><td style={mono}>/stable/financial-growth</td><td>Financial growth summary</td><td><code>symbol</code>, current package: <code>period=annual</code></td></tr>
+            <tr><td style={mono}>/stable/enterprise-values</td><td>Enterprise-value history</td><td><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></td></tr>
+            <tr><td style={mono}>/stable/financial-scores</td><td>Altman/Piotroski financial scores</td><td><code>symbol</code></td></tr>
             <tr><td style={mono}>/v1/pit/fmp/*</td><td>Package-pinned statement snapshot</td><td><code>symbol</code>, <code>as_of</code>, <code>package_sha256</code></td></tr>
           </tbody>
         </table>
@@ -1589,6 +1597,30 @@ curl "https://api.leandata.uk/stable/cash-flow-statement?symbol=AAPL&period=annu
 
 # Point-in-time statement read — package identity and as_of are explicit.
 curl "https://api.leandata.uk/v1/pit/fmp/income-statement?symbol=AAPL&as_of=2026-08-01T00:00:00Z&package_sha256=PACKAGE_SHA256" \\
+  -H "Authorization: Bearer TOKEN"`}
+      </pre>
+
+      <pre className="code" style={{ marginBottom: 22 }}>
+{`# Ratios — annual or quarter
+curl "https://api.leandata.uk/stable/ratios?symbol=AAPL&period=quarter&limit=4" \\
+  -H "Authorization: Bearer TOKEN"
+
+# Ratios TTM — this endpoint does not use period
+curl "https://api.leandata.uk/stable/ratios-ttm?symbol=AAPL" \\
+  -H "Authorization: Bearer TOKEN"
+
+# Key metrics
+curl "https://api.leandata.uk/stable/key-metrics?symbol=AAPL&period=annual&limit=5" \\
+  -H "Authorization: Bearer TOKEN"
+
+# Annual growth in the current package
+curl "https://api.leandata.uk/stable/financial-growth?symbol=AAPL&period=annual&limit=5" \\
+  -H "Authorization: Bearer TOKEN"
+
+# Enterprise values and financial scores
+curl "https://api.leandata.uk/stable/enterprise-values?symbol=AAPL&period=quarter&limit=4" \\
+  -H "Authorization: Bearer TOKEN"
+curl "https://api.leandata.uk/stable/financial-scores?symbol=AAPL" \\
   -H "Authorization: Bearer TOKEN"`}
       </pre>
 
@@ -1616,15 +1648,19 @@ Content-Type: application/json
 ]`}
       </pre>
 
+      <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 14px", maxWidth: 830 }}>
+        Derived endpoints also return the original FMP-shaped JSON array. A ratios response can contain fields such as <code>currentRatio</code>, <code>quickRatio</code>, <code>debtToEquityRatio</code>, <code>priceToEarningsRatio</code> and <code>returnOnEquity</code>; TTM field names normally end in <code>TTM</code>. Treat missing or null fields as source data, not as zero.
+      </p>
+
       <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Parameters and result handling</h3>
       <div style={{ overflowX: "auto", marginBottom: 22 }}>
         <table className="tbl card" style={{ width: "100%", minWidth: 700, overflow: "hidden" }}>
           <thead><tr><th>Parameter</th><th>Use</th><th>Notes</th></tr></thead>
           <tbody>
             <tr><td style={mono}>symbol</td><td>Required ticker</td><td>Use the listed company symbol, for example <code>AAPL</code>.</td></tr>
-            <tr><td style={mono}>period</td><td>Optional statement cadence</td><td><code>annual</code> or <code>quarter</code>.</td></tr>
+            <tr><td style={mono}>period</td><td>Optional cadence where supported</td><td><code>annual</code> or <code>quarter</code>. TTM and financial-scores routes do not accept it; current growth members are annual.</td></tr>
             <tr><td style={mono}>limit</td><td>Optional row count</td><td>Use a small explicit limit when testing or paginating research.</td></tr>
-            <tr><td style={mono}>as_of</td><td>Required for PIT</td><td>ISO-8601 timestamp used to select a published package snapshot.</td></tr>
+            <tr><td style={mono}>as_of</td><td>Required for statement PIT</td><td>ISO-8601 timestamp. The statement PIT route filters records by the documented conservative accepted-date visibility policy.</td></tr>
             <tr><td style={mono}>package_sha256</td><td>Required for PIT</td><td>Exact published package identity; use it for reproducible reruns.</td></tr>
           </tbody>
         </table>
@@ -1632,8 +1668,8 @@ Content-Type: application/json
 
       <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>当前覆盖与边界 · Current coverage</h3>
       <ul style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
-        <li><strong style={{ color: "var(--ink-strong)" }}>Current package scope:</strong> Premium sample-universe fundamentals Beta，已验证 income statement、balance sheet、cash flow；AAPL、MSFT、NVDA 已做请求验证。</li>
-        <li><strong style={{ color: "var(--ink-strong)" }}>Not advertised as available:</strong> ratios, growth, TTM, estimates, analyst data, and arbitrary native FMP endpoints. Each needs its own raw-data scope and published contract.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>Current package scope:</strong> Premium sample-universe fundamentals Beta，覆盖三类 statements，以及 ratios/key metrics annual、quarter、TTM，三类 statement growth、financial growth、enterprise values 与 financial scores。</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>Still not advertised as available:</strong> analyst estimates、earnings revisions、ratings、DCF、institutional/ETF holdings，以及任意 native FMP endpoint。它们需要独立的数据契约、修订语义与验证。</li>
         <li><strong style={{ color: "var(--ink-strong)" }}>Universe boundary:</strong> 这是 sample-universe Beta，不代表所有 ticker 都有相同覆盖；请求无数据时请按 404/空结果处理。</li>
       </ul>
 
@@ -1646,8 +1682,8 @@ Content-Type: application/json
 
       <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Future plan</h3>
       <ol style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
-        <li>扩展 sample-universe 与字段验证，并为 annual/quarter 返回结果保留明确 package identity。</li>
-        <li>Add ratios, TTM, growth, estimates, and additional financial families only through separate source packages, validation, and documented endpoint contracts.</li>
+        <li>继续扩展 sample-universe 与字段验证，并为 statements、ratios、metrics、growth 和 valuation 返回结果保留明确 package identity。</li>
+        <li>下一阶段评估 estimates、earnings、ratings 与 DCF；这些修订性更强的数据不会因为存在于 ZIP 中就自动开放。</li>
         <li>Connect native FMP as a distinct forwarding surface for broader endpoint coverage. It will have its own availability and refresh policy and will not overwrite published package snapshots.</li>
         <li>发布独立版本化的 PIT-like 周度或固定频率刷新，公开 capture/visible 时间并保留 immutable vintages；native FMP 转发保持独立。</li>
       </ol>

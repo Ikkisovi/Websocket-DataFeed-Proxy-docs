@@ -293,8 +293,8 @@ const PRODUCT_UPDATES = [
     date: '2026-08-04',
     title: 'Premium 用户可试用 FMP fundamentals Beta',
     title_en: 'FMP fundamentals Beta for Premium',
-    body: '我们采购的上游批量数据已开放 sample-universe 试用。欢迎反馈数据缺口、字段需求或上游修订问题。',
-    body_en: 'Our purchased upstream bulk snapshot is now in a sample-universe Beta. Tell us about missing data, fields, or upstream revisions.',
+    body: '我们采购的 bulk snapshot 已向 Premium 开放 statements、ratios、key metrics、TTM、growth、enterprise values 与 financial scores。数据可能被上游事后修订，并非严格 PIT；欢迎反馈 ticker、字段、period 或修订问题。',
+    body_en: 'Premium now includes sample-universe statements, ratios, key metrics, TTM, growth, enterprise values, and financial scores from our purchased bulk snapshot. This is not strict PIT and upstream values may be revised; feedback is welcome.',
     tag: 'FMP · Premium'
   },
   {

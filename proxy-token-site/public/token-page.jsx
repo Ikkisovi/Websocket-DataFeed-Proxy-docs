@@ -99,7 +99,7 @@ function TokenPage() {
         textDecoration: "none",
         fontSize: 13,
       }}>
-        <span><strong>新提醒 · Premium 用户现可试用 FMP fundamentals Beta</strong>　我们采购的上游批量数据已开放 sample-universe 试用；欢迎反馈字段、缺口或修订问题。</span>
+        <span><strong>新提醒 · Premium 用户现可试用 FMP fundamentals Beta</strong>　我们采购的 bulk snapshot 现已开放 statements、ratios、key metrics、TTM、growth、enterprise values 与 financial scores；数据可能被上游事后修订，并非严格 PIT。欢迎反馈 ticker、字段、period 或修订问题。</span>
         <span style={{ fontFamily: "var(--f-mono)", whiteSpace: "nowrap" }}>查看更新 / View updates →</span>
       </a>
 
