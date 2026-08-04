@@ -2,6 +2,13 @@
 remote_proxy/.env
 data/users.json
 data/pending.json
+data/email.env
+data/email-verifications.json
+data/email-template.json
+data/smoke-registration/
+data/*.local
+
+# Local portal SMTP configuration and verification state
 
 # Python
 remote_proxy/__pycache__/

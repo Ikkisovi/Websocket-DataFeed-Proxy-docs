@@ -5,6 +5,22 @@ const { useState } = React;
 
 function TokenTopbar({ portalOpen, setPortalOpen }) {
   const t = (text) => window.LeandataI18n?.translate(text) || text;
+  const [currentLang, setCurrentLang] = React.useState(() =>
+    window.LeandataI18n?.getLanguage() || "zh"
+  );
+
+  React.useEffect(() => {
+    const handleLangChange = () => {
+      setCurrentLang(window.LeandataI18n?.getLanguage() || "zh");
+    };
+    window.addEventListener("leandata:languagechange", handleLangChange);
+    return () => window.removeEventListener("leandata:languagechange", handleLangChange);
+  }, []);
+
+  const toggleLanguage = () => {
+    const newLang = currentLang === "zh" ? "en" : "zh";
+    window.LeandataI18n?.setLanguage(newLang);
+  };
 
   return (
     <div className="topbar">
@@ -21,6 +37,22 @@ function TokenTopbar({ portalOpen, setPortalOpen }) {
       </div>
       <div className="spacer"></div>
       <div className="meta">
+        <button
+          onClick={toggleLanguage}
+          className="btn ghost"
+          style={{
+            padding: "6px 10px",
+            fontSize: 12,
+            marginRight: 8,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4
+          }}
+          title={currentLang === "zh" ? "Switch to English" : "切换到中文"}
+        >
+          <span style={{ fontSize: 14 }}>🌐</span>
+          {currentLang === "zh" ? "中文" : "EN"}
+        </button>
         {!portalOpen && (
           <button className="btn ghost" onClick={() => setPortalOpen(true)} style={{ marginRight: 12, padding: "6px 10px", fontSize: 12 }}>
             {t("Open Portal")}
@@ -103,8 +135,11 @@ function TokenPage() {
         textDecoration: "none",
         fontSize: 13,
       }}>
-        <span><strong>新提醒 · Premium 用户现可试用 FMP fundamentals Beta</strong>　我们采购的 bulk snapshot 现已开放 statements、ratios、key metrics、TTM、growth、enterprise values 与 financial scores；数据可能被上游事后修订，并非严格 PIT。欢迎反馈 ticker、字段、period 或修订问题。</span>
-        <span style={{ fontFamily: "var(--f-mono)", whiteSpace: "nowrap" }}>查看更新 / View updates →</span>
+        <span>
+          <strong>{t("新提醒 · Premium 用户现可试用 FMP fundamentals Beta")}</strong>
+          　{t("我们采购的 bulk snapshot 现已开放 statements、ratios、key metrics、TTM、growth、enterprise values 与 financial scores；数据可能被上游事后修订，并非严格 PIT。欢迎反馈 ticker、字段、period 或修订问题。")}
+        </span>
+        <span style={{ fontFamily: "var(--f-mono)", whiteSpace: "nowrap" }}>{t("查看更新 / View updates →")}</span>
       </a>
 
       <div style={{ display: "grid", gridTemplateColumns: portalOpen ? "minmax(420px, 440px) 1fr" : "1fr", flex: 1, minHeight: 0 }}>

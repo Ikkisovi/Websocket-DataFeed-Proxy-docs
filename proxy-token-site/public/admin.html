@@ -355,6 +355,48 @@
     .sync-log .log-ok { color: oklch(0.45 0.10 155); }
     .sync-log .log-err { color: oklch(0.50 0.14 25); }
 
+    /* ── Registration email template ── */
+    .template-panel {
+      background: var(--bg-paper); border: 1px solid var(--rule);
+      border-radius: var(--radius-lg); padding: 20px;
+    }
+    .template-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 16px; margin-bottom: 18px;
+    }
+    .template-title {
+      font-family: var(--f-display); font-size: 26px; color: var(--ink-strong);
+      margin-bottom: 4px;
+    }
+    .template-help { color: var(--ink-muted); font-size: 12.5px; }
+    .template-field { margin-bottom: 16px; }
+    .template-field label {
+      display: block; margin-bottom: 6px; font-family: var(--f-mono);
+      font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--ink-muted);
+    }
+    .template-textarea {
+      width: 100%; min-height: 150px; resize: vertical;
+      font-family: var(--f-mono); font-size: 12px; line-height: 1.6;
+      padding: 10px 12px; border: 1px solid var(--rule-strong);
+      border-radius: var(--radius-md); background: var(--bg-paper);
+      color: var(--ink-base); outline: none;
+    }
+    .template-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .template-subject { min-height: 42px; }
+    .template-preview {
+      margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--rule);
+    }
+    .template-preview-title {
+      font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--accent-ink); margin-bottom: 8px;
+    }
+    .template-preview-box {
+      background: var(--bg-sunken); border: 1px solid var(--rule);
+      border-radius: var(--radius-md); padding: 12px; white-space: pre-wrap;
+      font-family: var(--f-mono); font-size: 12px; line-height: 1.6;
+    }
+
     /* ── Divider rule ── */
     hr.rule { border: none; border-top: 1px solid var(--rule); margin: 24px 0; }
 
@@ -698,6 +740,9 @@
     <div class="tab" data-tab="announce" onclick="switchTab(this)">
       Email 公告 <span class="count" id="tab-count-announce">—</span>
     </div>
+    <div class="tab" data-tab="template" onclick="switchTab(this)">
+      注册邮件模板
+    </div>
   </div>
 
   <!-- Content -->
@@ -848,6 +893,34 @@
         </section>
       </div>
     </div>
+    <div id="panel-template" class="template-panel hidden">
+      <div class="template-header">
+        <div>
+          <div class="template-title">注册验证码邮件</div>
+          <div class="template-help">修改后，新发送的验证码邮件立即使用新模板。</div>
+        </div>
+        <button class="btn approve" id="btn-save-template" onclick="saveEmailTemplate()">保存模板</button>
+      </div>
+
+      <div class="template-field">
+        <label for="email-template-subject">邮件主题</label>
+        <input class="input template-subject" id="email-template-subject" type="text" maxlength="200">
+      </div>
+      <div class="template-field">
+        <label for="email-template-text">纯文本内容</label>
+        <textarea class="template-textarea" id="email-template-text"></textarea>
+      </div>
+      <div class="template-field">
+        <label for="email-template-html">HTML 内容</label>
+        <textarea class="template-textarea" style="min-height:220px" id="email-template-html"></textarea>
+      </div>
+
+      <div class="template-help">可用占位符：<code>{{code}}</code>、<code>{{email}}</code>、<code>{{expires_minutes}}</code>、<code>{{site_name}}</code>。纯文本和 HTML 都必须包含 <code>{{code}}</code>。</div>
+      <div class="template-preview">
+        <div class="template-preview-title">纯文本预览 · 示例验证码 123456</div>
+        <div class="template-preview-box" id="email-template-preview"></div>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -857,6 +930,7 @@
 
 <script>
   let adminToken = null;
+  let emailTemplate = null;
   const announceState = {
     loaded: false,
     templateSubject: '',
@@ -917,10 +991,15 @@
     document.getElementById('panel-all').classList.toggle('hidden', tab !== 'all');
     document.getElementById('panel-bulk').classList.toggle('hidden', tab !== 'bulk');
     document.getElementById('panel-announce').classList.toggle('hidden', tab !== 'announce');
+    document.getElementById('panel-template').classList.toggle('hidden', tab !== 'template');
     document.querySelector('.topbar-title').textContent =
-      tab === 'announce' ? '公告后台' : tab === 'bulk' ? 'Bulk 订单后台' : '审核后台';
+      tab === 'announce' ? '公告后台'
+        : tab === 'template' ? '注册邮件模板'
+        : tab === 'bulk' ? 'Bulk 订单后台'
+        : '审核后台';
     if (tab === 'announce') loadAnnouncements();
     if (tab === 'bulk') loadData();
+    if (tab === 'template') loadEmailTemplate();
   }
 
   /* ── Load data ── */
@@ -1024,6 +1103,68 @@
   function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+
+  /* ── Registration email template ── */
+  function renderTemplatePreview() {
+    const text = document.getElementById('email-template-text').value;
+    const variables = {
+      code: '123456',
+      email: 'demo@example.com',
+      expires_minutes: '10',
+      site_name: 'leandata proxy'
+    };
+    document.getElementById('email-template-preview').textContent = text.replace(/\{\{([a-z_]+)\}\}/gi, (full, key) => (
+      Object.prototype.hasOwnProperty.call(variables, key) ? variables[key] : full
+    ));
+  }
+
+  async function loadEmailTemplate() {
+    try {
+      const resp = await fetch('/api/admin/email-template', {
+        headers: { 'X-Admin-Token': adminToken }
+      });
+      if (resp.status === 401) { location.reload(); return; }
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.message || '加载模板失败');
+      emailTemplate = data.template;
+      document.getElementById('email-template-subject').value = emailTemplate.subject || '';
+      document.getElementById('email-template-text').value = emailTemplate.text || '';
+      document.getElementById('email-template-html').value = emailTemplate.html || '';
+      renderTemplatePreview();
+    } catch (error) {
+      showToast(error.message || '加载邮件模板失败', 'error');
+    }
+  }
+
+  async function saveEmailTemplate() {
+    const button = document.getElementById('btn-save-template');
+    button.disabled = true;
+    button.textContent = '保存中…';
+    try {
+      const resp = await fetch('/api/admin/email-template', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Token': adminToken },
+        body: JSON.stringify({
+          subject: document.getElementById('email-template-subject').value,
+          text: document.getElementById('email-template-text').value,
+          html: document.getElementById('email-template-html').value
+        })
+      });
+      if (resp.status === 401) { location.reload(); return; }
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.message || '保存模板失败');
+      emailTemplate = data.template;
+      renderTemplatePreview();
+      showToast('邮件模板已保存', 'success');
+    } catch (error) {
+      showToast(error.message || '保存邮件模板失败', 'error');
+    } finally {
+      button.disabled = false;
+      button.textContent = '保存模板';
+    }
+  }
+
+  document.getElementById('email-template-text').addEventListener('input', renderTemplatePreview);
 
   /* ── Bulk download requests ── */
   function bulkStatusLabel(status) {

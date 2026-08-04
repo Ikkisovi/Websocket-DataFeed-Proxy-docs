@@ -1213,6 +1213,10 @@ async function provisionFreeRegistration(entry) {
     username: entry.username,
     phone: entry.phone,
     email: entry.email,
+    ...(entry.email_verified && {
+      email_verified: true,
+      email_verified_at: entry.email_verified_at || null
+    }),
     account_id: accountId,
     role: tierConfig.role,
     tier: 'free',
@@ -1224,6 +1228,7 @@ async function provisionFreeRegistration(entry) {
     token,
     user_id: accountId,
     email: entry.email,
+    ...(entry.email_verified && { email_verified: true }),
     role: tierConfig.role,
     expires_at: expiresAt,
     permissions
@@ -3266,22 +3271,104 @@ app.post('/api/payment/mock/:id/complete', async (req, res) => {
 // ============================================================
 // PUBLIC: Buyer Registration
 // ============================================================
+app.post('/api/register/request-code', async (req, res) => {
+  const email = normalizeEmail(req.body?.email);
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ success: false, message: '请输入有效的邮箱地址。' });
+  }
+  if (!emailSetting('EMAIL_VERIFY_SECRET')
+    || (emailSetting('EMAIL_TEST_MODE') !== 'memory' && !emailSmtpConfig())) {
+    return res.status(503).json({ success: false, message: '邮箱验证服务尚未配置完成。' });
+  }
+
+  const rate = checkVerificationSendRate(req, email);
+  if (!rate.allowed) {
+    res.setHeader('Retry-After', String(rate.retryAfter));
+    return res.status(429).json({
+      success: false,
+      message: '验证码发送次数过多，请稍后再试。',
+      retry_after: rate.retryAfter
+    });
+  }
+
+  const now = Date.now();
+  const challenges = readJSON(EMAIL_VERIFICATION_FILE, []);
+  const previous = challenges.find(entry => entry.email === email && entry.status === 'pending');
+  if (previous && now - new Date(previous.sent_at).getTime() < EMAIL_CODE_RESEND_COOLDOWN_MS) {
+    const retryAfter = Math.max(
+      1,
+      Math.ceil((new Date(previous.sent_at).getTime() + EMAIL_CODE_RESEND_COOLDOWN_MS - now) / 1000)
+    );
+    res.setHeader('Retry-After', String(retryAfter));
+    return res.status(429).json({
+      success: false,
+      message: '验证码已发送，请稍后再试。',
+      retry_after: retryAfter
+    });
+  }
+
+  const challengeId = crypto.randomUUID();
+  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+  const sentAt = new Date(now).toISOString();
+  const challenge = {
+    id: challengeId,
+    email,
+    code_hash: verificationCodeHash(challengeId, code),
+    attempts: 0,
+    status: 'pending',
+    sent_at: sentAt,
+    expires_at: new Date(now + EMAIL_CODE_TTL_MS).toISOString()
+  };
+  const nextChallenges = challenges
+    .filter(entry => !(entry.email === email && entry.status === 'pending'));
+  nextChallenges.push(challenge);
+  writeJSONAtomic(EMAIL_VERIFICATION_FILE, nextChallenges);
+
+  try {
+    await sendVerificationEmail(email, code);
+  } catch (error) {
+    writeJSONAtomic(
+      EMAIL_VERIFICATION_FILE,
+      nextChallenges.filter(entry => entry.id !== challengeId)
+    );
+    console.error('Verification email send error:', error.message);
+    return res.status(502).json({ success: false, message: '验证码邮件发送失败，请稍后重试。' });
+  }
+
+  return res.status(202).json({
+    success: true,
+    challenge_id: challengeId,
+    expires_in: Math.floor(EMAIL_CODE_TTL_MS / 1000),
+    message: `验证码已发送到 ${email}。`
+  });
+});
+
 app.post('/api/register', async (req, res) => {
-  const { username, phone, tier, email } = req.body;
+  const {
+    username,
+    phone,
+    tier,
+    email,
+    verification_id: verificationId,
+    verification_code: verificationCode
+  } = req.body || {};
   const cleanUsername = (username || '').trim();
   const cleanPhone = (phone || '').trim();
-  const cleanEmail = typeof email === 'string' ? email.trim() : '';
+  const cleanEmail = normalizeEmail(email);
   const identity = canonicalAccountIdentity({
     username: cleanUsername,
     phone: cleanPhone,
     email: cleanEmail
   });
 
-  if (!cleanUsername || !cleanPhone || !cleanEmail) {
-    return res.status(400).json({ success: false, message: '用户名、手机号和邮箱都是必填的。' });
+  if (!cleanUsername || !cleanPhone || !cleanEmail || !verificationId || !verificationCode) {
+    return res.status(400).json({ success: false, message: '邮箱、验证码、用户名和手机号都是必填的。' });
   }
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cleanEmail)) {
+  if (!isValidEmail(cleanEmail)) {
     return res.status(400).json({ success: false, message: '邮箱格式不正确。' });
+  }
+  if (!/^\d{6}$/.test(String(verificationCode).trim())) {
+    return res.status(400).json({ success: false, message: '验证码必须是 6 位数字。' });
   }
   if (!hasCompleteAccountIdentity(identity)) {
     return res.status(400).json({ success: false, message: '用户名、手机号和邮箱必须共同构成账户标识。' });
@@ -3296,6 +3383,40 @@ app.post('/api/register', async (req, res) => {
     });
   }
   const selectedTier = 'free';
+
+  if (!emailSetting('EMAIL_VERIFY_SECRET')) {
+    return res.status(503).json({ success: false, message: '邮箱验证服务尚未配置完成。' });
+  }
+  const challenges = readJSON(EMAIL_VERIFICATION_FILE, []);
+  const challenge = challenges.find(entry => (
+    entry.id === String(verificationId).trim() && entry.email === cleanEmail
+  ));
+  if (!challenge || challenge.status !== 'pending') {
+    return res.status(400).json({ success: false, message: '验证码无效或已使用，请重新获取验证码。' });
+  }
+  if (new Date(challenge.expires_at).getTime() <= Date.now()) {
+    challenge.status = 'expired';
+    writeJSONAtomic(EMAIL_VERIFICATION_FILE, challenges);
+    return res.status(400).json({ success: false, message: '验证码已过期，请重新获取验证码。' });
+  }
+  challenge.attempts = Number(challenge.attempts || 0) + 1;
+  const matches = safeEqual(
+    challenge.code_hash,
+    verificationCodeHash(challenge.id, String(verificationCode).trim())
+  );
+  if (!matches) {
+    if (challenge.attempts >= EMAIL_CODE_MAX_ATTEMPTS) challenge.status = 'locked';
+    writeJSONAtomic(EMAIL_VERIFICATION_FILE, challenges);
+    return res.status(400).json({
+      success: false,
+      message: challenge.status === 'locked'
+        ? '验证码错误次数过多，请重新获取验证码。'
+        : '验证码错误，请重试。'
+    });
+  }
+  challenge.status = 'used';
+  challenge.verified_at = new Date().toISOString();
+  writeJSONAtomic(EMAIL_VERIFICATION_FILE, challenges);
 
   const users = readJSON(USERS_FILE);
   const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
@@ -3329,6 +3450,8 @@ app.post('/api/register', async (req, res) => {
     phone: cleanPhone,
     tier: selectedTier,
     email: cleanEmail,
+    email_verified: true,
+    email_verified_at: challenge.verified_at,
     account_id: accountId,
     registered_at: new Date().toISOString()
   };
@@ -3337,7 +3460,7 @@ app.post('/api/register', async (req, res) => {
     return res.status(201).json({
       success: true,
       status: 'approved',
-      message: 'Free 计划已启用。请立即复制并安全保存你的 Token。',
+      message: '邮箱验证成功，Free 计划已启用。请立即复制并安全保存你的 Token。',
       token: provisioned.token,
       expiry: provisioned.expiresAt,
       role: provisioned.role,
@@ -3914,6 +4037,37 @@ app.post('/api/admin/login', (req, res) => {
   const token = crypto.randomBytes(32).toString('hex');
   adminSessions.add(token);
   return res.json({ success: true, token });
+});
+
+// ============================================================
+// ADMIN: Registration email template
+// ============================================================
+app.get('/api/admin/email-template', requireAdmin, (_req, res) => {
+  const template = readEmailTemplate();
+  return res.json({
+    success: true,
+    template,
+    placeholders: EMAIL_TEMPLATE_PLACEHOLDERS.map(name => `{{${name}}}`),
+    preview: emailTemplatePreview(template)
+  });
+});
+
+app.put('/api/admin/email-template', requireAdmin, (req, res) => {
+  const validated = validateEmailTemplate(req.body || {});
+  if (validated.error) {
+    return res.status(400).json({ success: false, message: validated.error });
+  }
+  const saved = {
+    ...validated.template,
+    updated_at: new Date().toISOString()
+  };
+  writeJSONAtomic(EMAIL_TEMPLATE_FILE, saved);
+  return res.json({
+    success: true,
+    message: '注册验证码邮件模板已保存。',
+    template: saved,
+    preview: emailTemplatePreview(saved)
+  });
 });
 
 // ============================================================
@@ -5408,4 +5562,18 @@ if (require.main === module) {
   setInterval(() => { probeRt().catch(() => {}); }, 25000).unref();
 }
 
-module.exports = { app, TIERS, syncToEC2, computeExpiry, readJSON, writeJSON, safePaperUserId, PROXY_USERS_FILE, EC2_HOST, EC2_USERS_PATH, EC2_SSH_KEY };
+module.exports = {
+  app,
+  TIERS,
+  syncToEC2,
+  computeExpiry,
+  readJSON,
+  writeJSON,
+  safePaperUserId,
+  getLastTestVerificationEmail,
+  clearTestVerificationEmails,
+  PROXY_USERS_FILE,
+  EC2_HOST,
+  EC2_USERS_PATH,
+  EC2_SSH_KEY
+};

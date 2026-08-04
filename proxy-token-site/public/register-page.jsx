@@ -2,7 +2,7 @@
 // Keeps the Chinese-language UI (target audience) but restyles into the
 // warm-paper + Instrument Serif + IBM Plex Mono system. Drops the dark theme.
 
-const { useState: useRegState } = React;
+const { useState: useRegState, useEffect: useRegEffect } = React;
 
 function RegisterTopbar() {
   return (
@@ -170,6 +170,10 @@ function RegisterPage() {
   const [regUsername, setRegUsername] = useRegState("");
   const [regPhone, setRegPhone] = useRegState("");
   const [regEmail, setRegEmail] = useRegState("");
+  const [verificationCode, setVerificationCode] = useRegState("");
+  const [verificationId, setVerificationId] = useRegState("");
+  const [codeSent, setCodeSent] = useRegState(false);
+  const [resendRemaining, setResendRemaining] = useRegState(0);
   const [regMsg, setRegMsg] = useRegState("");
   const [regStatus, setRegStatus] = useRegState(""); // "success", "error"
   const [activatedAccess, setActivatedAccess] = useRegState(null);
@@ -185,9 +189,58 @@ function RegisterPage() {
   const [checkTokenInfo, setCheckTokenInfo] = useRegState(null); // { token, expiry, role, plan }
   const [checkLoading, setCheckLoading] = useRegState(false);
 
+  useRegEffect(() => {
+    if (resendRemaining <= 0) return undefined;
+    const timer = setInterval(() => {
+      setResendRemaining(value => Math.max(0, value - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendRemaining]);
+
+  const handleSendCode = async () => {
+    const email = regEmail.trim().toLowerCase();
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      setRegMsg("请先填写有效的邮箱地址。");
+      setRegStatus("error");
+      return;
+    }
+    setRegLoading(true);
+    setRegMsg("");
+    setRegStatus("");
+    try {
+      const resp = await fetch('/api/register/request-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await resp.json();
+      if (resp.ok && data.success) {
+        setRegEmail(email);
+        setVerificationId(data.challenge_id);
+        setCodeSent(true);
+        setResendRemaining(60);
+        setRegMsg(data.message || "验证码已发送，请检查邮箱。");
+        setRegStatus("success");
+      } else {
+        setRegMsg(data.message || "验证码发送失败，请稍后重试。");
+        setRegStatus("error");
+      }
+    } catch (err) {
+      setRegMsg("网络错误，请稍后再试。");
+      setRegStatus("error");
+    } finally {
+      setRegLoading(false);
+    }
+  };
+
   // Handle Registration Submit
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
+    if (!regEmail.trim() || !verificationId || !/^\d{6}$/.test(verificationCode.trim())) {
+      setRegMsg("请先获取并填写 6 位邮箱验证码。");
+      setRegStatus("error");
+      return;
+    }
     if (!regUsername.trim() || !regPhone.trim() || !regEmail.trim()) {
       setRegMsg("请填写用户名、手机号和邮箱。");
       setRegStatus("error");
@@ -212,6 +265,8 @@ function RegisterPage() {
           username: regUsername.trim(),
           phone: regPhone.trim(),
           email: regEmail.trim(),
+          verification_id: verificationId,
+          verification_code: verificationCode.trim(),
           tier: "free"
         })
       });
@@ -225,16 +280,28 @@ function RegisterPage() {
           });
           setRegMsg(data.message || "Free 计划已启用。");
           setRegStatus("success");
+          setRegEmail("");
+          setVerificationCode("");
+          setVerificationId("");
+          setCodeSent(false);
           return;
         }
         if (data.status === "existing_account") {
           setExistingAccount(true);
           setRegMsg(data.message || "该账户已存在，请从账户管理进入升级与用量页面。");
           setRegStatus("success");
+          setRegEmail("");
+          setVerificationCode("");
+          setVerificationId("");
+          setCodeSent(false);
           return;
         }
         setRegMsg(data.message || "账户已创建。");
         setRegStatus("success");
+        setRegEmail("");
+        setVerificationCode("");
+        setVerificationId("");
+        setCodeSent(false);
       } else {
         setRegMsg(data.message || "注册失败，请检查输入。");
         setRegStatus("error");
@@ -539,7 +606,7 @@ function RegisterPage() {
               )}
 
               {/* Free account registration */}
-              <div className="eyebrow" style={{ marginBottom: 10 }}>1 · 创建 Free 账户</div>
+              <div className="eyebrow" style={{ marginBottom: 10 }}>1 · 邮箱验证</div>
               <div className="card" style={{ padding: 24 }}>
                 <form onSubmit={handleRegisterSubmit}>
                   <div style={{ marginBottom: 20 }}>
@@ -550,6 +617,50 @@ function RegisterPage() {
                         REST 可查询最近 31 个日历日；账户总计最多 10 条 WS 订阅。需要更多数据或额度，请注册完成后前往账户管理升级。
                       </div>
                     </div>
+                  </div>
+                  <div style={{ marginTop: 10, paddingTop: 18, borderTop: "1px solid var(--rule)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 12, alignItems: "end" }}>
+                      <div>
+                        <label className="label">邮箱地址</label>
+                        <input
+                          className="input mono"
+                          type="email"
+                          placeholder="name@example.com"
+                          value={regEmail}
+                          onChange={(e) => setRegEmail(e.target.value)}
+                          required
+                        />
+                        <div className="hint">验证码将发送到这个邮箱。</div>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={handleSendCode}
+                        disabled={regLoading || resendRemaining > 0}
+                        style={{ minWidth: 132, justifyContent: "center", opacity: regLoading || resendRemaining > 0 ? 0.7 : 1 }}
+                      >
+                        {resendRemaining > 0 ? `${resendRemaining}s 后重发` : (codeSent ? "重新发送验证码" : "发送验证码")}
+                      </button>
+                    </div>
+                    {codeSent && (
+                      <div style={{ marginTop: 18 }}>
+                        <label className="label">邮箱验证码</label>
+                        <input
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          maxLength={6}
+                          className="input mono"
+                          placeholder="输入 6 位验证码"
+                          value={verificationCode}
+                          onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          required
+                        />
+                        <div className="hint">验证码有效期 10 分钟。</div>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--rule)" }}>
+                    <div className="eyebrow" style={{ marginBottom: 10 }}>2 · 账户信息</div>
                   </div>
                   <div className="register-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
                     <div>
@@ -575,19 +686,6 @@ function RegisterPage() {
                       <div className="hint">用于匹配卖家订单记录。</div>
                     </div>
                   </div>
-                  <div style={{ marginTop: 18 }}>
-                    <label className="label">邮箱</label>
-                    <input
-                      className="input mono"
-                      type="email"
-                      placeholder="用于账户绑定与服务通知"
-                      value={regEmail}
-                      onChange={(e) => setRegEmail(e.target.value)}
-                      required
-                    />
-                    <div className="hint">必填。用于账户识别、服务通知和后续登录验证。</div>
-                  </div>
-
                   <div style={{
                     marginTop: 22,
                     padding: 12,

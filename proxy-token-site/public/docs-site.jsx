@@ -485,6 +485,22 @@ const { useState } = React;
 
 function DocsTopbar({ active = "proxy", onNav }) {
   const t = (text) => window.LeandataI18n?.translate(text) || text;
+  const [currentLang, setCurrentLang] = React.useState(() =>
+    window.LeandataI18n?.getLanguage() || "zh"
+  );
+
+  React.useEffect(() => {
+    const handleLangChange = () => {
+      setCurrentLang(window.LeandataI18n?.getLanguage() || "zh");
+    };
+    window.addEventListener("leandata:languagechange", handleLangChange);
+    return () => window.removeEventListener("leandata:languagechange", handleLangChange);
+  }, []);
+
+  const toggleLanguage = () => {
+    const newLang = currentLang === "zh" ? "en" : "zh";
+    window.LeandataI18n?.setLanguage(newLang);
+  };
 
   return (
     <div className="topbar">
@@ -504,6 +520,22 @@ function DocsTopbar({ active = "proxy", onNav }) {
       </div>
       <div className="spacer"></div>
       <div className="meta">
+        <button
+          onClick={toggleLanguage}
+          className="btn ghost"
+          style={{
+            padding: "6px 10px",
+            fontSize: 12,
+            marginRight: 8,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4
+          }}
+          title={currentLang === "zh" ? "Switch to English" : "切换到中文"}
+        >
+          <span style={{ fontSize: 14 }}>🌐</span>
+          {currentLang === "zh" ? "中文" : "EN"}
+        </button>
         <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>{t("Token portal →")}</a>
       </div>
     </div>
@@ -511,6 +543,8 @@ function DocsTopbar({ active = "proxy", onNav }) {
 }
 
 function IndexOptionsBanner() {
+  const t = (text) => window.LeandataI18n?.translate(text) || text;
+
   return (
     <div style={{
       display: "flex",
@@ -534,9 +568,9 @@ function IndexOptionsBanner() {
         letterSpacing: ".08em",
         textTransform: "uppercase",
       }}>New</span>
-      <strong>Alpaca supports index options now.</strong>
+      <strong>{t("Alpaca supports index options now.")}</strong>
       <span>
-        Proxy contract discovery and realtime option streams are live for SPX/SPXW, VIX/VIXW, DJX and XSP.
+        {t("Proxy contract discovery and realtime option streams are live for SPX/SPXW, VIX/VIXW, DJX and XSP.")}
         <span style={{ color: "var(--ink-muted)" }}> 指数期权合约查询与实时行情现已支持。</span>
       </span>
     </div>

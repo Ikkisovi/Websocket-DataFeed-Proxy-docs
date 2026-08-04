@@ -410,7 +410,29 @@
     "Proxy API": "代理 API",
     "covers REST endpoints and tier management;": "涵盖 REST 端点和套餐管理；",
     "WS usage": "WS 用法",
-    "covers the 6 realtime streaming channels.": "涵盖 6 个实时流通道。"
+    "covers the 6 realtime streaming channels.": "涵盖 6 个实时流通道。",
+
+    // Page titles
+    "Stock Options Proxy — Public Docs": "美股期权代理 — 公开文档",
+    "新用户注册 — Stock Options Proxy": "Create an account — Leandata",
+    "账户管理 — Leandata Proxy": "Account management — Leandata",
+
+    // Banner and announcements
+    "新提醒 · Premium 用户现可试用 FMP fundamentals Beta": "New · Premium users can now try FMP fundamentals Beta",
+    "我们采购的 bulk snapshot 现已开放 statements、ratios、key metrics、TTM、growth、enterprise values 与 financial scores；数据可能被上游事后修订，并非严格 PIT。欢迎反馈 ticker、字段、period 或修订问题。": "Our bulk snapshot now includes statements, ratios, key metrics, TTM, growth, enterprise values, and financial scores. Data may be revised by the upstream provider and is not strict point-in-time. Feedback welcome on tickers, fields, periods, or revision issues.",
+    "查看更新 / View updates →": "View updates →",
+
+    // Index options banner
+    "Alpaca supports index options now.": "Alpaca 现已支持指数期权。",
+    "Proxy contract discovery and realtime option streams are live for SPX/SPXW, VIX/VIXW, DJX and XSP.": "SPX/SPXW、VIX/VIXW、DJX 和 XSP 的合约查询与实时期权流已上线。",
+
+    // Hero sections intro text
+    "Real-time US equities, options, crypto and news — one token, no Alpaca key needed.": "美股实时行情、期权、加密货币和新闻 — 一个令牌，无需 Alpaca 密钥。",
+    "covers REST endpoints and tier management;": "涵盖 REST 端点和套餐管理；",
+    "covers the 6 realtime streaming channels.": "涵盖 6 个实时流通道。",
+    "Reference · live docs": "参考 · 实时文档",
+    "Stock Options Proxy": "美股期权代理",
+    "API": "接口"
   }));
 
   const orderedTranslations = [...translations.entries()]
@@ -421,6 +443,19 @@
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored === "en" || stored === "zh") return stored;
     } catch (_) {}
+
+    // Auto-detect browser language if no stored preference
+    try {
+      const browserLang = navigator.language || navigator.userLanguage || "";
+      if (browserLang.toLowerCase().startsWith("zh")) {
+        return "zh";
+      }
+      if (browserLang.toLowerCase().startsWith("en")) {
+        return "en";
+      }
+    } catch (_) {}
+
+    // Default to Chinese
     return "zh";
   }
 
@@ -526,77 +561,13 @@
   }
 
   function renderSwitcher() {
-    let switcher = document.getElementById("leandata-language-switcher");
-    if (!switcher) {
-      switcher = document.createElement("div");
-      switcher.id = "leandata-language-switcher";
-      switcher.setAttribute("data-no-i18n", "true");
-      switcher.setAttribute("role", "group");
-      switcher.setAttribute("aria-label", "Language / 语言");
-      switcher.innerHTML = `
-        <span class="ld-language-icon" aria-hidden="true">◎</span>
-        <button type="button" data-language="zh">中文</button>
-        <span class="ld-language-divider" aria-hidden="true"></span>
-        <button type="button" data-language="en">EN</button>
-      `;
-      switcher.addEventListener("click", event => {
-        const button = event.target.closest("button[data-language]");
-        if (button) setLanguage(button.dataset.language);
-      });
-      document.body.appendChild(switcher);
-    }
-    switcher.querySelectorAll("button[data-language]").forEach(button => {
-      const selected = button.dataset.language === language;
-      button.classList.toggle("active", selected);
-      button.setAttribute("aria-pressed", String(selected));
-    });
+    // Bottom-right floating switcher is now disabled
+    // Language switching is handled by inline topbar switchers
   }
 
   function injectStyle() {
-    if (document.getElementById("leandata-language-style")) return;
-    const style = document.createElement("style");
-    style.id = "leandata-language-style";
-    style.textContent = `
-      #leandata-language-switcher {
-        position: fixed;
-        right: max(18px, env(safe-area-inset-right));
-        bottom: max(18px, env(safe-area-inset-bottom));
-        z-index: 2147483646;
-        display: inline-flex;
-        align-items: center;
-        gap: 2px;
-        padding: 5px;
-        color: #31302d;
-        background: rgba(255, 255, 255, .92);
-        border: 1px solid rgba(20, 20, 20, .14);
-        border-radius: 999px;
-        box-shadow: 0 10px 28px rgba(20, 20, 20, .12), 0 1px 2px rgba(20, 20, 20, .08);
-        backdrop-filter: blur(14px);
-        -webkit-backdrop-filter: blur(14px);
-        font: 600 11px/1 "IBM Plex Sans", Inter, system-ui, sans-serif;
-        letter-spacing: .02em;
-      }
-      #leandata-language-switcher .ld-language-icon {
-        display: grid;
-        place-items: center;
-        width: 24px;
-        height: 24px;
-        color: #72706a;
-        font-size: 16px;
-      }
-      #leandata-language-switcher .ld-language-divider {
-        width: 1px;
-        height: 14px;
-        background: rgba(20, 20, 20, .12);
-      }
-      #leandata-language-switcher button {
-        appearance: none;
-        min-width: 38px;
-        height: 30px;
-        padding: 0 9px;
-        border: 0;
-        border-radius: 999px;
-        color: #77746f;
+    // Style injection no longer needed - inline switchers use existing button styles
+  }
         background: transparent;
         cursor: pointer;
         font: inherit;
@@ -641,7 +612,7 @@
     } else if (document.documentElement.dataset.ldOriginalTitle) {
       document.title = document.documentElement.dataset.ldOriginalTitle;
     }
-    renderSwitcher();
+    // renderSwitcher() call removed - inline topbar switchers handle this now
     applying = false;
   }
 
@@ -656,8 +627,7 @@
   }
 
   function start() {
-    injectStyle();
-    renderSwitcher();
+    // injectStyle() and renderSwitcher() removed - inline topbar switchers handle this now
     applyLanguage();
     const observerOptions = {
       subtree: true,

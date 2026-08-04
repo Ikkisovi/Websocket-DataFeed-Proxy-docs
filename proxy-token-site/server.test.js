@@ -18,11 +18,20 @@ process.env.PROXY_RT_URL = 'http://127.0.0.1:1'; // prevent real rt-api probe in
 process.env.PROXY_REST_URL = 'http://127.0.0.1:1'; // prevent real REST proxy calls in tests
 process.env.PROXY_WS_HOST = '127.0.0.1';         // fast-fail WS probe (ECONNREFUSED)
 process.env.PROXY_WS_PORT = '1';
+process.env.EMAIL_VERIFY_SECRET = 'test-email-verification-secret';
+process.env.EMAIL_TEST_MODE = 'memory';
+process.env.EMAIL_CODE_RESEND_COOLDOWN_MS = '0';
 
 const mockSendMail = jest.fn().mockResolvedValue({ messageId: 'mock' });
 
 const request = require('supertest');
-const { app, TIERS, computeExpiry } = require('./server');
+const {
+  app,
+  TIERS,
+  computeExpiry,
+  getLastTestVerificationEmail,
+  clearTestVerificationEmails
+} = require('./server');
 
 const USERS_FILE = path.join(TEST_DATA_DIR, 'users.json');
 const PENDING_FILE = path.join(TEST_DATA_DIR, 'pending.json');
@@ -32,6 +41,8 @@ const PRODUCT_FEEDBACK_FILE = path.join(TEST_DATA_DIR, 'product-update-feedback.
 const ADMIN_PASSWORD_FILE = path.join(TEST_DATA_DIR, 'admin-password.env');
 const STRIPE_PAYMENT_ENV_FILE = path.join(TEST_DATA_DIR, 'stripe-payment.env');
 const ZPAY_PAYMENT_ENV_FILE = path.join(TEST_DATA_DIR, 'zpay-payment.env');
+const EMAIL_VERIFICATION_FILE = path.join(TEST_DATA_DIR, 'email-verifications.json');
+const EMAIL_TEMPLATE_FILE = path.join(TEST_DATA_DIR, 'email-template.json');
 
 function generateStripeTestHeader(payload, secret, timestamp = Math.floor(Date.now() / 1000)) {
   const signature = crypto
@@ -63,6 +74,9 @@ function resetTestData() {
   if (fs.existsSync(ADMIN_PASSWORD_FILE)) fs.unlinkSync(ADMIN_PASSWORD_FILE);
   if (fs.existsSync(STRIPE_PAYMENT_ENV_FILE)) fs.unlinkSync(STRIPE_PAYMENT_ENV_FILE);
   if (fs.existsSync(ZPAY_PAYMENT_ENV_FILE)) fs.unlinkSync(ZPAY_PAYMENT_ENV_FILE);
+  if (fs.existsSync(EMAIL_VERIFICATION_FILE)) fs.unlinkSync(EMAIL_VERIFICATION_FILE);
+  if (fs.existsSync(EMAIL_TEMPLATE_FILE)) fs.unlinkSync(EMAIL_TEMPLATE_FILE);
+  clearTestVerificationEmails();
   // Clean status data so status/uptime/latency tests start fresh
   const statusFile = path.join(TEST_DATA_DIR, 'status.json');
   if (fs.existsSync(statusFile)) fs.unlinkSync(statusFile);
@@ -72,6 +86,22 @@ beforeEach(() => {
   resetTestData();
   jest.spyOn(console, 'error').mockImplementation(() => {});
 });
+
+async function registerRequest(body) {
+  const email = String(body.email || '').trim().toLowerCase();
+  if (!email) return request(app).post('/api/register').send(body);
+  const codeResponse = await request(app)
+    .post('/api/register/request-code')
+    .send({ email });
+  if (codeResponse.statusCode !== 202) return codeResponse;
+  const captured = getLastTestVerificationEmail();
+  return request(app).post('/api/register').send({
+    ...body,
+    email,
+    verification_id: codeResponse.body.challenge_id,
+    verification_code: captured.code
+  });
+}
 
 afterEach(() => {
   delete process.env.PAYMENT_MOCK_ENABLED;
@@ -188,13 +218,13 @@ describe('computeExpiry', () => {
 // ============================================================
 describe('POST /api/register', () => {
   it('returns 400 for missing fields', async () => {
-    const res = await request(app).post('/api/register').send({ username: 'test' });
+    const res = await registerRequest({ username: 'test' });
     expect(res.statusCode).toBe(400);
     expect(res.body.success).toBe(false);
   });
 
   it('ignores any client-selected paid tier and keeps registration Free-only', async () => {
-    const res = await request(app).post('/api/register').send({
+    const res = await registerRequest({
       username: 'test', phone: '123', tier: 'premium', email: 'test@example.com'
     });
     expect(res.statusCode).toBe(400);
@@ -203,7 +233,7 @@ describe('POST /api/register', () => {
   });
 
   it('does not create a pending payment record during registration', async () => {
-    const res = await request(app).post('/api/register').send({
+    const res = await registerRequest({
       username: 'free-only', phone: '123', email: 'free-only@example.com'
     });
     expect(res.statusCode).toBe(201);
@@ -213,7 +243,7 @@ describe('POST /api/register', () => {
   });
 
   it('activates Free immediately and returns its bounded current plan', async () => {
-    const response = await request(app).post('/api/register').send({
+    const response = await registerRequest({
       username: 'free-user',
       phone: '123',
       email: 'free-user@example.com',
@@ -247,7 +277,7 @@ describe('POST /api/register', () => {
       if (destination === TEST_PROXY_FILE) throw new Error('simulated registry write failure');
       return rename(source, destination);
     });
-    const response = await request(app).post('/api/register').send({
+    const response = await registerRequest({
       username: 'free-sync-failure',
       phone: '123',
       email: 'free-sync-failure@example.com',
@@ -268,7 +298,7 @@ describe('POST /api/register', () => {
       }
       return rename(source, destination);
     });
-    const response = await request(app).post('/api/register').send({
+    const response = await registerRequest({
       username: 'bind-mounted-registry',
       phone: '123',
       email: 'bind-mounted-registry@example.com',
@@ -286,7 +316,7 @@ describe('POST /api/register', () => {
       role: 'standard',
       email: 'legacy@example.com'
     }]));
-    const response = await request(app).post('/api/register').send({
+    const response = await registerRequest({
       username: 'legacy-user',
       phone: '123',
       email: 'legacy-user@example.com',
@@ -296,13 +326,13 @@ describe('POST /api/register', () => {
   });
 
   it('is idempotent for an exact identity and separates same usernames with other tuple values', async () => {
-    const first = await request(app).post('/api/register').send({
+    const first = await registerRequest({
       username: 'dup', phone: '1', email: 'dup@example.com'
     });
-    const same = await request(app).post('/api/register').send({
+    const same = await registerRequest({
       username: 'dup', phone: '1', email: 'dup@example.com'
     });
-    const other = await request(app).post('/api/register').send({
+    const other = await registerRequest({
       username: 'dup', phone: '2', email: 'dup2@example.com'
     });
     expect(first.statusCode).toBe(201);
@@ -316,7 +346,7 @@ describe('POST /api/register', () => {
   });
 
   it('returns the existing Free account for repeated registration', async () => {
-    const first = await request(app).post('/api/register').send({
+    const first = await registerRequest({
       username: 'resume-user',
       phone: '6045550101',
       email: 'resume@example.com'
@@ -324,7 +354,7 @@ describe('POST /api/register', () => {
     expect(first.statusCode).toBe(201);
     expect(first.body.status).toBe('approved');
 
-    const resumed = await request(app).post('/api/register').send({
+    const resumed = await registerRequest({
       username: 'resume-user',
       phone: '6045550101',
       email: 'resume@example.com'
@@ -336,7 +366,7 @@ describe('POST /api/register', () => {
   });
 
   it('defaults to Free when tier omitted', async () => {
-    await request(app).post('/api/register').send({
+    await registerRequest({
       username: 'noTier', phone: '1', email: 'notier@example.com'
     });
     const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
@@ -344,7 +374,7 @@ describe('POST /api/register', () => {
   });
 
   it('does not expose paid tier validation on registration', async () => {
-    const res = await request(app).post('/api/register').send({
+    const res = await registerRequest({
       username: 'valueNoMode', phone: '1', tier: 'value', email: 'value@example.com'
     });
     expect(res.statusCode).toBe(400);
@@ -352,7 +382,7 @@ describe('POST /api/register', () => {
   });
 
   it('ignores paid mode on registration', async () => {
-    const res = await request(app).post('/api/register').send({
+    const res = await registerRequest({
       username: 'valueUser',
       phone: '1',
       tier: 'value',
@@ -364,7 +394,7 @@ describe('POST /api/register', () => {
   });
 
   it('returns 400 for an invalid email', async () => {
-    const res = await request(app).post('/api/register').send({
+    const res = await registerRequest({
       username: 'badMail', phone: '1', tier: 'standard', email: 'not-an-email'
     });
     expect(res.statusCode).toBe(400);
@@ -372,7 +402,7 @@ describe('POST /api/register', () => {
   });
 
   it('returns 400 when email is missing', async () => {
-    const res = await request(app).post('/api/register').send({
+    const res = await registerRequest({
       username: 'noMail', phone: '1', tier: 'standard'
     });
     expect(res.statusCode).toBe(400);
@@ -381,7 +411,7 @@ describe('POST /api/register', () => {
   });
 
   it('rejects paid Basic registration tier', async () => {
-    const res = await request(app).post('/api/register').send({
+    const res = await registerRequest({
       username: 'oldBasic', phone: '1', tier: 'basic', email: 'basic@example.com'
     });
     expect(res.statusCode).toBe(400);
@@ -389,10 +419,81 @@ describe('POST /api/register', () => {
   });
 
   it('stores the required email on the Free account', async () => {
-    const res = await request(app).post('/api/register').send({
+    const res = await registerRequest({
       username: 'mailUser', phone: '1', tier: 'standard', email: 'mailuser@example.com'
     });
     expect(res.statusCode).toBe(400);
+  });
+});
+
+describe('Email verification and registration template', () => {
+  it('sends a six-digit code and accepts the matching challenge', async () => {
+    const email = 'verification@example.com';
+    const requested = await request(app)
+      .post('/api/register/request-code')
+      .send({ email });
+    expect(requested.statusCode).toBe(202);
+    expect(requested.body.challenge_id).toEqual(expect.any(String));
+
+    const captured = getLastTestVerificationEmail();
+    expect(captured.email).toBe(email);
+    expect(captured.code).toMatch(/^\d{6}$/);
+    const stored = JSON.parse(fs.readFileSync(EMAIL_VERIFICATION_FILE, 'utf8'))[0];
+    expect(stored.code_hash).not.toContain(captured.code);
+
+    const registered = await request(app).post('/api/register').send({
+      email,
+      verification_id: requested.body.challenge_id,
+      verification_code: captured.code,
+      username: 'verified-user',
+      phone: '123',
+      tier: 'free'
+    });
+    expect(registered.statusCode).toBe(201);
+    expect(registered.body.message).toContain('邮箱验证成功');
+    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0]).toEqual(expect.objectContaining({
+      email,
+      email_verified: true
+    }));
+  });
+
+  it('rejects a code that does not match the email challenge', async () => {
+    const requested = await request(app)
+      .post('/api/register/request-code')
+      .send({ email: 'wrong-code@example.com' });
+    const response = await request(app).post('/api/register').send({
+      email: 'wrong-code@example.com',
+      verification_id: requested.body.challenge_id,
+      verification_code: '000000',
+      username: 'wrong-code-user',
+      phone: '123',
+      tier: 'free'
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.body.message).toContain('验证码错误');
+    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))).toEqual([]);
+  });
+
+  it('allows an admin to read and update the registration email template', async () => {
+    const login = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    expect(login.statusCode).toBe(200);
+    const headers = { 'x-admin-token': login.body.token };
+    const current = await request(app).get('/api/admin/email-template').set(headers);
+    expect(current.statusCode).toBe(200);
+    expect(current.body.template.text).toContain('{{code}}');
+
+    const saved = await request(app)
+      .put('/api/admin/email-template')
+      .set(headers)
+      .send({
+        subject: 'Verify {{site_name}}',
+        text: 'Code: {{code}} ({{expires_minutes}} minutes)',
+        html: '<p>Code: <strong>{{code}}</strong></p>'
+      });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.body.preview.text).toContain('123456');
+    expect(JSON.parse(fs.readFileSync(EMAIL_TEMPLATE_FILE, 'utf8')).subject)
+      .toBe('Verify {{site_name}}');
   });
 });
 
@@ -688,6 +789,10 @@ describe('Registration and bulk product UI contract', () => {
   it('makes registration email required and replaces the Basic card with Bulk Download', () => {
     expect(registerSource).toContain('type="email"');
     expect(registerSource).toContain('required');
+    expect(registerSource).toContain('/api/register/request-code');
+    expect(registerSource).toContain('verification_id: verificationId');
+    expect(registerSource).toContain('邮箱验证码');
+    expect(registerSource).toContain('autoComplete="one-time-code"');
     expect(registerSource).toContain('Bulk Download');
     expect(registerSource).toContain('/docs/#bulk');
     expect(registerSource).not.toContain('id: "basic"');
@@ -2020,7 +2125,7 @@ describe('POST /api/check-status', () => {
   });
 
   it('returns approved for registered Free user', async () => {
-    await request(app).post('/api/register').send({
+    await registerRequest({
       username: 'pend', phone: '111', email: 'pend@example.com'
     });
     const res = await request(app).post('/api/check-status').send({ username: 'pend', phone: '111', email: 'pend@example.com' });
@@ -2028,7 +2133,7 @@ describe('POST /api/check-status', () => {
   });
 
   it('does not create a resumable checkout for a Free registration', async () => {
-    await request(app).post('/api/register').send({
+    await registerRequest({
       username: 'pay-later',
       phone: '222',
       email: 'pay-later@example.com'
@@ -2111,6 +2216,11 @@ describe('Admin portal UI', () => {
     expect(res.text).toContain('id="manual-email"');
     expect(res.text).toContain('id="announce-preview-button"');
     expect(res.text).toContain('id="announce-send-button"');
+    expect(res.text).toContain('data-tab="template"');
+    expect(res.text).toContain('id="email-template-subject"');
+    expect(res.text).toContain('id="email-template-text"');
+    expect(res.text).toContain('id="email-template-html"');
+    expect(res.text).toContain('saveEmailTemplate()');
   });
 
   it('states that expired registered users with email are included', async () => {
