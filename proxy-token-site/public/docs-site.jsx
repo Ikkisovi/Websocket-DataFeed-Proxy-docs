@@ -492,7 +492,7 @@ function DocsTopbar({ active = "proxy", onNav }) {
       <div className="divider"></div>
       <div className="nav">
         <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>Proxy API</a>
-        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>FMP archive</a>
+        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>FMP statements</a>
         <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>Bulk Download</a>
         <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>WS usage</a>
         <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>Status</a>
@@ -586,7 +586,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
         {/* Tab strip */}
         <div className="docs-tabs" style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
           <Tab id="proxy" tab={tab} setTab={setTab} label="Proxy API" count="45+ endpoints" />
-          <Tab id="fmp" tab={tab} setTab={setTab} label="FMP archive" count="3 statements" />
+          <Tab id="fmp" tab={tab} setTab={setTab} label="FMP statements" count="3 endpoints" />
           <Tab id="bulk" tab={tab} setTab={setTab} label="Bulk Download" count="¥50 / 50GB" />
           <Tab id="ws" tab={tab} setTab={setTab} label="WS usage" count="6 channels" />
           <Tab id="status" tab={tab} setTab={setTab} label="Status" count="live" />
@@ -1517,101 +1517,136 @@ function FmpArchiveBody() {
   const mono = { fontFamily: "var(--f-mono)", fontSize: 12 };
 
   return (
-    <div style={{ maxWidth: 980, margin: "0 auto" }}>
-      <div className="eyebrow" style={{ marginBottom: 10 }}>FMP-compatible fundamentals · request session</div>
-      <h2 className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>FMP fundamentals archive</h2>
+    <div style={{ maxWidth: 860, margin: "0 auto" }}>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>FMP-compatible financial data</div>
+      <h2 className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>FMP data: requests, coverage &amp; plan</h2>
       <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
-        A visible documentation surface for the immutable, FMP-compatible statement archive. This is the
-        archive base truth—not a generic pass-through for every native FMP endpoint.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>这是不可变 FMP 兼容财务报表归档的独立文档页。它是当前的 archive base truth，不是任意原生 FMP endpoint 的通用转发层。</span>
+        This page separates request shape, verified coverage, and planned work so a familiar FMP path is never mistaken for a blanket native-FMP pass-through.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>本页把请求格式、已验证覆盖范围和后续计划分开说明；FMP 风格路径不代表已完整转发所有原生 FMP endpoint。</span>
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 28 }}>
         <div style={panel}>
-          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Public API</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>FMP-shaped statement reads</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Income statement, balance sheet, and cash-flow statement through <code>api.leandata.uk</code>.</div>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Authentication</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Leandata Bearer token</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Send <code>Authorization: Bearer TOKEN</code>. Do not add an FMP <code>apikey</code> or <code>api_key</code>.</div>
         </div>
         <div style={panel}>
-          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>PIT identity</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Explicit reproducibility</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>PIT reads bind <code>as_of</code> and <code>package_sha256</code>; they never silently select a newer package.</div>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Verified package today</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Historical EOD prices</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>The received FMP Premium ZIP is historical daily price data. It is not a financial-statement or ratios package.</div>
         </div>
         <div style={panel}>
-          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Private archive</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>ThinkCentre stays private</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Public clients connect only to AWS. The ClickHouse reader is not a public endpoint.</div>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Statement compatibility</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Planned after verified import</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Income, balance-sheet, and cash-flow routes are shown below as the public contract; they are enabled only with a complete verified statement package.</div>
         </div>
       </div>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Request session and route</h3>
+      <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 28 }}>
+        <strong style={{ color: "var(--accent-ink)" }}>Availability status.</strong>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> The FMP ZIP currently received and verified for this product contains historical EOD price bars. Do not treat the statement examples below as a currently complete public statement dataset until a separate financial-statements package has been imported and published.</span>
+      </div>
+
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Statement request examples</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 14px", maxWidth: 830 }}>
-        The user-facing HTTPS request remains anchored at AWS. AWS authenticates the Bearer token, opens a separate
-        private service-authenticated hop to ThinkCentre, then streams the response back on the original user request.
+        When the matching statement package is published, send an HTTPS <code>GET</code> request to <code>https://api.leandata.uk</code> with your Leandata Bearer token. The standard paths follow FMP-style names; use the PIT path when a query must pin an explicit package and time.
       </p>
-      <div style={{ ...panel, marginBottom: 14, overflowX: "auto" }}>
-        <div style={{ minWidth: 720, display: "grid", gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr", gap: 12, alignItems: "center" }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ ...mono, color: "var(--ink-soft)", marginBottom: 4 }}>PUBLIC CLIENT</div>
-            <strong>HTTPS + Bearer</strong>
-          </div>
-          <div style={{ color: "var(--accent-ink)", fontSize: 22 }}>→</div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ ...mono, color: "var(--ink-soft)", marginBottom: 4 }}>AWS</div>
-            <strong>Auth + route policy</strong>
-          </div>
-          <div style={{ color: "var(--accent-ink)", fontSize: 22 }}>→</div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ ...mono, color: "var(--ink-soft)", marginBottom: 4 }}>PRIVATE HOP</div>
-            <strong>Service credential</strong>
-          </div>
-          <div style={{ color: "var(--accent-ink)", fontSize: 22 }}>→</div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ ...mono, color: "var(--ink-soft)", marginBottom: 4 }}>THINKCENTRE</div>
-            <strong>archive-reader + ClickHouse</strong>
-          </div>
-        </div>
-        <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--rule)", color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>
-          The response streams back along the original AWS-to-user HTTPS request. The user Bearer token never crosses to ThinkCentre; ThinkCentre never accepts a direct public connection.
-          <br/><span style={{ color: "var(--ink-soft)" }}>响应沿原 AWS → 用户 HTTPS 请求回传。用户 Bearer Token 不会传到 ThinkCentre；ThinkCentre 不接受公网直连。</span>
-        </div>
-      </div>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "28px 0 10px" }}>Available archive routes</h3>
+      <h3 className="display-title" style={{ fontSize: 28, margin: "28px 0 10px" }}>Available endpoints</h3>
       <div style={{ overflowX: "auto", marginBottom: 16 }}>
         <table className="tbl card" style={{ width: "100%", minWidth: 700, overflow: "hidden" }}>
-          <thead><tr><th>Route</th><th>Archive scope</th><th>Parameters</th></tr></thead>
+          <thead><tr><th>Route</th><th>Response family</th><th>Parameters</th></tr></thead>
           <tbody>
             <tr><td style={mono}>/stable/income-statement</td><td>Income statement</td><td><code>symbol</code>, optional <code>period</code>, <code>limit</code></td></tr>
             <tr><td style={mono}>/stable/balance-sheet-statement</td><td>Balance sheet</td><td><code>symbol</code>, optional <code>period</code>, <code>limit</code></td></tr>
             <tr><td style={mono}>/stable/cash-flow-statement</td><td>Cash-flow statement</td><td><code>symbol</code>, optional <code>period</code>, <code>limit</code></td></tr>
-            <tr><td style={mono}>/v1/pit/fmp/*</td><td>Exact package-as-of snapshot</td><td><code>symbol</code>, <code>as_of</code>, <code>package_sha256</code></td></tr>
+            <tr><td style={mono}>/v1/pit/fmp/*</td><td>Package-pinned statement snapshot</td><td><code>symbol</code>, <code>as_of</code>, <code>package_sha256</code></td></tr>
           </tbody>
         </table>
       </div>
+
       <pre className="code" style={{ marginBottom: 22 }}>
-{`# Native-style statement request; use the Leandata token, not an FMP API key.
+{`# Income statement — annual or quarter
 curl "https://api.leandata.uk/stable/income-statement?symbol=AAPL&period=annual&limit=5" \\
   -H "Authorization: Bearer TOKEN"
 
-# Point-in-time read: package identity is explicit and reproducible.
+# Balance sheet
+curl "https://api.leandata.uk/stable/balance-sheet-statement?symbol=AAPL&period=quarter&limit=4" \\
+  -H "Authorization: Bearer TOKEN"
+
+# Cash-flow statement
+curl "https://api.leandata.uk/stable/cash-flow-statement?symbol=AAPL&period=annual&limit=5" \\
+  -H "Authorization: Bearer TOKEN"
+
+# Point-in-time statement read — package identity and as_of are explicit.
 curl "https://api.leandata.uk/v1/pit/fmp/income-statement?symbol=AAPL&as_of=2026-08-01T00:00:00Z&package_sha256=PACKAGE_SHA256" \\
   -H "Authorization: Bearer TOKEN"`}
       </pre>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Response provenance and cache semantics</h3>
-      <div style={{ ...panel, marginBottom: 22 }}>
-        <ul style={{ margin: 0, paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
-          <li><code>X-Cache: ARCHIVE</code> and <code>X-Cache-Tier: thinkcentre_archive</code> identify an archive hit.</li>
-          <li><code>X-FMP-Package-SHA256</code> identifies the immutable package that supplied the row set.</li>
-          <li>This compatibility family intentionally bypasses the mutable AWS hot-response cache.</li>
-          <li>Do not send <code>apikey</code> or <code>api_key</code>; authentication is the normal Leandata Bearer token.</li>
-        </ul>
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Representative response</h3>
+      <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 14px", maxWidth: 830 }}>
+        A published statement endpoint returns a JSON array. The example below shows the FMP-compatible field shape only; values are illustrative and are not live market or company data.
+      </p>
+      <pre className="code" style={{ marginBottom: 22 }}>
+{`HTTP/1.1 200 OK
+Content-Type: application/json
+
+[
+  {
+    "date": "2026-03-31",
+    "symbol": "EXAMPLE",
+    "reportedCurrency": "USD",
+    "cik": "0000000000",
+    "fillingDate": "2026-05-01",
+    "acceptedDate": "2026-05-01T16:00:00.000Z",
+    "calendarYear": "2026",
+    "period": "Q1",
+    "revenue": 123456789,
+    "netIncome": 12345678
+  }
+]`}
+      </pre>
+
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Parameters and result handling</h3>
+      <div style={{ overflowX: "auto", marginBottom: 22 }}>
+        <table className="tbl card" style={{ width: "100%", minWidth: 700, overflow: "hidden" }}>
+          <thead><tr><th>Parameter</th><th>Use</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td style={mono}>symbol</td><td>Required ticker</td><td>Use the listed company symbol, for example <code>AAPL</code>.</td></tr>
+            <tr><td style={mono}>period</td><td>Optional statement cadence</td><td><code>annual</code> or <code>quarter</code>.</td></tr>
+            <tr><td style={mono}>limit</td><td>Optional row count</td><td>Use a small explicit limit when testing or paginating research.</td></tr>
+            <tr><td style={mono}>as_of</td><td>Required for PIT</td><td>ISO-8601 timestamp used to select a published package snapshot.</td></tr>
+            <tr><td style={mono}>package_sha256</td><td>Required for PIT</td><td>Exact published package identity; use it for reproducible reruns.</td></tr>
+          </tbody>
+        </table>
       </div>
 
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Current coverage and limitations</h3>
+      <ul style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
+        <li><strong style={{ color: "var(--ink-strong)" }}>Current package scope:</strong> historical EOD price bars. It does not establish income-statement, balance-sheet, cash-flow, or ratios coverage by itself.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>Not advertised as available:</strong> ratios, growth, TTM, estimates, analyst data, and arbitrary native FMP endpoints. Each needs its own raw-data scope and published contract.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>Statement readiness:</strong> a statement route is published only after the supporting annual/quarter package has a complete verified import. Until then, the request examples are a compatibility contract, not a promise of data availability.</li>
+      </ul>
+
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Native FMP data: caveats</h3>
+      <ul style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
+        <li><strong style={{ color: "var(--ink-strong)" }}>Latest data can change:</strong> later filings, amendments, and normalization can change what a latest-style financial response contains. Use a published PIT request for research that must be reproducible.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>Endpoint families are different datasets:</strong> price history, statements, ratios, estimates, and TTM/growth are not interchangeable. Presence of one does not imply coverage of another.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>Expect missing fields:</strong> company, period, and filing availability vary. Client code should tolerate absent or null values rather than inferring a value.</li>
+      </ul>
+
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Future plan</h3>
+      <ol style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
+        <li>Import and publish separate annual and quarterly packages for the three core statements, with explicit package identity and PIT reads.</li>
+        <li>Add ratios, TTM, growth, estimates, and additional financial families only through separate source packages, validation, and documented endpoint contracts.</li>
+        <li>Connect native FMP as a distinct forwarding surface for broader endpoint coverage. It will have its own availability and refresh policy and will not overwrite published package snapshots.</li>
+        <li>Publish a scheduled PIT refresh cadence for the native-data layer. Weekly is the initial candidate; the live cadence will be stated here before launch.</li>
+      </ol>
+
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 8 }}>
-        <strong style={{ color: "var(--accent-ink)" }}>Future native FMP forwarding is a separate product surface.</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> When added, it will have its own upstream provenance and refresh policy. It will not rewrite or blur the immutable PIT/archive semantics documented here.</span>
+        <strong style={{ color: "var(--accent-ink)" }}>Request tip.</strong>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> Use your Leandata Bearer token—never an FMP <code>apikey</code> or <code>api_key</code>. For reproducible research, save the published <code>as_of</code> and <code>package_sha256</code> beside the query.</span>
       </div>
     </div>
   );

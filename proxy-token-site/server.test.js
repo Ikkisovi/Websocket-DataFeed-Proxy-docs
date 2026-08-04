@@ -622,9 +622,9 @@ describe('Registration and bulk product UI contract', () => {
     expect(tokenPageSource).toContain('<DocsSite hideTopbar={true} />');
     expect(tokenPageSource).not.toContain('portal · production');
     expect(tokenPageSource).not.toContain('>Account</a>');
-    expect(rootIndexSource).toContain('src="/docs/docs-site.jsx?v=fmp-archive-tab-v1"');
+    expect(rootIndexSource).toContain('src="/docs/docs-site.jsx?v=fmp-statements-complete-guide-v1"');
     expect(rootIndexSource).not.toContain('src="docs-site.jsx"');
-    expect(docsIndexSource).toContain('src="docs-site.jsx?v=fmp-archive-tab-v1"');
+    expect(docsIndexSource).toContain('src="docs-site.jsx?v=fmp-statements-complete-guide-v1"');
     expect(docsSource.match(/Alpaca supports index options now\./g)).toHaveLength(1);
   });
 
@@ -636,16 +636,36 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).not.toContain('Hybrid architecture');
   });
 
-  it('exposes the public FMP archive as a dedicated React docs tab with its request-session contract', () => {
+  it('explains FMP request examples, current data scope, and roadmap without internal routing details', () => {
+    const fmpStart = docsSource.indexOf('function FmpArchiveBody()');
+    const fmpEnd = docsSource.indexOf('function ProxyApiBody()');
+    const fmpSource = docsSource.slice(fmpStart, fmpEnd);
+
     expect(docsSource).toContain('Tab id="fmp"');
-    expect(docsSource).toContain('function FmpArchiveBody()');
-    expect(docsSource).toContain('Request session and route');
-    expect(docsSource).toContain('The user Bearer token never crosses to ThinkCentre');
-    expect(docsSource).toContain('/stable/income-statement');
-    expect(docsSource).toContain('/v1/pit/fmp/*');
-    expect(docsSource).toContain('X-Cache-Tier: thinkcentre_archive');
-    expect(docsSource).toContain('X-FMP-Package-SHA256');
-    expect(docsSource).toContain('Future native FMP forwarding is a separate product surface.');
+    expect(fmpStart).toBeGreaterThanOrEqual(0);
+    expect(fmpEnd).toBeGreaterThan(fmpStart);
+    expect(fmpSource).toContain('FMP-compatible financial data');
+    expect(fmpSource).toContain('Statement request examples');
+    expect(fmpSource).toContain('Available endpoints');
+    expect(fmpSource).toContain('Authorization: Bearer TOKEN');
+    expect(fmpSource).toContain('/stable/income-statement');
+    expect(fmpSource).toContain('/v1/pit/fmp/*');
+    expect(fmpSource).toContain('Representative response');
+    expect(fmpSource).toContain('reportedCurrency');
+    expect(fmpSource).toContain('acceptedDate');
+    expect(fmpSource).toContain('netIncome');
+    expect(fmpSource).toContain('Current coverage and limitations');
+    expect(fmpSource).toContain('historical EOD price bars');
+    expect(fmpSource).toContain('Native FMP data: caveats');
+    expect(fmpSource).toContain('Future plan');
+    expect(fmpSource).toContain('Weekly is the initial candidate');
+    expect(fmpSource).not.toContain('Request session and route');
+    expect(fmpSource).not.toContain('AWS');
+    expect(fmpSource).not.toContain('ThinkCentre');
+    expect(fmpSource).not.toContain('private hop');
+    expect(fmpSource).not.toContain('Service credential');
+    expect(fmpSource).not.toContain('X-Cache');
+    expect(fmpSource).not.toContain('X-FMP-Package-SHA256');
   });
 });
 
