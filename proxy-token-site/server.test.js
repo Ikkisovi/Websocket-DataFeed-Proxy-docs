@@ -579,6 +579,10 @@ describe('Registration and bulk product UI contract', () => {
     path.join(__dirname, 'public', 'index.html'),
     'utf8'
   );
+  const docsIndexSource = fs.readFileSync(
+    path.join(__dirname, 'public', 'docs', 'index.html'),
+    'utf8'
+  );
 
   it('makes registration email required and replaces the Basic card with Bulk Download', () => {
     expect(registerSource).toContain('type="email"');
@@ -618,8 +622,9 @@ describe('Registration and bulk product UI contract', () => {
     expect(tokenPageSource).toContain('<DocsSite hideTopbar={true} />');
     expect(tokenPageSource).not.toContain('portal · production');
     expect(tokenPageSource).not.toContain('>Account</a>');
-    expect(rootIndexSource).toContain('src="/docs/docs-site.jsx"');
+    expect(rootIndexSource).toContain('src="/docs/docs-site.jsx?v=fmp-archive-tab-v1"');
     expect(rootIndexSource).not.toContain('src="docs-site.jsx"');
+    expect(docsIndexSource).toContain('src="docs-site.jsx?v=fmp-archive-tab-v1"');
     expect(docsSource.match(/Alpaca supports index options now\./g)).toHaveLength(1);
   });
 
