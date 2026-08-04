@@ -492,6 +492,7 @@ function DocsTopbar({ active = "proxy", onNav }) {
       <div className="divider"></div>
       <div className="nav">
         <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>Proxy API</a>
+        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>FMP archive</a>
         <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>Bulk Download</a>
         <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>WS usage</a>
         <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>Status</a>
@@ -539,7 +540,7 @@ function IndexOptionsBanner() {
 }
 
 function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
-  const validTabs = ["proxy", "bulk", "ws", "status", "usage"];
+  const validTabs = ["proxy", "fmp", "bulk", "ws", "status", "usage"];
   const hashTab = typeof window !== "undefined" && window.location.hash ? window.location.hash.slice(1) : "";
   const startTab = validTabs.includes(hashTab) ? hashTab : initialTab;
   const [tab, setTab] = useState(startTab);
@@ -585,6 +586,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
         {/* Tab strip */}
         <div className="docs-tabs" style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
           <Tab id="proxy" tab={tab} setTab={setTab} label="Proxy API" count="45+ endpoints" />
+          <Tab id="fmp" tab={tab} setTab={setTab} label="FMP archive" count="3 statements" />
           <Tab id="bulk" tab={tab} setTab={setTab} label="Bulk Download" count="¥50 / 50GB" />
           <Tab id="ws" tab={tab} setTab={setTab} label="WS usage" count="6 channels" />
           <Tab id="status" tab={tab} setTab={setTab} label="Status" count="live" />
@@ -597,12 +599,12 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
       </div>
 
       {/* Content */}
-      <div style={{ display: "grid", gridTemplateColumns: (tab === "status" || tab === "usage" || tab === "bulk") ? "1fr" : "220px 1fr 220px", flex: 1 }}>
-        {tab !== "status" && tab !== "usage" && tab !== "bulk" && <SideNav tab={tab} />}
-        <main className={tab === "bulk" ? "bulk-main" : ""} style={{ padding: (tab === "status" || tab === "usage" || tab === "bulk") ? "36px 32px" : "40px 56px", background: "var(--bg-canvas)" }}>
-          {tab === "proxy" ? <ProxyApiBody /> : tab === "bulk" ? <BulkOrderBody /> : tab === "ws" ? <WsUsageBody /> : tab === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…")) : (React.createElement(StatusBody))}
+      <div style={{ display: "grid", gridTemplateColumns: (tab === "status" || tab === "usage" || tab === "bulk" || tab === "fmp") ? "1fr" : "220px 1fr 220px", flex: 1 }}>
+        {tab !== "status" && tab !== "usage" && tab !== "bulk" && tab !== "fmp" && <SideNav tab={tab} />}
+        <main className={tab === "bulk" ? "bulk-main" : ""} style={{ padding: (tab === "status" || tab === "usage" || tab === "bulk" || tab === "fmp") ? "36px 32px" : "40px 56px", background: "var(--bg-canvas)" }}>
+          {tab === "proxy" ? <ProxyApiBody /> : tab === "fmp" ? <FmpArchiveBody /> : tab === "bulk" ? <BulkOrderBody /> : tab === "ws" ? <WsUsageBody /> : tab === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…")) : (React.createElement(StatusBody))}
         </main>
-        {tab !== "status" && tab !== "usage" && tab !== "bulk" && <OnThisPage tab={tab} />}
+        {tab !== "status" && tab !== "usage" && tab !== "bulk" && tab !== "fmp" && <OnThisPage tab={tab} />}
       </div>
     </div>
   );
@@ -1500,6 +1502,116 @@ function BulkOrderBody() {
             }}>{message}</div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function FmpArchiveBody() {
+  const panel = {
+    background: "var(--bg-paper)",
+    border: "1px solid var(--rule)",
+    borderRadius: 10,
+    padding: "18px 20px",
+  };
+  const mono = { fontFamily: "var(--f-mono)", fontSize: 12 };
+
+  return (
+    <div style={{ maxWidth: 980, margin: "0 auto" }}>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>FMP-compatible fundamentals · request session</div>
+      <h2 className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>FMP fundamentals archive</h2>
+      <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
+        A visible documentation surface for the immutable, FMP-compatible statement archive. This is the
+        archive base truth—not a generic pass-through for every native FMP endpoint.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>这是不可变 FMP 兼容财务报表归档的独立文档页。它是当前的 archive base truth，不是任意原生 FMP endpoint 的通用转发层。</span>
+      </p>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 28 }}>
+        <div style={panel}>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Public API</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>FMP-shaped statement reads</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Income statement, balance sheet, and cash-flow statement through <code>api.leandata.uk</code>.</div>
+        </div>
+        <div style={panel}>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>PIT identity</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Explicit reproducibility</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>PIT reads bind <code>as_of</code> and <code>package_sha256</code>; they never silently select a newer package.</div>
+        </div>
+        <div style={panel}>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Private archive</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>ThinkCentre stays private</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Public clients connect only to AWS. The ClickHouse reader is not a public endpoint.</div>
+        </div>
+      </div>
+
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Request session and route</h3>
+      <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 14px", maxWidth: 830 }}>
+        The user-facing HTTPS request remains anchored at AWS. AWS authenticates the Bearer token, opens a separate
+        private service-authenticated hop to ThinkCentre, then streams the response back on the original user request.
+      </p>
+      <div style={{ ...panel, marginBottom: 14, overflowX: "auto" }}>
+        <div style={{ minWidth: 720, display: "grid", gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr", gap: 12, alignItems: "center" }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ ...mono, color: "var(--ink-soft)", marginBottom: 4 }}>PUBLIC CLIENT</div>
+            <strong>HTTPS + Bearer</strong>
+          </div>
+          <div style={{ color: "var(--accent-ink)", fontSize: 22 }}>→</div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ ...mono, color: "var(--ink-soft)", marginBottom: 4 }}>AWS</div>
+            <strong>Auth + route policy</strong>
+          </div>
+          <div style={{ color: "var(--accent-ink)", fontSize: 22 }}>→</div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ ...mono, color: "var(--ink-soft)", marginBottom: 4 }}>PRIVATE HOP</div>
+            <strong>Service credential</strong>
+          </div>
+          <div style={{ color: "var(--accent-ink)", fontSize: 22 }}>→</div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ ...mono, color: "var(--ink-soft)", marginBottom: 4 }}>THINKCENTRE</div>
+            <strong>archive-reader + ClickHouse</strong>
+          </div>
+        </div>
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--rule)", color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>
+          The response streams back along the original AWS-to-user HTTPS request. The user Bearer token never crosses to ThinkCentre; ThinkCentre never accepts a direct public connection.
+          <br/><span style={{ color: "var(--ink-soft)" }}>响应沿原 AWS → 用户 HTTPS 请求回传。用户 Bearer Token 不会传到 ThinkCentre；ThinkCentre 不接受公网直连。</span>
+        </div>
+      </div>
+
+      <h3 className="display-title" style={{ fontSize: 28, margin: "28px 0 10px" }}>Available archive routes</h3>
+      <div style={{ overflowX: "auto", marginBottom: 16 }}>
+        <table className="tbl card" style={{ width: "100%", minWidth: 700, overflow: "hidden" }}>
+          <thead><tr><th>Route</th><th>Archive scope</th><th>Parameters</th></tr></thead>
+          <tbody>
+            <tr><td style={mono}>/stable/income-statement</td><td>Income statement</td><td><code>symbol</code>, optional <code>period</code>, <code>limit</code></td></tr>
+            <tr><td style={mono}>/stable/balance-sheet-statement</td><td>Balance sheet</td><td><code>symbol</code>, optional <code>period</code>, <code>limit</code></td></tr>
+            <tr><td style={mono}>/stable/cash-flow-statement</td><td>Cash-flow statement</td><td><code>symbol</code>, optional <code>period</code>, <code>limit</code></td></tr>
+            <tr><td style={mono}>/v1/pit/fmp/*</td><td>Exact package-as-of snapshot</td><td><code>symbol</code>, <code>as_of</code>, <code>package_sha256</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <pre className="code" style={{ marginBottom: 22 }}>
+{`# Native-style statement request; use the Leandata token, not an FMP API key.
+curl "https://api.leandata.uk/stable/income-statement?symbol=AAPL&period=annual&limit=5" \\
+  -H "Authorization: Bearer TOKEN"
+
+# Point-in-time read: package identity is explicit and reproducible.
+curl "https://api.leandata.uk/v1/pit/fmp/income-statement?symbol=AAPL&as_of=2026-08-01T00:00:00Z&package_sha256=PACKAGE_SHA256" \\
+  -H "Authorization: Bearer TOKEN"`}
+      </pre>
+
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Response provenance and cache semantics</h3>
+      <div style={{ ...panel, marginBottom: 22 }}>
+        <ul style={{ margin: 0, paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
+          <li><code>X-Cache: ARCHIVE</code> and <code>X-Cache-Tier: thinkcentre_archive</code> identify an archive hit.</li>
+          <li><code>X-FMP-Package-SHA256</code> identifies the immutable package that supplied the row set.</li>
+          <li>This compatibility family intentionally bypasses the mutable AWS hot-response cache.</li>
+          <li>Do not send <code>apikey</code> or <code>api_key</code>; authentication is the normal Leandata Bearer token.</li>
+        </ul>
+      </div>
+
+      <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 8 }}>
+        <strong style={{ color: "var(--accent-ink)" }}>Future native FMP forwarding is a separate product surface.</strong>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> When added, it will have its own upstream provenance and refresh policy. It will not rewrite or blur the immutable PIT/archive semantics documented here.</span>
       </div>
     </div>
   );
@@ -3016,13 +3128,6 @@ r2 = session.get("https://api.leandata.uk/v1/history/bars",
 import { Agent } from 'undici'
 const agent = new Agent({ keepAliveTimeout: 30000 })`}
       </pre>
-
-      <h3 id="fmp-fundamentals-routing" style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>FMP fundamentals routing</h3>
-      <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 20px", fontSize: 13, lineHeight: 1.65 }}>
-        <strong style={{ color: "var(--ink-strong)" }}>Public on <code>api.leandata.uk</code>.</strong> The immutable FMP-compatible fundamentals surface accepts normal Leandata Bearer authentication and supports <code>/stable/income-statement</code>, <code>/stable/balance-sheet-statement</code>, <code>/stable/cash-flow-statement</code>, plus explicit point-in-time reads under <code>/v1/pit/fmp/*</code>. Use the native-style <code>symbol</code>, optional <code>period=annual|quarter</code>, and optional <code>limit</code> parameters. PIT reads additionally require an ISO-8601 <code>as_of</code> timestamp and an explicit <code>package_sha256</code>.
-        Every public response is returned through AWS: AWS authenticates the user, sends a separate internal service credential to the private ThinkCentre reader, and streams the result back on the original HTTPS session. A user Bearer token is never forwarded to ThinkCentre, and ThinkCentre is never exposed directly to public clients. Successful immutable reads return <code>X-Cache: ARCHIVE</code>, <code>X-Cache-Tier: thinkcentre_archive</code>, and <code>X-FMP-Package-SHA256</code>; this compatibility family intentionally does not use the mutable AWS hot-response cache. Do not send an FMP <code>apikey</code>/<code>api_key</code> to Leandata.
-        <br/><span style={{ color: "var(--ink-soft)" }}>FMP 三张财务报表及 <code>/v1/pit/fmp/*</code> 已作为 <code>api.leandata.uk</code> 的公开、需认证兼容接口发布。用户只使用 Leandata Bearer Token；AWS 验证用户后，用独立内部凭据访问 ThinkCentre，并经原 HTTPS 会话回传。不会转发用户 Token，也不会将 ThinkCentre 直接暴露给公网。成功响应带有 <code>X-Cache: ARCHIVE</code>、<code>X-Cache-Tier: thinkcentre_archive</code> 和精确的 <code>X-FMP-Package-SHA256</code>；该不可变兼容层刻意不使用可变 AWS hot cache。PIT 查询必须提供带时区的 <code>as_of</code> 与明确的 <code>package_sha256</code>。</span>
-      </div>
 
       <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Choose the right endpoint</h3>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
