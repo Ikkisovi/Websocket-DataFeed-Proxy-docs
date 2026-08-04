@@ -508,38 +508,7 @@ function DocsTopbar({ active = "proxy", onNav }) {
   );
 }
 
-function ComplianceFooter() {
-  const t = (text) => window.LeandataI18n?.translate(text) || text;
-  return (
-    <footer style={{
-      padding: "32px 32px 40px",
-      borderTop: "1px solid var(--rule)",
-      background: "var(--bg-paper)",
-      marginTop: "auto",
-      fontSize: 13,
-      color: "var(--ink-muted)",
-      lineHeight: 1.6
-    }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 20, alignItems: "flex-start" }}>
-        <div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 4 }}>
-            Leandata Technologies Ltd.
-          </div>
-          <div>700 W Georgia St, Vancouver, BC V7Y 1B6, Canada</div>
-          <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 4 }}>
-            {t("美股期权与数据代理服务 · Stock Options & Financial Data Proxy Service")}
-          </div>
-        </div>
-        <div style={{ textAlign: "right", fontFamily: "var(--f-mono)", fontSize: 12 }}>
-          <div>© {new Date().getFullYear()} Leandata Technologies Ltd.</div>
-          <div style={{ marginTop: 4 }}>
-            <a href="https://leandata.uk" style={{ color: "var(--accent-ink)", textDecoration: "none" }}>leandata.uk</a>
-          </div>
-        </div>
-      </div>
-    </footer>
-  );
-}
+
 
 function IndexOptionsBanner() {
   return (
@@ -979,6 +948,14 @@ function TokenCard() {
           </button>
         </>
       )}
+
+      <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--rule)", fontSize: 11, color: "var(--ink-muted)", lineHeight: 1.55 }}>
+        <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 2 }}>Leandata Technologies Ltd.</div>
+        <div>700 W Georgia St, Vancouver, BC V7Y 1B6, Canada</div>
+        <div style={{ marginTop: 3, fontFamily: "var(--f-mono)", fontSize: 10.5 }}>
+          <a href="https://leandata.uk" style={{ color: "var(--accent-ink)", textDecoration: "none" }}>leandata.uk</a>
+        </div>
+      </div>
     </div>
   );
 }
