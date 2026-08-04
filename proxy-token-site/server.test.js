@@ -31,6 +31,7 @@ const PAYMENT_ORDERS_FILE = path.join(TEST_DATA_DIR, 'payment-orders.json');
 const PRODUCT_FEEDBACK_FILE = path.join(TEST_DATA_DIR, 'product-update-feedback.json');
 const ADMIN_PASSWORD_FILE = path.join(TEST_DATA_DIR, 'admin-password.env');
 const STRIPE_PAYMENT_ENV_FILE = path.join(TEST_DATA_DIR, 'stripe-payment.env');
+const ZPAY_PAYMENT_ENV_FILE = path.join(TEST_DATA_DIR, 'zpay-payment.env');
 
 function generateStripeTestHeader(payload, secret, timestamp = Math.floor(Date.now() / 1000)) {
   const signature = crypto
@@ -38,6 +39,15 @@ function generateStripeTestHeader(payload, secret, timestamp = Math.floor(Date.n
     .update(`${timestamp}.${payload}`, 'utf8')
     .digest('hex');
   return `t=${timestamp},v1=${signature}`;
+}
+
+function generateZpaySignature(parameters, key) {
+  const canonical = Object.entries(parameters)
+    .filter(([name, value]) => name !== 'sign' && name !== 'sign_type' && value !== undefined && value !== null && String(value) !== '')
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([name, value]) => `${name}=${String(value)}`)
+    .join('&');
+  return crypto.createHash('md5').update(`${canonical}${key}`, 'utf8').digest('hex');
 }
 
 function resetTestData() {
@@ -52,6 +62,7 @@ function resetTestData() {
   fs.writeFileSync(TEST_PROXY_FILE, '{"users":[]}');
   if (fs.existsSync(ADMIN_PASSWORD_FILE)) fs.unlinkSync(ADMIN_PASSWORD_FILE);
   if (fs.existsSync(STRIPE_PAYMENT_ENV_FILE)) fs.unlinkSync(STRIPE_PAYMENT_ENV_FILE);
+  if (fs.existsSync(ZPAY_PAYMENT_ENV_FILE)) fs.unlinkSync(ZPAY_PAYMENT_ENV_FILE);
   // Clean status data so status/uptime/latency tests start fresh
   const statusFile = path.join(TEST_DATA_DIR, 'status.json');
   if (fs.existsSync(statusFile)) fs.unlinkSync(statusFile);
@@ -64,11 +75,12 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.PAYMENT_MOCK_ENABLED;
-  delete process.env.PAYMENT_ALIPAY_ENABLED;
   delete process.env.PAYMENT_WECHAT_ENABLED;
   delete process.env.PAYMENT_PUBLIC_BASE_URL;
   delete process.env.STRIPE_SECRET_KEY;
   delete process.env.STRIPE_WEBHOOK_SECRET;
+  delete process.env.ZPAY_PID;
+  delete process.env.ZPAY_KEY;
   jest.restoreAllMocks();
 });
 
@@ -82,6 +94,7 @@ afterAll(() => {
 describe('Tier definitions', () => {
   it('should have at least 5 tiers', () => {
     const tiers = Object.keys(TIERS);
+    expect(tiers).toContain('free');
     expect(tiers).toContain('trial');
     expect(tiers).toContain('basic');
     expect(tiers).toContain('value');
@@ -92,6 +105,13 @@ describe('Tier definitions', () => {
   it('trial tier maps to standard role with 3-day expiry', () => {
     expect(TIERS.trial.role).toBe('standard');
     expect(TIERS.trial.expiryDays).toBe(3);
+  });
+
+  it('free tier grants all listed channels with its bounded role', () => {
+    expect(TIERS.free.role).toBe('free');
+    expect(TIERS.free.permissions.ws.stocks).toBe(true);
+    expect(TIERS.free.permissions.ws.options).toBe(true);
+    expect(TIERS.free.permissions.rest.crypto_orderbooks).toBe(true);
   });
 
   it('basic tier is REST-only (all WS false)', () => {
@@ -198,6 +218,67 @@ describe('POST /api/register', () => {
       const pending = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
       expect(pending.find(p => p.username === `user_${tier}`).tier).toBe(tier);
     }
+  });
+
+  it('activates Free immediately and returns its bounded current plan', async () => {
+    const response = await request(app).post('/api/register').send({
+      username: 'free-user',
+      phone: '123',
+      email: 'free-user@example.com',
+      tier: 'free'
+    });
+    expect(response.statusCode).toBe(201);
+    expect(response.body).toEqual(expect.objectContaining({
+      success: true,
+      status: 'approved',
+      tier: 'free',
+      role: 'free',
+      current_plan: {
+        id: 'free',
+        name: 'Free',
+        rest_history_window_days: 31,
+        ws_subscription_limit: 10
+      }
+    }));
+    expect(response.body.token).toEqual(expect.any(String));
+    expect(JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'))).toEqual([]);
+    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0]).toEqual(expect.objectContaining({
+      username: 'free-user',
+      tier: 'free',
+      role: 'free'
+    }));
+  });
+
+  it('does not expose a Free account as active when registry provisioning fails', async () => {
+    const rename = fs.renameSync;
+    jest.spyOn(fs, 'renameSync').mockImplementation((source, destination) => {
+      if (destination === TEST_PROXY_FILE) throw new Error('simulated registry write failure');
+      return rename(source, destination);
+    });
+    const response = await request(app).post('/api/register').send({
+      username: 'free-sync-failure',
+      phone: '123',
+      email: 'free-sync-failure@example.com',
+      tier: 'free'
+    });
+    expect(response.statusCode).toBe(503);
+    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))).toEqual([]);
+    expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users).toEqual([]);
+  });
+
+  it('normalizes stored usernames before rejecting a duplicate Free registration', async () => {
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{
+      username: ' legacy-user ',
+      phone: '123',
+      role: 'standard'
+    }]));
+    const response = await request(app).post('/api/register').send({
+      username: 'legacy-user',
+      phone: '123',
+      email: 'legacy-user@example.com',
+      tier: 'free'
+    });
+    expect(response.statusCode).toBe(409);
   });
 
   it('rejects a pending username when the identity does not match', async () => {
@@ -781,7 +862,8 @@ describe('Payment bundles and automatic fulfillment', () => {
     extra = {}
   }) {
     if (paymentMethod === 'alipay' && process.env.PAYMENT_MOCK_ENABLED !== 'true') {
-      process.env.PAYMENT_ALIPAY_ENABLED = 'true';
+      process.env.ZPAY_PID = 'test-zpay-pid';
+      process.env.ZPAY_KEY = 'test-zpay-key';
     }
     return request(app).post('/api/payment/orders').send({
       checkout_token: registration.checkout_token,
@@ -853,7 +935,7 @@ describe('Payment bundles and automatic fulfillment', () => {
     expect(order.body.order.bundle.currency).toBe('CNY');
   });
 
-  it('shows Alipay as unavailable while Stripe card checkout remains the live method', async () => {
+  it('shows Z-Pay Alipay and Stripe card checkout as unavailable without host-only credentials', async () => {
     const registration = await createRegistrationCheckout();
     const info = await request(app)
       .get('/api/payment/checkout-info')
@@ -866,16 +948,17 @@ describe('Payment bundles and automatic fulfillment', () => {
     const alipay = info.body.payment_methods.find(method => method.id === 'alipay');
     const stripe = info.body.payment_methods.find(method => method.id === 'stripe_card');
     expect(alipay.available).toBe(false);
-    expect(alipay.status).toContain('EasyPay');
+    expect(alipay.configured).toBe(false);
+    expect(alipay.status).toContain('暂不可用');
     expect(stripe.configured).toBe(false);
     expect(stripe.available).toBe(false);
     expect(stripe.currencies).toEqual([
-      { currency: 'CAD', monthly_amount_minor: 3000 },
-      { currency: 'USD', monthly_amount_minor: 2500 }
+      { currency: 'CAD' },
+      { currency: 'USD' }
     ]);
   });
 
-  it('keeps the visible Alipay placeholder from creating an order before EasyPay approval', async () => {
+  it('fails closed before creating an Alipay order without Z-Pay credentials', async () => {
     const registration = await createRegistrationCheckout({
       username: 'alipay-placeholder-user',
       email: 'alipay-placeholder-user@example.com'
@@ -886,8 +969,161 @@ describe('Payment bundles and automatic fulfillment', () => {
       payment_method: 'alipay'
     });
     expect(response.statusCode).toBe(503);
-    expect(response.body.message).toContain('EasyPay');
+    expect(response.body.message).toContain('支付宝');
     expect(JSON.parse(fs.readFileSync(PAYMENT_ORDERS_FILE, 'utf8'))).toHaveLength(0);
+  });
+
+  it('loads Z-Pay credentials only from a mode-0600 host file', async () => {
+    fs.writeFileSync(
+      ZPAY_PAYMENT_ENV_FILE,
+      [
+        'PAYMENT_PUBLIC_BASE_URL=https://leandata.uk',
+        'ZPAY_PID=test-zpay-pid',
+        'ZPAY_KEY=test-zpay-key'
+      ].join('\n'),
+      { mode: 0o600 }
+    );
+    fs.chmodSync(ZPAY_PAYMENT_ENV_FILE, 0o600);
+    const registration = await createRegistrationCheckout();
+    const configured = await request(app)
+      .get('/api/payment/checkout-info')
+      .query({ checkout_token: registration.checkout_token });
+    expect(configured.statusCode).toBe(200);
+    expect(configured.body.payment_methods.find(method => method.id === 'alipay')).toEqual(
+      expect.objectContaining({ configured: true, available: true })
+    );
+
+    fs.chmodSync(ZPAY_PAYMENT_ENV_FILE, 0o640);
+    const rejected = await request(app)
+      .get('/api/payment/checkout-info')
+      .query({ checkout_token: registration.checkout_token });
+    expect(rejected.statusCode).toBe(200);
+    expect(rejected.body.payment_methods.find(method => method.id === 'alipay').configured).toBe(false);
+  });
+
+  it('creates a signed Z-Pay Alipay checkout with a server-authoritative CNY amount', async () => {
+    process.env.PAYMENT_PUBLIC_BASE_URL = 'https://leandata.uk';
+    process.env.ZPAY_PID = 'test-zpay-pid';
+    process.env.ZPAY_KEY = 'test-zpay-key';
+    const registration = await createRegistrationCheckout({
+      username: 'zpay-checkout-user',
+      email: 'zpay-checkout-user@example.com'
+    });
+    const response = await createRegistrationOrder({
+      registration,
+      bundleId: 'standard-2m',
+      extra: { amount_cny_fen: 1, money: '0.01' }
+    });
+    expect(response.statusCode).toBe(201);
+    const checkout = new URL(response.body.checkout_url);
+    expect(checkout.origin).toBe('https://z-pay.cn');
+    expect(checkout.pathname).toBe('/submit.php');
+    expect(checkout.searchParams.get('pid')).toBe('test-zpay-pid');
+    expect(checkout.searchParams.get('type')).toBe('alipay');
+    expect(checkout.searchParams.get('out_trade_no')).toBe(response.body.order.id);
+    expect(checkout.searchParams.get('money')).toBe('200.00');
+    expect(checkout.searchParams.get('notify_url')).toBe('https://leandata.uk/api/payment/zpay/notify');
+    expect(checkout.searchParams.get('sign_type')).toBe('MD5');
+    expect(checkout.searchParams.get('sign')).toHaveLength(32);
+    expect(response.body.order.provider).toBe('zpay');
+    expect(response.body.order.provider_charge).toEqual({
+      currency: 'CNY',
+      amount_minor: 20000,
+      monthly_amount_minor: 10000
+    });
+  });
+
+  it('verifies Z-Pay callbacks, enforces amount and order binding, and fulfills idempotently', async () => {
+    process.env.ZPAY_PID = 'test-zpay-pid';
+    process.env.ZPAY_KEY = 'test-zpay-key';
+    const registration = await createRegistrationCheckout({
+      username: 'zpay-webhook-user',
+      email: 'zpay-webhook-user@example.com'
+    });
+    const created = await createRegistrationOrder({
+      registration,
+      bundleId: 'standard-1m'
+    });
+    const stored = JSON.parse(fs.readFileSync(PAYMENT_ORDERS_FILE, 'utf8'))[0];
+    const callback = {
+      pid: process.env.ZPAY_PID,
+      type: 'alipay',
+      out_trade_no: created.body.order.id,
+      trade_no: 'zpay_trade_0001',
+      name: stored.zpay_subject,
+      money: '100.00',
+      trade_status: 'TRADE_SUCCESS',
+      sign_type: 'MD5'
+    };
+    callback.sign = generateZpaySignature(callback, process.env.ZPAY_KEY);
+
+    const first = await request(app)
+      .post('/api/payment/zpay/notify')
+      .type('form')
+      .send(callback);
+    const duplicate = await request(app)
+      .post('/api/payment/zpay/notify')
+      .type('form')
+      .send(callback);
+    expect(first.statusCode).toBe(200);
+    expect(first.text).toBe('success');
+    expect(duplicate.statusCode).toBe(200);
+    expect(duplicate.text).toBe('success');
+
+    const completed = JSON.parse(fs.readFileSync(PAYMENT_ORDERS_FILE, 'utf8'))[0];
+    expect(completed.status).toBe('COMPLETED');
+    expect(completed.provider_payment_id).toBe('zpay_trade_0001');
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    expect(proxy.users).toHaveLength(1);
+    expect(proxy.users[0].fulfilled_payment_orders).toEqual([created.body.order.id]);
+  });
+
+  it('blocks Z-Pay callbacks with an invalid signature or mismatched paid amount', async () => {
+    process.env.ZPAY_PID = 'test-zpay-pid';
+    process.env.ZPAY_KEY = 'test-zpay-key';
+    const registration = await createRegistrationCheckout({
+      username: 'zpay-mismatch-user',
+      email: 'zpay-mismatch-user@example.com'
+    });
+    const created = await createRegistrationOrder({ registration });
+    const stored = JSON.parse(fs.readFileSync(PAYMENT_ORDERS_FILE, 'utf8'))[0];
+    const invalid = await request(app)
+      .post('/api/payment/zpay/notify')
+      .type('form')
+      .send({
+        pid: process.env.ZPAY_PID,
+        type: 'alipay',
+        out_trade_no: created.body.order.id,
+        trade_no: 'zpay_trade_invalid',
+        name: stored.zpay_subject,
+        money: '100.00',
+        trade_status: 'TRADE_SUCCESS',
+        sign_type: 'MD5',
+        sign: '0'.repeat(32)
+      });
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.text).toBe('fail');
+
+    const mismatched = {
+      pid: process.env.ZPAY_PID,
+      type: 'alipay',
+      out_trade_no: created.body.order.id,
+      trade_no: 'zpay_trade_mismatch',
+      name: stored.zpay_subject,
+      money: '0.01',
+      trade_status: 'TRADE_SUCCESS',
+      sign_type: 'MD5'
+    };
+    mismatched.sign = generateZpaySignature(mismatched, process.env.ZPAY_KEY);
+    const review = await request(app)
+      .post('/api/payment/zpay/notify')
+      .type('form')
+      .send(mismatched);
+    expect(review.statusCode).toBe(200);
+    expect(review.text).toBe('success');
+    const held = JSON.parse(fs.readFileSync(PAYMENT_ORDERS_FILE, 'utf8'))[0];
+    expect(held.status).toBe('MANUAL_REVIEW');
+    expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users).toHaveLength(0);
   });
 
   it('loads Stripe credentials only from a mode-0600 host file', async () => {
@@ -992,7 +1228,7 @@ describe('Payment bundles and automatic fulfillment', () => {
           client_reference_id: created.body.order.id,
           payment_intent: 'pi_test_complete',
           payment_status: 'paid',
-          amount_total: 3000,
+          amount_total: 2000,
           currency: 'cad',
           metadata: {
             order_id: created.body.order.id,
@@ -1020,8 +1256,8 @@ describe('Payment bundles and automatic fulfillment', () => {
     expect(completed.provider_payment_id).toBe('pi_test_complete');
     expect(completed.provider_charge).toEqual({
       currency: 'CAD',
-      amount_minor: 3000,
-      monthly_amount_minor: 3000
+      amount_minor: 2000,
+      monthly_amount_minor: 2000
     });
     const returnLookup = await request(app)
       .get(`/api/payment/orders/${created.body.order.id}`)
@@ -1140,6 +1376,63 @@ describe('Payment bundles and automatic fulfillment', () => {
     });
     expect(rejected.statusCode).toBe(400);
     expect(rejected.body.message).toContain('CAD');
+  });
+
+  it('uses the proportional Stripe price table for Basic, Standard, and Premium', async () => {
+    process.env.PAYMENT_MOCK_ENABLED = 'true';
+    const standardRegistration = await createRegistrationCheckout({
+      username: 'stripe-standard-price',
+      email: 'stripe-standard-price@example.com'
+    });
+    const standard = await createRegistrationOrder({
+      registration: standardRegistration,
+      bundleId: 'standard-1m',
+      paymentMethod: 'stripe_card',
+      extra: { stripe_currency: 'CAD' }
+    });
+    expect(standard.statusCode).toBe(201);
+    expect(standard.body.order.provider_charge).toEqual({
+      currency: 'CAD',
+      amount_minor: 2000,
+      monthly_amount_minor: 2000
+    });
+
+    const basicAccount = seedPaidAccount({
+      userId: 'stripe-basic-price',
+      tier: 'basic'
+    });
+    const { cookie } = await loginPaidAccount(basicAccount);
+    const basic = await request(app)
+      .post('/api/payment/orders')
+      .set('Cookie', cookie)
+      .send({
+        bundle_id: 'basic-1m',
+        payment_method: 'stripe_card',
+        stripe_currency: 'USD'
+      });
+    expect(basic.statusCode).toBe(201);
+    expect(basic.body.order.provider_charge).toEqual({
+      currency: 'USD',
+      amount_minor: 1000,
+      monthly_amount_minor: 1000
+    });
+
+    const premiumRegistration = await createRegistrationCheckout({
+      username: 'stripe-premium-price',
+      email: 'stripe-premium-price@example.com'
+    });
+    const premium = await createRegistrationOrder({
+      registration: premiumRegistration,
+      bundleId: 'premium-1m',
+      paymentMethod: 'stripe_card',
+      extra: { stripe_currency: 'CAD' }
+    });
+    expect(premium.statusCode).toBe(201);
+    expect(premium.body.order.provider_charge).toEqual({
+      currency: 'CAD',
+      amount_minor: 3000,
+      monthly_amount_minor: 3000
+    });
   });
 
   it('rejects invalid bundles and payment methods', async () => {
@@ -1756,6 +2049,21 @@ describe('POST /api/check-status', () => {
     expect(res.statusCode).toBe(200);
     expect(res.body.status).toBe('payment_pending');
     expect(res.body.checkout_url).toMatch(/^\/checkout\?checkout_token=/);
+  });
+
+  it('fails closed instead of reporting an unsynced account as approved', async () => {
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{
+      username: 'unsynced-free',
+      phone: '333',
+      tier: 'free',
+      role: 'free'
+    }]));
+    const res = await request(app)
+      .post('/api/check-status')
+      .send({ username: 'unsynced-free', phone: '333' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.status).toBe('sync_pending');
+    expect(res.body.token).toBeUndefined();
   });
 });
 

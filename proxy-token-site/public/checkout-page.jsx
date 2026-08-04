@@ -176,6 +176,7 @@ function CheckoutPage() {
   const query = useCheckoutMemo(() => new URLSearchParams(window.location.search), []);
   const checkoutToken = query.get("checkout_token") || "";
   const stripeOrderId = query.get("stripe_order") || "";
+  const zpayOrderId = query.get("zpay_order") || "";
   const stripeCancelled = query.get("stripe_cancelled") === "1";
   const [info, setInfo] = useCheckoutState(null);
   const [tier, setTier] = useCheckoutState("standard");
@@ -227,6 +228,26 @@ function CheckoutPage() {
   }, [stripeOrderId, checkoutToken, stripeCancelled]);
 
   useCheckoutEffect(() => {
+    if (!zpayOrderId) return;
+    const suffix = new URLSearchParams({
+      ...(checkoutToken ? { checkout_token: checkoutToken } : {})
+    }).toString();
+    checkoutRequest(`/api/payment/orders/${encodeURIComponent(zpayOrderId)}${suffix ? `?${suffix}` : ""}`)
+      .then(data => {
+        if (data.order?.status === "COMPLETED") {
+          setError("");
+          setResult(data);
+          setIssuedToken(data.issued_token || "");
+        } else if (data.order?.status === "FAILED" || data.order?.status === "MANUAL_REVIEW") {
+          setError(data.order.error || "支付宝付款已确认，但自动开通暂时失败。");
+        } else {
+          setError("支付宝正在确认付款；确认后账户会自动开通。");
+        }
+      })
+      .catch(requestError => setError(requestError.message));
+  }, [zpayOrderId, checkoutToken]);
+
+  useCheckoutEffect(() => {
     if (stripeCancelled) setError("信用卡支付已取消，没有产生扣款。");
   }, [stripeCancelled]);
 
@@ -245,11 +266,11 @@ function CheckoutPage() {
     () => info?.payment_methods?.find(item => item.id === method) || null,
     [info, method]
   );
-  const stripeMonthlyPrice = useCheckoutMemo(
-    () => selectedPaymentMethod?.currencies?.find(item => item.currency === stripeCurrency) || null,
-    [selectedPaymentMethod, stripeCurrency]
+  const stripeMonthlyAmountMinor = useCheckoutMemo(
+    () => Number(bundle?.stripe_monthly_prices_minor?.[stripeCurrency] || 0),
+    [bundle, stripeCurrency]
   );
-  const stripeTotalMinor = Number(stripeMonthlyPrice?.monthly_amount_minor || 0) * months;
+  const stripeTotalMinor = stripeMonthlyAmountMinor * months;
 
   const chooseTier = nextTier => {
     setTier(nextTier);
@@ -360,7 +381,7 @@ function CheckoutPage() {
                       onClick={() => setStripeCurrency(option.currency)}
                     >
                       <span>{option.currency}</span>
-                      <strong>{formatCardMoney(option.monthly_amount_minor, option.currency)} / 月</strong>
+                      <strong>{formatCardMoney(bundle?.stripe_monthly_prices_minor?.[option.currency], option.currency)} / 月</strong>
                     </button>
                   ))}
                 </div>
@@ -446,7 +467,7 @@ function CheckoutPage() {
               {method === "stripe_card" && (
                 <div className="price-row">
                   <span>Stripe 卡支付月价</span>
-                  <span>{formatCardMoney(stripeMonthlyPrice?.monthly_amount_minor, stripeCurrency)} {stripeCurrency}</span>
+                  <span>{formatCardMoney(stripeMonthlyAmountMinor, stripeCurrency)} {stripeCurrency}</span>
                 </div>
               )}
               <div className="price-row">
@@ -475,7 +496,7 @@ function CheckoutPage() {
               {error && <div className="checkout-error">{error}</div>}
             </div>
             <p className="checkout-terms">
-              卡号、有效期和 CVV 直接提交给 Stripe，Leandata 不读取也不保存。支付平台验签回调确认后自动开通；重复回调不会重复延长有效期。
+              支付宝由 Z-Pay 跳转处理，卡号、有效期和 CVV 直接提交给 Stripe；Leandata 不读取或保存支付凭据。平台验签回调确认后自动开通；重复回调不会重复延长有效期。
             </p>
           </aside>
         </div>

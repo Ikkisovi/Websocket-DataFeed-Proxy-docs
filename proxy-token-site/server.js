@@ -15,6 +15,8 @@ const ADMIN_PASSWORD_FILE = process.env.ADMIN_PASSWORD_FILE
   || path.join(DATA_DIR, 'admin-password.env');
 const STRIPE_PAYMENT_ENV_FILE = process.env.STRIPE_PAYMENT_ENV_FILE
   || path.join(DATA_DIR, 'stripe-payment.env');
+const ZPAY_PAYMENT_ENV_FILE = process.env.ZPAY_PAYMENT_ENV_FILE
+  || path.join(DATA_DIR, 'zpay-payment.env');
 
 function configuredAdminPassword() {
   if (process.env.ADMIN_PASSWORD) return process.env.ADMIN_PASSWORD;
@@ -35,6 +37,11 @@ app.post(
   '/api/payment/stripe/webhook',
   express.raw({ type: 'application/json' }),
   handleStripeWebhook
+);
+app.all(
+  '/api/payment/zpay/notify',
+  express.urlencoded({ extended: false }),
+  handleZpayNotification
 );
 app.use(bodyParser.json());
 
@@ -114,6 +121,14 @@ const EC2_SSH_KEY = process.env.EC2_SSH_KEY
 //   standard: REST 1800/min (30 req/s),  WS 100 symbols  (was "limited_premium")
 //   premium:  REST 6000/min (100 req/s), WS 500 symbols
 const TIERS = {
+  free: {
+    role: 'free',
+    expiryDays: 30,
+    permissions: {
+      ws: { stocks: true, options: true, overnight: true, crypto: true, news: true, boats: true, test: true },
+      rest: { stocks_history: true, options_history: true, options_contracts: true, options_snapshots: true, options_snapshots_expiry: true, crypto_orderbooks: true, admin_token_lookup: false, news_history: true }
+    }
+  },
   trial: {
     role: 'standard',
     expiryDays: 3,
@@ -176,7 +191,7 @@ const TIERS = {
     }
   }
 };
-const PUBLIC_REGISTRATION_TIER_IDS = new Set(['trial', 'value', 'standard', 'premium']);
+const PUBLIC_REGISTRATION_TIER_IDS = new Set(['free', 'trial', 'value', 'standard', 'premium']);
 const PAYMENT_METHOD_IDS = new Set(['alipay', 'wechat_pay', 'stripe_card']);
 const PAYMENT_DURATION_MONTHS = [1, 2, 3, 6, 12];
 const PAYMENT_MONTHLY_PRICES_CNY_FEN = {
@@ -186,8 +201,10 @@ const PAYMENT_MONTHLY_PRICES_CNY_FEN = {
   premium: 15000
 };
 const STRIPE_MONTHLY_PRICES_MINOR = {
-  CAD: 3000,
-  USD: 2500
+  basic: { CAD: 1200, USD: 1000 },
+  value: { CAD: 1400, USD: 1167 },
+  standard: { CAD: 2000, USD: 1667 },
+  premium: { CAD: 3000, USD: 2500 }
 };
 
 const PAYMENT_PLAN_DETAILS = {
@@ -345,12 +362,12 @@ function refreshRegistrationCheckout(pending, entry) {
   };
 }
 
-function loadStripePaymentEnvFile() {
+function loadPrivatePaymentEnvFile(filepath) {
   try {
-    const stat = fs.statSync(STRIPE_PAYMENT_ENV_FILE);
+    const stat = fs.statSync(filepath);
     if ((stat.mode & 0o077) !== 0) return {};
     const values = {};
-    for (const rawLine of fs.readFileSync(STRIPE_PAYMENT_ENV_FILE, 'utf8').split(/\r?\n/)) {
+    for (const rawLine of fs.readFileSync(filepath, 'utf8').split(/\r?\n/)) {
       const line = rawLine.trim();
       if (!line || line.startsWith('#') || !line.includes('=')) continue;
       const splitAt = line.indexOf('=');
@@ -370,11 +387,23 @@ function loadStripePaymentEnvFile() {
 }
 
 function stripePaymentSetting(name) {
-  return String(process.env[name] || loadStripePaymentEnvFile()[name] || '').trim();
+  return String(process.env[name] || loadPrivatePaymentEnvFile(STRIPE_PAYMENT_ENV_FILE)[name] || '').trim();
+}
+
+function zpayPaymentSetting(name) {
+  return String(process.env[name] || loadPrivatePaymentEnvFile(ZPAY_PAYMENT_ENV_FILE)[name] || '').trim();
 }
 
 function stripeSecretKey() {
   return stripePaymentSetting('STRIPE_SECRET_KEY');
+}
+
+function zpayMerchantId() {
+  return zpayPaymentSetting('ZPAY_PID');
+}
+
+function zpayMerchantKey() {
+  return zpayPaymentSetting('ZPAY_KEY');
 }
 
 function stripeConfigured() {
@@ -384,9 +413,16 @@ function stripeConfigured() {
   );
 }
 
+function zpayConfigured() {
+  return Boolean(zpayMerchantId() && zpayMerchantKey());
+}
+
 async function createStripeCheckoutSession(order, bundle, customerEmail, successUrl, cancelUrl) {
   const providerCharge = order.provider_charge;
-  if (!providerCharge || !STRIPE_MONTHLY_PRICES_MINOR[providerCharge.currency]) {
+  if (!providerCharge
+      || !Number.isSafeInteger(providerCharge.amount_minor)
+      || providerCharge.amount_minor < 1
+      || !['CAD', 'USD'].includes(providerCharge.currency)) {
     throw new Error('Stripe charge currency is invalid.');
   }
   const form = new URLSearchParams();
@@ -468,7 +504,12 @@ function constructStripeWebhookEvent(payload, signatureHeader, webhookSecret) {
 }
 
 function paymentBaseUrl(req) {
-  const configured = stripePaymentSetting('PAYMENT_PUBLIC_BASE_URL');
+  const configured = String(
+    process.env.PAYMENT_PUBLIC_BASE_URL
+    || zpayPaymentSetting('PAYMENT_PUBLIC_BASE_URL')
+    || stripePaymentSetting('PAYMENT_PUBLIC_BASE_URL')
+    || ''
+  ).trim();
   if (configured) return configured.replace(/\/+$/, '');
   return `${req.protocol}://${req.get('host')}`.replace(/\/+$/, '');
 }
@@ -479,10 +520,11 @@ function enabledPaymentMethods() {
     id: 'alipay',
     name: '支付宝',
     color: '#1677ff',
-    available: mockEnabled || process.env.PAYMENT_ALIPAY_ENABLED === 'true',
-    status: mockEnabled || process.env.PAYMENT_ALIPAY_ENABLED === 'true'
+    configured: zpayConfigured(),
+    available: mockEnabled || zpayConfigured(),
+    status: mockEnabled || zpayConfigured()
       ? null
-      : '等待 EasyPay 审核'
+      : '暂不可用'
   }];
   if (process.env.PAYMENT_WECHAT_ENABLED === 'true') {
     methods.push({
@@ -500,25 +542,66 @@ function enabledPaymentMethods() {
     configured: stripeConfigured(),
     available: stripeConfigured() || mockEnabled,
     status: stripeConfigured() || mockEnabled ? null : '暂不可用',
-    currencies: Object.entries(STRIPE_MONTHLY_PRICES_MINOR).map(
-      ([currency, monthlyAmountMinor]) => ({
-        currency,
-        monthly_amount_minor: monthlyAmountMinor
-      })
-    )
+    currencies: ['CAD', 'USD'].map(currency => ({ currency }))
   });
   return methods;
 }
 
 function stripeProviderCharge(bundle, requestedCurrency) {
   const currency = String(requestedCurrency || 'CAD').trim().toUpperCase();
-  const monthlyAmountMinor = STRIPE_MONTHLY_PRICES_MINOR[currency];
+  const monthlyAmountMinor = STRIPE_MONTHLY_PRICES_MINOR[bundle?.tier]?.[currency];
   if (!monthlyAmountMinor) return null;
   return {
     currency,
     amount_minor: monthlyAmountMinor * bundle.months,
     monthly_amount_minor: monthlyAmountMinor
   };
+}
+
+function zpayProviderCharge(bundle) {
+  return {
+    currency: 'CNY',
+    amount_minor: bundle.amount_cny_fen,
+    monthly_amount_minor: bundle.monthly_amount_cny_fen
+  };
+}
+
+function zpayMoney(amountMinor) {
+  return (Number(amountMinor) / 100).toFixed(2);
+}
+
+function zpaySignature(parameters, merchantKey) {
+  const canonical = Object.entries(parameters)
+    .filter(([key, value]) => key !== 'sign' && key !== 'sign_type' && value !== undefined && value !== null && String(value) !== '')
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}=${String(value)}`)
+    .join('&');
+  return crypto.createHash('md5').update(`${canonical}${merchantKey}`, 'utf8').digest('hex');
+}
+
+function zpayReturnUrl(req, order, checkoutToken) {
+  const params = new URLSearchParams({
+    zpay_order: order.id,
+    ...(order.kind === 'registration' && checkoutToken
+      ? { checkout_token: checkoutToken }
+      : {})
+  });
+  return `${paymentBaseUrl(req)}/checkout?${params.toString()}`;
+}
+
+function createZpayCheckoutUrl(req, order, bundle, checkoutToken) {
+  const params = {
+    pid: zpayMerchantId(),
+    type: 'alipay',
+    out_trade_no: order.id,
+    notify_url: `${paymentBaseUrl(req)}/api/payment/zpay/notify`,
+    return_url: zpayReturnUrl(req, order, checkoutToken),
+    name: `Leandata ${bundle.name} ${bundle.months}M`,
+    money: zpayMoney(order.provider_charge.amount_minor),
+    sign_type: 'MD5'
+  };
+  params.sign = zpaySignature(params, zpayMerchantKey());
+  return `https://z-pay.cn/submit.php?${new URLSearchParams(params).toString()}`;
 }
 
 function readPaymentOrders() {
@@ -539,6 +622,7 @@ function publicPaymentBundle(bundle) {
     currency: bundle.currency,
     amount_cny_fen: bundle.amount_cny_fen,
     monthly_amount_cny_fen: bundle.monthly_amount_cny_fen,
+    stripe_monthly_prices_minor: STRIPE_MONTHLY_PRICES_MINOR[bundle.tier] || {},
     name: bundle.name,
     summary: bundle.summary,
     features: bundle.features,
@@ -853,6 +937,71 @@ function computeExpiry(tierConfig) {
   const expiry = new Date();
   expiry.setDate(expiry.getDate() + (tierConfig.expiryDays || 30));
   return expiry.toISOString();
+}
+
+function publicPlan(tierId) {
+  if (tierId === 'free') {
+    return {
+      id: 'free',
+      name: 'Free',
+      rest_history_window_days: 31,
+      ws_subscription_limit: 10
+    };
+  }
+  return {
+    id: tierId || 'unknown',
+    name: PAYMENT_PLAN_DETAILS[tierId]?.name || tierId || 'Unknown'
+  };
+}
+
+async function provisionFreeRegistration(entry) {
+  const tierConfig = TIERS.free;
+  const permissions = resolvePermissions(tierConfig);
+  const users = readJSON(USERS_FILE);
+  const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+  if (!Array.isArray(proxyData.users)) proxyData.users = [];
+  if (users.some(user => String(user.username || '').trim() === entry.username)
+      || proxyData.users.some(user => String(user.user_id || '').trim() === entry.username)) {
+    const error = new Error('该用户名已有访问凭据；请使用已有账户。');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const token = crypto.randomUUID();
+  const expiresAt = computeExpiry(tierConfig);
+  const localUser = {
+    username: entry.username,
+    phone: entry.phone,
+    email: entry.email,
+    role: tierConfig.role,
+    tier: 'free',
+    permissions,
+    registered_at: entry.registered_at,
+    approved_at: new Date().toISOString()
+  };
+  const proxyUser = {
+    token,
+    user_id: entry.username,
+    email: entry.email,
+    role: tierConfig.role,
+    expires_at: expiresAt,
+    permissions
+  };
+  const nextUsers = [...users, localUser];
+  const nextProxyData = { ...proxyData, users: [...proxyData.users, proxyUser] };
+
+  try {
+    const syncResult = await writeProxyUsersAndSyncAsync(nextProxyData);
+    if (!syncResult.ok) throw new Error('数据服务注册表同步失败。');
+    writeJSONAtomic(USERS_FILE, nextUsers);
+  } catch (_) {
+    try { writeJSONAtomic(PROXY_USERS_FILE, proxyData); } catch (_) {}
+    try { writeJSONAtomic(USERS_FILE, users); } catch (_) {}
+    const error = new Error('Free 计划开通失败，请稍后重试。');
+    error.statusCode = 503;
+    throw error;
+  }
+  return { token, expiresAt, role: tierConfig.role };
 }
 
 function computeRenewalExpiry(currentExpiry, days) {
@@ -1191,6 +1340,103 @@ async function handleStripeWebhook(req, res) {
   }
 
   return res.json({ received: true });
+}
+
+function zpayCallbackPayload(req) {
+  const payload = {};
+  for (const source of [req.query || {}, req.body || {}]) {
+    for (const [key, value] of Object.entries(source)) {
+      if (Array.isArray(value)) throw new Error('Callback parameters must not be repeated.');
+      const normalized = String(value || '');
+      if (Object.hasOwn(payload, key) && payload[key] !== normalized) {
+        throw new Error('Callback parameters conflict.');
+      }
+      payload[key] = normalized;
+    }
+  }
+  return payload;
+}
+
+function zpayExpectedMoney(order) {
+  const charge = order.provider_charge || {
+    currency: order.bundle?.currency,
+    amount_minor: order.bundle?.amount_cny_fen
+  };
+  if (String(charge.currency || '').toUpperCase() !== 'CNY'
+      || !Number.isSafeInteger(Number(charge.amount_minor))) {
+    return null;
+  }
+  return zpayMoney(Number(charge.amount_minor));
+}
+
+function zpayPaymentMatches(order, payload) {
+  const expectedMoney = zpayExpectedMoney(order);
+  const receivedMoney = String(payload.money || '');
+  const receivedAmountFen = /^\d+(?:\.\d{1,2})?$/.test(receivedMoney)
+    ? Math.round(Number(receivedMoney) * 100)
+    : NaN;
+  return Boolean(
+    expectedMoney
+    && payload.pid === zpayMerchantId()
+    && payload.type === 'alipay'
+    && payload.out_trade_no === order.id
+    && payload.out_trade_no === (order.zpay_out_trade_no || order.id)
+    && payload.name === order.zpay_subject
+    && Number.isSafeInteger(receivedAmountFen)
+    && receivedAmountFen === Number(order.provider_charge?.amount_minor)
+  );
+}
+
+async function handleZpayNotification(req, res) {
+  if (!zpayConfigured()) return res.status(503).send('fail');
+
+  let payload;
+  try {
+    payload = zpayCallbackPayload(req);
+  } catch {
+    return res.status(400).send('fail');
+  }
+  if (!payload.sign || !safeEqual(payload.sign, zpaySignature(payload, zpayMerchantKey()))) {
+    return res.status(400).send('fail');
+  }
+  if (payload.trade_status !== 'TRADE_SUCCESS') return res.send('success');
+  if (!payload.out_trade_no || !payload.trade_no) return res.status(400).send('fail');
+
+  const order = readPaymentOrders().find(item => item.id === payload.out_trade_no);
+  if (!order || order.provider !== 'zpay') return res.send('success');
+
+  const sameProviderTransaction = readPaymentOrders().find(item =>
+    item.id !== order.id
+    && item.provider === 'zpay'
+    && item.provider_payment_id === payload.trade_no
+  );
+  if (sameProviderTransaction || !zpayPaymentMatches(order, payload)) {
+    updatePaymentOrder(order.id, current => ({
+      ...current,
+      status: 'MANUAL_REVIEW',
+      payment_status: 'PAID_MISMATCH',
+      paid_at: current.paid_at || new Date().toISOString(),
+      provider_payment_id: payload.trade_no,
+      zpay_trade_no: payload.trade_no,
+      last_error: 'Z-Pay 回调的商户、订单、金额、名称或交易号与本地订单不一致，已阻止自动开通。'
+    }));
+    return res.send('success');
+  }
+
+  updatePaymentOrder(order.id, current => ({
+    ...current,
+    payment_status: 'PAID',
+    status: current.status === 'COMPLETED' ? 'COMPLETED' : 'PAID',
+    paid_at: current.paid_at || new Date().toISOString(),
+    provider_payment_id: payload.trade_no,
+    zpay_trade_no: payload.trade_no
+  }));
+  try {
+    await fulfillPaymentOrder(order.id);
+  } catch (_) {
+    return res.status(500).send('fail');
+  }
+  return res.send('success');
 }
 
 function getNewYorkMarketClock(now = new Date()) {
@@ -2542,13 +2788,15 @@ app.post('/api/payment/orders', async (req, res) => {
     return res.status(503).json({
       success: false,
       message: paymentMethod === 'alipay'
-        ? '支付宝正在等待 EasyPay 审核，暂时不能收款。'
+        ? '支付宝暂时不可用，请稍后重试。'
         : '该支付方式暂时不可用。'
     });
   }
   const providerCharge = paymentMethod === 'stripe_card'
     ? stripeProviderCharge(bundle, req.body?.stripe_currency)
-    : null;
+    : paymentMethod === 'alipay'
+      ? zpayProviderCharge(bundle)
+      : null;
   if (paymentMethod === 'stripe_card' && !providerCharge) {
     return res.status(400).json({
       success: false,
@@ -2589,7 +2837,9 @@ app.post('/api/payment/orders', async (req, res) => {
       ? 'local_mock'
       : paymentMethod === 'stripe_card'
         ? 'stripe_checkout'
-        : 'easypay',
+        : paymentMethod === 'alipay'
+          ? 'zpay'
+          : 'easypay',
     status: 'PENDING',
     payment_status: 'UNPAID',
     resume_token_hash: paymentTokenHash(resumeToken),
@@ -2604,6 +2854,43 @@ app.post('/api/payment/orders', async (req, res) => {
   writePaymentOrders(orders);
 
   let checkoutUrl = null;
+  if (paymentMethod === 'alipay' && process.env.PAYMENT_MOCK_ENABLED !== 'true') {
+    if (!zpayConfigured()) {
+      updatePaymentOrder(order.id, current => ({
+        ...current,
+        status: 'FAILED',
+        last_error: 'Z-Pay 尚未配置。'
+      }));
+      return res.status(503).json({
+        success: false,
+        message: '支付宝商户信息尚未配置。'
+      });
+    }
+    try {
+      checkoutUrl = createZpayCheckoutUrl(
+        req,
+        order,
+        bundle,
+        context.kind === 'registration' ? String(req.body.checkout_token || '') : ''
+      );
+      order = updatePaymentOrder(order.id, current => ({
+        ...current,
+        zpay_out_trade_no: order.id,
+        zpay_subject: `Leandata ${bundle.name} ${bundle.months}M`,
+        checkout_url: checkoutUrl
+      }));
+    } catch (error) {
+      updatePaymentOrder(order.id, current => ({
+        ...current,
+        status: 'FAILED',
+        last_error: `Z-Pay 结账创建失败：${error.message}`
+      }));
+      return res.status(502).json({
+        success: false,
+        message: '无法创建支付宝支付，请稍后重试。'
+      });
+    }
+  }
   if (paymentMethod === 'stripe_card' && process.env.PAYMENT_MOCK_ENABLED !== 'true') {
     if (!stripeConfigured()) {
       updatePaymentOrder(order.id, current => ({
@@ -2730,7 +3017,7 @@ app.post('/api/payment/mock/:id/complete', async (req, res) => {
 // ============================================================
 // PUBLIC: Buyer Registration
 // ============================================================
-app.post('/api/register', (req, res) => {
+app.post('/api/register', async (req, res) => {
   const { username, phone, tier, mode, email } = req.body;
   const cleanUsername = (username || '').trim();
   const cleanPhone = (phone || '').trim();
@@ -2764,7 +3051,7 @@ app.post('/api/register', (req, res) => {
 
   // Check if username already taken in approved users
   const users = readJSON(USERS_FILE);
-  if (users.find(u => u.username === cleanUsername)) {
+  if (users.find(u => String(u.username || '').trim() === cleanUsername)) {
     return res.status(409).json({ success: false, message: '该用户名已被使用。老用户请点击“老用户续费”，不要重新注册同名 ID。' });
   }
 
@@ -2772,7 +3059,7 @@ app.post('/api/register', (req, res) => {
   const pending = readJSON(PENDING_FILE);
   const existingPending = pending.find(p =>
     p.type === 'registration'
-    && p.username === cleanUsername
+    && String(p.username || '').trim() === cleanUsername
     && ['pending', 'payment_pending'].includes(p.status)
   );
   if (existingPending) {
@@ -2794,6 +3081,36 @@ app.post('/api/register', (req, res) => {
       error: 'registration_identity_conflict',
       message: '该用户名已有注册记录。请使用原手机号和邮箱恢复支付，或前往账户管理。'
     });
+  }
+
+  if (selectedTier === 'free') {
+    const entry = {
+      id: crypto.randomUUID(),
+      type: 'registration',
+      username: cleanUsername,
+      phone: cleanPhone,
+      tier: 'free',
+      email: cleanEmail,
+      registered_at: new Date().toISOString()
+    };
+    try {
+      const provisioned = await provisionFreeRegistration(entry);
+      return res.status(201).json({
+        success: true,
+        status: 'approved',
+        message: 'Free 计划已启用。请立即复制并安全保存你的 Token。',
+        token: provisioned.token,
+        expiry: provisioned.expiresAt,
+        role: provisioned.role,
+        tier: 'free',
+        current_plan: publicPlan('free')
+      });
+    } catch (error) {
+      return res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || '无法启用 Free 计划。'
+      });
+    }
   }
 
   const checkoutToken = selectedTier === 'trial'
@@ -3334,14 +3651,31 @@ app.post('/api/check-status', (req, res) => {
       try {
         const proxyData = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
         const proxyUser = (proxyData.users || []).find(u => u.user_id === approved.username);
-        if (proxyUser) {
+        if (proxyUser?.token) {
           const t = proxyUser.token;
           maskedToken = t.slice(0, 6) + '····' + t.slice(-4);
           expiresAt = proxyUser.expires_at;
           role = proxyUser.role;
         }
       } catch (_) {}
-      return res.json({ success: true, status: 'approved', message: '已通过！', token: maskedToken, expiry: expiresAt, role });
+      const tier = approved.tier || role;
+      if (!maskedToken || !expiresAt || !role) {
+        return res.json({
+          success: true,
+          status: 'sync_pending',
+          message: '账户正在同步到数据服务；请稍后重新查询。'
+        });
+      }
+      return res.json({
+        success: true,
+        status: 'approved',
+        message: '已通过！',
+        token: maskedToken,
+        expiry: expiresAt,
+        role,
+        tier,
+        current_plan: publicPlan(tier)
+      });
     }
     return res.json({ success: true, status: 'not_found', message: '未找到注册记录。' });
   }
@@ -3371,11 +3705,13 @@ app.post('/api/check-status', (req, res) => {
     try {
       const proxyData = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
       const proxyUser = (proxyData.users || []).find(u => u.user_id === entry.username);
-      if (proxyUser) {
+      if (proxyUser?.token) {
         const t = proxyUser.token;
         result.token = t.slice(0, 6) + '····' + t.slice(-4);
         result.expiry = proxyUser.expires_at;
         result.role = proxyUser.role;
+        result.tier = entry.tier || proxyUser.role;
+        result.current_plan = publicPlan(result.tier);
       }
     } catch (_) {}
   }
@@ -4399,7 +4735,16 @@ app.post('/api/generate-token', async (req, res) => {
 
     const existing = proxyData.users.find(u => u.user_id === validCustomer.username);
     if (existing) {
-      return res.json({ success: true, message: 'Token 已存在。', token: existing.token, expiry: existing.expires_at, role: existing.role });
+      const tier = validCustomer.tier || existing.role;
+      return res.json({
+        success: true,
+        message: 'Token 已存在。',
+        token: existing.token,
+        expiry: existing.expires_at,
+        role: existing.role,
+        tier,
+        current_plan: publicPlan(tier)
+      });
     }
 
     // Look up tier config from the stored tier or fall back to role
@@ -4422,7 +4767,15 @@ app.post('/api/generate-token', async (req, res) => {
 
     const syncResult = await writeProxyUsersAndSyncAsync(proxyData);
 
-    return res.json({ success: true, token, expiry: expiresAt, role: newProxyUser.role, syncOk: syncResult.ok });
+    return res.json({
+      success: true,
+      token,
+      expiry: expiresAt,
+      role: newProxyUser.role,
+      tier: validCustomer.tier || newProxyUser.role,
+      current_plan: publicPlan(validCustomer.tier || newProxyUser.role),
+      syncOk: syncResult.ok
+    });
   } catch (err) {
     console.error('Error updating proxy registry:', err);
     return res.status(500).json({ success: false, message: 'Failed to register token on the data proxy server.' });
