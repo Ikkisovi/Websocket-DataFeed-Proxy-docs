@@ -617,6 +617,7 @@
     // FMP docs prose split across <code> elements. Each piece is its own text
     // node, so an exact match is both safe and sufficient here.
     "详细接口文档请查看左侧": "Full endpoint documentation is in the sidebar under",
+    "美股期权与数据代理服务 · Stock Options & Financial Data Proxy Service": "Stock Options & Financial Data Proxy Service",
     "部分。": "section.",
     "打开文档 / Open Docs →": "Open docs →",
     "在请求头中添加": "Add the header",

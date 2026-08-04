@@ -369,6 +369,7 @@ function AccountPage() {
         onRefresh={() => loadOverview().catch(() => {})}
         onRenew={() => window.location.assign("/checkout")}
       />
+      <ComplianceFooter />
     </div>
   );
 }

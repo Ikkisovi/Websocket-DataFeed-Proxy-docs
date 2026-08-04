@@ -501,6 +501,7 @@ function CheckoutPage() {
           </aside>
         </div>
       )}
+      <ComplianceFooter />
     </main>
   );
 }

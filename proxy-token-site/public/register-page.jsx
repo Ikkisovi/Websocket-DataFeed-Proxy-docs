@@ -874,10 +874,13 @@ function RegisterPage() {
                 </div>
               </div>
 
-              {/* Tiny help block */}
-              <div style={{ marginTop: 16, padding: "0 4px", fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.6 }}>
-                问题反馈：
-                <a style={{ color: "var(--accent-ink)" }}> support@alpaca-proxy.io</a>
+              {/* Compliance & Help block */}
+              <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--rule)", fontSize: 12, color: "var(--ink-muted)", lineHeight: 1.6 }}>
+                <div style={{ color: "var(--ink-strong)", fontWeight: 600 }}>Leandata Technologies Ltd.</div>
+                <div>700 W Georgia St, Vancouver, BC V7Y 1B6, Canada</div>
+                <div style={{ marginTop: 4 }}>
+                  <a href="https://leandata.uk" style={{ color: "var(--accent-ink)", textDecoration: "none" }}>https://leandata.uk</a>
+                </div>
               </div>
             </aside>
           </div>

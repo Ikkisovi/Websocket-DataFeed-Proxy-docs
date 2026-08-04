@@ -141,6 +141,7 @@ function UpdatesPage() {
           </aside>
         </div>
       </main>
+      <ComplianceFooter />
     </div>
   );
 }
