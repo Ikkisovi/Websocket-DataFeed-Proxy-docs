@@ -831,7 +831,7 @@ describe('Registration and bulk product UI contract', () => {
     expect(rootIndexSource).toContain('src="/docs/docs-site.jsx?v=fmp-data-guide-v1"');
     expect(rootIndexSource).not.toContain('src="docs-site.jsx"');
     expect(docsIndexSource).toContain('src="docs-site.jsx?v=fmp-data-guide-v1"');
-    expect(docsSource.match(/Alpaca supports index options now\./g)).toHaveLength(1);
+    expect(docsSource.match(/Index options are supported/g)).toHaveLength(1);
   });
 
   it('keeps both public docs entry files identical and uses stable domain endpoints', () => {
@@ -854,25 +854,19 @@ describe('Registration and bulk product UI contract', () => {
     expect(overviewStart).toBeGreaterThanOrEqual(0);
     expect(fmpStart).toBeGreaterThanOrEqual(0);
     expect(fmpEnd).toBeGreaterThan(fmpStart);
-    expect(overviewSource).toContain('FMP data / FMP 数据说明');
-    expect(overviewSource).toContain('Open FMP Fundamentals');
-    expect(fmpSource).toContain('FMP Fundamentals API reference');
-    expect(fmpSource).toContain('FMP-compatible financial data');
-    expect(fmpSource).toContain('Request examples');
-    expect(fmpSource).toContain('Raw quote snapshot');
-    expect(fmpSource).toContain('Endpoint subsections');
+    expect(overviewSource).toContain('Financial Data / 财务数据');
+    expect(overviewSource).toContain('打开文档 / Open Docs →');
+    expect(fmpSource).toContain('请求示例 / Request Examples');
+    expect(fmpSource).toContain('可用接口 / Available Endpoints');
     expect(fmpSource).toContain('Authorization: Bearer TOKEN');
     expect(fmpSource).toContain('/stable/income-statement');
     expect(fmpSource).toContain('/v1/pit/fmp/*');
-    expect(fmpSource).toContain('Representative response');
     expect(fmpSource).toContain('reportedCurrency');
     expect(fmpSource).toContain('acceptedDate');
     expect(fmpSource).toContain('netIncome');
-    expect(fmpSource).toContain('Response metadata and current coverage');
-    expect(fmpSource).toContain('Sample-universe fundamentals Beta');
-    expect(fmpSource).toContain('为什么这还不是严格 PIT');
-    expect(fmpSource).toContain('Future plan');
-    expect(fmpSource).toContain('PIT-like');
+    expect(fmpSource).toContain('数据覆盖说明 / Coverage Notes');
+    expect(fmpSource).toContain('注意事项 / Important Notes');
+    expect(fmpSource).toContain('后续计划 / Future Plans');
     expect(fmpSource).not.toContain('Request session and route');
     expect(fmpSource).not.toContain('AWS');
     expect(fmpSource).not.toContain('ThinkCentre');
@@ -880,7 +874,7 @@ describe('Registration and bulk product UI contract', () => {
     expect(fmpSource).not.toContain('Service credential');
     expect(fmpSource).not.toContain('X-Cache');
     expect(fmpSource).not.toContain('X-FMP-Package-SHA256');
-    expect(fmpSource).toContain('已验证覆盖 · Verified now');
+    expect(fmpSource).toContain('当前覆盖范围 / Current coverage');
     expect(fmpSource).toContain('后续计划');
     expect(fmpSource).toContain('Premium 账户');
     expect(fmpSource).not.toContain('本页把请求格式、已验证覆盖范围和后续计划分开说明');

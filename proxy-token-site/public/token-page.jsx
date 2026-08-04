@@ -4,24 +4,6 @@
 const { useState } = React;
 
 function TokenTopbar({ portalOpen, setPortalOpen }) {
-  const t = (text) => window.LeandataI18n?.translate(text) || text;
-  const [currentLang, setCurrentLang] = React.useState(() =>
-    window.LeandataI18n?.getLanguage() || "zh"
-  );
-
-  React.useEffect(() => {
-    const handleLangChange = () => {
-      setCurrentLang(window.LeandataI18n?.getLanguage() || "zh");
-    };
-    window.addEventListener("leandata:languagechange", handleLangChange);
-    return () => window.removeEventListener("leandata:languagechange", handleLangChange);
-  }, []);
-
-  const toggleLanguage = () => {
-    const newLang = currentLang === "zh" ? "en" : "zh";
-    window.LeandataI18n?.setLanguage(newLang);
-  };
-
   return (
     <div className="topbar">
       <div className="brand">
@@ -30,36 +12,21 @@ function TokenTopbar({ portalOpen, setPortalOpen }) {
       </div>
       <div className="divider"></div>
       <div className="nav">
-        <a href="/docs/" style={{ cursor: "pointer" }}>{t("Docs")}</a>
-        <a href="/docs/#status" style={{ cursor: "pointer" }}>{t("Status")}</a>
-        <a href="/docs/#usage" style={{ cursor: "pointer" }}>{t("Usage")}</a>
+        <a href="/docs/" style={{ cursor: "pointer" }}>文档</a>
+        <a href="/docs/#status" style={{ cursor: "pointer" }}>状态</a>
+        <a href="/docs/#usage" style={{ cursor: "pointer" }}>用量</a>
         <a href="/updates" style={{ cursor: "pointer" }}>更新 / Updates</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
-        <button
-          onClick={toggleLanguage}
-          className="btn ghost"
-          style={{
-            padding: "6px 10px",
-            fontSize: 12,
-            marginRight: 8,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4
-          }}
-          title={currentLang === "zh" ? "Switch to English" : "切换到中文"}
-        >
-          <span style={{ fontSize: 14 }}>🌐</span>
-          {currentLang === "zh" ? "中文" : "EN"}
-        </button>
+        <LanguageToggle />
         {!portalOpen && (
           <button className="btn ghost" onClick={() => setPortalOpen(true)} style={{ marginRight: 12, padding: "6px 10px", fontSize: 12 }}>
-            {t("Open Portal")}
+            打开入口
           </button>
         )}
-        <a href="/account" className="btn accent" style={{ padding: "6px 10px", fontSize: 12 }}>{t("Manage account →")}</a>
-        <a href="/admin.html" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>{t("Admin →")}</a>
+        <a href="/account" className="btn accent" style={{ padding: "6px 10px", fontSize: 12 }}>管理账户 →</a>
+        <a href="/admin.html" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>管理后台 →</a>
       </div>
     </div>
   );
@@ -78,7 +45,7 @@ function TokenPage() {
 
   const handleGenerate = async () => {
     if (!user || !phone) {
-      setErrorMsg(t("Please enter both username and phone number."));
+      setErrorMsg("请输入用户名和手机号。");
       return;
     }
 
@@ -106,7 +73,7 @@ function TokenPage() {
       }
     } catch (error) {
       console.error('Error:', error);
-      setErrorMsg(t('Network error or server is down. Please try again later.'));
+      setErrorMsg("网络错误或服务器停机，请稍后重试。");
     } finally {
       setLoading(false);
     }
@@ -115,7 +82,7 @@ function TokenPage() {
   const handleCopy = () => {
     if (tokenData && tokenData.token) {
       navigator.clipboard.writeText(tokenData.token);
-      alert(t("Token copied to clipboard!"));
+      alert(t("令牌已复制到剪贴板！"));
     }
   };
 
@@ -136,10 +103,10 @@ function TokenPage() {
         fontSize: 13,
       }}>
         <span>
-          <strong>{t("新提醒 · Premium 用户现可试用 FMP fundamentals Beta")}</strong>
-          　{t("我们采购的 bulk snapshot 现已开放 statements、ratios、key metrics、TTM、growth、enterprise values 与 financial scores；数据可能被上游事后修订，并非严格 PIT。欢迎反馈 ticker、字段、period 或修订问题。")}
+          <strong>新提醒 · Premium 用户现可试用 FMP fundamentals Beta</strong>
+          　我们采购的 bulk snapshot 现已开放 statements、ratios、key metrics、TTM、growth、enterprise values 与 financial scores；数据可能被上游事后修订，并非严格 PIT。欢迎反馈 ticker、字段、period 或修订问题。
         </span>
-        <span style={{ fontFamily: "var(--f-mono)", whiteSpace: "nowrap" }}>{t("查看更新 / View updates →")}</span>
+        <span style={{ fontFamily: "var(--f-mono)", whiteSpace: "nowrap" }}>查看更新 / View updates →</span>
       </a>
 
       <div style={{ display: "grid", gridTemplateColumns: portalOpen ? "minmax(420px, 440px) 1fr" : "1fr", flex: 1, minHeight: 0 }}>
@@ -147,21 +114,21 @@ function TokenPage() {
         {portalOpen && (
         <div style={{ position: "relative", padding: "56px 48px", background: "var(--bg-paper)", borderRight: "1px solid var(--rule)", overflow: "auto" }}>
           <button onClick={() => setPortalOpen(false)} style={{ position: "absolute", top: 16, right: 16, background: "transparent", border: "none", cursor: "pointer", fontSize: 20, color: "var(--ink-muted)" }}>✕</button>
-          <div className="eyebrow" style={{ marginBottom: 14 }}>{t("Access · 30 day token")}</div>
+          <div className="eyebrow" style={{ marginBottom: 14 }}>访问 · 30 天令牌</div>
           <h1 className="display-title" style={{ fontSize: 44, margin: "0 0 12px", lineHeight: 1.0 }}>
-            {t("Get your")} <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>{t("access")}</span> {t("token")}
+            获取您的 <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>访问令牌</span>
           </h1>
           <p style={{ color: "var(--ink-muted)", margin: "0 0 32px", fontSize: 14, maxWidth: 360 }}>
-            {t("Approved accounts only. Enter the username and phone number on file — we'll mint a fresh UUID and push it to the upstream proxy.")}
+            仅限已审核账户。输入注册时的用户名和手机号，我们将生成新的 UUID 并推送到上游代理。
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <div>
-              <label className="label">{t("Username")}</label>
+              <label className="label">用户名</label>
               <input className="input mono" value={user} onChange={e => setUser(e.target.value)} />
             </div>
             <div>
-              <label className="label">{t("Phone number")}</label>
+              <label className="label">手机号</label>
               <input className="input mono" value={phone} onChange={e => setPhone(e.target.value)} />
             </div>
             <button
@@ -170,7 +137,7 @@ function TokenPage() {
               onClick={handleGenerate}
               disabled={loading}
             >
-              {loading ? t("Generating...") : t("Generate token →")}
+              {loading ? "生成中…" : "生成令牌 →"}
             </button>
           </div>
           

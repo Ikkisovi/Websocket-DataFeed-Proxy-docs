@@ -56,6 +56,7 @@ function AccountTopbar({ loggedIn, onLogout }) {
       </div>
       <div className="spacer"></div>
       <div className="meta">
+        <LanguageToggle />
         <span className="pill"><span className="live"></span> production</span>
         {loggedIn && (
           <button className="btn ghost" onClick={onLogout} style={{ padding: "6px 10px", fontSize: 12 }}>

@@ -59,7 +59,6 @@ function quantile(arr, q) {
 
 // ── component cards ──────────────────────────────────────────────────────
 function ComponentCard({ name, route, status, uptime90, latency24h, unit = "ms", color = "var(--accent-ink)" }) {
-  const t = (text) => window.LeandataI18n?.translate(text) || text;
   const p50 = quantile(latency24h, 0.5);
   const p95 = quantile(latency24h, 0.95);
   const p99 = quantile(latency24h, 0.99);
@@ -67,7 +66,7 @@ function ComponentCard({ name, route, status, uptime90, latency24h, unit = "ms",
   const last7 = uptime90.slice(-7);
   const last1 = uptime90.slice(-1);
 
-  const statusLabel = status === "operational" ? t("Operational") : status === "degraded" ? t("Degraded") : status === "loading" ? t("Loading…") : t("Outage");
+  const statusLabel = status === "operational" ? "正常运行" : status === "degraded" ? "性能下降" : status === "loading" ? "加载中…" : "服务中断";
   const statusColor = status === "operational" ? "var(--ok)" : status === "loading" ? "var(--ink-muted)" : status === "degraded" ? "var(--warn)" : "var(--danger)";
   const statusBg    = status === "operational" ? "var(--ok-soft)" : status === "loading" ? "var(--bg-canvas)" : status === "degraded" ? "var(--warn-soft)" : "var(--danger-soft)";
 
@@ -484,67 +483,32 @@ function UptimeBlock({ label, data }) {
 const { useState } = React;
 
 function DocsTopbar({ active = "proxy", onNav }) {
-  const t = (text) => window.LeandataI18n?.translate(text) || text;
-  const [currentLang, setCurrentLang] = React.useState(() =>
-    window.LeandataI18n?.getLanguage() || "zh"
-  );
-
-  React.useEffect(() => {
-    const handleLangChange = () => {
-      setCurrentLang(window.LeandataI18n?.getLanguage() || "zh");
-    };
-    window.addEventListener("leandata:languagechange", handleLangChange);
-    return () => window.removeEventListener("leandata:languagechange", handleLangChange);
-  }, []);
-
-  const toggleLanguage = () => {
-    const newLang = currentLang === "zh" ? "en" : "zh";
-    window.LeandataI18n?.setLanguage(newLang);
-  };
-
   return (
     <div className="topbar">
       <div className="brand">
         <span className="dot"></span>
-        <span><strong>{t("Proxy Docs")}</strong></span>
+        <span><strong>代理文档</strong></span>
       </div>
       <div className="divider"></div>
       <div className="nav">
-        <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>{t("Proxy API")}</a>
-        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>{t("FMP data")}</a>
-        <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>{t("Bulk Download")}</a>
-        <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>{t("WS usage")}</a>
-        <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>{t("Status")}</a>
-        <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>{t("Usage")}</a>
+        <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>代理 API</a>
+        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>FMP 数据</a>
+        <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>批量下载</a>
+        <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>WS 用法</a>
+        <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>状态</a>
+        <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>用量</a>
         <a href="/updates" style={{ cursor: "pointer" }}>更新 / Updates</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
-        <button
-          onClick={toggleLanguage}
-          className="btn ghost"
-          style={{
-            padding: "6px 10px",
-            fontSize: 12,
-            marginRight: 8,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4
-          }}
-          title={currentLang === "zh" ? "Switch to English" : "切换到中文"}
-        >
-          <span style={{ fontSize: 14 }}>🌐</span>
-          {currentLang === "zh" ? "中文" : "EN"}
-        </button>
-        <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>{t("Token portal →")}</a>
+        <LanguageToggle />
+        <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>Token 入口 →</a>
       </div>
     </div>
   );
 }
 
 function IndexOptionsBanner() {
-  const t = (text) => window.LeandataI18n?.translate(text) || text;
-
   return (
     <div style={{
       display: "flex",
@@ -568,11 +532,8 @@ function IndexOptionsBanner() {
         letterSpacing: ".08em",
         textTransform: "uppercase",
       }}>New</span>
-      <strong>{t("Alpaca supports index options now.")}</strong>
-      <span>
-        {t("Proxy contract discovery and realtime option streams are live for SPX/SPXW, VIX/VIXW, DJX and XSP.")}
-        <span style={{ color: "var(--ink-muted)" }}> 指数期权合约查询与实时行情现已支持。</span>
-      </span>
+      <strong>Alpaca 现已支持指数期权。</strong>
+      <span>SPX/SPXW、VIX/VIXW、DJX 和 XSP 的合约查询与实时期权流已上线。</span>
     </div>
   );
 }

@@ -4,6 +4,7 @@
   const STORAGE_KEY = "leandata.language";
   const EVENT_NAME = "leandata:languagechange";
   const CJK_RE = /[\u3400-\u9fff]/;
+  const LATIN_LETTER_RE = /[A-Za-z]/;
   const originalText = new WeakMap();
   const originalAttributes = new WeakMap();
   let applying = false;
@@ -14,6 +15,7 @@
     "账户管理 — Leandata Proxy": "Account management — Leandata",
     "配置套餐 — Leandata": "Choose a plan — Leandata",
     "Admin — 审核后台": "Admin — Review console",
+    "更新与留言 — Leandata": "Updates and feedback — Leandata",
 
     "账户管理": "Account",
     "已有账号 · 账户管理 →": "Already registered · Manage account →",
@@ -371,72 +373,285 @@
     "Admin 备注": "Admin notes",
     "leandata.uk 更新 / Service update": "leandata.uk service update",
 
-    // Navigation and buttons
-    "Docs": "文档",
-    "Status": "状态",
-    "Usage": "用量",
-    "Open Portal": "打开入口",
-    "Manage account →": "管理账户 →",
-    "Admin →": "管理后台 →",
-    "Token portal →": "Token 入口 →",
-    "Proxy API": "代理 API",
-    "FMP data": "FMP 数据",
-    "Bulk Download": "批量下载",
-    "WS usage": "WS 用法",
-    "Proxy Docs": "代理文档",
+    // Admin — verification email template editor
+    "注册邮件模板": "Registration email template",
+    "注册验证码邮件": "Verification code email",
+    "修改后，新发送的验证码邮件立即使用新模板。": "Once saved, newly sent verification emails use the new template immediately.",
+    "保存模板": "Save template",
+    "邮件主题": "Subject line",
+    "纯文本内容": "Plain text body",
+    "HTML 内容": "HTML body",
+    "可用占位符：": "Available placeholders:",
+    "。纯文本和 HTML 都必须包含": ". Both the plain text and HTML bodies must include",
+    "纯文本预览 · 示例验证码 123456": "Plain text preview · sample code 123456",
+    "加载模板失败": "Could not load the template",
+    "加载邮件模板失败": "Could not load the email template",
+    "保存模板失败": "Could not save the template",
+    "邮件模板已保存": "Email template saved",
+    "保存邮件模板失败": "Could not save the email template",
+    "已恢复默认双语模板": "Restored the default bilingual template",
+
+    // Admin — bulk order console
+    "当前还没有 Bulk 下载申请": "No bulk download requests yet",
+    "恢复待处理": "Move back to pending",
+    "报价 CNY": "Quote (CNY)",
+    "实际 raw GB": "Actual raw GB",
+    "内部备注 / 联系结果": "Internal notes / contact outcome",
+    "已报价 / 已联系": "Quoted / contacted",
+    "已交付": "Delivered",
+    "待处理": "Pending",
+    "Bulk 订单更新失败": "Could not update the bulk order",
+
+    // Admin — announcement console
+    "正在读取 registry": "Reading the registry",
+    "公告数据加载失败": "Could not load announcement data",
+    "公告数据加载失败:": "Could not load announcement data:",
+    "SMTP 已配置": "SMTP configured",
+    "SMTP 未配置": "SMTP not configured",
+    "未填写邮箱": "No email on file",
+    "邮箱无效": "Invalid email",
+    "账号已过期": "Account expired",
+    "测试账号": "Test account",
+    "服务账号": "Service account",
+    "不可发送": "Cannot receive mail",
+    "请输入有效的手动收件邮箱": "Enter a valid email address to add",
+    "该邮箱已在当前收件人中": "That address is already in the recipient list",
+    "发送请求失败": "The send request failed",
+    "预览已生成，正式发送快照已锁定。": "Preview generated. The live send snapshot is now locked.",
+    "请输入有效的测试收件邮箱": "Enter a valid test recipient address",
+    "测试邮件发送成功": "Test email sent",
+    "内容或收件人已变化，请重新生成预览": "The content or recipients changed — generate the preview again",
+    "正式发送中…": "Sending…",
+    "已发送": "Sent",
+    "公告发送完成": "Announcement sent",
+    "公告发送存在失败": "Some announcement deliveries failed",
+    "处理中…": "Working…",
+    "操作失败": "That action failed",
+    "同步中…": "Syncing…",
 
     // Token page
-    "Get your": "获取您的",
-    "access": "访问",
-    "token": "令牌",
-    "Approved accounts only. Enter the username and phone number on file — we'll mint a fresh UUID and push it to the upstream proxy.": "仅限已审核账户。输入注册时的用户名和手机号，我们将生成新的 UUID 并推送到上游代理。",
-    "Username": "用户名",
-    "Phone number": "手机号",
-    "Generate token →": "生成令牌 →",
-    "Generating...": "生成中...",
-    "Please enter both username and phone number.": "请输入用户名和手机号。",
-    "Network error or server is down. Please try again later.": "网络错误或服务器停机。请稍后重试。",
-    "Token copied to clipboard!": "令牌已复制到剪贴板！",
-    "Access · 30 day token": "访问 · 30 天令牌",
-
-    // Status labels
-    "Operational": "正常运行",
-    "Degraded": "性能下降",
-    "Outage": "服务中断",
-    "Loading…": "加载中…",
-
-    // Docs sections
-    "The": "该",
-    "Proxy API": "代理 API",
-    "covers REST endpoints and tier management;": "涵盖 REST 端点和套餐管理；",
-    "WS usage": "WS 用法",
-    "covers the 6 realtime streaming channels.": "涵盖 6 个实时流通道。",
+    "仅限已审核账户。输入注册时的用户名和手机号，我们将生成新的 UUID 并推送到上游代理。": "Approved accounts only. Enter the username and phone number on file — we'll mint a fresh UUID and push it to the upstream proxy.",
+    "请输入用户名和手机号。": "Please enter both username and phone number.",
+    "网络错误或服务器停机，请稍后重试。": "Network error or server is down. Please try again later.",
+    "令牌已复制到剪贴板！": "Token copied to clipboard!",
 
     // Page titles
-    "Stock Options Proxy — Public Docs": "美股期权代理 — 公开文档",
-    "新用户注册 — Stock Options Proxy": "Create an account — Leandata",
-    "账户管理 — Leandata Proxy": "Account management — Leandata",
+    "美股期权代理 — 公开文档": "Stock Options Proxy — Public Docs",
 
-    // Banner and announcements
-    "新提醒 · Premium 用户现可试用 FMP fundamentals Beta": "New · Premium users can now try FMP fundamentals Beta",
-    "我们采购的 bulk snapshot 现已开放 statements、ratios、key metrics、TTM、growth、enterprise values 与 financial scores；数据可能被上游事后修订，并非严格 PIT。欢迎反馈 ticker、字段、period 或修订问题。": "Our bulk snapshot now includes statements, ratios, key metrics, TTM, growth, enterprise values, and financial scores. Data may be revised by the upstream provider and is not strict point-in-time. Feedback welcome on tickers, fields, periods, or revision issues.",
+    // Updates banner
+    "新提醒 · Premium 用户现可试用 FMP fundamentals Beta": "New · Premium users can now try the FMP fundamentals beta",
+    "我们采购的 bulk snapshot 现已开放 statements、ratios、key metrics、TTM、growth、enterprise values 与 financial scores；数据可能被上游事后修订，并非严格 PIT。欢迎反馈 ticker、字段、period 或修订问题。": "Our bulk snapshot now covers statements, ratios, key metrics, TTM, growth, enterprise values and financial scores. Upstream may revise data after the fact, so it is not strictly point-in-time. Feedback on tickers, fields, periods or revisions is welcome.",
     "查看更新 / View updates →": "View updates →",
 
-    // Index options banner
-    "Alpaca supports index options now.": "Alpaca 现已支持指数期权。",
-    "Proxy contract discovery and realtime option streams are live for SPX/SPXW, VIX/VIXW, DJX and XSP.": "SPX/SPXW、VIX/VIXW、DJX 和 XSP 的合约查询与实时期权流已上线。",
+    // Register page — free-plan signup and email verification
+    "创建账户 · Free 计划": "Create account · Free plan",
+    "注册默认开通 Free：可查看最近 31 个日历日的 REST 数据，并可订阅最多 10 条 WebSocket。 需要更多历史、额度或实时订阅，请在账户管理中升级。": "Registering activates the Free plan: REST queries cover the last 31 calendar days and you can hold up to 10 WebSocket subscriptions. Upgrade in account management for more history, quota, or live subscriptions.",
+    "1 · 邮箱验证": "1 · Email verification",
+    "注册后立即开通": "Active as soon as you register",
+    "REST 可查询最近 31 个日历日；账户总计最多 10 条 WS 订阅。需要更多数据或额度，请注册完成后前往账户管理升级。": "REST covers the last 31 calendar days, and the account allows 10 WebSocket subscriptions in total. After registering, upgrade in account management for more data or quota.",
+    "邮箱地址": "Email address",
+    "验证码将发送到这个邮箱。": "We will send the code to this address.",
+    "邮箱验证码": "Email verification code",
+    "验证码有效期 10 分钟。": "The code is valid for 10 minutes.",
+    "2 · 账户信息": "2 · Account details",
+    "用户名、手机号和邮箱共同确定账户。相同组合会恢复已有账户；同名但不同电话或邮箱可以独立注册。": "Your username, phone number, and email together identify the account. The same combination restores an existing account; the same name with a different phone or email registers separately.",
+    "进入账户管理并升级 →": "Open account management to upgrade →",
+    "一次性 Token": "One-time token",
+    "使用注册时的用户名、手机号和邮箱查询账户状态。": "Check account status with the username, phone number, and email from registration.",
+    "最近一个月 · 轻量实时": "Last month · lightweight real-time",
+    "全部 REST endpoint 仅最近 31 个日历日 · 最多 10 条并发 WS 订阅": "All REST endpoints, last 31 calendar days only · up to 10 concurrent WebSocket subscriptions",
+    "请先填写有效的邮箱地址。": "Enter a valid email address first.",
+    "验证码已发送，请检查邮箱。": "Code sent. Check your inbox.",
+    "验证码发送失败，请稍后重试。": "Could not send the code. Try again shortly.",
+    "请先获取并填写 6 位邮箱验证码。": "Request and enter the 6-digit email code first.",
+    "Free 计划已启用。": "The Free plan is active.",
+    "该账户已存在，请从账户管理进入升级与用量页面。": "This account already exists. Use account management for upgrades and usage.",
+    "请填写注册时的用户名、手机号和邮箱。": "Enter the username, phone number, and email from registration.",
+    "重新发送验证码": "Resend code",
+    "发送验证码": "Send code",
+    "输入 6 位验证码": "Enter the 6-digit code",
+    "注册并立即开通 Free →": "Register and activate Free →",
 
-    // Hero sections intro text
-    "Real-time US equities, options, crypto and news — one token, no Alpaca key needed.": "美股实时行情、期权、加密货币和新闻 — 一个令牌，无需 Alpaca 密钥。",
-    "covers REST endpoints and tier management;": "涵盖 REST 端点和套餐管理；",
-    "covers the 6 realtime streaming channels.": "涵盖 6 个实时流通道。",
-    "Reference · live docs": "参考 · 实时文档",
-    "Stock Options Proxy": "美股期权代理",
-    "API": "接口"
+    // Account page
+    "注册时的用户名、手机号和邮箱共同构成唯一登录凭证。": "Your username, phone number, and email from registration form your unique sign-in credentials.",
+    "邮箱是账户身份的一部分，不能在线修改。": "Email is part of your account identity and cannot be changed online.",
+    "选择升级套餐 →": "Choose an upgrade →",
+    "选择升级套餐": "Choose an upgrade",
+    "在这里进入安全结账页选择 Value、Standard 或 Premium、时长和支付方式。支付成功后保留原 Token 并自动延长有效期。": "Open secure checkout to pick Value, Standard, or Premium, a term, and a payment method. After payment your existing token stays the same and its expiry extends automatically.",
+    "注册时使用的用户名": "Username used at registration",
+
+    // Checkout page
+    "支付宝由 Z-Pay 跳转处理，卡号、有效期和 CVV 直接提交给 Stripe；Leandata 不读取或保存支付凭据。平台验签回调确认后自动开通；重复回调不会重复延长有效期。": "Alipay is handled through a Z-Pay redirect, and your card number, expiry, and CVC go directly to Stripe. Leandata never reads or stores payment credentials. Access activates after a signed platform callback, and duplicate callbacks never extend the term twice.",
+    "支付宝正在确认付款；确认后账户会自动开通。": "Alipay is confirming your payment. The account activates once confirmed.",
+
+    // Updates page — product log and feedback
+    "返回首页 →": "Back to home →",
+    "产品日志 · Product log": "Product log",
+    "最近改动与留言": "Recent changes and feedback",
+    "这里记录数据产品的近期变化，包括 Index options 支持与 Premium FMP fundamentals Beta；每条更新都会说明当前可用范围和下一步计划。": "This log covers recent changes to the data products, including index-option support and the Premium FMP fundamentals beta. Each entry states what is available now and what comes next.",
+    "近期改动": "Recent changes",
+    "快照、修订与 PIT 计划": "Snapshots, revisions, and point-in-time plans",
+    "这批数据是我们采购并导入的 bulk snapshot。上游可能在事后修订历史值，所以“某次快照”不自动等于严格 PIT。下一步会建立单独版本化的 PIT-like 周度或固定频率刷新：记录 capture time 与 visible time，保留不可变 vintage，并把每次刷新绑定到明确版本。": "This data is a bulk snapshot we purchase and import. Upstream may revise historical values after the fact, so a single snapshot is not automatically strict point-in-time. Next we will add separately versioned, point-in-time-style weekly or fixed-cadence refreshes that record capture time and visible time, keep each vintage immutable, and bind every refresh to an explicit version.",
+    "Native FMP endpoint forwarding 会作为另一个兼容层单独建设，不会与已发布的批量快照混为一谈。": "Native FMP endpoint forwarding will be built as a separate compatibility layer, kept distinct from the published bulk snapshots.",
+    "Premium 与 Ultimate": "Premium and Ultimate",
+    "Premium 是当前 Beta 的访问层。Ultimate 计划增加 institutional holdings disclosures、ETF holdings 及相关数据族；这些数据同样可能被上游修订，也必须沿用 capture time、visible time 和 immutable vintage 语义后再作为可复现实验输入。": "Premium is the access tier for the current beta. The Ultimate plan will add institutional holdings disclosures, ETF holdings, and related data families. Those may also be revised upstream, so they must carry capture time, visible time, and immutable vintage semantics before being used as reproducible research inputs.",
+    "给我们留言": "Send us feedback",
+    "登录账户后即可提交反馈，并只查看自己的历史留言。": "Sign in to submit feedback and see only your own past messages.",
+    "去登录账户 →": "Go to account sign-in →",
+    "你的留言仅对账户本人可见；每小时最多提交 5 条。": "Your messages are visible only to you, and you can send up to 5 per hour.",
+    "我的留言": "My messages",
+    "还没有留言。": "No messages yet.",
+    "更新暂时无法读取，请稍后重试。": "Updates cannot be loaded right now. Try again shortly.",
+    "请先写下你的反馈。": "Write your feedback first.",
+    "留言失败，请稍后重试。": "Could not send your message. Try again shortly.",
+    "留言失败。": "Could not send your message.",
+    "已收到，谢谢你的反馈。": "Received — thank you for the feedback.",
+    "你希望下一步加入哪类 FMP 数据？": "Which FMP data should we add next?",
+    "提交反馈 →": "Submit feedback →",
+
+    // Status page probe description
+    "REST API（Cloudflare → EC2）与 WebSocket 流（EC2 直连）的实时健康指标。可用性按分钟采样，延迟分位数按 60 分钟滚动窗口计算。": "Live health metrics for the REST API (Cloudflare → EC2) and WebSocket streams (direct to EC2). Availability is sampled by the minute and latency percentiles use a rolling 60-minute window.",
+    "探针位于 us-west-2、us-east-1、eu-west-1，每 60 秒采样一次。REST 检查命中已知 token 的最新报价接口；WS 检查建连后等待认证回执。可用性 = 在 SLO 窗口内 HTTP 2xx 或认证成功的探针比例。": "Probes run from us-west-2, us-east-1, and eu-west-1 every 60 seconds. The REST probe requests the latest-quote endpoint with a known token; the WebSocket probe connects and waits for an auth acknowledgement. Availability is the share of probes returning HTTP 2xx or a successful auth inside the SLO window.",
+
+    // Index options banner
+    "Alpaca 现已支持指数期权。": "Alpaca supports index options now.",
+    "SPX/SPXW、VIX/VIXW、DJX 和 XSP 的合约查询与实时期权流已上线。": "Proxy contract discovery and realtime option streams are live for SPX/SPXW, VIX/VIXW, DJX and XSP.",
+
+    // FMP fundamentals — overview cards and hero
+    "通过 Leandata 获取美股财务数据，包括财报、财务指标、公司资料等。使用您的 Leandata token 即可访问，无需额外的 API 密钥。": "Get US equity financial data through Leandata: statements, metrics, company profiles and more. Your Leandata token is the only credential you need.",
+    "Premium 账户": "Premium accounts",
+    "使用您的 Leandata token 认证，无需额外的 API 密钥。": "Authenticate with your Leandata token. No additional API key is required.",
+    "财报 + 指标 + 公司资料": "Statements + metrics + profiles",
+    "包括损益表、资产负债表、现金流量表、财务比率、关键指标、公司简介等。": "Includes income statements, balance sheets, cash flow statements, financial ratios, key metrics and company profiles.",
+    "美股主要公司": "Major US companies",
+    "当前支持美股主要上市公司的历史财务数据。如有特定公司需求，请联系我们。": "Historical financial data is available for major US listed companies. Contact us if you need a specific company.",
+    "查看完整接口文档": "Read the full endpoint reference",
+    "左侧 FMP Fundamentals 部分包含所有接口的详细参数、返回示例和使用说明。": "The FMP Fundamentals section in the sidebar covers every endpoint's parameters, sample responses and usage notes.",
+    "财务数据基于公司公开披露的财报。公司可能会修订过往财报（如重述、更正等），我们会定期更新数据以反映这些变化。如需特定日期的历史数据版本，请联系我们。": "Financial data comes from companies' public filings. Companies sometimes revise past filings through restatements or corrections, and we refresh the data regularly to reflect those changes. Contact us if you need the data as it stood on a specific date.",
+    "我们正在逐步增加更多数据类型，包括：分析师预测、机构持仓、ETF 持仓等。如有特定需求，欢迎联系我们。": "We are adding more data types, including analyst estimates, institutional holdings and ETF holdings. Tell us what you need.",
+    "美股财务数据 · Premium": "US equity financial data · Premium",
+    "财务数据 API / Financial Data API": "Financial Data API",
+    "使用您的 Leandata token 获取美股财务数据（财报、财务指标、公司资料等）。Beta 版本目前向 Premium 账户开放。": "Use your Leandata token to retrieve US equity financial data: statements, metrics, company profiles and more. The beta is open to Premium accounts.",
+    "使用 Leandata Token": "Use your Leandata token",
+    "样本股票池": "Sample universe",
+    "Beta 版本覆盖主要美股的财务数据。如需特定股票，请联系我们。": "The beta covers financial data for major US equities. Contact us if you need a specific ticker.",
+    "财报 + 行情 + 公司资料": "Statements + quotes + profiles",
+    "包括财务报表、财务指标、股票报价、公司信息、分析师预测等。": "Includes financial statements, metrics, stock quotes, company information and analyst estimates.",
+    "Beta 已开放 / Beta Available": "Beta available",
+    "Premium 用户可以查询样本股票的财报、财务指标和公司资料。欢迎反馈缺失的股票或数据。": "Premium users can query statements, metrics and profiles for the sample universe. Tell us which tickers or fields are missing.",
+    "当前数据来自定期采购的批量数据。公司可能修订历史财务数据（如重述、更正等）。后续将提供版本化的历史数据查询，记录每次更新的时间。": "Today's data comes from bulk data we purchase on a regular schedule. Companies may revise historical figures through restatements or corrections. Versioned historical queries, recording the time of each update, are coming.",
+    "财务比率（TTM）/ Ratios TTM": "Financial ratios (TTM)",
+    "关键指标（TTM）/ Metrics TTM": "Key metrics (TTM)",
+    "以下是所有可用接口的详细说明。每个接口返回 JSON 数组格式的数据。": "Every available endpoint is described below. All of them return data as a JSON array.",
+    "以下接口提供股票报价、公司资料、分析师评级等数据。": "These endpoints provide stock quotes, company profiles, analyst ratings and related data.",
+    "接口返回 JSON 数组格式。以下是利润表数据的响应示例（字段值仅作示意）：": "Endpoints return a JSON array. Here is a sample income statement response; the values are illustrative only:",
+    "ISO-8601 时间戳格式。仅历史版本查询接口需要。": "ISO-8601 timestamp. Required only by the versioned query endpoint.",
+    "数据版本的唯一标识。用于可重复查询。": "Unique identifier for a data version. Use it for repeatable queries.",
+    "Beta 版本覆盖主要美股的财报、财务指标、股票报价、公司资料、分析师预测、评级、DCF 估值、收入分部等数据。": "The beta covers statements, metrics, quotes, profiles, analyst estimates, ratings, DCF valuations and revenue segmentation for major US equities.",
+    "机构持仓（institutional holdings）、ETF 持仓数据暂未提供。": "Institutional holdings and ETF holdings are not available yet.",
+    "这是 Beta 测试版本，并非所有股票都有完整数据覆盖。如遇空数组，说明该股票暂未包含在数据集中。": "This is a beta and not every ticker has complete coverage. An empty array means the ticker is not in the dataset yet.",
+    "公司可能因重述、更正等原因修订历史财务数据。后续将提供版本化查询功能，记录每次数据更新的时间。": "Companies may revise historical financial data through restatements or corrections. Versioned queries that record the time of each update are coming.",
+    "股价数据、财报数据、财务比率、预测数据等来自不同数据集。某股票有股价数据不代表一定有财报数据。": "Prices, statements, ratios and estimates come from separate datasets. A ticker having price data does not mean it also has statement data.",
+    "不同公司、不同时期的财报字段可能不同。代码应容忍字段缺失或为 null，不要将其当作 0 处理。": "Statement fields vary between companies and between periods. Your code should tolerate missing or null fields rather than treating them as 0.",
+    "扩展股票覆盖范围，增加更多美股和字段验证。": "Widen ticker coverage with more US equities and more field validation.",
+    "为预测、业绩公告、评级、DCF 等数据提供版本化历史查询，记录数据更新时间。": "Add versioned historical queries for estimates, earnings announcements, ratings and DCF data, recording each update time.",
+    "添加更多数据源支持，提供更广泛的接口覆盖。数据源将有独立的更新和修订策略。": "Support more data sources for broader endpoint coverage. Each source will have its own update and revision policy.",
+    "发布定期更新的历史数据版本，公开每次更新的时间戳，保留历史版本供查询。": "Publish regularly updated historical versions, expose the timestamp of each update and keep earlier versions queryable.",
+    "Ultimate 计划 / Ultimate Plan": "Ultimate plan",
+    "Ultimate 套餐将包含机构持仓披露、ETF 持仓等数据。这些数据也会遵循版本化管理和时间戳记录。": "The Ultimate plan will include institutional holdings disclosures and ETF holdings. Those datasets will follow the same versioning and timestamp rules.",
+    "DCF 估值 / DCF valuation": "DCF valuation",
+    "自定义 DCF / Custom DCF": "Custom DCF",
+    "杠杆 DCF / Levered DCF": "Levered DCF",
+    "自定义杠杆 DCF / Custom levered DCF": "Custom levered DCF",
+    "CIK 列表 / CIK list": "CIK list",
+    "财报 ticker 列表 / Financial statement symbol list": "Financial statement symbol list",
+    "Ticker 变更 / Symbol change": "Symbol change",
+    "注册成功！请等待卖家确认订单后即可生成 Token。": "Registration received. Once your order is confirmed you can generate a token.",
+    "Basic REST 月度套餐已停止新注册...": "The Basic monthly REST plan is closed to new registrations…",
+    "该用户名已被使用，请换一个。": "That username is taken. Choose another one.",
+    "已批准 tonnysun，Token 已自动注册到 proxy。": "Approved tonnysun. The token was registered with the proxy automatically.",
+    "信息不完整": "Incomplete information"
   }));
 
   const orderedTranslations = [...translations.entries()]
     .sort((left, right) => right[0].length - left[0].length);
+
+  // Short UI labels. These are matched against a whole text node only — putting
+  // them in the substring map above would splice into longer prose (e.g. the
+  // key 文档 would rewrite 详细接口文档请查看左侧 to 详细接口Docs请查看左侧).
+  const exactTranslations = new Map(Object.entries({
+    // Topbar navigation and buttons
+    "文档": "Docs",
+    "状态": "Status",
+    "用量": "Usage",
+    "打开入口": "Open Portal",
+    "管理账户 →": "Manage account →",
+    "管理后台 →": "Admin →",
+    "Token 入口 →": "Token portal →",
+    "代理 API": "Proxy API",
+    "FMP 数据": "FMP data",
+    "批量下载": "Bulk Download",
+    "WS 用法": "WS usage",
+    "代理文档": "Proxy Docs",
+
+    // Token page
+    "访问 · 30 天令牌": "Access · 30 day token",
+    "获取您的": "Get your",
+    "访问令牌": "access token",
+    "生成令牌 →": "Generate token →",
+    "生成中…": "Generating…",
+
+    // Status labels
+    "正常运行": "Operational",
+    "性能下降": "Degraded",
+    "服务中断": "Outage",
+    "加载中…": "Loading…",
+    "读取中…": "Loading…",
+    "发送中…": "Sending…",
+
+    // Short labels that also appear inside longer sentences, so they must only
+    // translate when they are the entire text node.
+    "新用户": "Create your",
+    "已开通": "Active",
+
+    // FMP docs prose split across <code> elements. Each piece is its own text
+    // node, so an exact match is both safe and sufficient here.
+    "详细接口文档请查看左侧": "Full endpoint documentation is in the sidebar under",
+    "部分。": "section.",
+    "打开文档 / Open Docs →": "Open docs →",
+    "在请求头中添加": "Add the header",
+    "。无需 FMP 的": ". No FMP",
+    "发送 HTTPS": "Send an HTTPS",
+    "请求到": "request to",
+    "，请求头中携带您的 Leandata token。": "with your Leandata token in the request header.",
+    "财务比率接口返回的字段包括": "The financial ratios endpoint returns fields such as",
+    "（流动比率）、": "(current ratio),",
+    "（速动比率）、": "(quick ratio),",
+    "（负债权益比）、": "(debt to equity),",
+    "（市盈率）、": "(P/E),",
+    "（ROE）等。TTM 字段通常以": "(ROE) and more. TTM fields usually end with",
+    "结尾。字段缺失或为 null 时表示数据源没有提供该字段，请勿当作零处理。": ". A missing or null field means the source did not provide it — do not treat it as zero.",
+    "使用上市公司代码，例如": "Use a listed company ticker, for example",
+    "（年报）或": "(annual) or",
+    "（季报）。TTM 和评分接口不需要此参数。": "(quarterly). The TTM and scores endpoints do not take this parameter.",
+    "限制返回的记录数量，例如": "Limit how many records are returned, for example",
+    "返回最近5条。": "returns the 5 most recent.",
+    "如果返回空数组": "If the response is an empty array",
+    "，表示该股票暂无此类数据，非接口错误。": ", that ticker has no data of this type yet — it is not an endpoint error.",
+    "只需使用您的 Leandata token，无需 FMP 的": "Use your Leandata token; no FMP",
+    "。如需查询特定历史版本，保存对应的": ". To query a specific historical version, save its",
+    "时间和": "time and",
+    "标识符。": "identifier.",
+
+    // Short labels that are substrings of longer prose elsewhere, so they are
+    // only ever safe to translate when they are the entire text node.
+    "新用户": "Create your",
+    "已开通": "Active",
+    "读取中…": "Loading…",
+    "发送中…": "Sending…",
+    "无": "None",
+    "加载失败": "Load failed",
+  }));
 
   function readLanguage() {
     try {
@@ -462,6 +677,13 @@
   let language = readLanguage();
 
   function translateDynamic(value) {
+    // Whole-node labels win outright, so short keys never splice into prose.
+    const trimmed = value.trim();
+    if (trimmed && exactTranslations.has(trimmed)) {
+      const [lead] = value.match(/^\s*/);
+      const [tail] = value.match(/\s*$/);
+      return lead + exactTranslations.get(trimmed) + tail;
+    }
     let output = value
       .replace(/剩余\s*(\d+)\s*天/g, "$1 days remaining")
       .replace(/(\d+)\s*个月/g, (_, count) => `${count} ${Number(count) === 1 ? "month" : "months"}`)
@@ -484,7 +706,45 @@
     }
     output = output
       .replace(/[\s·]*无需管理员批准。/g, " · no administrator approval required.");
+    // Docs headings are authored inline-bilingual. Only reached when the explicit
+    // maps left CJK behind, so a hand-written entry always wins over these.
+    if (CJK_RE.test(output)) {
+      const bilingual = translateInlineBilingual(output.trim());
+      if (bilingual !== null) {
+        const [lead] = output.match(/^\s*/);
+        const [tail] = output.match(/\s*$/);
+        return lead + bilingual + tail;
+      }
+    }
     return output;
+  }
+
+  // "更新 / Updates" -> "Updates". Requires one side pure CJK and the other pure
+  // Latin, so a genuine slash pair like "endpoint / dataset？" is left alone.
+  function splitSlashBilingual(value) {
+    const parts = value.split(/\s*\/\s*/);
+    if (parts.length !== 2) return null;
+    const [left, right] = parts.map(part => part.trim());
+    if (!left || !right) return null;
+    const leftIsCjk = CJK_RE.test(left);
+    if (leftIsCjk === CJK_RE.test(right)) return null;
+    const cjkSide = leftIsCjk ? left : right;
+    const latinSide = leftIsCjk ? right : left;
+    if (LATIN_LETTER_RE.test(cjkSide)) return null;
+    if (!LATIN_LETTER_RE.test(latinSide)) return null;
+    return latinSide;
+  }
+
+  // "获取公司当前市值。Current market cap." -> "Current market cap."
+  function splitTrailingEnglish(value) {
+    const match = value.match(
+      /^[^A-Za-z]*[㐀-鿿][\s\S]*?[。！？]\s*([A-Z][^㐀-鿿]*[.!?])$/
+    );
+    return match ? match[1].trim() : null;
+  }
+
+  function translateInlineBilingual(value) {
+    return splitSlashBilingual(value) ?? splitTrailingEnglish(value);
   }
 
   function shouldSkip(node) {
@@ -560,14 +820,118 @@
     }
   }
 
+  // Pages whose React topbar renders <LanguageToggle /> mark it with
+  // data-ld-language-toggle; there the floating switcher is redundant.
   function renderSwitcher() {
-    // Bottom-right floating switcher is now disabled
-    // Language switching is handled by inline topbar switchers
+    const existing = document.getElementById("leandata-language-switcher");
+    if (document.querySelector("[data-ld-language-toggle]")) {
+      existing?.remove();
+      return;
+    }
+    let switcher = existing;
+    if (!switcher) {
+      switcher = document.createElement("div");
+      switcher.id = "leandata-language-switcher";
+      switcher.setAttribute("data-no-i18n", "true");
+      switcher.setAttribute("role", "group");
+      switcher.setAttribute("aria-label", "Language / 语言");
+      switcher.innerHTML = `
+        <span class="ld-language-icon" aria-hidden="true">◎</span>
+        <button type="button" data-language="zh">中文</button>
+        <span class="ld-language-divider" aria-hidden="true"></span>
+        <button type="button" data-language="en">EN</button>
+      `;
+      switcher.addEventListener("click", event => {
+        const button = event.target.closest("button[data-language]");
+        if (button) setLanguage(button.dataset.language);
+      });
+      document.body.appendChild(switcher);
+    }
+    switcher.querySelectorAll("button[data-language]").forEach(button => {
+      const selected = button.dataset.language === language;
+      button.classList.toggle("active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+  }
+
+  // Inline topbar toggle for React pages. Exposed as a global so JSX can use
+  // <LanguageToggle />; the body only runs at render time, after React loads.
+  function LanguageToggle() {
+    const react = window.React;
+    const [current, setCurrent] = react.useState(language);
+    react.useEffect(() => {
+      const handler = () => setCurrent(language);
+      window.addEventListener(EVENT_NAME, handler);
+      return () => window.removeEventListener(EVENT_NAME, handler);
+    }, []);
+    const hint = current === "zh" ? "Switch to English" : "切换到中文";
+    return react.createElement("button", {
+      type: "button",
+      className: "btn ghost",
+      "data-no-i18n": "true",
+      "data-ld-language-toggle": "true",
+      onClick: () => setLanguage(current === "zh" ? "en" : "zh"),
+      title: hint,
+      "aria-label": hint,
+      style: {
+        marginRight: 8,
+        padding: "6px 10px",
+        fontSize: 12,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+      },
+    },
+      react.createElement("span", { "aria-hidden": "true", style: { fontSize: 13, lineHeight: 1 } }, "◎"),
+      current === "zh" ? "EN" : "中文"
+    );
   }
 
   function injectStyle() {
-    // Style injection no longer needed - inline switchers use existing button styles
-  }
+    if (document.getElementById("leandata-language-style")) return;
+    const style = document.createElement("style");
+    style.id = "leandata-language-style";
+    style.textContent = `
+      #leandata-language-switcher {
+        position: fixed;
+        right: max(18px, env(safe-area-inset-right));
+        bottom: max(18px, env(safe-area-inset-bottom));
+        z-index: 2147483646;
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        padding: 5px;
+        color: #31302d;
+        background: rgba(255, 255, 255, .92);
+        border: 1px solid rgba(20, 20, 20, .14);
+        border-radius: 999px;
+        box-shadow: 0 10px 28px rgba(20, 20, 20, .12), 0 1px 2px rgba(20, 20, 20, .08);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        font: 600 11px/1 "IBM Plex Sans", Inter, system-ui, sans-serif;
+        letter-spacing: .02em;
+      }
+      #leandata-language-switcher .ld-language-icon {
+        display: grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        color: #72706a;
+        font-size: 16px;
+      }
+      #leandata-language-switcher .ld-language-divider {
+        width: 1px;
+        height: 14px;
+        background: rgba(20, 20, 20, .12);
+      }
+      #leandata-language-switcher button {
+        appearance: none;
+        min-width: 38px;
+        height: 30px;
+        padding: 0 9px;
+        border: 0;
+        border-radius: 999px;
+        color: #77746f;
         background: transparent;
         cursor: pointer;
         font: inherit;
@@ -612,7 +976,7 @@
     } else if (document.documentElement.dataset.ldOriginalTitle) {
       document.title = document.documentElement.dataset.ldOriginalTitle;
     }
-    // renderSwitcher() call removed - inline topbar switchers handle this now
+    renderSwitcher();
     applying = false;
   }
 
@@ -627,7 +991,7 @@
   }
 
   function start() {
-    // injectStyle() and renderSwitcher() removed - inline topbar switchers handle this now
+    injectStyle();
     applyLanguage();
     const observerOptions = {
       subtree: true,
@@ -645,6 +1009,9 @@
         for (const node of mutation.addedNodes) applyNode(node);
         if (mutation.type === "attributes") applyElementAttributes(mutation.target);
       }
+      // React topbars mount after this script runs; once their inline toggle
+      // appears, drop the floating fallback so only one control is visible.
+      renderSwitcher();
       applying = false;
       if (document.body) observer.observe(document.body, observerOptions);
     });
@@ -652,9 +1019,12 @@
     languageObserver = observer;
   }
 
+  window.LanguageToggle = LanguageToggle;
+
   window.LeandataI18n = {
     getLanguage: () => language,
     setLanguage,
+    Toggle: LanguageToggle,
     translate: value => language === "en" ? translateDynamic(String(value ?? "")) : String(value ?? ""),
     destroy: () => {
       languageObserver?.disconnect();

@@ -20,6 +20,7 @@ function RegisterTopbar() {
       </div>
       <div className="spacer"></div>
       <div className="meta">
+        <LanguageToggle />
         <a href="/account" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>已有账号 · 账户管理 →</a>
       </div>
     </div>

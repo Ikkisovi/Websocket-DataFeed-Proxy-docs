@@ -66,7 +66,7 @@ function ComponentCard({ name, route, status, uptime90, latency24h, unit = "ms",
   const last7 = uptime90.slice(-7);
   const last1 = uptime90.slice(-1);
 
-  const statusLabel = status === "operational" ? "Operational" : status === "degraded" ? "Degraded" : status === "loading" ? "Loading…" : "Outage";
+  const statusLabel = status === "operational" ? "正常运行" : status === "degraded" ? "性能下降" : status === "loading" ? "加载中…" : "服务中断";
   const statusColor = status === "operational" ? "var(--ok)" : status === "loading" ? "var(--ink-muted)" : status === "degraded" ? "var(--warn)" : "var(--danger)";
   const statusBg    = status === "operational" ? "var(--ok-soft)" : status === "loading" ? "var(--bg-canvas)" : status === "degraded" ? "var(--warn-soft)" : "var(--danger-soft)";
 
@@ -487,21 +487,22 @@ function DocsTopbar({ active = "proxy", onNav }) {
     <div className="topbar">
       <div className="brand">
         <span className="dot"></span>
-        <span><strong>Proxy Docs</strong></span>
+        <span><strong>代理文档</strong></span>
       </div>
       <div className="divider"></div>
       <div className="nav">
-        <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>Proxy API</a>
-        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>FMP data</a>
-        <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>Bulk Download</a>
-        <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>WS usage</a>
-        <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>Status</a>
-        <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>Usage</a>
+        <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>代理 API</a>
+        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>FMP 数据</a>
+        <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>批量下载</a>
+        <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>WS 用法</a>
+        <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>状态</a>
+        <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>用量</a>
         <a href="/updates" style={{ cursor: "pointer" }}>更新 / Updates</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
-        <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>Token portal →</a>
+        <LanguageToggle />
+        <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>Token 入口 →</a>
       </div>
     </div>
   );
@@ -531,11 +532,8 @@ function IndexOptionsBanner() {
         letterSpacing: ".08em",
         textTransform: "uppercase",
       }}>New</span>
-      <strong>Alpaca supports index options now.</strong>
-      <span>
-        Proxy contract discovery and realtime option streams are live for SPX/SPXW, VIX/VIXW, DJX and XSP.
-        <span style={{ color: "var(--ink-muted)" }}> 指数期权合约查询与实时行情现已支持。</span>
-      </span>
+      <strong>Alpaca 现已支持指数期权。</strong>
+      <span>SPX/SPXW、VIX/VIXW、DJX 和 XSP 的合约查询与实时期权流已上线。</span>
     </div>
   );
 }
@@ -1571,41 +1569,46 @@ function FmpDataOverview({ openFundamentals }) {
   };
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
-      <div className="eyebrow" style={{ marginBottom: 10 }}>FMP-compatible archive data · Premium</div>
-      <h2 id="fmp-data-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>FMP data / FMP 数据说明</h2>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>Financial fundamentals data · Premium</div>
+      <h2 id="fmp-data-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>Financial Data / 财务数据</h2>
       <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
-        这是 Leandata 的 FMP-compatible immutable archive surface：使用 Leandata Bearer token，返回保留的原始 FMP-shaped JSON。
-        详细 request、response 和每条 route 不放在这一页；请进入左侧 API reference 的 <strong style={{ color: "var(--ink-strong)" }}>FMP Fundamentals</strong> session。
+        通过 Leandata 获取美股财务数据，包括财报、财务指标、公司资料等。使用您的 Leandata token 即可访问，无需额外的 API 密钥。
+        <br/>Access US stock financial data including statements, metrics, and company profiles. Use your Leandata token—no additional API keys needed.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 14 }}>详细接口文档请查看左侧 <strong style={{ color: "var(--ink-strong)" }}>FMP Fundamentals</strong> 部分。</span>
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 22 }}>
         <div style={panel}>
-          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Access</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Premium</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Use <code>Authorization: Bearer TOKEN</code>. Do not pass an FMP <code>apikey</code>.</div>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>访问权限 / Access</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Premium 账户</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>使用您的 Leandata token 认证，无需额外的 API 密钥。<br/>Use <code>Authorization: Bearer YOUR_TOKEN</code> header.</div>
         </div>
         <div style={panel}>
-          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Package identity</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Immutable snapshot</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Responses identify the captured package. A later upstream revision does not rewrite that package.</div>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>数据类型 / Data Types</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>财报 + 指标 + 公司资料</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>包括损益表、资产负债表、现金流量表、财务比率、关键指标、公司简介等。<br/>Income statements, balance sheets, ratios, metrics, profiles, and more.</div>
         </div>
         <div style={panel}>
-          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>PIT boundary</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Not universal</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Only statement PIT routes have an explicit visibility policy. Snapshot families are not strict PIT.</div>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>覆盖范围 / Coverage</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>美股主要公司</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>当前支持美股主要上市公司的历史财务数据。如有特定公司需求，请联系我们。<br/>Major US-listed companies. Contact us for specific coverage requests.</div>
         </div>
       </div>
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 22 }}>
-        <strong style={{ color: "var(--accent-ink)" }}>Endpoint reference moved.</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> Use the FMP Fundamentals sidebar session for individual endpoint sections, exact parameters, response metadata and coverage.</span>
-        <button onClick={openFundamentals} className="btn" style={{ marginLeft: 12, padding: "7px 11px", fontSize: 12 }}>Open FMP Fundamentals →</button>
+        <strong style={{ color: "var(--accent-ink)" }}>查看完整接口文档</strong>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> 左侧 FMP Fundamentals 部分包含所有接口的详细参数、返回示例和使用说明。<br/>See the FMP Fundamentals section for complete API documentation with parameters and examples.</span>
+        <button onClick={openFundamentals} className="btn" style={{ marginLeft: 12, padding: "7px 11px", fontSize: 12 }}>打开文档 / Open Docs →</button>
       </div>
-      <h3 id="fmp-snapshot-boundary" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>Snapshot, revisions and future vintages</h3>
+      <h3 id="fmp-snapshot-boundary" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>数据更新说明 / Data Updates</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, margin: "0 0 22px" }}>
-        This package is a captured bulk snapshot. Upstream filings, amendments and normalization can revise historical values later. Package pinning reproduces one captured vintage, but does not alone prove what was knowable on every historical date. We will add independent versioned PIT-like refreshes with capture and visibility timestamps; native FMP forwarding remains a separate future surface.
+        财务数据基于公司公开披露的财报。公司可能会修订过往财报（如重述、更正等），我们会定期更新数据以反映这些变化。如需特定日期的历史数据版本，请联系我们。
+        <br/><br/>
+        Financial data is based on publicly filed company reports. Companies may revise past statements (restatements, corrections), and we update our data accordingly. Contact us if you need historical data as of a specific date.
       </p>
-      <h3 id="fmp-future-data-families" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>Future data families</h3>
+      <h3 id="fmp-future-data-families" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>即将推出 / Coming Soon</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-        Revision-heavy families such as estimates, earnings, ratings and DCF need their own contract before any PIT claim. Ultimate will separately add institutional and ETF holdings, with the same immutable-vintage discipline.
+        我们正在逐步增加更多数据类型，包括：分析师预测、机构持仓、ETF 持仓等。如有特定需求，欢迎联系我们。
+        <br/><br/>
+        We're expanding coverage to include: analyst estimates, institutional holdings, ETF holdings, and more. Contact us with your specific data needs.
       </p>
     </div>
   );
@@ -1633,208 +1636,231 @@ function FmpFundamentalsBody() {
   };
   const mono = { fontFamily: "var(--f-mono)", fontSize: 12 };
   const rawSnapshotEndpoints = [
-    ["/stable/quote", "最新报价 / Quote", "symbol; optional limit", "当前 package 内的原始报价快照。不是实时行情，也不会走上游补数。"],
-    ["/stable/quote-short", "简版报价 / Quote short", "symbol; optional limit", "简版字段按 source 原样返回。"],
-    ["/stable/aftermarket-quote", "盘后报价 / Aftermarket quote", "symbol; optional limit", "仅代表已捕获的盘后快照。"],
-    ["/stable/aftermarket-trade", "盘后成交 / Aftermarket trade", "symbol; optional limit", "仅代表已捕获的盘后成交快照。"],
-    ["/stable/stock-price-change", "价格变化 / Stock price change", "symbol; optional limit", "源端计算字段作为 package snapshot 返回。"],
-    ["/stable/market-capitalization", "市值快照 / Market capitalization", "symbol; optional limit", "当前捕获市值，不是严格历史 PIT。"],
-    ["/stable/historical-market-capitalization", "历史市值 / Historical market capitalization", "symbol; optional from, to, limit", "日期筛选只作用于 source row 的 date 字段；没有匹配数据时返回完整导入语义下的空数组。"],
-    ["/stable/batch-quote", "批量报价 / Batch quote", "optional symbols, limit", "只查询 package 中已捕获的 batch response；可用 symbols 缩小其中的记录。"],
-    ["/stable/batch-quote-short", "批量简版报价 / Batch quote short", "optional symbols, limit", "只查询 package 中已捕获的 batch response。"],
-    ["/stable/batch-aftermarket-quote", "批量盘后报价 / Batch aftermarket quote", "optional symbols, limit", "只查询 package 中已捕获的 batch response。"],
-    ["/stable/batch-aftermarket-trade", "批量盘后成交 / Batch aftermarket trade", "optional symbols, limit", "只查询 package 中已捕获的 batch response。"],
-    ["/stable/market-capitalization-batch", "批量市值 / Market capitalization batch", "optional symbols, limit", "只查询 package 中已捕获的 batch response。"],
-    ["/stable/profile", "公司资料 / Profile", "exactly one of symbol or cik; optional limit", "symbol 和 CIK 是两个独立的已捕获 source member；不把它当作实时 company master。"],
-    ["/stable/stock-peers", "同业公司 / Stock peers", "symbol; optional limit", "上游识别的 peers snapshot。"],
-    ["/stable/key-executives", "管理层 / Key executives", "symbol; optional limit", "公司资料快照；人员信息可能随后变化。"],
-    ["/stable/company-notes", "公司备注 / Company notes", "symbol; optional limit", "原始 source notes，不进行本地解释或归一化。"],
-    ["/stable/financial-reports-dates", "财报日期 / Financial reports dates", "symbol; optional limit", "披露日历快照，不构成可见性时间线。"],
-    ["/stable/employee-count", "员工数 / Employee count", "symbol; optional limit", "当前 source snapshot。"],
-    ["/stable/historical-employee-count", "员工数历史 / Historical employee count", "symbol; optional limit", "历史字段的已捕获 package vintage。"],
-    ["/stable/shares-float", "流通股 / Shares float", "symbol; optional limit", "当前 source snapshot。"],
-    ["/stable/shares-float-all", "全部流通股列表 / Shares float all", "optional limit", "只包含本 package 捕获到的分页。"],
-    ["/stable/dividends", "分红 / Dividends", "symbol; optional from, to, limit", "事件行按 source 原样返回；修订不会回写本 package。"],
-    ["/stable/splits", "拆股 / Splits", "symbol; optional from, to, limit", "事件行按 source 原样返回。"],
-    ["/stable/analyst-estimates", "分析师预期 / Analyst estimates", "symbol; optional limit", "目前仅是已捕获的 annual source snapshot；绝不宣称为 estimates PIT。"],
-    ["/stable/price-target-summary", "目标价摘要 / Price target summary", "symbol; optional limit", "当前 package snapshot。"],
-    ["/stable/price-target-consensus", "目标价共识 / Price target consensus", "symbol; optional limit", "当前 package snapshot。"],
-    ["/stable/discounted-cash-flow", "DCF / Discounted cash flow", "symbol; optional limit", "源端 DCF 结果；模型输入与修订历史未在此 endpoint 重建。"],
-    ["/stable/custom-discounted-cash-flow", "自定义 DCF / Custom DCF", "symbol; optional limit", "源端自定义 DCF snapshot。"],
-    ["/stable/levered-discounted-cash-flow", "杠杆 DCF / Levered DCF", "symbol; optional limit", "源端 leverage-aware DCF snapshot。"],
-    ["/stable/custom-levered-discounted-cash-flow", "自定义杠杆 DCF / Custom levered DCF", "symbol; optional limit", "源端自定义 leverage-aware DCF snapshot。"],
-    ["/stable/owner-earnings", "Owner earnings", "symbol; optional limit", "源端计算字段的 immutable snapshot。"],
-    ["/stable/earnings", "业绩事件 / Earnings", "symbol; optional from, to, limit", "事件行已捕获但没有独立 revision/PIT contract。"],
-    ["/stable/grades", "评级 / Grades", "symbol; optional limit", "原始评级记录 snapshot。"],
-    ["/stable/grades-consensus", "评级共识 / Grades consensus", "symbol; optional limit", "当前共识 snapshot。"],
-    ["/stable/grades-historical", "评级历史 / Grades historical", "symbol; optional limit", "已捕获历史 rows，不等于历史每时点可见性。"],
-    ["/stable/ratings-snapshot", "评分 / Ratings snapshot", "symbol; optional limit", "当前评分 snapshot。"],
-    ["/stable/ratings-historical", "评分历史 / Ratings historical", "symbol; optional limit", "已捕获历史 rows，不等于 revision timeline。"],
-    ["/stable/revenue-geographic-segmentation", "地域收入 / Revenue geographic segmentation", "symbol; optional limit", "公司披露的地域收入 source rows。"],
-    ["/stable/revenue-product-segmentation", "产品收入 / Revenue product segmentation", "symbol; optional limit", "公司披露的产品收入 source rows。"],
-    ["/stable/available-countries", "可用国家 / Available countries", "optional limit", "仅当前 package captured catalog。"],
-    ["/stable/available-exchanges", "可用交易所 / Available exchanges", "optional limit", "仅当前 package captured catalog。"],
-    ["/stable/available-industries", "可用行业 / Available industries", "optional limit", "仅当前 package captured catalog。"],
-    ["/stable/available-sectors", "可用板块 / Available sectors", "optional limit", "仅当前 package captured catalog。"],
-    ["/stable/cik-list", "CIK 列表 / CIK list", "optional limit", "只包含当前 package 捕获的分页。"],
-    ["/stable/delisted-companies", "退市公司 / Delisted companies", "optional limit", "只包含当前 package 捕获的分页。"],
-    ["/stable/financial-statement-symbol-list", "财报 ticker 列表 / Financial statement symbol list", "optional limit", "可作为当前 package 覆盖的辅助目录，不等于全 FMP universe。"],
-    ["/stable/stock-list", "股票目录 / Stock list", "optional limit", "只包含当前 package captured catalog。"],
-    ["/stable/symbol-change", "Ticker 变更 / Symbol change", "optional limit", "历史变更 source rows；不作为 symbol identity 的唯一依据。"],
+    ["/stable/quote", "股票报价 / Quote", "symbol; optional limit", "获取股票的最新报价数据（历史快照，非实时）。Get latest stock quote data (historical snapshot, not real-time)."],
+    ["/stable/quote-short", "简版报价 / Quote short", "symbol; optional limit", "获取股票报价的精简版本，包含主要字段。Simplified quote with key fields only."],
+    ["/stable/aftermarket-quote", "盘后报价 / Aftermarket quote", "symbol; optional limit", "获取盘后交易时段的报价数据。After-hours trading quote data."],
+    ["/stable/aftermarket-trade", "盘后成交 / Aftermarket trade", "symbol; optional limit", "获取盘后交易时段的成交数据。After-hours trading data."],
+    ["/stable/stock-price-change", "价格变化 / Price change", "symbol; optional limit", "获取股票价格变化数据（涨跌幅、涨跌额等）。Stock price change metrics (percent change, amount, etc.)."],
+    ["/stable/market-capitalization", "市值 / Market cap", "symbol; optional limit", "获取公司当前市值。Current company market capitalization."],
+    ["/stable/historical-market-capitalization", "历史市值 / Historical market cap", "symbol; optional from, to, limit", "获取公司历史市值数据，可按日期范围筛选。Historical market cap data with date range filtering."],
+    ["/stable/batch-quote", "批量报价 / Batch quote", "optional symbols, limit", "一次查询多只股票的报价。可通过 symbols 参数指定股票列表。Query quotes for multiple stocks at once using symbols parameter."],
+    ["/stable/batch-quote-short", "批量简版报价 / Batch quote short", "optional symbols, limit", "一次查询多只股票的精简报价。Simplified quotes for multiple stocks."],
+    ["/stable/batch-aftermarket-quote", "批量盘后报价 / Batch aftermarket quote", "optional symbols, limit", "一次查询多只股票的盘后报价。After-hours quotes for multiple stocks."],
+    ["/stable/batch-aftermarket-trade", "批量盘后成交 / Batch aftermarket trade", "optional symbols, limit", "一次查询多只股票的盘后成交。After-hours trades for multiple stocks."],
+    ["/stable/market-capitalization-batch", "批量市值 / Batch market cap", "optional symbols, limit", "一次查询多家公司的市值。Market capitalization for multiple companies."],
+    ["/stable/profile", "公司资料 / Company profile", "exactly one of symbol or cik; optional limit", "获取公司基本信息（名称、行业、地址、简介等）。可用股票代码或 CIK 查询。Company information including name, industry, address, description. Use stock symbol or CIK."],
+    ["/stable/stock-peers", "同业公司 / Peer companies", "symbol; optional limit", "获取同行业的相似公司列表。List of peer companies in the same industry."],
+    ["/stable/key-executives", "公司高管 / Key executives", "symbol; optional limit", "获取公司高管信息（姓名、职位、薪酬等）。Executive team information including names, titles, and compensation."],
+    ["/stable/company-notes", "公司备注 / Company notes", "symbol; optional limit", "获取公司相关的备注信息。Company-related notes and commentary."],
+    ["/stable/financial-reports-dates", "财报日期 / Report dates", "symbol; optional limit", "获取公司财报发布日期列表。Financial report filing dates."],
+    ["/stable/employee-count", "员工数量 / Employee count", "symbol; optional limit", "获取公司当前员工数量。Current employee headcount."],
+    ["/stable/historical-employee-count", "历史员工数 / Historical employees", "symbol; optional limit", "获取公司历史员工数量变化。Historical employee count over time."],
+    ["/stable/shares-float", "流通股数 / Shares float", "symbol; optional limit", "获取流通股数量。Number of shares available for public trading."],
+    ["/stable/shares-float-all", "流通股列表 / All shares float", "optional limit", "获取所有公司的流通股数据列表。Shares float data for all available companies."],
+    ["/stable/dividends", "分红历史 / Dividend history", "symbol; optional from, to, limit", "获取公司分红历史记录（日期、金额等）。Historical dividend payments with dates and amounts."],
+    ["/stable/splits", "拆股历史 / Stock split history", "symbol; optional from, to, limit", "获取股票拆分/合并历史记录。Historical stock splits and reverse splits."],
+    ["/stable/analyst-estimates", "分析师预测 / Analyst estimates", "symbol; optional limit", "获取分析师对公司业绩的预测数据。Analyst earnings and revenue estimates."],
+    ["/stable/price-target-summary", "目标价汇总 / Price target summary", "symbol; optional limit", "获取分析师目标价汇总（平均值、最高、最低）。Analyst price target summary (average, high, low)."],
+    ["/stable/price-target-consensus", "目标价共识 / Price target consensus", "symbol; optional limit", "获取分析师目标价共识数据。Consensus analyst price targets."],
+    ["/stable/discounted-cash-flow", "DCF 估值 / DCF valuation", "symbol; optional limit", "获取现金流折现估值结果。Discounted cash flow valuation."],
+    ["/stable/custom-discounted-cash-flow", "自定义 DCF / Custom DCF", "symbol; optional limit", "获取自定义参数的 DCF 估值。Custom discounted cash flow with adjusted parameters."],
+    ["/stable/levered-discounted-cash-flow", "杠杆 DCF / Levered DCF", "symbol; optional limit", "获取考虑财务杠杆的 DCF 估值。Levered discounted cash flow valuation."],
+    ["/stable/custom-levered-discounted-cash-flow", "自定义杠杆 DCF / Custom levered DCF", "symbol; optional limit", "获取自定义参数的杠杆 DCF 估值。Custom levered DCF with adjusted parameters."],
+    ["/stable/owner-earnings", "所有者收益 / Owner earnings", "symbol; optional limit", "获取所有者收益指标（巴菲特式估值指标）。Owner earnings metric (Buffett-style valuation)."],
+    ["/stable/earnings", "业绩公告 / Earnings events", "symbol; optional from, to, limit", "获取公司业绩公告历史（实际业绩、预期、公告日期）。Historical earnings announcements with actual vs expected results."],
+    ["/stable/grades", "评级记录 / Analyst grades", "symbol; optional limit", "获取分析师评级记录（买入、持有、卖出等）。Analyst rating history (buy, hold, sell)."],
+    ["/stable/grades-consensus", "评级共识 / Rating consensus", "symbol; optional limit", "获取分析师评级的共识结果。Consensus analyst rating."],
+    ["/stable/grades-historical", "历史评级 / Historical ratings", "symbol; optional limit", "获取分析师评级的历史变化。Historical analyst rating changes."],
+    ["/stable/ratings-snapshot", "评分快照 / Rating scores", "symbol; optional limit", "获取公司各项评分（如 ESG 评分等）。Company rating scores (e.g., ESG scores)."],
+    ["/stable/ratings-historical", "历史评分 / Historical scores", "symbol; optional limit", "获取公司评分的历史变化。Historical rating score changes."],
+    ["/stable/revenue-geographic-segmentation", "地域收入 / Geographic revenue", "symbol; optional limit", "获取公司按地域划分的收入数据。Revenue breakdown by geographic region."],
+    ["/stable/revenue-product-segmentation", "产品收入 / Product revenue", "symbol; optional limit", "获取公司按产品线划分的收入数据。Revenue breakdown by product segment."],
+    ["/stable/available-countries", "可用国家 / Available countries", "optional limit", "获取数据覆盖的国家列表。List of countries covered in the dataset."],
+    ["/stable/available-exchanges", "可用交易所 / Available exchanges", "optional limit", "获取数据覆盖的交易所列表。List of exchanges covered in the dataset."],
+    ["/stable/available-industries", "可用行业 / Available industries", "optional limit", "获取数据覆盖的行业列表。List of industries covered in the dataset."],
+    ["/stable/available-sectors", "可用板块 / Available sectors", "optional limit", "获取数据覆盖的板块列表。List of sectors covered in the dataset."],
+    ["/stable/cik-list", "CIK 列表 / CIK list", "optional limit", "获取公司 CIK（中央索引码）列表。List of company CIK numbers (Central Index Key)."],
+    ["/stable/delisted-companies", "退市公司 / Delisted companies", "optional limit", "获取已退市公司列表。List of delisted companies."],
+    ["/stable/financial-statement-symbol-list", "财报 ticker 列表 / Financial statement symbol list", "optional limit", "获取有财报数据的股票列表。List of stocks with financial statement data."],
+    ["/stable/stock-list", "股票目录 / Stock list", "optional limit", "获取数据覆盖的所有股票列表。List of all covered stocks."],
+    ["/stable/symbol-change", "Ticker 变更 / Symbol change", "optional limit", "获取股票代码历史变更记录（如公司更名）。Historical ticker symbol changes (e.g., company renamings)."],
   ];
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
-      <div className="eyebrow" style={{ marginBottom: 10 }}>FMP-compatible financial data · Premium</div>
-      <h2 id="fmp-fundamentals-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>FMP Fundamentals API reference</h2>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>美股财务数据 · Premium</div>
+      <h2 id="fmp-fundamentals-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>财务数据 API / Financial Data API</h2>
       <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
-        这里列出可以直接调用的接口、返回示例和当前覆盖。FMP fundamentals Beta 目前向 Premium 账户开放。
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Copy a request, inspect the current coverage, then read how revisions and future vintages will work.</span>
+        使用您的 Leandata token 获取美股财务数据（财报、财务指标、公司资料等）。Beta 版本目前向 Premium 账户开放。
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Access US stock financial data (statements, metrics, company profiles) with your Leandata token. Beta version available to Premium accounts.</span>
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 28 }}>
         <div style={panel}>
-          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>Authentication</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Leandata Bearer token</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Send <code>Authorization: Bearer TOKEN</code>. Do not add an FMP <code>apikey</code> or <code>api_key</code>.</div>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>身份认证 / Authentication</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>使用 Leandata Token</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>在请求头中添加 <code>Authorization: Bearer TOKEN</code>。无需 FMP 的 <code>apikey</code>。<br/>Send <code>Authorization: Bearer TOKEN</code> header. No FMP <code>apikey</code> needed.</div>
         </div>
         <div style={panel}>
-          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>已验证覆盖 · Verified now</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Sample-universe fundamentals Beta</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Premium 可访问当前已导入并验证的 sample-universe 批量快照；具体字段以已发布接口和返回结果为准。</div>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>数据覆盖 / Coverage</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>样本股票池</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>Beta 版本覆盖主要美股的财务数据。如需特定股票，请联系我们。<br/>Beta covers major US stocks. Contact us for specific stock requests.</div>
         </div>
         <div style={panel}>
-          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>当前 Beta · Current</div>
-          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>Statements + raw snapshot families</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>除三类核心报表和 ratios/metrics 外，现已提供 quotes、profile、公司资料、估计、评级、DCF、收入分部和目录等 raw FMP-shaped snapshot endpoints。</div>
+          <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>数据类型 / Data Types</div>
+          <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>财报 + 行情 + 公司资料</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>包括财务报表、财务指标、股票报价、公司信息、分析师预测等。<br/>Includes statements, metrics, quotes, profiles, analyst estimates.</div>
         </div>
       </div>
 
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 28 }}>
-        <strong style={{ color: "var(--accent-ink)" }}>Beta 已开放。</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> Premium 用户现在可以查询 sample-universe 的 statements、derived fundamentals 与 raw snapshot endpoint families。欢迎留言反馈缺失 ticker、字段、period 或希望优先支持的数据族。</span>
+        <strong style={{ color: "var(--accent-ink)" }}>Beta 已开放 / Beta Available</strong>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> Premium 用户可以查询样本股票的财报、财务指标和公司资料。欢迎反馈缺失的股票或数据。<br/>Premium users can query statements, metrics, and profiles for sample stocks. Feedback welcome for missing data.</span>
       </div>
 
       <div style={{ ...panel, marginBottom: 28 }}>
-        <h3 className="display-title" style={{ fontSize: 24, margin: "0 0 8px" }}>批量快照、修订与 PIT-like 计划</h3>
+        <h3 className="display-title" style={{ fontSize: 24, margin: "0 0 8px" }}>关于数据更新 / About Data Updates</h3>
         <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-          当前数据来自我们采购并导入的 bulk snapshot。上游可能在事后修订历史值，因此单次快照不自动等于严格 PIT。后续会增加单独版本化的 PIT-like 周度或固定频率刷新，记录 capture time 与 visible time，并保留不可变 vintage。Native FMP endpoint forwarding 会作为独立兼容层建设。
+          当前数据来自定期采购的批量数据。公司可能修订历史财务数据（如重述、更正等）。后续将提供版本化的历史数据查询，记录每次更新的时间。
+          <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Current data is from bulk snapshots. Companies may revise historical financials (restatements, corrections). Future updates will provide versioned historical queries with capture timestamps.</span>
         </p>
       </div>
 
-      <h3 id="fmp-request-examples" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Request examples · 请求示例</h3>
+      <h3 id="fmp-request-examples" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>请求示例 / Request Examples</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 14px", maxWidth: 830 }}>
-        发送 HTTPS <code>GET</code> 请求到 <code>https://api.leandata.uk</code>，并携带 Leandata Bearer token。raw snapshot 与三类核心报表都使用 FMP-style path；需要固定某次已发布数据版本时，使用 package-pinned 路径。
+        发送 HTTPS <code>GET</code> 请求到 <code>https://api.leandata.uk</code>，请求头中携带您的 Leandata token。
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Send HTTPS <code>GET</code> requests to <code>https://api.leandata.uk</code> with your Leandata token in the Authorization header.</span>
       </p>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "28px 0 10px" }}>Available endpoints</h3>
+      <h3 className="display-title" style={{ fontSize: 28, margin: "28px 0 10px" }}>可用接口 / Available Endpoints</h3>
       <div style={{ overflowX: "auto", marginBottom: 16 }}>
         <table className="tbl card" style={{ width: "100%", minWidth: 700, overflow: "hidden" }}>
-          <thead><tr><th>Route</th><th>Response family</th><th>Parameters</th></tr></thead>
+          <thead><tr><th>接口路径 / Route</th><th>数据类型 / Data Type</th><th>参数 / Parameters</th></tr></thead>
           <tbody>
-            <tr><td style={mono}>/stable/income-statement</td><td>Income statement</td><td><code>symbol</code>, optional <code>period</code>, <code>limit</code></td></tr>
-            <tr><td style={mono}>/stable/balance-sheet-statement</td><td>Balance sheet</td><td><code>symbol</code>, optional <code>period</code>, <code>limit</code></td></tr>
-            <tr><td style={mono}>/stable/cash-flow-statement</td><td>Cash-flow statement</td><td><code>symbol</code>, optional <code>period</code>, <code>limit</code></td></tr>
-            <tr><td style={mono}>/stable/ratios</td><td>Financial ratios</td><td><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></td></tr>
-            <tr><td style={mono}>/stable/ratios-ttm</td><td>Trailing-twelve-month ratios</td><td><code>symbol</code></td></tr>
-            <tr><td style={mono}>/stable/key-metrics</td><td>Key metrics</td><td><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></td></tr>
-            <tr><td style={mono}>/stable/key-metrics-ttm</td><td>Trailing-twelve-month key metrics</td><td><code>symbol</code></td></tr>
-            <tr><td style={mono}>/stable/*-statement-growth</td><td>Income, balance-sheet, or cash-flow growth</td><td><code>symbol</code>, current package: <code>period=annual</code></td></tr>
-            <tr><td style={mono}>/stable/financial-growth</td><td>Financial growth summary</td><td><code>symbol</code>, current package: <code>period=annual</code></td></tr>
-            <tr><td style={mono}>/stable/enterprise-values</td><td>Enterprise-value history</td><td><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></td></tr>
-            <tr><td style={mono}>/stable/financial-scores</td><td>Altman/Piotroski financial scores</td><td><code>symbol</code></td></tr>
-            <tr><td style={mono}>/v1/pit/fmp/*</td><td>Package-pinned statement snapshot</td><td><code>symbol</code>, <code>as_of</code>, <code>package_sha256</code></td></tr>
+            <tr><td style={mono}>/stable/income-statement</td><td>利润表 / Income statement</td><td><code>symbol</code>, 可选 <code>period</code>, <code>limit</code></td></tr>
+            <tr><td style={mono}>/stable/balance-sheet-statement</td><td>资产负债表 / Balance sheet</td><td><code>symbol</code>, 可选 <code>period</code>, <code>limit</code></td></tr>
+            <tr><td style={mono}>/stable/cash-flow-statement</td><td>现金流量表 / Cash flow</td><td><code>symbol</code>, 可选 <code>period</code>, <code>limit</code></td></tr>
+            <tr><td style={mono}>/stable/ratios</td><td>财务比率 / Financial ratios</td><td><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></td></tr>
+            <tr><td style={mono}>/stable/ratios-ttm</td><td>财务比率（TTM）/ Ratios TTM</td><td><code>symbol</code></td></tr>
+            <tr><td style={mono}>/stable/key-metrics</td><td>关键指标 / Key metrics</td><td><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></td></tr>
+            <tr><td style={mono}>/stable/key-metrics-ttm</td><td>关键指标（TTM）/ Metrics TTM</td><td><code>symbol</code></td></tr>
+            <tr><td style={mono}>/stable/*-statement-growth</td><td>财报增长率 / Statement growth</td><td><code>symbol</code>, <code>period=annual</code></td></tr>
+            <tr><td style={mono}>/stable/financial-growth</td><td>财务增长汇总 / Financial growth</td><td><code>symbol</code>, <code>period=annual</code></td></tr>
+            <tr><td style={mono}>/stable/enterprise-values</td><td>企业价值 / Enterprise value</td><td><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></td></tr>
+            <tr><td style={mono}>/stable/financial-scores</td><td>财务评分 / Financial scores</td><td><code>symbol</code></td></tr>
+            <tr><td style={mono}>/v1/pit/fmp/*</td><td>历史版本查询 / Versioned query</td><td><code>symbol</code>, <code>as_of</code>, <code>package_sha256</code></td></tr>
           </tbody>
         </table>
       </div>
 
-      <h3 id="fmp-endpoint-subsections" className="display-title" style={{ fontSize: 28, margin: "32px 0 4px" }}>Endpoint subsections · 接口分节</h3>
+      <h3 id="fmp-endpoint-subsections" className="display-title" style={{ fontSize: 28, margin: "32px 0 4px" }}>接口详细说明 / Endpoint Details</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 4px" }}>
-        Each published endpoint has a stable anchor in the sidebar. All non-PIT fundamentals below are immutable package snapshots, not universal point-in-time facts.
+        以下是所有可用接口的详细说明。每个接口返回 JSON 数组格式的数据。
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Detailed documentation for all available endpoints. Each endpoint returns data in JSON array format.</span>
       </p>
-      <FmpEndpointSection id="fmp-historical-price-eod" route="/stable/historical-price-eod/full" title="Historical price EOD" params={<><code>symbol</code>, <code>from</code>, <code>to</code></>} note="EOD price history is a separately imported historical dataset; use the returned package identity for reproducible archive research." />
-      <FmpEndpointSection id="fmp-income-statement" route="/stable/income-statement" title="Income statement" params={<><code>symbol</code>, optional <code>period=annual|quarter</code>, <code>limit</code></>} note="Raw FMP-shaped statement rows. Use the PIT route only when an explicit vintage and as_of boundary are required." />
-      <FmpEndpointSection id="fmp-balance-sheet-statement" route="/stable/balance-sheet-statement" title="Balance-sheet statement" params={<><code>symbol</code>, optional <code>period=annual|quarter</code>, <code>limit</code></>} note="Raw FMP-shaped statement rows; sparse fields remain null or absent when the source did not provide them." />
-      <FmpEndpointSection id="fmp-cash-flow-statement" route="/stable/cash-flow-statement" title="Cash-flow statement" params={<><code>symbol</code>, optional <code>period=annual|quarter</code>, <code>limit</code></>} note="Raw FMP-shaped statement rows. Do not infer zero from an absent source field." />
-      <FmpEndpointSection id="fmp-pit-statements" route="/v1/pit/fmp/{income-statement|balance-sheet-statement|cash-flow-statement}" title="Package-pinned PIT statements" params={<><code>symbol</code>, <code>period</code>, <code>as_of</code>, <code>package_sha256</code></>} note="These are the only current FMP family routes with an explicit accepted-date visibility policy. package_sha256 and as_of are mandatory." />
-      <FmpEndpointSection id="fmp-ratios" route="/stable/ratios" title="Financial ratios" params={<><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></>} note="Package snapshot only. Ratios can be revised by later source normalization." />
-      <FmpEndpointSection id="fmp-ratios-ttm" route="/stable/ratios-ttm" title="Trailing-twelve-month ratios" params={<><code>symbol</code>, optional <code>limit</code></>} note="TTM is source-defined and not an independently reconstructed PIT series." />
-      <FmpEndpointSection id="fmp-key-metrics" route="/stable/key-metrics" title="Key metrics" params={<><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></>} note="Package snapshot only; raw FMP-shaped rows are returned unchanged." />
-      <FmpEndpointSection id="fmp-key-metrics-ttm" route="/stable/key-metrics-ttm" title="Trailing-twelve-month key metrics" params={<><code>symbol</code>, optional <code>limit</code></>} note="TTM fields are source-defined; clients should tolerate missing fields." />
-      <FmpEndpointSection id="fmp-income-statement-growth" route="/stable/income-statement-growth" title="Income-statement growth" params={<><code>symbol</code>, current package <code>period=annual</code>, <code>limit</code></>} note="Growth is a package snapshot and does not claim a historical revision timeline." />
-      <FmpEndpointSection id="fmp-balance-sheet-statement-growth" route="/stable/balance-sheet-statement-growth" title="Balance-sheet growth" params={<><code>symbol</code>, current package <code>period=annual</code>, <code>limit</code></>} note="Growth is a package snapshot and does not claim a historical revision timeline." />
-      <FmpEndpointSection id="fmp-cash-flow-statement-growth" route="/stable/cash-flow-statement-growth" title="Cash-flow growth" params={<><code>symbol</code>, current package <code>period=annual</code>, <code>limit</code></>} note="Growth is a package snapshot and does not claim a historical revision timeline." />
-      <FmpEndpointSection id="fmp-financial-growth" route="/stable/financial-growth" title="Financial growth" params={<><code>symbol</code>, current package <code>period=annual</code>, <code>limit</code></>} note="Use package identity when comparing a later refresh against this captured vintage." />
-      <FmpEndpointSection id="fmp-enterprise-values" route="/stable/enterprise-values" title="Enterprise values" params={<><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></>} note="Valuation history is a package snapshot; it is not advertised as strict PIT." />
-      <FmpEndpointSection id="fmp-financial-scores" route="/stable/financial-scores" title="Financial scores" params={<><code>symbol</code>, optional <code>limit</code></>} note="Altman/Piotroski-style scores are returned from the archived source payload." />
-      <h3 className="display-title" style={{ fontSize: 28, margin: "32px 0 4px" }}>Raw snapshot endpoint families · 原始快照接口</h3>
+      <FmpEndpointSection id="fmp-historical-price-eod" route="/stable/historical-price-eod/full" title="历史收盘价 / Historical EOD Price" params={<><code>symbol</code>, <code>from</code>, <code>to</code></>} note="获取股票的历史每日收盘价数据。Get historical end-of-day price data." />
+      <FmpEndpointSection id="fmp-income-statement" route="/stable/income-statement" title="利润表 / Income Statement" params={<><code>symbol</code>, 可选 <code>period=annual|quarter</code>, <code>limit</code></>} note="获取公司利润表数据。可查询年报或季报。Get company income statement data. Query annual or quarterly reports." />
+      <FmpEndpointSection id="fmp-balance-sheet-statement" route="/stable/balance-sheet-statement" title="资产负债表 / Balance Sheet" params={<><code>symbol</code>, 可选 <code>period=annual|quarter</code>, <code>limit</code></>} note="获取公司资产负债表数据。Get company balance sheet data." />
+      <FmpEndpointSection id="fmp-cash-flow-statement" route="/stable/cash-flow-statement" title="现金流量表 / Cash Flow Statement" params={<><code>symbol</code>, 可选 <code>period=annual|quarter</code>, <code>limit</code></>} note="获取公司现金流量表数据。Get company cash flow statement data." />
+      <FmpEndpointSection id="fmp-pit-statements" route="/v1/pit/fmp/{income-statement|balance-sheet-statement|cash-flow-statement}" title="历史版本财报查询 / Versioned Statements" params={<><code>symbol</code>, <code>period</code>, <code>as_of</code>, <code>package_sha256</code></>} note="查询特定时间点的财报数据版本。需指定版本标识符。Query financial statements as of a specific date. Requires version identifier." />
+      <FmpEndpointSection id="fmp-ratios" route="/stable/ratios" title="财务比率 / Financial Ratios" params={<><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></>} note="获取财务比率（如流动比率、负债率等）。Get financial ratios like current ratio, debt ratio, etc." />
+      <FmpEndpointSection id="fmp-ratios-ttm" route="/stable/ratios-ttm" title="财务比率（TTM）/ Ratios TTM" params={<><code>symbol</code>, 可选 <code>limit</code></>} note="获取过去12个月的财务比率。Get trailing-twelve-month financial ratios." />
+      <FmpEndpointSection id="fmp-key-metrics" route="/stable/key-metrics" title="关键指标 / Key Metrics" params={<><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></>} note="获取关键财务指标（如市盈率、ROE等）。Get key financial metrics like P/E ratio, ROE, etc." />
+      <FmpEndpointSection id="fmp-key-metrics-ttm" route="/stable/key-metrics-ttm" title="关键指标（TTM）/ Metrics TTM" params={<><code>symbol</code>, 可选 <code>limit</code></>} note="获取过去12个月的关键财务指标。Get trailing-twelve-month key metrics." />
+      <FmpEndpointSection id="fmp-income-statement-growth" route="/stable/income-statement-growth" title="利润表增长率 / Income Growth" params={<><code>symbol</code>, <code>period=annual</code>, <code>limit</code></>} note="获取利润表各项的同比增长率。Get year-over-year growth rates for income statement items." />
+      <FmpEndpointSection id="fmp-balance-sheet-statement-growth" route="/stable/balance-sheet-statement-growth" title="资产负债表增长率 / Balance Sheet Growth" params={<><code>symbol</code>, <code>period=annual</code>, <code>limit</code></>} note="获取资产负债表各项的同比增长率。Get year-over-year growth rates for balance sheet items." />
+      <FmpEndpointSection id="fmp-cash-flow-statement-growth" route="/stable/cash-flow-statement-growth" title="现金流量表增长率 / Cash Flow Growth" params={<><code>symbol</code>, <code>period=annual</code>, <code>limit</code></>} note="获取现金流量表各项的同比增长率。Get year-over-year growth rates for cash flow items." />
+      <FmpEndpointSection id="fmp-financial-growth" route="/stable/financial-growth" title="财务增长汇总 / Financial Growth Summary" params={<><code>symbol</code>, <code>period=annual</code>, <code>limit</code></>} note="获取财务数据整体增长情况汇总。Get overall financial growth summary." />
+      <FmpEndpointSection id="fmp-enterprise-values" route="/stable/enterprise-values" title="企业价值 / Enterprise Value" params={<><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></>} note="获取企业价值历史数据。Get historical enterprise value data." />
+      <FmpEndpointSection id="fmp-financial-scores" route="/stable/financial-scores" title="财务评分 / Financial Scores" params={<><code>symbol</code>, 可选 <code>limit</code></>} note="获取 Altman Z-Score、Piotroski F-Score 等财务健康评分。Get Altman Z-Score, Piotroski F-Score, and other financial health scores." />
+      <h3 className="display-title" style={{ fontSize: 28, margin: "32px 0 4px" }}>行情与公司资料接口 / Market Data & Company Info</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65, margin: "0 0 4px" }}>
-        以下 endpoints 返回 package 内保存的原始 FMP-shaped JSON。它们全是 Premium-only、archive-only；不会把未列出的 route 转发给原生 FMP，也不会在 archive miss 时静默补数。
+        以下接口提供股票报价、公司资料、分析师评级等数据。
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>The following endpoints provide stock quotes, company profiles, analyst ratings, and more.</span>
       </p>
       {rawSnapshotEndpoints.map(([route, title, params, note]) => (
         <FmpEndpointSection key={route} id={`fmp-${route.slice("/stable/".length)}`} route={route} title={title} params={params} note={note} />
       ))}
 
       <pre className="code" style={{ marginBottom: 22 }}>
-{`# Raw quote snapshot — values below are illustrative, not live prices
+{`# 获取股票报价（示例使用 AAPL，返回历史数据非实时）
+# Get stock quote (example uses AAPL, returns historical data not real-time)
 curl "https://api.leandata.uk/stable/quote?symbol=AAPL" \\
-  -H "Authorization: Bearer TOKEN"
+  -H "Authorization: Bearer YOUR_TOKEN"
 
+# 响应示例 / Response example
 [
   {
-    "symbol": "EXAMPLE",
-    "name": "Example Corp.",
-    "price": 123.45,
-    "change": 1.23,
-    "changesPercentage": 1.01,
-    "timestamp": 1785715200
+    "symbol": "AAPL",
+    "name": "Apple Inc.",
+    "price": 178.45,
+    "change": 2.15,
+    "changesPercentage": 1.22,
+    "dayLow": 176.30,
+    "dayHigh": 179.20,
+    "yearHigh": 199.62,
+    "yearLow": 164.08,
+    "marketCap": 2750000000000,
+    "volume": 45678900,
+    "avgVolume": 52000000,
+    "timestamp": 1722729600
   }
 ]
 
-# Income statement — annual or quarter
+# 获取年度利润表（最近5年）
+# Get annual income statement (latest 5 years)
 curl "https://api.leandata.uk/stable/income-statement?symbol=AAPL&period=annual&limit=5" \\
-  -H "Authorization: Bearer TOKEN"
+  -H "Authorization: Bearer YOUR_TOKEN"
 
-# Balance sheet
+# 获取季度资产负债表（最近4个季度）
+# Get quarterly balance sheet (latest 4 quarters)
 curl "https://api.leandata.uk/stable/balance-sheet-statement?symbol=AAPL&period=quarter&limit=4" \\
-  -H "Authorization: Bearer TOKEN"
+  -H "Authorization: Bearer YOUR_TOKEN"
 
-# Cash-flow statement
+# 获取年度现金流量表
+# Get annual cash flow statement
 curl "https://api.leandata.uk/stable/cash-flow-statement?symbol=AAPL&period=annual&limit=5" \\
-  -H "Authorization: Bearer TOKEN"
+  -H "Authorization: Bearer YOUR_TOKEN"
 
-# Point-in-time statement read — package identity and as_of are explicit.
+# 查询历史版本财报（需指定时间点和版本标识）
+# Query versioned statement (requires timestamp and version identifier)
 curl "https://api.leandata.uk/v1/pit/fmp/income-statement?symbol=AAPL&as_of=2026-08-01T00:00:00Z&package_sha256=PACKAGE_SHA256" \\
-  -H "Authorization: Bearer TOKEN"`}
+  -H "Authorization: Bearer YOUR_TOKEN"`}
       </pre>
 
       <pre className="code" style={{ marginBottom: 22 }}>
-{`# Ratios — annual or quarter
-curl "https://api.leandata.uk/stable/ratios?symbol=AAPL&period=quarter&limit=4" \\
-  -H "Authorization: Bearer TOKEN"
+{`# 获取季度财务比率
+# Get quarterly financial ratios
+curl "https://api.leandata.uk/stable/ratios?symbol=TSLA&period=quarter&limit=4" \\
+  -H "Authorization: Bearer YOUR_TOKEN"
 
-# Ratios TTM — this endpoint does not use period
-curl "https://api.leandata.uk/stable/ratios-ttm?symbol=AAPL" \\
-  -H "Authorization: Bearer TOKEN"
+# 获取 TTM 财务比率（不需要 period 参数）
+# Get TTM ratios (no period parameter needed)
+curl "https://api.leandata.uk/stable/ratios-ttm?symbol=MSFT" \\
+  -H "Authorization: Bearer YOUR_TOKEN"
 
-# Key metrics
-curl "https://api.leandata.uk/stable/key-metrics?symbol=AAPL&period=annual&limit=5" \\
-  -H "Authorization: Bearer TOKEN"
+# 获取关键财务指标
+# Get key financial metrics
+curl "https://api.leandata.uk/stable/key-metrics?symbol=GOOGL&period=annual&limit=5" \\
+  -H "Authorization: Bearer YOUR_TOKEN"
 
-# Annual growth in the current package
-curl "https://api.leandata.uk/stable/financial-growth?symbol=AAPL&period=annual&limit=5" \\
-  -H "Authorization: Bearer TOKEN"
+# 获取年度财务增长率
+# Get annual financial growth
+curl "https://api.leandata.uk/stable/financial-growth?symbol=NVDA&period=annual&limit=5" \\
+  -H "Authorization: Bearer YOUR_TOKEN"
 
-# Enterprise values and financial scores
-curl "https://api.leandata.uk/stable/enterprise-values?symbol=AAPL&period=quarter&limit=4" \\
-  -H "Authorization: Bearer TOKEN"
-curl "https://api.leandata.uk/stable/financial-scores?symbol=AAPL" \\
-  -H "Authorization: Bearer TOKEN"`}
+# 获取企业价值和财务评分
+# Get enterprise value and financial scores
+curl "https://api.leandata.uk/stable/enterprise-values?symbol=META&period=quarter&limit=4" \\
+  -H "Authorization: Bearer YOUR_TOKEN"
+curl "https://api.leandata.uk/stable/financial-scores?symbol=AMZN" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`}
       </pre>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Representative response</h3>
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>响应示例 / Response Example</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 14px", maxWidth: 830 }}>
-        A published statement endpoint returns a JSON array. The example below shows the FMP-compatible field shape only; values are illustrative and are not live market or company data.
+        接口返回 JSON 数组格式。以下是利润表数据的响应示例（字段值仅作示意）：
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Endpoints return JSON arrays. Below is an income statement response example (values are illustrative):</span>
       </p>
       <pre className="code" style={{ marginBottom: 22 }}>
 {`HTTP/1.1 200 OK
@@ -1842,69 +1868,75 @@ Content-Type: application/json
 
 [
   {
-    "date": "2026-03-31",
-    "symbol": "EXAMPLE",
+    "date": "2025-12-31",
+    "symbol": "AAPL",
     "reportedCurrency": "USD",
-    "cik": "0000000000",
-    "fillingDate": "2026-05-01",
-    "acceptedDate": "2026-05-01T16:00:00.000Z",
-    "calendarYear": "2026",
-    "period": "Q1",
-    "revenue": 123456789,
-    "netIncome": 12345678
+    "cik": "0000320193",
+    "fillingDate": "2026-02-01",
+    "acceptedDate": "2026-02-01T16:30:00.000Z",
+    "calendarYear": "2025",
+    "period": "FY",
+    "revenue": 394328000000,
+    "costOfRevenue": 214137000000,
+    "grossProfit": 180191000000,
+    "operatingIncome": 114301000000,
+    "netIncome": 96995000000,
+    "eps": 6.13,
+    "epsdiluted": 6.11
   }
 ]`}
       </pre>
 
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 14px", maxWidth: 830 }}>
-        Derived endpoints also return the original FMP-shaped JSON array. A ratios response can contain fields such as <code>currentRatio</code>, <code>quickRatio</code>, <code>debtToEquityRatio</code>, <code>priceToEarningsRatio</code> and <code>returnOnEquity</code>; TTM field names normally end in <code>TTM</code>. Treat missing or null fields as source data, not as zero.
+        财务比率接口返回的字段包括 <code>currentRatio</code>（流动比率）、<code>quickRatio</code>（速动比率）、<code>debtToEquityRatio</code>（负债权益比）、<code>priceToEarningsRatio</code>（市盈率）、<code>returnOnEquity</code>（ROE）等。TTM 字段通常以 <code>TTM</code> 结尾。字段缺失或为 null 时表示数据源没有提供该字段，请勿当作零处理。
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Ratios endpoints return fields like <code>currentRatio</code>, <code>quickRatio</code>, <code>debtToEquityRatio</code>, <code>priceToEarningsRatio</code>, <code>returnOnEquity</code>, etc. TTM fields typically end with <code>TTM</code>. Missing or null fields indicate unavailable data—do not treat as zero.</span>
       </p>
 
-      <h3 id="fmp-request-contract" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Parameters and result handling</h3>
+      <h3 id="fmp-request-contract" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>参数说明 / Parameters</h3>
       <div style={{ overflowX: "auto", marginBottom: 22 }}>
         <table className="tbl card" style={{ width: "100%", minWidth: 700, overflow: "hidden" }}>
-          <thead><tr><th>Parameter</th><th>Use</th><th>Notes</th></tr></thead>
+          <thead><tr><th>参数 / Parameter</th><th>用途 / Usage</th><th>说明 / Notes</th></tr></thead>
           <tbody>
-            <tr><td style={mono}>symbol</td><td>Required ticker</td><td>Use the listed company symbol, for example <code>AAPL</code>.</td></tr>
-            <tr><td style={mono}>period</td><td>Optional cadence where supported</td><td><code>annual</code> or <code>quarter</code>. TTM and financial-scores routes do not accept it; current growth members are annual.</td></tr>
-            <tr><td style={mono}>limit</td><td>Optional row count</td><td>Use a small explicit limit when testing or paginating research.</td></tr>
-            <tr><td style={mono}>as_of</td><td>Required for statement PIT</td><td>ISO-8601 timestamp. The statement PIT route filters records by the documented conservative accepted-date visibility policy.</td></tr>
-            <tr><td style={mono}>package_sha256</td><td>Required for PIT</td><td>Exact published package identity; use it for reproducible reruns.</td></tr>
+            <tr><td style={mono}>symbol</td><td>股票代码（必需）/ Required ticker</td><td>使用上市公司代码，例如 <code>AAPL</code>、<code>TSLA</code>。Use listed ticker symbol like <code>AAPL</code>, <code>TSLA</code>.</td></tr>
+            <tr><td style={mono}>period</td><td>时间周期（可选）/ Optional period</td><td><code>annual</code>（年报）或 <code>quarter</code>（季报）。TTM 和评分接口不需要此参数。<br/><code>annual</code> or <code>quarter</code>. Not needed for TTM and scores endpoints.</td></tr>
+            <tr><td style={mono}>limit</td><td>返回条数（可选）/ Optional row limit</td><td>限制返回的记录数量，例如 <code>limit=5</code> 返回最近5条。<br/>Limit number of records returned, e.g., <code>limit=5</code> for latest 5 records.</td></tr>
+            <tr><td style={mono}>as_of</td><td>查询时间点（版本查询必需）/ Required for versioned queries</td><td>ISO-8601 时间戳格式。仅历史版本查询接口需要。<br/>ISO-8601 timestamp. Only required for versioned query endpoints.</td></tr>
+            <tr><td style={mono}>package_sha256</td><td>版本标识符（版本查询必需）/ Version identifier</td><td>数据版本的唯一标识。用于可重复查询。<br/>Unique version identifier for reproducible queries.</td></tr>
           </tbody>
         </table>
       </div>
 
-      <h3 id="fmp-response-metadata" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Response metadata and current coverage</h3>
+      <h3 id="fmp-response-metadata" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>数据覆盖说明 / Coverage Notes</h3>
       <ul style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
-        <li><strong style={{ color: "var(--ink-strong)" }}>Current package scope:</strong> Premium sample-universe Beta 覆盖 typed statements/ratios/metrics/growth/valuation，以及 quote、profile、公司资料、估计、评级、DCF、收入分部、batch response 与目录等 raw snapshot families。</li>
-        <li><strong style={{ color: "var(--ink-strong)" }}>Raw endpoint response:</strong> raw snapshot family 无数据时返回 <code>[]</code>，并带 completion metadata；这表示该不可变 package 已完整导入，但 source 在这次捕获中没有匹配 row。</li>
-        <li><strong style={{ color: "var(--ink-strong)" }}>Still not advertised as available:</strong> institutional holdings、ETF holdings，以及任意 native FMP forwarding。后两者会有独立的数据来源、刷新与修订契约。</li>
-        <li><strong style={{ color: "var(--ink-strong)" }}>Universe boundary:</strong> 这是 sample-universe Beta，不代表所有 ticker 或 catalog 都有相同覆盖；没有匹配数据时请处理空数组。</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>当前覆盖范围 / Current coverage:</strong> Beta 版本覆盖主要美股的财报、财务指标、股票报价、公司资料、分析师预测、评级、DCF 估值、收入分部等数据。<br/>Beta version covers major US stocks with statements, metrics, quotes, profiles, analyst estimates, ratings, DCF valuations, revenue segments.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>空结果处理 / Empty results:</strong> 如果返回空数组 <code>[]</code>，表示该股票暂无此类数据，非接口错误。<br/>Empty array <code>[]</code> means no data available for the stock, not an error.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>暂未提供 / Not yet available:</strong> 机构持仓（institutional holdings）、ETF 持仓数据暂未提供。<br/>Institutional holdings and ETF holdings are not yet available.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>样本股票池 / Sample universe:</strong> 这是 Beta 测试版本，并非所有股票都有完整数据覆盖。如遇空数组，说明该股票暂未包含在数据集中。<br/>This is Beta—not all tickers have full coverage. Empty arrays indicate the stock is not yet included.</li>
       </ul>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>为什么这还不是严格 PIT · Why snapshots can change</h3>
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>注意事项 / Important Notes</h3>
       <ul style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
-        <li><strong style={{ color: "var(--ink-strong)" }}>历史值可能变化：</strong> later filings, amendments, and FMP normalization can revise earlier periods. A package-pinned request reproduces one captured vintage, but that vintage does not by itself prove what was knowable on every historical date.</li>
-        <li><strong style={{ color: "var(--ink-strong)" }}>Endpoint families are different datasets:</strong> price history, statements, ratios, estimates, and TTM/growth are not interchangeable. Presence of one does not imply coverage of another.</li>
-        <li><strong style={{ color: "var(--ink-strong)" }}>Expect missing fields:</strong> company, period, and filing availability vary. Client code should tolerate absent or null values rather than inferring a value.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>历史数据可能修订 / Historical data may be revised:</strong> 公司可能因重述、更正等原因修订历史财务数据。后续将提供版本化查询功能，记录每次数据更新的时间。<br/>Companies may revise historical financials due to restatements or corrections. Future versions will provide timestamped versioned queries.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>不同数据类型独立 / Data types are independent:</strong> 股价数据、财报数据、财务比率、预测数据等来自不同数据集。某股票有股价数据不代表一定有财报数据。<br/>Price data, statements, ratios, and estimates are separate datasets. Having price data doesn't guarantee statement data.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>字段可能缺失 / Fields may be missing:</strong> 不同公司、不同时期的财报字段可能不同。代码应容忍字段缺失或为 null，不要将其当作 0 处理。<br/>Company, period, and filing availability vary. Code should handle missing or null fields, not infer zero.</li>
       </ul>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>Future plan · 后续计划</h3>
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>后续计划 / Future Plans</h3>
       <ol style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
-        <li>继续扩展 sample-universe 与字段验证，并为 statements、ratios、metrics、growth 和 valuation 返回结果保留明确 package identity。</li>
-        <li>为 estimates、earnings、ratings、DCF 和 event families 增加独立版本化 capture/visible 时间；目前开放的是 immutable snapshot，而不是它们的严格 PIT 版本。</li>
-        <li>Connect native FMP as a distinct forwarding surface for broader endpoint coverage. It will have its own availability and refresh policy and will not overwrite published package snapshots.</li>
-        <li>发布独立版本化的 PIT-like 周度或固定频率刷新，公开 capture/visible 时间并保留 immutable vintages；native FMP 转发保持独立。</li>
+        <li>扩展股票覆盖范围，增加更多美股和字段验证。<br/>Expand stock coverage and add more US stocks with field validation.</li>
+        <li>为预测、业绩公告、评级、DCF 等数据提供版本化历史查询，记录数据更新时间。<br/>Provide versioned historical queries for estimates, earnings, ratings, DCF with capture timestamps.</li>
+        <li>添加更多数据源支持，提供更广泛的接口覆盖。数据源将有独立的更新和修订策略。<br/>Add more data source support for broader endpoint coverage with independent refresh and revision policies.</li>
+        <li>发布定期更新的历史数据版本，公开每次更新的时间戳，保留历史版本供查询。<br/>Publish regularly updated data versions with public timestamps, preserving historical versions for queries.</li>
       </ol>
 
       <div style={{ ...panel, marginBottom: 8 }}>
-        <strong style={{ color: "var(--accent-ink)" }}>Ultimate 计划。</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> Ultimate 将增加 institutional holdings disclosures、ETF holdings 及相关数据族；它们同样存在上游修订问题，必须沿用 capture time、visible time 与 immutable vintage 语义。</span>
+        <strong style={{ color: "var(--accent-ink)" }}>Ultimate 计划 / Ultimate Plan</strong>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> Ultimate 套餐将包含机构持仓披露、ETF 持仓等数据。这些数据也会遵循版本化管理和时间戳记录。<br/>Ultimate tier will include institutional holdings disclosures and ETF holdings, also with versioned management and timestamps.</span>
       </div>
 
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 8 }}>
-        <strong style={{ color: "var(--accent-ink)" }}>Request tip.</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> Use your Leandata Bearer token—never an FMP <code>apikey</code> or <code>api_key</code>. To reproduce one captured vintage, save its <code>as_of</code> and <code>package_sha256</code> beside the query.</span>
+        <strong style={{ color: "var(--accent-ink)" }}>使用提示 / Usage Tip</strong>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> 只需使用您的 Leandata token，无需 FMP 的 <code>apikey</code>。如需查询特定历史版本，保存对应的 <code>as_of</code> 时间和 <code>package_sha256</code> 标识符。<br/>Use your Leandata token only—no FMP <code>apikey</code> needed. To reproduce a specific version, save its <code>as_of</code> timestamp and <code>package_sha256</code> identifier.</span>
       </div>
     </div>
   );

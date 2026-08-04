@@ -9,7 +9,7 @@ function UpdatesTopbar() {
         <a href="/">Proxy API</a><a href="/docs/">Docs</a><a className="active" href="/updates">更新 / Updates</a><a href="/account">账户管理</a>
       </div>
       <div className="spacer"></div>
-      <div className="meta"><a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>返回首页 →</a></div>
+      <div className="meta"><LanguageToggle /><a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>返回首页 →</a></div>
     </div>
   );
 }
