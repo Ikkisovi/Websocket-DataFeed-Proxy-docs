@@ -1,5 +1,25 @@
 const { useEffect: useAccountEffect, useState: useAccountState } = React;
 
+function ComplianceFooter() {
+  return (
+    <footer style={{
+      width: "min(1120px, calc(100% - 40px))",
+      margin: "32px auto 0",
+      padding: "20px 0 32px",
+      borderTop: "1px solid var(--rule)",
+      color: "var(--ink-muted)",
+      fontSize: 12,
+      lineHeight: 1.6,
+    }}>
+      <div style={{ color: "var(--ink-strong)", fontWeight: 600 }}>Leandata Technologies Ltd.</div>
+      <div>700 W Georgia St, Vancouver, BC V7Y 1B6, Canada</div>
+      <a href="https://leandata.uk" style={{ color: "var(--accent-ink)", textDecoration: "none" }}>
+        https://leandata.uk
+      </a>
+    </footer>
+  );
+}
+
 async function accountRequest(path, options = {}) {
   const response = await fetch(path, {
     credentials: "same-origin",

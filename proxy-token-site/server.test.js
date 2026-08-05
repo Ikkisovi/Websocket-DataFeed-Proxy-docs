@@ -2247,6 +2247,7 @@ describe('Account portal UI', () => {
   it('requires the immutable identity email and exposes the account-only upgrade entry', async () => {
     const res = await request(app).get('/account-page.jsx');
     expect(res.statusCode).toBe(200);
+    expect(res.text).toContain('function ComplianceFooter()');
     const loginSource = res.text.slice(
       res.text.indexOf('function AccountLogin'),
       res.text.indexOf('function AccountKpi')
