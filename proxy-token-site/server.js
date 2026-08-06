@@ -997,15 +997,14 @@ function canonicalAccountIdentity({ username, phone, email }) {
 }
 
 function hasCompleteAccountIdentity(identity) {
-  return Boolean(identity.username && identity.phone && identity.email);
+  return Boolean(identity.username && identity.phone);
 }
 
 function sameAccountIdentity(record, identity) {
   const candidate = canonicalAccountIdentity(record || {});
   return hasCompleteAccountIdentity(candidate)
     && candidate.username === identity.username
-    && candidate.phone === identity.phone
-    && candidate.email === identity.email;
+    && candidate.phone === identity.phone;
 }
 
 function accountRegistryId(record) {
@@ -1223,7 +1222,7 @@ async function provisionFreeRegistration(entry) {
   const localUser = {
     username: entry.username,
     phone: entry.phone,
-    email: entry.email,
+    ...(entry.email && { email: entry.email }),
     ...(entry.email_verified && {
       email_verified: true,
       email_verified_at: entry.email_verified_at || null
@@ -1238,7 +1237,7 @@ async function provisionFreeRegistration(entry) {
   const proxyUser = {
     token,
     user_id: accountId,
-    email: entry.email,
+    ...(entry.email && { email: entry.email }),
     ...(entry.email_verified && { email_verified: true }),
     role: tierConfig.role,
     expires_at: expiresAt,
@@ -3372,17 +3371,14 @@ app.post('/api/register', async (req, res) => {
     email: cleanEmail
   });
 
-  if (!cleanUsername || !cleanPhone || !cleanEmail || !verificationId || !verificationCode) {
-    return res.status(400).json({ success: false, message: '邮箱、验证码、用户名和手机号都是必填的。' });
+  if (!cleanUsername || !cleanPhone) {
+    return res.status(400).json({ success: false, message: '用户名和手机号都是必填的。' });
   }
-  if (!isValidEmail(cleanEmail)) {
+  if (cleanEmail && !isValidEmail(cleanEmail)) {
     return res.status(400).json({ success: false, message: '邮箱格式不正确。' });
   }
-  if (!/^\d{6}$/.test(String(verificationCode).trim())) {
-    return res.status(400).json({ success: false, message: '验证码必须是 6 位数字。' });
-  }
   if (!hasCompleteAccountIdentity(identity)) {
-    return res.status(400).json({ success: false, message: '用户名、手机号和邮箱必须共同构成账户标识。' });
+    return res.status(400).json({ success: false, message: '用户名和手机号必须共同构成账户标识。' });
   }
 
   const requestedTier = String(tier || 'free').trim().toLowerCase();
@@ -3395,40 +3391,6 @@ app.post('/api/register', async (req, res) => {
   }
   const selectedTier = 'free';
 
-  if (!emailSetting('EMAIL_VERIFY_SECRET')) {
-    return res.status(503).json({ success: false, message: '邮箱验证服务尚未配置完成。' });
-  }
-  const challenges = readJSON(EMAIL_VERIFICATION_FILE, []);
-  const challenge = challenges.find(entry => (
-    entry.id === String(verificationId).trim() && entry.email === cleanEmail
-  ));
-  if (!challenge || challenge.status !== 'pending') {
-    return res.status(400).json({ success: false, message: '验证码无效或已使用，请重新获取验证码。' });
-  }
-  if (new Date(challenge.expires_at).getTime() <= Date.now()) {
-    challenge.status = 'expired';
-    writeJSONAtomic(EMAIL_VERIFICATION_FILE, challenges);
-    return res.status(400).json({ success: false, message: '验证码已过期，请重新获取验证码。' });
-  }
-  challenge.attempts = Number(challenge.attempts || 0) + 1;
-  const matches = safeEqual(
-    challenge.code_hash,
-    verificationCodeHash(challenge.id, String(verificationCode).trim())
-  );
-  if (!matches) {
-    if (challenge.attempts >= EMAIL_CODE_MAX_ATTEMPTS) challenge.status = 'locked';
-    writeJSONAtomic(EMAIL_VERIFICATION_FILE, challenges);
-    return res.status(400).json({
-      success: false,
-      message: challenge.status === 'locked'
-        ? '验证码错误次数过多，请重新获取验证码。'
-        : '验证码错误，请重试。'
-    });
-  }
-  challenge.status = 'used';
-  challenge.verified_at = new Date().toISOString();
-  writeJSONAtomic(EMAIL_VERIFICATION_FILE, challenges);
-
   const users = readJSON(USERS_FILE);
   const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
   const proxyUsers = Array.isArray(proxyData.users) ? proxyData.users : [];
@@ -3440,7 +3402,7 @@ app.post('/api/register', async (req, res) => {
       return res.json({
         success: true,
         status: 'existing_account',
-        message: '该用户名、手机号和邮箱的组合已开通。请前往账户管理升级或查看用量。',
+        message: '该用户名和手机号的组合已开通。请前往账户管理升级或查看用量。',
         account_url: '/account',
         tier: tierId,
         current_plan: publicPlan(tierId)
@@ -3460,9 +3422,7 @@ app.post('/api/register', async (req, res) => {
     username: cleanUsername,
     phone: cleanPhone,
     tier: selectedTier,
-    email: cleanEmail,
-    email_verified: true,
-    email_verified_at: challenge.verified_at,
+    ...(cleanEmail && { email: cleanEmail }),
     account_id: accountId,
     registered_at: new Date().toISOString()
   };
@@ -3471,7 +3431,7 @@ app.post('/api/register', async (req, res) => {
     return res.status(201).json({
       success: true,
       status: 'approved',
-      message: '邮箱验证成功，Free 计划已启用。请立即复制并安全保存你的 Token。',
+      message: 'Free 计划已启用。请立即复制并安全保存你的 Token。',
       token: provisioned.token,
       expiry: provisioned.expiresAt,
       role: provisioned.role,
@@ -3742,26 +3702,18 @@ app.post('/api/account/login', (req, res) => {
   const credential = req.body?.credential;
   const username = String(credential?.user_id || '').trim();
   const phone = String(credential?.phone || '').trim();
-  const email = String(req.body?.email || '').trim();
-  if (!username || !phone || !email || username.length > 128 || phone.length > 64) {
-    return res.status(400).json({ success: false, message: '请提供注册时的用户名、手机号和邮箱。' });
-  }
-  if (email.length > 254 || !ACCOUNT_EMAIL_RE.test(email)) {
-    return res.status(400).json({
-      success: false,
-      error: 'invalid_email',
-      message: '请填写有效的注册邮箱。'
-    });
+  if (!username || !phone || username.length > 128 || phone.length > 64) {
+    return res.status(400).json({ success: false, message: '请提供用户名和手机号。' });
   }
 
-  const identity = canonicalAccountIdentity({ username, phone, email });
+  const identity = canonicalAccountIdentity({ username, phone });
   const localMatches = findLocalAccountByIdentity(identity);
   const localUser = localMatches.length === 1 ? localMatches[0] : null;
   const accountId = localUser ? accountRegistryId(localUser) : '';
   const proxyUser = accountId ? findProxyAccount(accountId) : null;
   if (!localUser || !proxyUser || !proxyUser.token) {
     recordAccountLoginFailure(req);
-    return res.status(401).json({ success: false, message: '用户名、手机号或邮箱不匹配。' });
+    return res.status(401).json({ success: false, message: '用户名或手机号不匹配。' });
   }
 
   clearAccountLoginFailures(req);
@@ -3793,6 +3745,18 @@ app.get('/api/account/session', requireAccount, (req, res) => {
       role: req.account.proxyUser.role || req.account.localUser.role || 'standard',
       expiry: req.account.proxyUser.expires_at || null
     }
+  });
+});
+
+app.get('/api/account/token', requireAccount, (req, res) => {
+  const token = String(req.account.proxyUser.token || '');
+  if (!token) {
+    return res.status(404).json({ success: false, message: '当前账户没有可用 Token。' });
+  }
+  return res.json({
+    success: true,
+    token,
+    expires_at: req.account.proxyUser.expires_at || null
   });
 });
 
@@ -3943,13 +3907,13 @@ app.post('/api/renew', (_req, res) => {
 });
 
 // ============================================================
-// PUBLIC: Buyer check status (by username + phone + email)
+// PUBLIC: Buyer check status (by username + phone)
 // ============================================================
 app.post('/api/check-status', (req, res) => {
   const { username, phone, email } = req.body;
   const identity = canonicalAccountIdentity({ username, phone, email });
   if (!hasCompleteAccountIdentity(identity)) {
-    return res.status(400).json({ success: false, message: '请提供注册时的用户名、手机号和邮箱。' });
+    return res.status(400).json({ success: false, message: '请提供用户名和手机号。' });
   }
 
   const users = readJSON(USERS_FILE);

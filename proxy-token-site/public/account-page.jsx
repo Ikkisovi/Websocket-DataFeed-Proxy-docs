@@ -91,7 +91,6 @@ function AccountTopbar({ loggedIn, onLogout }) {
 function AccountLogin({ onLoggedIn }) {
   const [userId, setUserId] = useAccountState("");
   const [phone, setPhone] = useAccountState("");
-  const [email, setEmail] = useAccountState("");
   const [loading, setLoading] = useAccountState(false);
   const [message, setMessage] = useAccountState("");
 
@@ -107,11 +106,9 @@ function AccountLogin({ onLoggedIn }) {
             user_id: userId.trim(),
             phone: phone.trim(),
           },
-          email: email.trim(),
         }),
       });
       setPhone("");
-      setEmail("");
       await onLoggedIn();
     } catch (error) {
       setMessage(error.message);
@@ -133,7 +130,7 @@ function AccountLogin({ onLoggedIn }) {
         </p>
         <div style={{ marginTop: 42, display: "flex", gap: 24, flexWrap: "wrap", color: "var(--ink-muted)", fontSize: 12 }}>
           <span>HttpOnly session</span>
-          <span>Token 仅脱敏显示</span>
+          <span>Token 默认隐藏，可按需显示</span>
           <span>支付成功自动续期</span>
         </div>
       </section>
@@ -143,7 +140,7 @@ function AccountLogin({ onLoggedIn }) {
           <div className="eyebrow" style={{ marginBottom: 10 }}>账户登录</div>
           <h2 className="display-title" style={{ fontSize: 36, margin: "0 0 10px" }}>验证账户凭证</h2>
           <p style={{ color: "var(--ink-muted)", margin: "0 0 28px" }}>
-            注册时的用户名、手机号和邮箱共同构成唯一登录凭证。
+            注册时的用户名和手机号共同构成唯一登录凭证。
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -169,21 +166,6 @@ function AccountLogin({ onLoggedIn }) {
                 placeholder="注册时使用的手机号"
                 required
               />
-            </div>
-            <div>
-              <label className="label">注册邮箱</label>
-              <input
-                className="input"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={event => setEmail(event.target.value)}
-                placeholder="name@example.com"
-                required
-              />
-              <div style={{ marginTop: 7, color: "var(--ink-muted)", fontSize: 11, lineHeight: 1.5 }}>
-                邮箱是账户身份的一部分，不能在线修改。
-              </div>
             </div>
             <button className="btn primary" disabled={loading} style={{ justifyContent: "center", padding: 12 }}>
               {loading ? "验证中…" : "进入账户管理 →"}
@@ -215,7 +197,40 @@ function AccountDashboard({ overview, loading, onRefresh, onRenew }) {
   const rest = overview?.usage?.rest;
   const ws = overview?.usage?.ws;
   const renewal = overview?.renewal;
+  const [tokenVisible, setTokenVisible] = useAccountState(false);
+  const [tokenValue, setTokenValue] = useAccountState("");
+  const [tokenLoading, setTokenLoading] = useAccountState(false);
+  const [tokenMessage, setTokenMessage] = useAccountState("");
   const expired = account.days_remaining === 0;
+
+  const toggleToken = async () => {
+    setTokenMessage("");
+    if (tokenVisible) {
+      setTokenVisible(false);
+      setTokenValue("");
+      return;
+    }
+    setTokenLoading(true);
+    try {
+      const data = await accountRequest("/api/account/token");
+      setTokenValue(data.token || "");
+      setTokenVisible(true);
+    } catch (error) {
+      setTokenMessage(error.message);
+    } finally {
+      setTokenLoading(false);
+    }
+  };
+
+  const copyToken = async () => {
+    if (!tokenValue) return;
+    try {
+      await navigator.clipboard.writeText(tokenValue);
+      setTokenMessage("Token 已复制到剪贴板。");
+    } catch (_) {
+      setTokenMessage("浏览器不允许自动复制，请手动复制 Token。");
+    }
+  };
   return (
     <main className="account-main">
       <div className="account-grid">
@@ -226,8 +241,17 @@ function AccountDashboard({ overview, loading, onRefresh, onRenew }) {
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <span className={`tier ${account.role || ""}`}>{account.role || "unknown"}</span>
               {account.mode && <span className="pill">{account.mode}</span>}
-              <span className="pill">Token {account.token_masked || "unavailable"}</span>
+              <span className="pill">Token {tokenVisible ? tokenValue : (account.token_masked || "unavailable")}</span>
+              <button className="btn ghost" onClick={toggleToken} disabled={tokenLoading} style={{ padding: "6px 10px", fontSize: 12 }}>
+                {tokenLoading ? "读取中…" : tokenVisible ? "隐藏 Token" : "显示 Token"}
+              </button>
+              {tokenVisible && (
+                <button className="btn ghost" onClick={copyToken} style={{ padding: "6px 10px", fontSize: 12 }}>
+                  复制 Token
+                </button>
+              )}
             </div>
+            {tokenMessage && <div style={{ marginTop: 8, color: "var(--ink-muted)", fontSize: 12 }}>{tokenMessage}</div>}
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ color: "var(--ink-muted)", fontSize: 12 }}>有效期至</div>

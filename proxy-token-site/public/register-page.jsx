@@ -171,10 +171,6 @@ function RegisterPage() {
   const [regUsername, setRegUsername] = useRegState("");
   const [regPhone, setRegPhone] = useRegState("");
   const [regEmail, setRegEmail] = useRegState("");
-  const [verificationCode, setVerificationCode] = useRegState("");
-  const [verificationId, setVerificationId] = useRegState("");
-  const [codeSent, setCodeSent] = useRegState(false);
-  const [resendRemaining, setResendRemaining] = useRegState(0);
   const [regMsg, setRegMsg] = useRegState("");
   const [regStatus, setRegStatus] = useRegState(""); // "success", "error"
   const [activatedAccess, setActivatedAccess] = useRegState(null);
@@ -184,71 +180,16 @@ function RegisterPage() {
   // Status Query Form State
   const [checkUsername, setCheckUsername] = useRegState("");
   const [checkPhone, setCheckPhone] = useRegState("");
-  const [checkEmail, setCheckEmail] = useRegState("");
   const [checkMsg, setCheckMsg] = useRegState("");
   const [checkStatus, setCheckStatus] = useRegState(""); // "approved", "rejected", "pending", "not_found", "error"
   const [checkTokenInfo, setCheckTokenInfo] = useRegState(null); // { token, expiry, role, plan }
   const [checkLoading, setCheckLoading] = useRegState(false);
 
-  useRegEffect(() => {
-    if (resendRemaining <= 0) return undefined;
-    const timer = setInterval(() => {
-      setResendRemaining(value => Math.max(0, value - 1));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [resendRemaining]);
-
-  const handleSendCode = async () => {
-    const email = regEmail.trim().toLowerCase();
-    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-      setRegMsg("请先填写有效的邮箱地址。");
-      setRegStatus("error");
-      return;
-    }
-    setRegLoading(true);
-    setRegMsg("");
-    setRegStatus("");
-    try {
-      const resp = await fetch('/api/register/request-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      const data = await resp.json();
-      if (resp.ok && data.success) {
-        setRegEmail(email);
-        setVerificationId(data.challenge_id);
-        setCodeSent(true);
-        setResendRemaining(60);
-        setRegMsg(data.message || "验证码已发送，请检查邮箱。");
-        setRegStatus("success");
-      } else {
-        setRegMsg(data.message || "验证码发送失败，请稍后重试。");
-        setRegStatus("error");
-      }
-    } catch (err) {
-      setRegMsg("网络错误，请稍后再试。");
-      setRegStatus("error");
-    } finally {
-      setRegLoading(false);
-    }
-  };
-
   // Handle Registration Submit
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
-    if (!regEmail.trim() || !verificationId || !/^\d{6}$/.test(verificationCode.trim())) {
-      setRegMsg("请先获取并填写 6 位邮箱验证码。");
-      setRegStatus("error");
-      return;
-    }
-    if (!regUsername.trim() || !regPhone.trim() || !regEmail.trim()) {
-      setRegMsg("请填写用户名、手机号和邮箱。");
-      setRegStatus("error");
-      return;
-    }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(regEmail.trim())) {
-      setRegMsg("请输入有效的邮箱地址。");
+    if (!regUsername.trim() || !regPhone.trim()) {
+      setRegMsg("请填写用户名和手机号。");
       setRegStatus("error");
       return;
     }
@@ -265,9 +206,7 @@ function RegisterPage() {
         body: JSON.stringify({
           username: regUsername.trim(),
           phone: regPhone.trim(),
-          email: regEmail.trim(),
-          verification_id: verificationId,
-          verification_code: verificationCode.trim(),
+          ...(regEmail.trim() && { email: regEmail.trim() }),
           tier: "free"
         })
       });
@@ -282,9 +221,6 @@ function RegisterPage() {
           setRegMsg(data.message || "Free 计划已启用。");
           setRegStatus("success");
           setRegEmail("");
-          setVerificationCode("");
-          setVerificationId("");
-          setCodeSent(false);
           return;
         }
         if (data.status === "existing_account") {
@@ -292,17 +228,11 @@ function RegisterPage() {
           setRegMsg(data.message || "该账户已存在，请从账户管理进入升级与用量页面。");
           setRegStatus("success");
           setRegEmail("");
-          setVerificationCode("");
-          setVerificationId("");
-          setCodeSent(false);
           return;
         }
         setRegMsg(data.message || "账户已创建。");
         setRegStatus("success");
         setRegEmail("");
-        setVerificationCode("");
-        setVerificationId("");
-        setCodeSent(false);
       } else {
         setRegMsg(data.message || "注册失败，请检查输入。");
         setRegStatus("error");
@@ -318,8 +248,8 @@ function RegisterPage() {
   // Handle Check Status
   const handleCheckStatus = async (e) => {
     e.preventDefault();
-    if (!checkUsername.trim() || !checkPhone.trim() || !checkEmail.trim()) {
-      setCheckMsg("请填写注册时的用户名、手机号和邮箱。");
+    if (!checkUsername.trim() || !checkPhone.trim()) {
+      setCheckMsg("请填写注册时的用户名和手机号。");
       setCheckStatus("error");
       return;
     }
@@ -334,8 +264,7 @@ function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: checkUsername.trim(),
-          phone: checkPhone.trim(),
-          email: checkEmail.trim()
+          phone: checkPhone.trim()
         })
       });
       const data = await resp.json();
@@ -607,7 +536,7 @@ function RegisterPage() {
               )}
 
               {/* Free account registration */}
-              <div className="eyebrow" style={{ marginBottom: 10 }}>1 · 邮箱验证</div>
+              <div className="eyebrow" style={{ marginBottom: 10 }}>1 · 填写账户信息</div>
               <div className="card" style={{ padding: 24 }}>
                 <form onSubmit={handleRegisterSubmit}>
                   <div style={{ marginBottom: 20 }}>
@@ -618,47 +547,6 @@ function RegisterPage() {
                         REST 可查询最近 31 个日历日；账户总计最多 10 条 WS 订阅。需要更多数据或额度，请注册完成后前往账户管理升级。
                       </div>
                     </div>
-                  </div>
-                  <div style={{ marginTop: 10, paddingTop: 18, borderTop: "1px solid var(--rule)" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 12, alignItems: "end" }}>
-                      <div>
-                        <label className="label">邮箱地址</label>
-                        <input
-                          className="input mono"
-                          type="email"
-                          placeholder="name@example.com"
-                          value={regEmail}
-                          onChange={(e) => setRegEmail(e.target.value)}
-                          required
-                        />
-                        <div className="hint">验证码将发送到这个邮箱。</div>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn"
-                        onClick={handleSendCode}
-                        disabled={regLoading || resendRemaining > 0}
-                        style={{ minWidth: 132, justifyContent: "center", opacity: regLoading || resendRemaining > 0 ? 0.7 : 1 }}
-                      >
-                        {resendRemaining > 0 ? `${resendRemaining}s 后重发` : (codeSent ? "重新发送验证码" : "发送验证码")}
-                      </button>
-                    </div>
-                    {codeSent && (
-                      <div style={{ marginTop: 18 }}>
-                        <label className="label">邮箱验证码</label>
-                        <input
-                          inputMode="numeric"
-                          autoComplete="one-time-code"
-                          maxLength={6}
-                          className="input mono"
-                          placeholder="输入 6 位验证码"
-                          value={verificationCode}
-                          onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                          required
-                        />
-                        <div className="hint">验证码有效期 10 分钟。</div>
-                      </div>
-                    )}
                   </div>
                   <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--rule)" }}>
                     <div className="eyebrow" style={{ marginBottom: 10 }}>2 · 账户信息</div>
@@ -700,7 +588,7 @@ function RegisterPage() {
                     background: "var(--bg-canvas)",
                   }}>
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--warn)", flex: "0 0 auto" }}></span>
-                    <span>用户名、手机号和邮箱共同确定账户。相同组合会恢复已有账户；同名但不同电话或邮箱可以独立注册。</span>
+                    <span>用户名和手机号共同确定账户。邮箱是可选资料，不影响 Token 开通。</span>
                   </div>
 
                   <button 
@@ -762,7 +650,7 @@ function RegisterPage() {
                 <div className="eyebrow" style={{ marginBottom: 8 }}>查询进度</div>
                 <h3 className="display-title" style={{ fontSize: 22, margin: "0 0 6px" }}>已注册？</h3>
                 <p style={{ color: "var(--ink-muted)", fontSize: 12.5, margin: "0 0 16px" }}>
-                  使用注册时的用户名、手机号和邮箱查询账户状态。
+                  使用注册时的用户名和手机号查询账户状态。
                 </p>
 
                 <form onSubmit={handleCheckStatus}>
@@ -779,14 +667,6 @@ function RegisterPage() {
                       placeholder="手机号" 
                       value={checkPhone}
                       onChange={(e) => setCheckPhone(e.target.value)}
-                      required
-                    />
-                    <input
-                      className="input"
-                      type="email"
-                      placeholder="注册邮箱"
-                      value={checkEmail}
-                      onChange={(e) => setCheckEmail(e.target.value)}
                       required
                     />
                     <button 

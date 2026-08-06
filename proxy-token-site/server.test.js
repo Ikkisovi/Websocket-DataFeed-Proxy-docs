@@ -322,7 +322,7 @@ describe('POST /api/register', () => {
       email: 'legacy-user@example.com',
       tier: 'free'
     });
-    expect(response.statusCode).toBe(201);
+    expect(response.statusCode).toBe(200);
   });
 
   it('is idempotent for an exact identity and separates same usernames with other tuple values', async () => {
@@ -401,12 +401,12 @@ describe('POST /api/register', () => {
     expect(res.body.success).toBe(false);
   });
 
-  it('returns 400 when email is missing', async () => {
+  it('allows registration without an email', async () => {
     const res = await registerRequest({
-      username: 'noMail', phone: '1', tier: 'standard'
+      username: 'noMail', phone: '1', tier: 'free'
     });
-    expect(res.statusCode).toBe(400);
-    expect(res.body.success).toBe(false);
+    expect(res.statusCode).toBe(201);
+    expect(res.body.status).toBe('approved');
     expect(JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'))).toEqual([]);
   });
 
@@ -418,11 +418,12 @@ describe('POST /api/register', () => {
     expect(res.body.error).toBe('registration_is_free_only');
   });
 
-  it('stores the required email on the Free account', async () => {
+  it('stores an optional email on the Free account', async () => {
     const res = await registerRequest({
-      username: 'mailUser', phone: '1', tier: 'standard', email: 'mailuser@example.com'
+      username: 'mailUser', phone: '1', tier: 'free', email: 'mailuser@example.com'
     });
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(201);
+    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0].email).toBe('mailuser@example.com');
   });
 });
 
@@ -450,14 +451,14 @@ describe('Email verification and registration template', () => {
       tier: 'free'
     });
     expect(registered.statusCode).toBe(201);
-    expect(registered.body.message).toContain('邮箱验证成功');
+    expect(registered.body.message).toContain('Free 计划已启用');
     expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0]).toEqual(expect.objectContaining({
       email,
-      email_verified: true
+      email
     }));
   });
 
-  it('rejects a code that does not match the email challenge', async () => {
+  it('does not require an email challenge for registration', async () => {
     const requested = await request(app)
       .post('/api/register/request-code')
       .send({ email: 'wrong-code@example.com' });
@@ -469,9 +470,9 @@ describe('Email verification and registration template', () => {
       phone: '123',
       tier: 'free'
     });
-    expect(response.statusCode).toBe(400);
-    expect(response.body.message).toContain('验证码错误');
-    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))).toEqual([]);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.status).toBe('approved');
+    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))).toHaveLength(1);
   });
 
   it('allows an admin to read and update the registration email template', async () => {
@@ -786,13 +787,10 @@ describe('Registration and bulk product UI contract', () => {
     'utf8'
   );
 
-  it('makes registration email required and replaces the Basic card with Bulk Download', () => {
-    expect(registerSource).toContain('type="email"');
+  it('keeps registration on username and phone and replaces the Basic card with Bulk Download', () => {
     expect(registerSource).toContain('required');
-    expect(registerSource).toContain('/api/register/request-code');
-    expect(registerSource).toContain('verification_id: verificationId');
-    expect(registerSource).toContain('邮箱验证码');
-    expect(registerSource).toContain('autoComplete="one-time-code"');
+    expect(registerSource).toContain('用户名和手机号共同确定账户');
+    expect(registerSource).not.toContain('/api/register/request-code');
     expect(registerSource).toContain('Bulk Download');
     expect(registerSource).toContain('/docs/#bulk');
     expect(registerSource).not.toContain('id: "basic"');
@@ -1858,18 +1856,18 @@ describe('Account portal', () => {
     expect(JSON.stringify(login.body)).not.toContain(account.token);
   });
 
-  it('requires email as part of the login identity', async () => {
+  it('requires username and phone as the login identity', async () => {
     const account = seedAccount();
     const invalid = await request(app)
       .post('/api/account/login')
       .set('x-forwarded-for', '198.51.100.223')
       .send({
-        credential: { user_id: account.userId, phone: account.phone }
+        credential: { user_id: account.userId }
       });
     expect(invalid.statusCode).toBe(400);
   });
 
-  it('rejects a login with a mismatched email', async () => {
+  it('ignores optional email metadata during login', async () => {
     const account = seedAccount();
     const rejected = await request(app)
       .post('/api/account/login')
@@ -1881,7 +1879,24 @@ describe('Account portal', () => {
         },
         email: 'attacker@example.com'
       });
-    expect(rejected.statusCode).toBe(401);
+    expect(rejected.statusCode).toBe(200);
+  });
+
+  it('reveals the raw token only through the authenticated account session', async () => {
+    const account = seedAccount();
+    const { cookie } = await loginAccount(account);
+    const revealed = await request(app)
+      .get('/api/account/token')
+      .set('Cookie', cookie);
+    expect(revealed.statusCode).toBe(200);
+    expect(revealed.body).toEqual({
+      success: true,
+      token: account.token,
+      expires_at: account.expiry
+    });
+
+    const unauthenticated = await request(app).get('/api/account/token');
+    expect(unauthenticated.statusCode).toBe(401);
   });
 
   it('rate limits repeated failures without penalizing successful logins', async () => {
@@ -2244,7 +2259,7 @@ describe('Admin portal UI', () => {
 });
 
 describe('Account portal UI', () => {
-  it('requires the immutable identity email and exposes the account-only upgrade entry', async () => {
+  it('uses username and phone login and exposes the account-only upgrade entry', async () => {
     const res = await request(app).get('/account-page.jsx');
     expect(res.statusCode).toBe(200);
     expect(res.text).toContain('function ComplianceFooter()');
@@ -2252,11 +2267,11 @@ describe('Account portal UI', () => {
       res.text.indexOf('function AccountLogin'),
       res.text.indexOf('function AccountKpi')
     );
-    expect(loginSource).toContain('type="email"');
-    expect(loginSource).toContain('注册邮箱');
-    expect(loginSource).toContain('email: email.trim()');
-    expect(loginSource).toContain('邮箱是账户身份的一部分，不能在线修改。');
+    expect(loginSource).not.toContain('注册邮箱');
+    expect(loginSource).not.toContain('email: email.trim()');
     expect(loginSource).toContain('required');
+    expect(res.text).toContain('/api/account/token');
+    expect(res.text).toContain('显示 Token');
     expect(res.text).toContain('选择升级套餐');
     expect(res.text).not.toContain('Notification email · optional');
   });
