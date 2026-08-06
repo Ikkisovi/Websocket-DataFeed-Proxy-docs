@@ -1999,73 +1999,55 @@ Authorization: Bearer c88662...720a
 
       <h2 id="tiers-permissions" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Tiers &amp; permissions</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Four public token plans control access to channels, symbols, rate limits, and REST endpoints.
+        Four public token plans control access to channels and REST endpoint families. Runtime capacity limits are listed separately below and are not tier-specific connection guarantees.
         Basic is shown only for existing-account compatibility and is closed to new registration; Bulk Download is the separate one-off product above.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>公开注册提供四种 Token 套餐。Basic 仅为老账户兼容，不再开放新注册；批量导出请使用上方独立的 Bulk Download。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
-          <tr><th style={{ width: 120 }}>Plan</th><th>Price</th><th>WS channels</th><th>WS symbols</th><th>WS conns</th><th>REST req/min<br/><span style={{ fontWeight: 400, fontSize: 11, color: "var(--ink-soft)" }}>(rolling 60 s window)</span></th><th>REST parallel</th><th>REST endpoints</th></tr>
+          <tr><th style={{ width: 120 }}>Plan</th><th>Price</th><th>WS channels</th><th>Historical REST</th><th>REST endpoints</th></tr>
         </thead>
         <tbody>
           <tr>
             <td><span className="tier trial">Trial</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥50/3 days</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1800</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>5</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3 in flight / account</td>
             <td style={{ fontSize: 12 }}>Same as Standard · 3-day token · non-renewable</td>
           </tr>
           <tr>
             <td><span className="tier basic">Basic</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Legacy · closed</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>— (REST only)</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>600</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3 in flight / account</td>
             <td style={{ fontSize: 12 }}>existing accounts only · no new registration</td>
           </tr>
           <tr>
             <td><span className="tier value">Value</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥70/mo</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>30</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1800</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3 in flight / account</td>
             <td style={{ fontSize: 12 }}>REST: stocks OR options (pick at signup) · WS: all channels</td>
           </tr>
           <tr>
             <td><span className="tier standard">Standard</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥100/mo</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1800</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>5</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3 in flight / account</td>
             <td style={{ fontSize: 12 }}>stocks + options history · no crypto orderbooks</td>
           </tr>
           <tr>
             <td><span className="tier premium">Premium</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥150/mo</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{"\u221E"}</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>6000</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>10</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3 in flight / account</td>
             <td style={{ fontSize: 12 }}>All REST endpoints including crypto orderbooks</td>
           </tr>
         </tbody>
       </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 8px" }}>
-        Rate limits tighten automatically under load: limits halve when server is overloaded and quarter under critical load. WebSocket delivery is always prioritised over REST.
-      </p>
-      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
-        Per-second equivalents: Basic 10/s · Value 30/s · Standard 30/s · Premium 100/s. Exceeding the per-minute quota or the parallel-request cap returns <strong>HTTP 429</strong>; back off and retry after the 60-second window.
-        <br/>每秒换算：Basic 10/s · Value 30/s · Standard 30/s · Premium 100/s。超过每分钟配额或并发上限会返回 <strong>HTTP 429</strong>，请等待 60 秒窗口刷新后再重试。
+        Current WS runtime rules: up to 500 subjects per connection, no account-level WS connection hard cap, and a 10-subject account-wide cap for Free accounts. These are capacity limits, not an unlimited-delivery SLA. See Rate limits below for upstream-specific <code>429</code> and service backpressure.
+        <br/>当前 WS 运行时规则：每条连接最多 500 subjects，不设账号级 WS 连接数硬上限；Free 账号另有全账号合计 10 subjects 的限制。这些是容量限制，不是无限投递 SLA。上游 <code>429</code> 与服务背压说明见下方 Rate limits。
       </p>
 
       {/* ── Token API ── */}
@@ -3078,8 +3060,8 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
             ["403", '{"error":"Forbidden"}', "Token valid but tier lacks permission for this endpoint"],
             ["404", '{"error":"Token not found"}', "Admin lookup: user_id not in active token list"],
             ["409", '{"success":false,"message":"..."}', "Duplicate username on registration"],
-            ["429", "Rate limit exceeded: N/M req/min", "REST rate limit hit; retry after 60 s"],
-            ["429", '{"error":"REST concurrency limit exceeded: N/M parallel requests"}', "Too many parallel requests in flight; wait for one to finish"],
+            ["429", '{"error":"historical_concurrency_limit"}', "More than 3 historical REST requests are in flight for this account"],
+            ["429", '{"error":"thetadata_qps_limit"}', "Upstream-specific QPS limit reached; back off and retry"],
             ["500", '{"error":"Cloud missing Alpaca master keys"}', "Proxy misconfiguration"],
             ["503", '{"error":"ThetaData not available"}', "ThetaData client offline (open_interest / eod)"],
             ["503", '{"error":"Server overloaded, stream priority active."}', "High load; WS streams take priority"],
@@ -3095,82 +3077,55 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
 
       <h2 id="rate-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Rate limits</h2>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", margin: "0 0 12px", fontSize: 13 }}>
-        <strong>HTTP 429 = rate limit hit.</strong> If you receive a <code>429</code> response, you have exceeded your tier's per-minute REST quota or your parallel-request concurrency cap. Back off and retry after the 60-second rolling window or after one in-flight request finishes — do not hammer the endpoint.
-        <br/><span style={{ color: "var(--ink-soft)" }}>收到 HTTP 429 说明触发了限速：超过了套餐的每分钟 REST 配额或并发上限。请等待 60 秒滚动窗口刷新或等已有请求完成后再重试，不要持续重试。</span>
+        <strong>HTTP 429 = an enforced runtime limit was reached.</strong> The common causes are the per-account historical REST concurrency cap or an upstream-specific QPS/key-pool limit. Wait for an in-flight request to finish and use exponential backoff.
+        <br/><span style={{ color: "var(--ink-soft)" }}>收到 HTTP 429 表示触发了运行时限制，常见原因是账号历史 REST 并发上限或上游 QPS/key pool 限制。请等待在途请求完成并使用指数退避。</span>
       </div>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        REST limits are per-user, per rolling 60-second window. Limits tighten automatically when the server is under load (overloaded) and further under critical load.
-        WebSocket symbol subscriptions are counted separately and do not reset on reconnect.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>REST 限速按用户、按 60 秒滚动窗口计算。服务器负载升高时自动收紧，极端负载下进一步收紧。WS 标的订阅数单独计算，重连后不会重置。</span>
+        The proxy does not currently enforce the old tier-specific rolling req/min values. Historical REST concurrency is per account and remains held until the response body reaches EOF.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>代理当前不执行旧的套餐级滚动 req/min 数值。历史 REST 并发按账号计算，并持续占用到响应正文读取完毕。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
-          <tr><th style={{ width: 150 }}>Tier</th><th>REST req/min</th><th>Under load</th><th>Critical</th><th>WS symbols</th></tr>
+          <tr><th style={{ width: 220 }}>Runtime limit</th><th>Enforced value</th><th>Scope</th></tr>
         </thead>
         <tbody>
           {[
-            ["Trial",    "1800", "900", "450", "50"],
-            ["Basic",    "600",  "300", "150", "—"],
-            ["Value",    "1800", "900", "450", "30"],
-            ["Standard", "1800", "900", "450", "50"],
-            ["Premium",  "6000", "3000","1500","500"],
-          ].map(([t, r, l, c, w], i) => (
+            ["Historical REST concurrency", "3", "per account"],
+            ["ThetaData REST QPS", "5/s", "per ordinary account"],
+            ["ThetaData native concurrency", "2", "shared service-wide"],
+            ["WS subjects", "500", "per connection"],
+            ["Free WS subjects", "10", "account-wide across connections"],
+            ["WS connections", "no account cap", "service capacity still applies"],
+          ].map(([limit, value, scope], i) => (
             <tr key={i}>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{t}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{r}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center", color: "var(--ink-soft)" }}>{l}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center", color: "var(--ink-soft)" }}>{c}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{w}</td>
+              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{limit}</td>
+              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{value}</td>
+              <td style={{ fontSize: 12, color: "var(--ink-soft)" }}>{scope}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
-        Cached responses (X-Cache: HIT) do not count against REST rate limits. Check the <code>X-Cache</code> header — cache TTL is 5 minutes (300 s).
+        These are current runtime limits, not capacity guarantees. Service-wide backpressure can return <code>503</code>, and upstream key exhaustion can return <code>429</code>.
       </p>
 
       <h2 id="concurrency-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Concurrency limits</h2>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        In addition to rate limits, the proxy enforces per-user concurrency limits on both REST and WebSocket connections.
-        REST concurrency limits the number of parallel in-flight requests; WebSocket concurrency limits the number of simultaneously open connections across all channels.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>除限速外，代理还对 REST 和 WebSocket 实施每用户并发限制。REST 并发限制同时在途请求数；WS 并发限制所有通道的同时连接数。</span>
+        The account-level concurrency cap applies only to historical REST: ordinary accounts may have up to <strong>3</strong> requests in flight.
+        WebSocket accounts have no account-level connection cap. Each connection may subscribe to at most <strong>500 NATS subjects</strong>; Free accounts additionally share a 10-subject account-wide cap.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>账号级并发上限仅适用于历史 REST：普通账号最多同时有 <strong>3</strong> 个在途请求。WebSocket 不设账号级连接数上限；每条连接最多订阅 <strong>500 个 NATS subjects</strong>，Free 账号另有全账号合计 10 subjects 的限制。</span>
       </p>
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
-        <thead>
-          <tr><th style={{ width: 150 }}>Tier</th><th>REST parallel</th><th>WS connections</th></tr>
-        </thead>
-        <tbody>
-          {[
-            ["Trial",    "5",   "3"],
-            ["Basic",    "2",   "1"],
-            ["Value",    "3",   "2"],
-            ["Standard", "5",   "3"],
-            ["Premium",  "10",  "\u221E"],
-          ].map(([t, r, w], i) => (
-            <tr key={i}>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{t}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{r}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{w}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
-        Exceeding the REST concurrency limit returns <code>429</code> with a JSON body. Exceeding the WS connection limit rejects the <code>auth</code> message and closes the socket with code <code>1008</code>.
+        Subjects count actual deliveries, not unique ticker strings. For example, <code>AAPL trades</code> plus <code>AAPL quotes</code> is two subjects; subscribing to the same subject on two connections counts twice because the frame is delivered twice. Accounts are counted independently. This is not an unlimited-capacity SLA. For large fan-out, keep a small number of upstream sockets and redistribute locally through a local proxy.
+        <br/>Subjects 按实际投递计数，不按唯一 ticker 去重。例如同时订阅 <code>AAPL trades</code> 和 <code>AAPL quotes</code> 算两个 subjects；同一 subject 在两条连接上订阅也算两次，因为数据会发送两次。不同账号独立计数；这不代表无限容量 SLA。大规模分发建议仅保留少量上游连接，再通过本地代理转发给多个本地进程。
       </p>
 
       <pre className="code" style={{ marginBottom: 40 }}>
-{`// 429 response body (plain text) — rate limit
-Rate limit exceeded: 301/300 req/min
-
-// 429 response body (JSON) — concurrency limit
+{`// 429 response body (JSON) — historical REST concurrency
 {
-  "error": "REST concurrency limit exceeded: 5/5 parallel requests"
+  "error": "historical_concurrency_limit",
+  "message": "Per-user historical concurrency limit exceeded"
 }
-
-// WS auth rejected — connection limit
-[{"T": "error", "msg": "Connection limit exceeded: 3/3 active websockets"}]
-// Socket closed with code 1008 (policy violation)
 
 // 503 response body (JSON) — backpressure under load
 {
@@ -3192,20 +3147,21 @@ function WsUsageBody() {
       <div className="eyebrow" style={{ marginBottom: 10 }}>Realtime</div>
       <h2 id="endpoint" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>WebSocket connection</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 20px", maxWidth: 640 }}>
-        Each channel has a dedicated path. Connect to the appropriate URL, send an <code>auth</code> message with your token, then send <code>subscribe</code> messages.
-        Stocks/options/overnight/boats messages are binary MessagePack; crypto and news channels use JSON.
+        Each channel has a dedicated path. The recommended public-client control format is JSON: connect, send <code>auth</code>, wait for the authentication success response, then send <code>subscribe</code>.
+        Stock, overnight, boats, crypto, and news market data arrive as binary WebSocket frames containing JSON bytes. Options market data uses MessagePack.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>每个频道使用独立路径。普通客户端建议发送 JSON 控制消息：连接后先发送 <code>auth</code>，等待认证成功，再发送 <code>subscribe</code>。股票、隔夜、boats、加密货币与新闻行情是二进制 WebSocket frame 内的 JSON bytes；期权行情使用 MessagePack。</span>
       </p>
 
       <table className="tbl card" style={{ marginBottom: 28, overflow: "hidden" }}>
         <thead><tr><th>Channel</th><th>Path</th><th>Format</th><th>Basic</th><th>Trial</th><th>Value</th><th>Standard</th><th>Premium</th></tr></thead>
         <tbody>
           {[
-            ["stocks",    "/stream",           "msgpack", "—", "✓", "✓", "✓", "✓"],
+            ["stocks",    "/stream",           "JSON bytes", "—", "✓", "✓", "✓", "✓"],
             ["options",   "/stream/options",   "msgpack", "—", "✓", "✓", "✓", "✓"],
-            ["boats",     "/stream/boats",     "msgpack", "—", "✓", "✓", "✓", "✓"],
-            ["overnight", "/stream/overnight", "msgpack", "—", "✓", "✓", "✓", "✓"],
-            ["crypto",    "/stream/crypto",    "JSON",    "—", "✓", "✓", "✓", "✓"],
-            ["news",      "/stream/news",      "JSON",    "—", "✓", "✓", "✓", "✓"],
+            ["boats",     "/stream/boats",     "JSON bytes", "—", "✓", "✓", "✓", "✓"],
+            ["overnight", "/stream/overnight", "JSON bytes", "—", "✓", "✓", "✓", "✓"],
+            ["crypto",    "/stream/crypto",    "JSON bytes", "—", "✓", "✓", "✓", "✓"],
+            ["news",      "/stream/news",      "JSON bytes", "—", "✓", "✓", "✓", "✓"],
           ].map(([ch, path, fmt, b, tr, v, s, p], i) => (
             <tr key={i}>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, fontWeight: 600 }}>{ch}</td>
@@ -3228,7 +3184,7 @@ function WsUsageBody() {
         After opening the WebSocket, send an <code>auth</code> action. Authentication happens in the message body — no HTTP headers are needed.
       </p>
       <pre className="code" style={{ marginBottom: 12 }}>
-{`import asyncio, websockets, json, msgpack
+{`import asyncio, websockets, json
 
 async def stream_stocks(token):
     uri = "${WS_BASE}/stream"        # stocks channel
@@ -3236,36 +3192,128 @@ async def stream_stocks(token):
 
         # 1. Authenticate
         await ws.send(json.dumps({"action": "auth", "token": token}))
-        auth_resp = msgpack.unpackb(await ws.recv())
-        # auth_resp → [{"T": "success", "msg": "authenticated"}]
+        auth_resp = json.loads(await ws.recv())
+        # auth_resp -> [{"T": "success", "msg": "authenticated"}]
 
         # 2. Subscribe
         await ws.send(json.dumps({
             "action": "subscribe",
             "trades": ["AAPL", "TSLA", "NVDA"],
-            "quotes": ["AAPL"],
-            "bars":   []
+            "quotes": ["AAPL"]
         }))
 
         # 3. Receive
         async for raw in ws:
-            msgs = msgpack.unpackb(raw)   # list of message dicts
+            msgs = json.loads(raw)        # raw may be bytes; json.loads accepts bytes
+            if not isinstance(msgs, list):
+                msgs = [msgs]
             for msg in msgs:
                 print(msg)
 
 asyncio.run(stream_stocks("YOUR_TOKEN"))`}
       </pre>
       <pre className="code" style={{ marginBottom: 28 }}>
-{`# For crypto/news channels — same pattern but JSON instead of msgpack
+{`# Options market-data frames use MessagePack.
+# Stock/overnight/boats/crypto/news market-data frames contain JSON bytes.
 uri = "${WS_BASE}/stream/news"
 await ws.send(json.dumps({"action": "auth", "token": token}))
-auth_resp = json.loads(await ws.recv())   # JSON response
+auth_resp = json.loads(await ws.recv())
 
 await ws.send(json.dumps({
     "action": "subscribe",
     "news": ["AAPL", "*"]    # "*" subscribes to all symbols
 }))`}
       </pre>
+
+      <h2 id="stock-request" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Correct stock request / 正确股票请求</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Use <code>/stream</code>, authenticate first, and send JSON arrays under <code>trades</code> and/or <code>quotes</code>. The current public stock stream does not accept the REST-style <code>symbols</code> field or a comma-separated string, and it does not expose a <code>bars</code> subscription field.
+        Each requested trade/quote subject is confirmed with Alpaca individually.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>股票流使用 <code>/stream</code>。先认证，再把 ticker 作为 JSON 数组放在 <code>trades</code> 和/或 <code>quotes</code> 中。不要使用 REST 风格的 <code>symbols</code> 字段、逗号字符串或 <code>bars</code>。服务会逐项向 Alpaca 确认每个 trade/quote subject。</span>
+      </p>
+      <pre className="code" style={{ marginBottom: 16 }}>
+{`// Correct: JSON arrays, one request may contain multiple symbols
+{
+  "action": "subscribe",
+  "trades": ["AAPL"],
+  "quotes": ["AAPL", "MSFT", "BAD SYMBOL"]
+}`}
+      </pre>
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        If the last symbol is invalid, accepted symbols remain active. The rejected item receives Alpaca's original <code>code</code>/<code>msg</code> plus Leandata context. The final subscription message lists only accepted NATS subjects. One rejected symbol does not cancel accepted symbols.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>如果最后一个 symbol 错误，前面已接受的 symbol 仍保持订阅。错误项会收到 Alpaca 原始 <code>code</code>/<code>msg</code>，并附带定位字段；最终确认只列出成功 subjects。一个错误 symbol 不会取消同一请求中的合法 symbol。</span>
+      </p>
+      <pre className="code" style={{ marginBottom: 24 }}>
+{`// Per-symbol rejection — only BAD SYMBOL failed
+{
+  "T": "error",
+  "code": 400,
+  "msg": "invalid syntax",
+  "source": "alpaca",
+  "mode": "stock",
+  "channel": "quotes",
+  "symbol": "BAD SYMBOL"
+}
+
+// Final accepted subjects — AAPL and MSFT remain subscribed
+{
+  "T": "subscription",
+  "mode": "stock",
+  "subjects": [
+    "market.alpaca.stock.trades.AAPL",
+    "market.alpaca.stock.quotes.AAPL",
+    "market.alpaca.stock.quotes.MSFT"
+  ]
+}`}
+      </pre>
+
+      <h2 id="wrong-stock-request" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Wrong requests / 错误请求</h2>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Wrong: REST field name
+{ "action": "subscribe", "symbols": ["AAPL", "MSFT"] }
+
+// Wrong: comma-separated string instead of a JSON array
+{ "action": "subscribe", "quotes": "AAPL,MSFT" }
+
+// Wrong: REST query syntax inside a WebSocket symbol
+{ "action": "subscribe", "quotes": ["symbols=AAPL,MSFT"] }
+
+// Wrong: unsupported stock WebSocket field
+{ "action": "subscribe", "bars": ["AAPL"] }
+
+// Wrong: subscribing before the authentication success response
+{ "action": "subscribe", "quotes": ["AAPL"] }`}
+      </pre>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 24px" }}>
+        Do not decode stock frames with MessagePack. Decode the binary frame payload as UTF-8 JSON. Also do not treat the first <code>T=error</code> as proof that every requested symbol failed; match errors by <code>channel</code> and <code>symbol</code>, then read the final accepted <code>subjects</code>.
+        <br/><span style={{ color: "var(--ink-soft)" }}>不要用 MessagePack 解码股票帧，应把二进制 frame 内容按 UTF-8 JSON 解码。收到一个 <code>T=error</code> 也不代表整批失败；请按 <code>channel</code>、<code>symbol</code> 定位错误，并读取最终成功的 <code>subjects</code>。</span>
+      </p>
+
+      <h2 id="ws-errors" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>WebSocket error reference / WebSocket 错误说明</h2>
+      <table className="tbl card" style={{ marginBottom: 28, overflow: "hidden" }}>
+        <thead><tr><th>Code</th><th>Typical message</th><th>Meaning and action</th></tr></thead>
+        <tbody>
+          {[
+            ["400 · alpaca", "invalid syntax", "The identified channel/symbol was rejected by Alpaca. Correct that symbol; accepted subjects remain active."],
+            ["400 · leandata", "invalid control message", "The control frame is not valid JSON/MessagePack or has the wrong field types. Send action plus array-valued channel fields."],
+            ["401", "invalid token", "The token is missing, invalid, or expired. Re-authenticate through the account portal."],
+            ["429", "subscription limit exceeded", "The connection or Free account subject limit was exceeded. Reduce requested subjects."],
+            ["502", "upstream subscription result missing", "Leandata did not receive a complete upstream result for that item. Retry with backoff."],
+            ["503", "upstream/local subscription unavailable", "The upstream control path or local NATS subscription was temporarily unavailable. Retry with backoff."],
+            ["504", "upstream subscription acknowledgement timeout", "Alpaca did not confirm that item before the timeout. Retry that symbol; do not assume it was accepted."],
+          ].map(([code, message, action], index) => (
+            <tr key={index}>
+              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{code}</td>
+              <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>{message}</td>
+              <td style={{ fontSize: 12, color: "var(--ink-soft)" }}>{action}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "-12px 0 28px" }}>
+        Alpaca may return additional codes/messages for entitlement, feed, or upstream policy conditions. When <code>source="alpaca"</code>, preserve and surface the returned <code>code</code>/<code>msg</code> instead of replacing it with a generic client error.
+        <br/><span style={{ color: "var(--ink-soft)" }}>Alpaca 还可能因权限、feed 或上游策略返回其他 code/msg。只要 <code>source="alpaca"</code>，客户端就应保留并展示原始 <code>code</code>/<code>msg</code>，不要改写成无错误码的通用提示。</span>
+      </p>
 
       <h2 id="heartbeat" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Heartbeat</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 28px" }}>
@@ -3279,11 +3327,12 @@ await ws.send(json.dumps({
 
       <h2 id="stocks" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>stocks</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Live US equities: trades, quotes, and minute bars from the SIP feed (pro account). Subscribe to <code>trades</code>, <code>quotes</code>, and/or <code>bars</code> lists.
+        Live US equities trades and quotes from the SIP feed. Subscribe with <code>trades</code> and/or <code>quotes</code> arrays.
+        The current public stock WebSocket does not expose a <code>bars</code> subscription field; use the stock REST bar endpoints for minute/history bars.
         Use <code>"*"</code> to subscribe to all symbols.
       </p>
-      <H3>Symbol limit</H3>
-      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>basic: — · value: 30 · trial/standard: 50 · premium: 500. Exceeding the limit returns an error message and the subscribe is rejected.</p>
+      <H3>Subject limit</H3>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>Each connection supports up to 500 subjects. A ticker requested under both <code>trades</code> and <code>quotes</code> consumes two subjects. Free accounts additionally share a 10-subject account-wide cap.</p>
 
       <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>options</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -3322,18 +3371,22 @@ await ws.send(json.dumps({
 
       <h2 id="subscribe" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Subscribe / Unsubscribe</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Subscribe and unsubscribe actions share the same shape — only the <code>action</code> field differs.
-        You can update subscriptions incrementally; each call adds or removes the listed symbols.
+        A <code>subscribe</code> request replaces the connection's current local subscriptions with the accepted subjects from that request. The current <code>unsubscribe</code> action clears all subscriptions on that connection; symbol lists on <code>unsubscribe</code> are not processed incrementally.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}><code>subscribe</code> 会用本次请求中成功的 subjects 替换该连接当前的本地订阅。当前 <code>unsubscribe</code> 会清空该连接的全部订阅，不支持按 symbol 列表增量删除。</span>
       </p>
       <pre className="code" style={{ marginBottom: 24 }}>
 {`// Subscribe
-{ "action": "subscribe",   "trades": ["AAPL"], "quotes": ["AAPL", "TSLA"], "bars": [] }
+{ "action": "subscribe",   "trades": ["AAPL"], "quotes": ["AAPL", "TSLA"] }
 
 // Unsubscribe
-{ "action": "unsubscribe", "trades": ["AAPL"], "quotes": [], "bars": [] }
+{ "action": "unsubscribe" }
 
-// Subscription confirmation (returned after each subscribe/unsubscribe)
-[{ "T": "subscription", "trades": ["AAPL"], "quotes": ["AAPL","TSLA"], "bars": [] }]`}
+// Subscription confirmation after Alpaca accepts the requested items
+{ "T": "subscription", "mode": "stock", "subjects": [
+  "market.alpaca.stock.trades.AAPL",
+  "market.alpaca.stock.quotes.AAPL",
+  "market.alpaca.stock.quotes.TSLA"
+] }`}
       </pre>
 
       <h2 id="trade" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Trade</h2>
@@ -3363,19 +3416,6 @@ await ws.send(json.dumps({
 }`}
       </pre>
 
-      <h2 id="bar" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Bar</h2>
-      <pre className="code" style={{ marginBottom: 48 }}>
-{`{
-  "T":  "b",                         // message type: bar (minute)
-  "S":  "AAPL",
-  "o":  214.20,  "h": 214.50,  "l": 214.10,  "c": 214.37,
-  "v":  128400,                      // volume
-  "vw": 214.33,                      // VWAP
-  "n":  843,                         // trade count
-  "t":  "2026-05-22T14:08:00Z"       // bar open time
-}`}
-      </pre>
-
       {/* ── Operations ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Operations</div>
 
@@ -3385,15 +3425,15 @@ await ws.send(json.dumps({
         Implement exponential backoff. Subscriptions are not persisted — re-auth and re-subscribe after every reconnect.
       </p>
       <pre className="code" style={{ marginBottom: 28 }}>
-{`import asyncio, websockets, json, msgpack
+{`import asyncio, websockets, json
 
 async def with_reconnect(token, uri, handler, backoff=1):
     while True:
         try:
-            async with websockets.connect(uri) as ws:
-                await ws.send(json.dumps({"action": "auth", "token": token}))
-                await ws.recv()                          // auth response
-                await ws.send(json.dumps({               // re-subscribe
+                async with websockets.connect(uri) as ws:
+                    await ws.send(json.dumps({"action": "auth", "token": token}))
+                    await ws.recv()                          # auth response
+                    await ws.send(json.dumps({               # re-subscribe
                     "action": "subscribe",
                     "trades": ["AAPL", "TSLA"]
                 }))

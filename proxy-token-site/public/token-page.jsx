@@ -103,8 +103,8 @@ function TokenPage() {
         fontSize: 13,
       }}>
         <span>
-          <strong>新提醒 · Premium 用户现可试用 FMP fundamentals Beta</strong>
-          　我们采购的 bulk snapshot 现已开放 statements、ratios、key metrics、TTM、growth、enterprise values 与 financial scores；数据可能被上游事后修订，并非严格 PIT。欢迎反馈 ticker、字段、period 或修订问题。
+          <strong>最近更新 · 股票 WebSocket 现可定位错误 symbol</strong>
+          　订阅会逐项向 Alpaca 确认：合法股票继续接收行情，错误股票单独返回原始 code/msg，并附带 channel、symbol 与 source。请查看文档中的正确请求、错误示例与处理方式。
         </span>
         <span style={{ fontFamily: "var(--f-mono)", whiteSpace: "nowrap" }}>查看更新 / View updates →</span>
       </a>

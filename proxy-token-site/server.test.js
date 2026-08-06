@@ -883,13 +883,31 @@ describe('Registration and bulk product UI contract', () => {
   it('adds a bilingual updates banner and updates page entry point', () => {
     const updatesHtml = fs.readFileSync(path.join(__dirname, 'public', 'updates.html'), 'utf8');
     const updatesSource = fs.readFileSync(path.join(__dirname, 'public', 'updates-page.jsx'), 'utf8');
-    expect(tokenPageSource).toContain('Premium 用户现可试用 FMP fundamentals Beta');
+    expect(tokenPageSource).toContain('股票 WebSocket 现可定位错误 symbol');
     expect(tokenPageSource).toContain('href="/updates"');
     expect(updatesHtml).toContain('updates-page.jsx');
     expect(updatesSource).toContain('近期改动');
     expect(updatesSource).toContain('PIT-like');
     expect(updatesSource).toContain('我的留言');
     expect(updatesSource).toContain('/api/product-updates/feedback');
+  });
+
+  it('documents correct stock WebSocket requests and isolated symbol errors', () => {
+    for (const source of [docsSource, rootDocsSource]) {
+      expect(source).toContain('Correct stock request / 正确股票请求');
+      expect(source).toContain('"quotes": ["AAPL", "MSFT", "BAD SYMBOL"]');
+      expect(source).toContain('Wrong requests / 错误请求');
+      expect(source).toContain('"symbols": ["AAPL", "MSFT"]');
+      expect(source).toContain('"quotes": "AAPL,MSFT"');
+      expect(source).toContain('"symbol": "BAD SYMBOL"');
+      expect(source).toContain('"source": "alpaca"');
+      expect(source).toContain('One rejected symbol does not cancel accepted symbols');
+      expect(source).toContain('binary WebSocket frames containing JSON bytes');
+      expect(source).toContain('Do not decode stock frames with MessagePack');
+      expect(source).toContain('WebSocket error reference / WebSocket 错误说明');
+      expect(source).toContain('The current <code>unsubscribe</code> action clears all subscriptions');
+      expect(source).toContain('When <code>source="alpaca"</code>, preserve and surface');
+    }
   });
 });
 
@@ -922,7 +940,11 @@ describe('Product updates and account-scoped feedback', () => {
   it('serves public update entries and requires account auth for feedback', async () => {
     const updates = await request(app).get('/api/product-updates');
     expect(updates.statusCode).toBe(200);
-    expect(updates.body.updates[0].title).toContain('Premium');
+    expect(updates.body.updates[0]).toMatchObject({
+      id: 'ws-symbol-error-isolation-2026-08',
+      date: '2026-08-06'
+    });
+    expect(updates.body.updates[0].title).toContain('逐 symbol');
     expect(updates.body.updates).toEqual(expect.arrayContaining([
       expect.objectContaining({
         title: expect.stringContaining('Index options'),

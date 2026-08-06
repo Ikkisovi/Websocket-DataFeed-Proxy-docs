@@ -200,11 +200,8 @@ const EC2_SSH_KEY = process.env.EC2_SSH_KEY
 })();
 
 // --- Service tier definitions ---
-// Roles map to cloud proxy RateLimiter:
-//   basic:    REST 600/min  (10 req/s),  WS 10 symbols
-//   value:    REST 1800/min (30 req/s),  WS 30 symbols  (REST-heavy mid-tier)
-//   standard: REST 1800/min (30 req/s),  WS 100 symbols  (was "limited_premium")
-//   premium:  REST 6000/min (100 req/s), WS 500 symbols
+// Tiers control endpoint/channel permissions. Current runtime capacity limits
+// are documented separately and must not be presented as tier entitlements.
 const TIERS = {
   free: {
     role: 'free',
@@ -301,18 +298,18 @@ const PAYMENT_PLAN_DETAILS = {
   value: {
     name: 'Value',
     summary: '实时数据与单方向历史数据',
-    features: ['全部实时 WebSocket 通道', '股票或期权历史数据二选一', '30 symbols 实时订阅', '2 个并发 WS 连接'],
+    features: ['全部实时 WebSocket 通道', '股票或期权历史数据二选一', 'WS 按当前运行时 subject 限制', 'WS 不设账号级连接数硬上限'],
     modes: ['stocks', 'options']
   },
   standard: {
     name: 'Standard',
     summary: '主流研究与交易工作流',
-    features: ['全部实时 WebSocket 通道', '股票与期权历史数据', '50 symbols 实时订阅', '3 个并发 WS 连接']
+    features: ['全部实时 WebSocket 通道', '股票与期权历史数据', 'WS 按当前运行时 subject 限制', 'WS 不设账号级连接数硬上限']
   },
   premium: {
     name: 'Premium',
     summary: '完整数据权限与最高容量',
-    features: ['全部实时 WebSocket 通道', '完整 REST 数据范围', '500 symbols 实时订阅', '包含 crypto 与 news 数据']
+    features: ['全部实时 WebSocket 通道', '完整 REST 数据范围', 'WS 按当前运行时 subject 限制', '包含 crypto 与 news 数据']
   }
 };
 
@@ -564,6 +561,15 @@ function writeProxyUsersFile(data) {
 }
 
 const PRODUCT_UPDATES = [
+  {
+    id: 'ws-symbol-error-isolation-2026-08',
+    date: '2026-08-06',
+    title: 'WebSocket 股票订阅现可逐 symbol 返回结果',
+    title_en: 'WebSocket stock subscriptions now report per-symbol results',
+    body: '股票 trades/quotes 会逐项向 Alpaca 确认。合法 symbol 保持订阅；错误 symbol 会单独返回 Alpaca 原始 code/msg，并附带 mode、channel、symbol 与 source。一个错误 symbol 不会再清空整批合法订阅。',
+    body_en: 'Stock trades/quotes are now confirmed with Alpaca one item at a time. Valid symbols remain subscribed, while each rejected symbol returns Alpaca’s original code/msg plus mode, channel, symbol, and source. One bad symbol no longer clears the valid subscriptions in the same request.',
+    tag: 'WebSocket · Stocks'
+  },
   {
     id: 'fmp-premium-eod-2026-08',
     date: '2026-08-04',
