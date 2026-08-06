@@ -119,7 +119,7 @@ function TokenPage() {
             获取您的 <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>访问令牌</span>
           </h1>
           <p style={{ color: "var(--ink-muted)", margin: "0 0 32px", fontSize: 14, maxWidth: 360 }}>
-            仅限已审核账户。输入注册时的用户名和手机号，我们将生成新的 UUID 并推送到上游代理。
+            仅限已审核账户。输入注册时的用户名和手机号，即可恢复现有 Token；只有缺失时才会生成新的 UUID 并推送到上游代理。
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -162,7 +162,7 @@ function TokenPage() {
                 gap: 8,
               }}>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--ok)" }}></span>
-                Token issued · valid for 30 days
+                Token ready · 请复制并安全保存
               </div>
               <div className="card" style={{ padding: 16 }}>
                 <div className="eyebrow" style={{ marginBottom: 8, color: "var(--ink-soft)" }}>Token</div>

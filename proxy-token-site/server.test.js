@@ -2461,7 +2461,7 @@ describe('POST /api/generate-token', () => {
   });
 
   it('returns 401 for unknown user', async () => {
-    const res = await request(app).post('/api/generate-token').send({ username: 'nobody', phone: '000', email: 'nobody@example.com' });
+    const res = await request(app).post('/api/generate-token').send({ username: 'nobody', phone: '000' });
     expect(res.statusCode).toBe(401);
   });
 
@@ -2472,7 +2472,7 @@ describe('POST /api/generate-token', () => {
       permissions: TIERS.premium.permissions
     }]));
 
-    const res = await request(app).post('/api/generate-token').send({ username: 'gentest', phone: '555', email: 'gentest@example.com' });
+    const res = await request(app).post('/api/generate-token').send({ username: 'gentest', phone: '555' });
     expect(res.body.success).toBe(true);
     expect(res.body.token).toBeDefined();
     expect(res.body.role).toBe('premium');
@@ -2488,7 +2488,7 @@ describe('POST /api/generate-token', () => {
       permissions: TIERS.basic.permissions
     }]));
 
-    const res = await request(app).post('/api/generate-token').send({ username: 'synctest', phone: '777', email: 'synctest@example.com' });
+    const res = await request(app).post('/api/generate-token').send({ username: 'synctest', phone: '777' });
     expect(res.body.success).toBe(true);
     // syncOk should be present (true if SCP succeeded, false if it failed)
     expect(res.body).toHaveProperty('syncOk');
@@ -2501,7 +2501,7 @@ describe('POST /api/generate-token', () => {
       permissions: TIERS.premium.permissions
     }]));
 
-    await request(app).post('/api/generate-token').send({ username: 'formattest', phone: '888', email: 'formattest@example.com' });
+    await request(app).post('/api/generate-token').send({ username: 'formattest', phone: '888' });
 
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const user = proxy.users.find(u => u.user_id === 'formattest');
@@ -2526,12 +2526,12 @@ describe('POST /api/generate-token', () => {
     }]));
 
     // First call generates token
-    const res1 = await request(app).post('/api/generate-token').send({ username: 'existing', phone: '999', email: 'existing@example.com' });
+    const res1 = await request(app).post('/api/generate-token').send({ username: 'existing', phone: '999' });
     expect(res1.body.success).toBe(true);
     const firstToken = res1.body.token;
 
     // Second call returns existing token
-    const res2 = await request(app).post('/api/generate-token').send({ username: 'existing', phone: '999', email: 'existing@example.com' });
+    const res2 = await request(app).post('/api/generate-token').send({ username: 'existing', phone: '999' });
     expect(res2.body.success).toBe(true);
     expect(res2.body.token).toBe(firstToken);
     expect(res2.body.message).toMatch(/已存在/);
@@ -2551,7 +2551,7 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
       permissions: TIERS.premium.permissions
     }]));
 
-    await request(app).post('/api/generate-token').send({ username: 'fmtcheck', phone: '111', email: 'fmtcheck@example.com' });
+    await request(app).post('/api/generate-token').send({ username: 'fmtcheck', phone: '111' });
 
     const raw = fs.readFileSync(TEST_PROXY_FILE, 'utf8');
     const parsed = JSON.parse(raw);
@@ -2569,7 +2569,7 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
       permissions: TIERS.basic.permissions
     }]));
 
-    await request(app).post('/api/generate-token').send({ username: 'idcheck', phone: '222', email: 'idcheck@example.com' });
+    await request(app).post('/api/generate-token').send({ username: 'idcheck', phone: '222' });
 
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const user = proxy.users[proxy.users.length - 1];
@@ -2586,7 +2586,7 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
       permissions: TIERS.standard.permissions
     }]));
 
-    const res = await request(app).post('/api/generate-token').send({ username: 'tokenchk', phone: '333', email: 'tokenchk@example.com' });
+    const res = await request(app).post('/api/generate-token').send({ username: 'tokenchk', phone: '333' });
 
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const user = proxy.users.find(u => u.user_id === 'tokenchk');
@@ -2602,7 +2602,7 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
       permissions: TIERS.trial.permissions
     }]));
 
-    await request(app).post('/api/generate-token').send({ username: 'expcheck', phone: '444', email: 'expcheck@example.com' });
+    await request(app).post('/api/generate-token').send({ username: 'expcheck', phone: '444' });
 
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const user = proxy.users.find(u => u.user_id === 'expcheck');

@@ -5050,14 +5050,14 @@ app.post('/api/admin/sync-users', requireAdmin, async (req, res) => {
 // ORIGINAL: Generate token (for approved users)
 // ============================================================
 app.post('/api/generate-token', async (req, res) => {
-  const { username, phone, email } = req.body;
+  const { username, phone } = req.body;
 
-  if (!username || !phone || !email) {
-    return res.status(400).json({ success: false, message: 'Username, phone, and email are required.' });
+  if (!username || !phone) {
+    return res.status(400).json({ success: false, message: 'Username and phone are required.' });
   }
 
   const localUsers = readJSON(USERS_FILE);
-  const identity = canonicalAccountIdentity({ username, phone, email });
+  const identity = canonicalAccountIdentity({ username, phone });
   const validCustomer = localUsers.find(user => sameAccountIdentity(user, identity));
 
   if (!validCustomer) {
