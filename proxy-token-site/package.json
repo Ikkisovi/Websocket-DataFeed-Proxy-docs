@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest && node scripts/verify-public-docs.mjs",
+    "test:docs": "node scripts/verify-public-docs.mjs"
   },
   "dependencies": {
     "body-parser": "^1.20.2",

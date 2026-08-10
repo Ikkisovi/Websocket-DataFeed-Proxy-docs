@@ -104,7 +104,7 @@ function TokenPage() {
       }}>
         <span>
           <strong>最近更新 · 股票 WebSocket 现可定位错误 symbol</strong>
-          　订阅会逐项向 Alpaca 确认：合法股票继续接收行情，错误股票单独返回原始 code/msg，并附带 channel、symbol 与 source。请查看文档中的正确请求、错误示例与处理方式。
+          　订阅会逐项确认：合法股票继续接收行情，错误股票单独返回 code/msg，并附带 channel 与 symbol。请查看文档中的正确请求、错误示例与处理方式。
         </span>
         <span style={{ fontFamily: "var(--f-mono)", whiteSpace: "nowrap" }}>查看更新 / View updates →</span>
       </a>
@@ -119,7 +119,7 @@ function TokenPage() {
             获取您的 <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>访问令牌</span>
           </h1>
           <p style={{ color: "var(--ink-muted)", margin: "0 0 32px", fontSize: 14, maxWidth: 360 }}>
-            仅限已审核账户。输入注册时的用户名和手机号，即可恢复现有 Token；只有缺失时才会生成新的 UUID 并推送到上游代理。
+            仅限已审核账户。输入注册时的用户名和手机号，即可恢复现有 Token；只有缺失时才会生成新的 UUID 并完成账户访问更新。
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -193,7 +193,7 @@ function TokenPage() {
           </div>
 
           <div style={{ marginTop: 48, fontFamily: "var(--f-mono)", fontSize: 10.5, color: "var(--ink-soft)", letterSpacing: ".06em" }}>
-            proxy-token-site · v2.4 · ec2 ⌁ us-west-2
+            Token portal · v2.4
           </div>
         </div>
 

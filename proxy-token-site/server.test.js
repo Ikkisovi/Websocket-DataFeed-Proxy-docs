@@ -796,88 +796,49 @@ describe('Registration and bulk product UI contract', () => {
     expect(registerSource).not.toContain('id: "basic"');
   });
 
-  it('offers only the six estimator-supported bulk schema IDs', () => {
-    const ids = [
-      'options_eod_theta',
-      'options_eod_alpaca',
-      'options_oi',
-      'options_contracts',
-      'stock_minute',
-      'stock_daily'
-    ];
-    for (const id of ids) expect(docsSource).toContain(`id: "${id}"`);
-    expect((docsSource.match(/id: "(?:options_|stock_)[a-z_]+"/g) || [])).toHaveLength(6);
+  it('documents neutral market and financial endpoint categories', () => {
+    expect(docsSource).toContain('en: "Market data"');
+    expect(docsSource).toContain('zh: "行情数据"');
+    expect(docsSource).toContain('en: "Financial data"');
+    expect(docsSource).toContain('zh: "财务数据"');
+    expect(docsSource).toContain('/v1/history/bars');
+    expect(docsSource).toContain('/stable/income-statement');
   });
 
-  it('states that the preview is full-window rather than date-scaled', () => {
-    expect(docsSource).toContain('完整参考窗口');
-    expect(docsSource).toContain('实际交付切片');
-    expect(docsSource).toContain('Reference-window estimate');
-    expect(docsSource).not.toContain('date-scaled estimate');
+  it('keeps endpoint guidance focused on public request contracts', () => {
+    expect(docsSource).toContain('Each endpoint defines its own fields, timeframes, limits, and availability.');
+    expect(docsSource).toContain('每个端点均定义自己的字段、时间周期、限制与可用范围。');
   });
 
-  it('supports free-text custom endpoint requests with contact-based manual quoting', () => {
-    expect(docsSource).toContain('custom_request');
-    expect(docsSource).toContain('没找到需要的 endpoint / dataset？');
-    expect(docsSource).toContain('人工联系报价');
+  it('keeps bulk ordering behavior covered by the server contract', () => {
+    const serverSource = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
+    expect(serverSource).toContain('manual_quote_required');
+    expect(serverSource).toContain('custom_request');
   });
 
-  it('uses one embedded docs header and one index-options announcement', () => {
+  it('uses the canonical embedded docs entry', () => {
     expect(tokenPageSource).toContain('<DocsSite hideTopbar={true} />');
     expect(tokenPageSource).not.toContain('portal · production');
     expect(tokenPageSource).not.toContain('>Account</a>');
-    expect(rootIndexSource).toContain('src="/docs/docs-site.jsx?v=fmp-data-guide-v1"');
+    expect(rootIndexSource).toContain('src="/docs/docs-site.jsx?v=public-docs-v2"');
     expect(rootIndexSource).not.toContain('src="docs-site.jsx"');
-    expect(docsIndexSource).toContain('src="docs-site.jsx?v=fmp-data-guide-v1"');
-    expect(docsSource.match(/Index options are supported/g)).toHaveLength(1);
+    expect(docsIndexSource).toContain('src="docs-site.jsx?v=public-docs-v2"');
   });
 
-  it('keeps both public docs entry files identical and uses stable domain endpoints', () => {
-    expect(rootDocsSource).toBe(docsSource);
-    expect(docsSource).toContain('wss://leandata.uk/stream');
+  it('uses stable domain endpoints and one canonical document source', () => {
+    expect(rootDocsSource).toContain('/docs/docs-site.jsx');
+    expect(docsSource).toContain('const WS_BASE = "wss://leandata.uk"');
+    expect(docsSource).toContain('${WS_BASE}/stream');
     expect(docsSource).toContain('https://rt-api.leandata.uk');
     expect(docsSource).not.toContain('52.37.182.24');
-    expect(docsSource).not.toContain('Hybrid architecture');
+    expect(docsSource).not.toContain('ThinkCentre');
   });
 
-  it('separates the FMP overview from the individual endpoint reference without internal routing details', () => {
-    const overviewStart = docsSource.indexOf('function FmpDataOverview(');
-    const fmpStart = docsSource.indexOf('function FmpFundamentalsBody()');
-    const fmpEnd = docsSource.indexOf('function ProxyApiBody()');
-    const overviewSource = docsSource.slice(overviewStart, fmpStart);
-    const fmpSource = docsSource.slice(fmpStart, fmpEnd);
-
-    expect(docsSource).toContain('Tab id="fmp"');
-    expect(docsSource).toContain('tab === "fmp-fundamentals"');
-    expect(overviewStart).toBeGreaterThanOrEqual(0);
-    expect(fmpStart).toBeGreaterThanOrEqual(0);
-    expect(fmpEnd).toBeGreaterThan(fmpStart);
-    expect(overviewSource).toContain('Financial Data / 财务数据');
-    expect(overviewSource).toContain('打开文档 / Open Docs →');
-    expect(fmpSource).toContain('请求示例 / Request Examples');
-    expect(fmpSource).toContain('可用接口 / Available Endpoints');
-    expect(fmpSource).toContain('Authorization: Bearer TOKEN');
-    expect(fmpSource).toContain('/stable/income-statement');
-    expect(fmpSource).toContain('/v1/pit/fmp/*');
-    expect(fmpSource).toContain('reportedCurrency');
-    expect(fmpSource).toContain('acceptedDate');
-    expect(fmpSource).toContain('netIncome');
-    expect(fmpSource).toContain('数据覆盖说明 / Coverage Notes');
-    expect(fmpSource).toContain('注意事项 / Important Notes');
-    expect(fmpSource).toContain('后续计划 / Future Plans');
-    expect(fmpSource).not.toContain('Request session and route');
-    expect(fmpSource).not.toContain('AWS');
-    expect(fmpSource).not.toContain('ThinkCentre');
-    expect(fmpSource).not.toContain('private hop');
-    expect(fmpSource).not.toContain('Service credential');
-    expect(fmpSource).not.toContain('X-Cache');
-    expect(fmpSource).not.toContain('X-FMP-Package-SHA256');
-    expect(fmpSource).toContain('当前覆盖范围 / Current coverage');
-    expect(fmpSource).toContain('后续计划');
-    expect(fmpSource).toContain('Premium 账户');
-    expect(fmpSource).not.toContain('本页把请求格式、已验证覆盖范围和后续计划分开说明');
-    expect(docsSource).toContain('hashTab.startsWith("fmp-")');
-    expect(docsSource).toContain('FMP_ID_MAP[label] || `fmp-${slugify(label)}`');
+  it('uses neutral bilingual financial-data language', () => {
+    expect(docsSource).toContain('Premium access includes company statements, ratios, metrics, profiles, and reference data.');
+    expect(docsSource).toContain('Premium 账户可访问公司财报、财务比率、关键指标、公司资料及参考数据。');
+    expect(docsSource).toContain('function Bilingual');
+    expect(docsSource).not.toMatch(/alpaca|thetadata|fmp|cache|upstream/i);
   });
 
   it('adds a bilingual updates banner and updates page entry point', () => {
@@ -887,27 +848,17 @@ describe('Registration and bulk product UI contract', () => {
     expect(tokenPageSource).toContain('href="/updates"');
     expect(updatesHtml).toContain('updates-page.jsx');
     expect(updatesSource).toContain('近期改动');
-    expect(updatesSource).toContain('PIT-like');
+    expect(updatesSource).toContain('数据更新与历史版本');
     expect(updatesSource).toContain('我的留言');
     expect(updatesSource).toContain('/api/product-updates/feedback');
+    expect(updatesSource).not.toMatch(/fmp|forwarding|upstream/i);
   });
 
-  it('documents correct stock WebSocket requests and isolated symbol errors', () => {
-    for (const source of [docsSource, rootDocsSource]) {
-      expect(source).toContain('Correct stock request / 正确股票请求');
-      expect(source).toContain('"quotes": ["AAPL", "MSFT", "BAD SYMBOL"]');
-      expect(source).toContain('Wrong requests / 错误请求');
-      expect(source).toContain('"symbols": ["AAPL", "MSFT"]');
-      expect(source).toContain('"quotes": "AAPL,MSFT"');
-      expect(source).toContain('"symbol": "BAD SYMBOL"');
-      expect(source).toContain('"source": "alpaca"');
-      expect(source).toContain('One rejected symbol does not cancel accepted symbols');
-      expect(source).toContain('binary WebSocket frames containing JSON bytes');
-      expect(source).toContain('Do not decode stock frames with MessagePack');
-      expect(source).toContain('WebSocket error reference / WebSocket 错误说明');
-      expect(source).toContain('The current <code>unsubscribe</code> action clears all subscriptions');
-      expect(source).toContain('When <code>source="alpaca"</code>, preserve and surface');
-    }
+  it('documents a neutral streaming authentication and subscription flow', () => {
+    expect(docsSource).toContain('Connect, authenticate, subscribe / 连接、认证、订阅');
+    expect(docsSource).toContain('"action": "auth", "token": "<TOKEN>"');
+    expect(docsSource).toContain('"action": "subscribe", "trades": ["AAPL"], "quotes": ["AAPL"]');
+    expect(docsSource).toContain('Handle reconnects with backoff.');
   });
 });
 

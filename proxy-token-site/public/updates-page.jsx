@@ -105,7 +105,7 @@ function UpdatesPage() {
         <div className="eyebrow" style={{ marginBottom: 10 }}>产品日志 · Product log</div>
         <h1 className="display-title" style={{ fontSize: 48, margin: "0 0 12px" }}>最近改动与留言</h1>
         <p style={{ color: "var(--ink-muted)", maxWidth: 720, lineHeight: 1.7, margin: "0 0 32px" }}>
-          这里记录数据产品的近期变化，包括 WebSocket 订阅行为、Index options 支持与 Premium FMP fundamentals Beta；每条更新都会说明当前可用范围和下一步计划。
+          这里记录数据产品的近期变化，包括实时流、指数期权支持与 Premium 财务数据；每条更新都会说明当前可用范围和下一步计划。
         </p>
         {notice && <div style={{ padding: "10px 14px", marginBottom: 20, border: "1px solid var(--accent-rule)", background: "var(--accent-soft)", color: "var(--accent-ink)", borderRadius: 8 }}>{notice}</div>}
         <div className="updates-grid">
@@ -123,18 +123,18 @@ function UpdatesPage() {
               </article>
             ))}
             <article className="card" style={{ padding: 20, marginBottom: 14 }}>
-              <h3 style={{ margin: "0 0 8px", fontSize: 20 }}>快照、修订与 PIT 计划</h3>
+              <h3 style={{ margin: "0 0 8px", fontSize: 20 }}>数据更新与历史版本</h3>
               <p style={{ margin: 0, color: "var(--ink-muted)", lineHeight: 1.65 }}>
-                这批数据是我们采购并导入的 bulk snapshot。上游可能在事后修订历史值，所以“某次快照”不自动等于严格 PIT。下一步会建立单独版本化的 PIT-like 周度或固定频率刷新：记录 capture time 与 visible time，保留不可变 vintage，并把每次刷新绑定到明确版本。
+                部分历史数据可能因公开披露的更正或重述而更新。需要复现研究结果时，请保存查询日期、请求参数和响应中的版本标识符。
               </p>
               <p style={{ margin: "10px 0 0", color: "var(--ink-soft)", fontSize: 13, lineHeight: 1.55 }}>
-                Native FMP endpoint forwarding 会作为另一个兼容层单独建设，不会与已发布的批量快照混为一谈。
+                不同数据类别由各自的公开端点说明覆盖范围和返回结构。
               </p>
             </article>
             <article className="card" style={{ padding: 20, marginBottom: 14 }}>
               <h3 style={{ margin: "0 0 8px", fontSize: 20 }}>Premium 与 Ultimate</h3>
               <p style={{ margin: 0, color: "var(--ink-muted)", lineHeight: 1.65 }}>
-                Premium 是当前 Beta 的访问层。Ultimate 计划增加 institutional holdings disclosures、ETF holdings 及相关数据族；这些数据同样可能被上游修订，也必须沿用 capture time、visible time 和 immutable vintage 语义后再作为可复现实验输入。
+                Premium 提供当前财务数据访问。Ultimate 计划增加机构持仓、ETF 持仓及相关数据类别；新增类别会在可用后通过产品更新说明。
               </p>
             </article>
           </section>
@@ -146,7 +146,7 @@ function UpdatesPage() {
               <>
                 <p style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.5 }}>你的留言仅对账户本人可见；每小时最多提交 5 条。</p>
                 <form onSubmit={submit}>
-                  <textarea className="input" value={message} onChange={event => setMessage(event.target.value)} maxLength={2000} rows={6} placeholder="你希望下一步加入哪类 FMP 数据？" style={{ width: "100%", boxSizing: "border-box", resize: "vertical", marginBottom: 10 }} />
+                  <textarea className="input" value={message} onChange={event => setMessage(event.target.value)} maxLength={2000} rows={6} placeholder="你希望下一步加入哪类数据？" style={{ width: "100%", boxSizing: "border-box", resize: "vertical", marginBottom: 10 }} />
                   <button className="btn primary" type="submit" disabled={submitting}>{submitting ? "发送中…" : "提交反馈 →"}</button>
                 </form>
                 <h3 style={{ margin: "24px 0 10px", fontSize: 15 }}>我的留言</h3>
