@@ -297,7 +297,7 @@ curl -H "Authorization: Bearer 你的token" \
 
 | 接口 | 默认路由 |
 | --- | --- |
-| `/v1/history/options/bars` | 规范 `1Min` 期权 K 线；实际来源见响应中的 `provider`、`providers`、`coverage_roles`。必要时可能回退 Alpaca 稀疏成交活动。`/v1/options/bars` 是兼容旧客户端的别名 |
+| `/v1/history/options/bars` | 规范 `1Min` 期权 K 线；实际来源见响应中的 `provider`、`providers`、`coverage_roles`。仅当请求起点为 **2024-02-01 或之后** 时允许回退 Alpaca 稀疏成交活动；更早开始、包括跨过边界的请求不会使用 Alpaca。`/v1/options/bars` 是兼容旧客户端的别名 |
 | `/v1/options/contracts` | 当前活跃合约由 Alpaca native 返回；历史/已到期合约请用 `/v3/option/list/contracts/{trade|quote}` 并传 `date` |
 | `/v1/options/snapshots` | Alpaca only（ThetaData Value 不含 Greeks/IV/market value） |
 | `/v1/options/snapshots/quote`、`/v1/options/snapshots/trade` | Alpaca latest quote/trade 优先，归一化到 `snapshots[OCC].latestQuote/latestTrade` |
@@ -336,11 +336,13 @@ OCC 格式: [股票代码][到期日YYMMDD][C/P][行权价*1000]
 3. 从返回的 `symbol` 字段获取 OCC 代码
 4. 再用该代码请求 `/v1/history/options/bars`
 
-返回固定为 `timeframe: "1Min"`，并通过 `provider`、`providers` 和 `coverage_roles` 标明实际来源；必要时可能回退到 Alpaca 的稀疏成交活动。
+返回固定为 `timeframe: "1Min"`，并通过 `provider`、`providers` 和 `coverage_roles` 标明实际来源；仅当 `start >= 2024-02-01` 时可能回退到 Alpaca 的稀疏成交活动。`start` 早于该日期（包括跨过边界）的请求不会使用 Alpaca；若 ThetaData 无法提供，wrapper 返回 HTTP `502` 和 `thetadata_required_for_option_history`。
 
 > ⚠️ **固定粒度边界**：期权历史 bars 永远返回 `1Min`。传入 `5Min`、`15Min`、`30Min` 或 `1Hour` 只会被兼容性归一化为 `1Min`，不会返回服务端聚合结果。需要其他周期时，请在客户端使用返回的 `1Min` bars 自行重采样。
 >
 > ⚠️ **来源边界**：`provider`、`providers` 和 `coverage_roles` 是实际来源证据；稀疏成交回退不能当作完整合约链覆盖。
+>
+> ⚠️ **历史日期边界**：Alpaca fallback 仅适用于 `start >= 2024-02-01`。更早历史不会落到 Alpaca，跨过该日期的请求也按更早的起点处理。
 >
 > **Basic** 可以查询全部可用历史，不设套餐专属的日期跨度、symbol 数或分页数预算。遇到 `429` 请等待在途请求完成并指数退避；`429`/`503` 表示 proxy 或上游运行时限制，而不是历史权限或历史年龄限制。
 
