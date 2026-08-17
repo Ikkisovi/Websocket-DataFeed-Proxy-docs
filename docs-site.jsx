@@ -704,22 +704,21 @@ Authorization: Bearer c88662...720a
 
       <h2 id="tiers-permissions" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Tiers &amp; permissions</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Five plans control access to channels, symbols, rate limits, and REST endpoints.
-        <span style={{ color: "var(--ink-soft)", fontSize: 13 }}>五个套餐等级控制通道、标的、限速和接口权限。</span>
+        Plans control access to channels and REST endpoints. Runtime safety limits are shared unless stated otherwise below.
+        <span style={{ color: "var(--ink-soft)", fontSize: 13 }}>套餐决定通道和 REST endpoint 权限；运行时安全限制除特别说明外为共享配置。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
-          <tr><th style={{ width: 120 }}>Plan</th><th>Price</th><th>WS channels</th><th>WS symbols</th><th>WS conns</th><th>REST req/min<br/><span style={{ fontWeight: 400, fontSize: 11, color: "var(--ink-soft)" }}>(rolling 60 s window)</span></th><th>REST parallel</th><th>REST endpoints</th></tr>
+          <tr><th style={{ width: 120 }}>Plan</th><th>Price</th><th>WS channels</th><th>WS subjects</th><th>WS account connection cap</th><th>REST historical parallel</th><th>REST endpoints</th></tr>
         </thead>
         <tbody>
           <tr>
             <td><span className="tier trial">Trial</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$30/3 days</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1800</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>5</td>
             <td style={{ fontSize: 12 }}>Same as Standard · 3-day token · non-renewable</td>
           </tr>
           <tr>
@@ -727,18 +726,16 @@ Authorization: Bearer c88662...720a
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$40/mo</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>— (REST only)</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>600</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td>
-            <td style={{ fontSize: 12 }}>stocks + options history · no realtime</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
+            <td style={{ fontSize: 12 }}>stocks + options full history · REST only; split larger ranges into bounded requests</td>
           </tr>
           <tr>
             <td><span className="tier value">Value</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$50/mo</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>30</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>2</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1800</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
             <td style={{ fontSize: 12 }}>REST: stocks OR options (pick at signup) · WS: all channels</td>
           </tr>
@@ -746,30 +743,32 @@ Authorization: Bearer c88662...720a
             <td><span className="tier standard">Standard</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$80/mo</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>50</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>1800</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>5</td>
             <td style={{ fontSize: 12 }}>stocks + options history · no crypto orderbooks</td>
           </tr>
           <tr>
             <td><span className="tier premium">Premium</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>$130/mo</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{"\u221E"}</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>6000</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>10</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
             <td style={{ fontSize: 12 }}>All REST endpoints including crypto orderbooks</td>
           </tr>
         </tbody>
       </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 8px" }}>
-        Rate limits tighten automatically under load: limits halve when server is overloaded and quarter under critical load. WebSocket delivery is always prioritised over REST.
+        There is currently no tier-specific rolling REST req/min limiter. Upstream-provider quotas, the shared service ceiling, and overload backpressure still apply.
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
-        Per-second equivalents: Basic 10/s · Value 30/s · Standard 30/s · Premium 100/s. Exceeding the per-minute quota or the parallel-request cap returns <strong>HTTP 429</strong>; back off and retry after the 60-second window.
-        <br/>每秒换算：Basic 10/s · Value 30/s · Standard 30/s · Premium 100/s。超过每分钟配额或并发上限会返回 <strong>HTTP 429</strong>，请等候 60 秒窗口刷新后再重试。
+        Keep historical REST concurrency at or below <strong>3 in-flight requests per account</strong>. A <strong>429</strong> may also come from an upstream-specific QPS or key-pool limit; use exponential backoff.
+        <br/>每个账号的历史 REST 同时在途请求请保持在 <strong>3</strong> 以内。上游 QPS 或 key pool 限制也可能返回 <strong>429</strong>，请使用指数退避。
+      </p>
+      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
+        Basic has access to the full available historical range. The Basic date-span, symbol, and page values shown by <code>/v1/account/usage</code> are <strong>per-request budgets</strong>, not a lookback cutoff: split a long history into sequential requests. Basic may be slower because it remains subject to the shared historical concurrency and upstream quotas. Bulk Download is a separate one-off delivery product, not a requirement for older dates.
+        <br/>Basic 可以访问全部可用历史数据。<code>/v1/account/usage</code> 显示的日期跨度、symbol 数和页数是<strong>单次请求限制</strong>，不是只能查最近多少天；长区间拆成多个请求顺序拉取即可。Basic 主要是速度和请求预算更保守。Bulk Download 是单独的一次性交付产品，不是解锁旧日期的必要条件。
       </p>
 
       {/* ── Token API ── */}
@@ -1010,8 +1009,8 @@ Authorization: Bearer c88662...720a
         <tbody>
           {[
             ["Alpaca options (native)",       "/v1beta1/options/*",                                            "Historical trades, latest trades, bars, snapshots, chain snapshots. Historical option data starts 2024-02-01. No history quotes — use /v3/option/history/quote (ThetaData)."],
-            ["Option bars (wrapper)",         "/v1/history/options/bars",                                      "ThetaData OHLC first; Alpaca bars fallback. provider=thetadata|alpaca to pin."],
-            ["Contracts (wrapper)",           "/v1/options/contracts",                                         "Alpaca contracts first; ThetaData Value contracts fallback. provider=thetadata requires underlying_symbols."],
+            ["Option bars (wrapper)",         "/v1/history/options/bars",                                      "Canonical 1Min option bars; actual source is reported in the response. Alpaca fallback may be sparse traded activity. /v1/options/bars is a legacy alias."],
+            ["Contracts (wrapper)",           "/v1/options/contracts",                                         "Current active contracts from Alpaca. Use /v3/option/list/contracts/{trade|quote} with date for historical/expired contracts."],
             ["Full snapshots / greeks / IV",  "/v1/options/snapshots",                                         "Alpaca only — ThetaData Value lacks greeks, IV, market value."],
             ["Quote / trade snapshots",       "/v1/options/snapshots/{quote,trade}",                           "Alpaca latest quote/trade; normalized to snapshots[OCC].latestQuote/latestTrade."],
             ["OI / OHLC snapshots",           "/v1/options/snapshots/open_interest, /v3/option/snapshot/*",    "ThetaData-backed where Value permits OI and OHLC snapshots."],
@@ -1088,10 +1087,10 @@ curl -H "Authorization: Bearer <TOKEN>" \\
 
       <h2 id="post-v1-options-contracts" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/contracts</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        List active option contracts for one or more underlying symbols. Default provider mode is <code>auto</code>: Alpaca contract metadata first, then ThetaData Value contract lists as fallback.
+        List current active option contracts for one or more underlying symbols. This wrapper is an Alpaca-native discovery route; it is not a historical/expired contract universe.
         Returns OCC symbol, strike, expiration, option type, open interest where available, and a <code>source</code> field.
-        Use the returned <code>symbol</code> field as input to <code>/v1/options/snapshots</code> or <code>/v1/history/options/bars</code>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>列出指定标的的活跃期权合约。默认 Alpaca，失败时回退到 ThetaData Value 合约列表。</span>
+        Use the returned <code>symbol</code> field as input to <code>/v1/options/snapshots</code> or <code>/v1/history/options/bars</code>. For historical or expired contracts, use <code>/v3/option/list/contracts/trade</code> or <code>/v3/option/list/contracts/quote</code> with a historical <code>date</code>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>列出当前活跃期权合约；这不是历史/已到期合约全集。历史合约请使用带 <code>date</code> 的 <code>/v3/option/list/contracts/trade</code> 或 <code>quote</code>。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/contracts`} />
       <ParamTable rows={[
@@ -1103,17 +1102,17 @@ curl -H "Authorization: Bearer <TOKEN>" \\
         { name: "strike_price_gte",    type: "number",  required: false, desc: "Minimum strike price" },
         { name: "strike_price_lte",    type: "number",  required: false, desc: "Maximum strike price" },
         { name: "type",                type: "string",  required: false, desc: "call | put" },
-        { name: "provider",            type: "string",  required: false, desc: "auto | alpaca | thetadata (default: auto)" },
-        { name: "date",                type: "string",  required: false, desc: "ThetaData contract-list date when provider uses ThetaData (YYYY-MM-DD or YYYYMMDD)" },
-        { name: "request_type",        type: "string",  required: false, desc: "quote | trade for ThetaData list/contracts (default: quote; Value subscription supports list metadata)" },
-        { name: "max_dte",             type: "integer", required: false, desc: "ThetaData fallback filter for max days to expiration" },
+        { name: "provider",            type: "string",  required: false, desc: "Current wrapper uses Alpaca; use the native /v3/option/list/contracts/* routes for ThetaData historical discovery." },
+        { name: "date",                type: "string",  required: false, desc: "Not a historical switch for this wrapper; use /v3/option/list/contracts/{trade|quote} instead." },
+        { name: "request_type",        type: "string",  required: false, desc: "Use quote or trade on the native /v3 historical contract-list routes." },
+        { name: "max_dte",             type: "integer", required: false, desc: "Use on the native /v3 historical contract-list routes." },
         { name: "limit",               type: "integer", required: false, desc: "1–10000 (default: 1000)" },
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/contracts \\
   -H "Authorization: Bearer *** \\
   -H "Content-Type: application/json" \\
-  -d '{"underlying_symbols":"AAPL","limit":2,"provider":"auto"}'`}
+  -d '{"underlying_symbols":"AAPL","limit":2}'`}
       </pre>
       <pre className="code" style={{ marginBottom: 40 }}>
 {`// Response
@@ -1145,22 +1144,25 @@ curl -H "Authorization: Bearer <TOKEN>" \\
       <div className="eyebrow" style={{ marginBottom: 6, marginTop: 32, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · History</div>
       <h2 id="post-v1-history-options-bars" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/options/bars</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Historical OHLCV bars for option contracts. Default <code>provider: "auto"</code> routes to <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong> first and falls back to Alpaca bars only when ThetaData has no usable data.
-        You can pass either OCC symbols directly (<code>AAPL260620C00200000</code>) or a plain stock ticker — the proxy will auto-resolve it to the option chain active on the <code>start</code> date.
-        Supports in-flight coalescing and server-side cache; repeat historical calls return <code>X-Cache: DISK_HIT</code>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约历史 OHLCV K线。默认 ThetaData Value，必要时回退 Alpaca。支持 OCC 或股票代码自动解析，并写入服务端缓存。</span>
+        Historical OHLCV bars for OCC option contracts. The canonical route is <code>/v1/history/options/bars</code>; the legacy spelling <code>/v1/options/bars</code> is accepted as an alias.
+        The response is always <code>1Min</code> and reports the actual data source; legacy timeframe values such as <code>5Min</code> are normalized to <code>1Min</code>, with no server-side aggregate.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权 OCC 合约历史 OHLCV K 线返回固定为 <code>1Min</code>；<code>5Min</code> 等旧参数只兼容性归一化为 <code>1Min</code>，不提供服务端聚合，客户端自行重采样。</span>
       </p>
       <div style={{ background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 8, padding: "10px 14px", margin: "0 0 12px", fontSize: 12 }}>
-        <strong>{"\u26A0\uFE0F"} ThetaData Value plan limitation:</strong> Only <code>1Day</code> timeframe is available via ThetaData. Intraday timeframes (1Min, 5Min, 15Min, 1Hour) return <em>"No data found"</em> because the Value subscription does not include historical minute bars for options. Set <code>provider: "alpaca"</code> to use Alpaca for intraday option bars (data available from 2024-02-01).
-        <br/><span style={{ color: "var(--ink-soft)" }}>ThetaData Value 仅支持 1Day 日线。分钟级（1Min/5Min/15Min/1Hour）会返回"No data found"。如需分钟级期权 K 线，请指定 provider: "alpaca"（数据从 2024-02-01 起）。</span>
+        <strong>{"\u2139\uFE0F"} Coverage note:</strong> Canonical <code>1Min</code> option bars are supported. Inspect <code>provider</code>, <code>providers</code>, and <code>coverage_roles</code> for provenance; a sparse traded-activity fallback must not be interpreted as complete contract coverage.
+        <br/><span style={{ color: "var(--ink-soft)" }}>覆盖说明：规范 <code>1Min</code> 期权 K 线已支持。请检查 <code>provider</code>、<code>providers</code> 和 <code>coverage_roles</code> 判断来源；稀疏成交回退不代表完整合约覆盖。</span>
+      </div>
+      <div style={{ background: "#fff8e1", border: "1px solid #f0c36d", borderRadius: 8, padding: "10px 14px", margin: "0 0 12px", fontSize: 12 }}>
+        <strong>{"\u26A0\uFE0F"} Fixed-granularity warning:</strong> The wrapper always returns <code>1Min</code>. Legacy inputs such as <code>5Min</code>, <code>15Min</code>, <code>30Min</code>, or <code>1Hour</code> are normalized to <code>1Min</code>; there is no server-side aggregate. Basic can query all available historical dates, but date-span, symbol, page, and concurrency values are per-request budgets. Split long ranges sequentially and back off on <code>429</code>.
+        <br/><span style={{ color: "var(--ink-soft)" }}>固定粒度警告：此 wrapper 永远返回 <code>1Min</code>。<code>5Min</code> 等旧参数只归一化为 <code>1Min</code>，不提供服务端聚合；Basic 可查全部可用历史，但日期跨度、symbol、页数和并发都是单次请求预算，长区间请顺序拆分，<code>429</code> 请退避重试。</span>
       </div>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/options/bars`} />
       <ParamTable rows={[
-        { name: "symbols",   type: "string",  required: true,  desc: "OCC symbol(s) comma-separated, or a stock ticker for auto-resolution" },
+        { name: "symbols",   type: "string",  required: true,  desc: "OCC symbol(s), comma-separated" },
         { name: "start",     type: "string",  required: true,  desc: "ISO 8601 date" },
         { name: "end",       type: "string",  required: true,  desc: "ISO 8601 date" },
-        { name: "timeframe", type: "string",  required: false, desc: "1Day only on ThetaData Value. Intraday (1Min, 5Min, 15Min, 1Hour) requires provider=\"alpaca\". Default: 1Day" },
-        { name: "provider",  type: "string",  required: false, desc: "auto | thetadata | alpaca (default: auto). thetadata disables Alpaca fallback; alpaca skips ThetaData." },
+        { name: "timeframe", type: "string",  required: false, desc: "Output is always 1Min. Legacy values are normalized to 1Min; server-side 5Min aggregation is not provided." },
+        { name: "provider",  type: "string",  required: false, desc: "Source metadata returned in the response; not a hard routing switch for this wrapper." },
         { name: "limit",     type: "integer", required: false, desc: "Bars per page, 1–10000 (default: 10000)" },
         { name: "max_pages", type: "integer", required: false, desc: "Max pagination pages (default: 100)" },
       ]} />
@@ -1173,10 +1175,7 @@ curl -H "Authorization: Bearer <TOKEN>" \\
 curl -X POST ${REST_BASE}/v1/history/options/bars \\
   -H "Authorization: Bearer *** \\
   -H "Content-Type: application/json" \\
-  -d '{"symbols":"AAPL260620C00200000","start":"2025-05-01","end":"2025-05-15","timeframe":"1Day","provider":"auto"}'
-
-// With stock ticker (auto-resolves to chain active on start date)
-  -d '{"symbols":"AAPL","start":"2025-01-02","end":"2025-01-10","timeframe":"1Hour"}'`}
+  -d '{"symbols":"AAPL260620C00200000","start":"2025-05-01","end":"2025-05-15","timeframe":"1Min"}'`}
       </pre>
       <pre className="code" style={{ marginBottom: 40 }}>
 {`// Response
@@ -1189,6 +1188,19 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
   "provider": "thetadata",
   "pages": 1
 }`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`// Legacy client compatibility: the response remains 1Min
+curl -X POST ${REST_BASE}/v1/history/options/bars \\
+  -H "Authorization: Bearer *** \\
+  -H "Content-Type: application/json" \\
+  -d '{"symbols":"AAPL260620C00200000","start":"2025-05-01","end":"2025-05-02","timeframe":"5Min"}'
+
+# Client-side 5-minute resampling (pandas)
+frame["t"] = pd.to_datetime(frame["t"], utc=True)
+bars_5m = (frame.set_index("t").resample("5min")
+  .agg({"o":"first","h":"max","l":"min","c":"last","v":"sum","n":"sum"})
+  .dropna(subset=["o","h","l","c"]))`}
       </pre>
 
       <h2 id="post-v1-options-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/options/open_interest</h2>
@@ -1395,11 +1407,11 @@ for row in data["data"][:5]:
           <tbody>
             <tr><td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>/v1/history/options/trade_quote</td><td>PERMISSION_DENIED — requires Standard subscription</td><td>Use /v1/history/options/trades (Alpaca) or /v3/option/history/quote (quote only)</td></tr>
             <tr><td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>/v1/options/snapshots/market_value</td><td>ThetaData Value lacks market_value data</td><td>Use /v1/options/snapshots (Alpaca-backed, includes greeks)</td></tr>
-            <tr><td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>/v1/history/options/bars (intraday)</td><td>"No data found" for 1Min/5Min/15Min/1Hour</td><td>Use timeframe=1Day or provider="alpaca" for intraday</td></tr>
+            <tr><td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>/v1/history/options/bars (intraday)</td><td>Canonical 1Min only; legacy timeframe values are normalized to 1Min</td><td>Client-side resampling is required for 5Min or other aggregates</td></tr>
           </tbody>
         </table>
         <p style={{ margin: 0, fontSize: 12, color: "#856404" }}>
-          ThetaData Value includes: EOD bars, OHLC snapshots, quote snapshots, open interest, contract lists, and historical quotes. It does <strong>not</strong> include: option trades, trade_quote, market value, implied volatility, or greeks via ThetaData. Greeks/IV are available via Alpaca snapshots.
+          ThetaData Value includes: EOD bars, minute OHLC bars, OHLC snapshots, quote snapshots, open interest, contract lists, and historical quotes. It does <strong>not</strong> include: option trades, trade_quote, market value, implied volatility, or greeks via ThetaData. Greeks/IV are available via Alpaca snapshots.
         </p>
       </div>
 
@@ -1940,8 +1952,8 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
             ["403", '{"error":"Forbidden"}', "Token valid but tier lacks permission for this endpoint"],
             ["404", '{"error":"Token not found"}', "Admin lookup: user_id not in active token list"],
             ["409", '{"success":false,"message":"..."}', "Duplicate username on registration"],
-            ["429", "Rate limit exceeded: N/M req/min", "REST rate limit hit; retry after 60 s"],
-            ["429", '{"error":"REST concurrency limit exceeded: N/M parallel requests"}', "Too many parallel requests in flight; wait for one to finish"],
+            ["429", '{"error":"historical_concurrency_limit"}', "More than 3 historical REST requests are in flight for this account"],
+            ["429", '{"error":"thetadata_qps_limit"}', "Upstream-specific QPS limit reached; back off and retry"],
             ["500", '{"error":"Cloud missing Alpaca master keys"}', "Proxy misconfiguration"],
             ["503", '{"error":"ThetaData not available"}', "ThetaData client offline (open_interest / eod)"],
             ["503", '{"error":"Server overloaded, stream priority active."}', "High load; WS streams take priority"],
@@ -1957,82 +1969,55 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
 
       <h2 id="rate-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Rate limits</h2>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", margin: "0 0 12px", fontSize: 13 }}>
-        <strong>HTTP 429 = rate limit hit.</strong> If you receive a <code>429</code> response, you have exceeded your tier's per-minute REST quota or your parallel-request concurrency cap. Back off and retry after the 60-second rolling window or after one in-flight request finishes — do not hammer the endpoint.
-        <br/><span style={{ color: "var(--ink-soft)" }}>收到 HTTP 429 说明触发了限速：超过了套餐的每分钟 REST 配额或并发上限。请等待 60 秒滚动窗口刷新或等已有请求完成后再重试，不要持续重试。</span>
+        <strong>HTTP 429 = an enforced runtime limit was reached.</strong> The common causes are the per-account historical REST concurrency cap or an upstream-specific QPS/key-pool limit. Wait for an in-flight request to finish and use exponential backoff.
+        <br/><span style={{ color: "var(--ink-soft)" }}>收到 HTTP 429 表示触发了运行时限制，常见原因是账号历史 REST 并发上限或上游 QPS/key pool 限制。请等待在途请求完成并使用指数退避。</span>
       </div>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        REST limits are per-user, per rolling 60-second window. Limits tighten automatically when the server is under load (overloaded) and further under critical load.
-        WebSocket symbol subscriptions are counted separately and do not reset on reconnect.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>REST 限速按用户、按 60 秒滚动窗口计算。服务器负载高时自动收紧，极端负载时进一步收紧。WS 标订阅数单独计算，重连不重置。</span>
+        The proxy does not currently enforce the old tier-specific rolling req/min values. Historical REST concurrency is per account and remains held until the response body reaches EOF.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>代理当前不执行旧的套餐级滚动 req/min 数值。历史 REST 并发按账号计算，并持续占用到响应正文读取完毕。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
-          <tr><th style={{ width: 150 }}>Tier</th><th>REST req/min</th><th>Under load</th><th>Critical</th><th>WS symbols</th></tr>
+          <tr><th style={{ width: 220 }}>Runtime limit</th><th>Enforced value</th><th>Scope</th></tr>
         </thead>
         <tbody>
           {[
-            ["Trial",    "1800", "900", "450", "50"],
-            ["Basic",    "600",  "300", "150", "—"],
-            ["Value",    "1800", "900", "450", "30"],
-            ["Standard", "1800", "900", "450", "50"],
-            ["Premium",  "6000", "3000","1500","500"],
-          ].map(([t, r, l, c, w], i) => (
+            ["Historical REST concurrency", "3", "per account"],
+            ["ThetaData REST QPS", "5/s", "per ordinary account"],
+            ["ThetaData native concurrency", "2", "shared service-wide"],
+            ["WS subjects", "500", "per connection"],
+            ["Free WS subjects", "10", "account-wide across connections"],
+            ["WS connections", "no account cap", "service capacity still applies"],
+          ].map(([limit, value, scope], i) => (
             <tr key={i}>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{t}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{r}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center", color: "var(--ink-soft)" }}>{l}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center", color: "var(--ink-soft)" }}>{c}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{w}</td>
+              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{limit}</td>
+              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{value}</td>
+              <td style={{ fontSize: 12, color: "var(--ink-soft)" }}>{scope}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
-        Cached responses (X-Cache: HIT) do not count against REST rate limits. Check the <code>X-Cache</code> header — cache TTL is 5 minutes (300 s).
+        These are current runtime limits, not capacity guarantees. Service-wide backpressure can return <code>503</code>, and upstream key exhaustion can return <code>429</code>.
       </p>
 
       <h2 id="concurrency-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Concurrency limits</h2>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        In addition to rate limits, the proxy enforces per-user concurrency limits on both REST and WebSocket connections.
-        REST concurrency limits the number of parallel in-flight requests; WebSocket concurrency limits the number of simultaneously open connections across all channels.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>除限速外，代理还对 REST 和 WebSocket 实施每用户并发限制。REST 并发限制同时在途请求数；WS 并发限制所有通道的同时连接数。</span>
+        The account-level concurrency cap applies only to historical REST: ordinary accounts may have up to <strong>3</strong> requests in flight.
+        WebSocket accounts have no account-level connection cap. Each connection may subscribe to at most <strong>500 NATS subjects</strong>; Free accounts additionally share a 10-subject account-wide cap.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>账号级并发上限仅适用于历史 REST：普通账号最多同时有 <strong>3</strong> 个在途请求。WebSocket 不设账号级连接数上限；每条连接最多订阅 <strong>500 个 NATS subjects</strong>，Free 账号另有全账号合计 10 subjects 的限制。</span>
       </p>
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
-        <thead>
-          <tr><th style={{ width: 150 }}>Tier</th><th>REST parallel</th><th>WS connections</th></tr>
-        </thead>
-        <tbody>
-          {[
-            ["Trial",    "5",   "3"],
-            ["Basic",    "2",   "1"],
-            ["Value",    "3",   "2"],
-            ["Standard", "5",   "3"],
-            ["Premium",  "10",  "\u221E"],
-          ].map(([t, r, w], i) => (
-            <tr key={i}>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{t}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{r}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{w}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
-        Exceeding the REST concurrency limit returns <code>429</code> with a JSON body. Exceeding the WS connection limit rejects the <code>auth</code> message and closes the socket with code <code>1008</code>.
+        Subjects count actual deliveries, not unique ticker strings. For example, <code>AAPL trades</code> plus <code>AAPL quotes</code> is two subjects; subscribing to the same subject on two connections counts twice because the frame is delivered twice. Accounts are counted independently: under the current admission logic, two paid accounts may each open 100 WebSocket connections. This is not an unlimited-capacity SLA. For large fan-out, keep a small number of upstream sockets and redistribute locally through a local proxy.
+        <br/>Subjects 按实际投递计数，不按唯一 ticker 去重。同一 subject 在两条连接上订阅算两次，因为数据会发送两次。不同账号独立计数：按当前准入逻辑，两个付费账号可以各开 100 条 WS；这不代表无限容量 SLA。大规模分发建议仅保留少量上游连接，再通过本地代理转发给多个本地进程。
       </p>
 
       <pre className="code" style={{ marginBottom: 40 }}>
-{`// 429 response body (plain text) — rate limit
-Rate limit exceeded: 301/300 req/min
-
-// 429 response body (JSON) — concurrency limit
+{`// 429 response body (JSON) — historical REST concurrency
 {
-  "error": "REST concurrency limit exceeded: 5/5 parallel requests"
+  "error": "historical_concurrency_limit",
+  "message": "Per-user historical concurrency limit exceeded"
 }
-
-// WS auth rejected — connection limit
-[{"T": "error", "msg": "Connection limit exceeded: 3/3 active websockets"}]
-// Socket closed with code 1008 (policy violation)
 
 // 503 response body (JSON) — backpressure under load
 {
@@ -2133,7 +2118,7 @@ await ws.send(json.dumps({
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 28px" }}>
         The server sends WebSocket ping frames automatically. Most client libraries respond to pings automatically. If your client does not, call <code>pong()</code> on receipt to stay connected.
         The server will close connections that exceed the send queue limit (200 messages).
-        Each tier has a per-user connection limit across all channels (see <a href="#concurrency-limits">Concurrency limits</a>). Exceeding it rejects auth with code <code>1008</code>.
+        WebSocket plans have no account-level connection cap; the subject and send-queue limits still apply. See <a href="#concurrency-limits">Concurrency limits</a>.
       </p>
 
       {/* ── Channels ── */}
@@ -2144,14 +2129,14 @@ await ws.send(json.dumps({
         Live US equities: trades, quotes, and minute bars from the SIP feed (pro account). Subscribe to <code>trades</code>, <code>quotes</code>, and/or <code>bars</code> lists.
         Use <code>"*"</code> to subscribe to all symbols.
       </p>
-      <H3>Symbol limit</H3>
-      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>basic: — · value: 30 · trial/standard: 50 · premium: 500. Exceeding the limit returns an error message and the subscribe is rejected.</p>
+      <H3>Subject limit</H3>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>Each connection supports up to 500 subjects. A ticker subscribed under both <code>trades</code> and <code>quotes</code> consumes two subjects. The Free plan has an additional account-wide limit of 10 subjects across all connections.</p>
 
       <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>options</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Live OPRA options feed. Subscribe using OCC symbols in the <code>trades</code> and <code>quotes</code> lists.
         All tiers except Basic.
-        <strong style={{ color: "var(--ink-strong)" }}> Index options (SPX, SPXW, NDX, RUT) are not available via WebSocket</strong> — the upstream Alpaca feed only covers equity and ETF options. Use the REST <code>/v1/history/options/bars</code> endpoint with <code>provider=thetadata</code> for index option history.
+        <strong style={{ color: "var(--ink-strong)" }}> Index options (SPX, SPXW, NDX, RUT) are not available via WebSocket</strong> — the upstream Alpaca feed only covers equity and ETF options. Use the REST <code>/v1/history/options/bars</code> endpoint with an OCC symbol and <code>timeframe:"1Min"</code>; the wrapper does not use <code>provider</code> as a hard switch.
       </p>
 
       <h2 id="crypto" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>crypto</h2>

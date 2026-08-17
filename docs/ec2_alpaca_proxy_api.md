@@ -1,7 +1,7 @@
 # Alpaca 行情代理 API
 
-> 更新时间: 2026-05-23
-> 代理地址: `52.37.182.24` | WS: `8767` | HTTP: `8768`
+> 更新时间: 2026-08-05
+> 当前公共入口: REST `https://api.leandata.uk` | WS `wss://leandata.uk/stream`
 
 这个代理让你**用一个 token 就能获取美股实时行情和历史数据**，不需要自己持有 Alpaca API key 或 ThetaData 账号。
 
@@ -12,14 +12,19 @@
 
 ## 订阅套餐
 
-| 套餐 | 价格 | REST 请求/分钟 | WS 最大 Symbol 数 | 可用数据流 |
+| 套餐 | 价格 | 历史 REST 并发 | WS 限制 | 可用数据流 |
 | --- | --- | --- | --- | --- |
-| **Trial** | ¥30/3天 | 60 | 50 | Standard 能力，3 天试用 |
-| **Basic** | ¥40/月 | 10 | REST only | 历史数据、批量下载、快照，无实时流 |
-| **Standard** | ¥80/月 | 60 | 50 | 股票、期权、合约实时流 + 历史数据 |
-| **Premium** | ¥130/月 | 300 | 500 | 全部实时流 + 全部历史数据 |
+| **Trial** | ¥50/3天 | 3 | 每连接 500 subjects；无账号级连接数上限 | Standard 能力，3 天试用 |
+| **Basic** | 老账户兼容 | 3 | REST only | 全部可用历史数据、快照，无实时流；长区间拆分请求 |
+| **Value** | ¥70/月 | 3 | 每连接 500 subjects；无账号级连接数上限 | 全部实时流 + 股票或期权历史二选一 |
+| **Standard** | ¥100/月 | 3 | 每连接 500 subjects；无账号级连接数上限 | 股票与期权实时流 + 历史数据 |
+| **Premium** | ¥150/月 | 3 | 每连接 500 subjects；无账号级连接数上限 | 全部实时流 + 全部历史数据 |
 
-> 注册地址：`http://52.37.182.24:3000/register.html`
+> 当前没有按套餐执行的滚动 REST req/min 限额；上游 QPS、key pool 与服务总并发限制仍会返回 `429`/`503`。
+>
+> **Basic 历史范围**：Basic 可以查询全部可用历史。`/v1/account/usage` 中的日期跨度、symbol 数、页数和并发值是**单次请求预算**，不是历史回看年限；超过单次预算时把时间区间拆成多个顺序请求即可。Basic 可能比高等级慢，因为仍受共享历史并发和上游 QPS 限制。Bulk Download 是单独的一次性交付产品，不是解锁旧日期的必要条件。
+>
+> 注册地址：`https://leandata.uk/register`
 > 选择套餐并填写信息后，等待管理员确认即可自助生成 Token。
 
 ---
@@ -280,20 +285,20 @@ curl -H "Authorization: Bearer 你的token" \
   "http://52.37.182.24:8768/v1beta3/crypto/us/latest/quotes?symbols=BTC%2FUSD"
 ```
 
-支持 `provider` 参数的期权接口可传：
+部分旧版接口文档曾把 `provider` 写成强制路由参数。当前 v2 期权 bars wrapper 使用归档/ThetaData 优先、必要时 Alpaca 部分回退；响应中的 `provider`、`providers` 和 `coverage_roles` 才是实际来源证据。不要把 `provider` 当作当前 bars wrapper 的硬切换开关。
 
 | provider | 行为 |
 | --- | --- |
-| `auto` | 默认。按接口使用主 Provider，失败或无数据时按规则 fallback。 |
-| `thetadata` / `theta` | 强制 ThetaData Value。不会 fallback 到 Alpaca。 |
-| `alpaca` | 强制 Alpaca。不会先查 ThetaData。 |
+| `auto` | 旧版兼容值；当前 v2 wrapper 按接口固定路由并返回实际来源。 |
+| `thetadata` / `theta` | 仅适用于明确支持该参数的 native 路由；不代表当前 bars wrapper 会硬切换。 |
+| `alpaca` | 仅适用于明确支持该参数的 native 路由；不代表当前 bars wrapper 会跳过归档。 |
 
 重叠接口 fallback 规则：
 
 | 接口 | 默认路由 |
 | --- | --- |
-| `/v1/history/options/bars` | ThetaData Value OHLC → Alpaca option bars fallback |
-| `/v1/options/contracts` | Alpaca contracts → ThetaData Value contract list fallback |
+| `/v1/history/options/bars` | 规范 `1Min` 期权 K 线；实际来源见响应中的 `provider`、`providers`、`coverage_roles`。必要时可能回退 Alpaca 稀疏成交活动。`/v1/options/bars` 是兼容旧客户端的别名 |
+| `/v1/options/contracts` | 当前活跃合约由 Alpaca native 返回；历史/已到期合约请用 `/v3/option/list/contracts/{trade|quote}` 并传 `date` |
 | `/v1/options/snapshots` | Alpaca only（ThetaData Value 不含 Greeks/IV/market value） |
 | `/v1/options/snapshots/quote`、`/v1/options/snapshots/trade` | Alpaca latest quote/trade 优先，归一化到 `snapshots[OCC].latestQuote/latestTrade` |
 | `/v1/options/snapshots/open_interest`、`/v3/option/snapshot/*` | ThetaData Value 可用快照 |
@@ -301,9 +306,9 @@ curl -H "Authorization: Bearer 你的token" \
 
 服务端会缓存成功的 REST 响应。命中时响应头为 `X-Cache: DISK_HIT`。缓存键会剔除 `token` / API key 等凭据；TTL：历史数据 7 天、当日/盘中 60 秒、快照 5 分钟、合约/list 1 小时。
 
-ThetaData Value 仅开放期权 list、snapshot `ohlc` / `quote` / `open_interest`、history `eod` / `ohlc` / `quote` / `open_interest`、`at_time/quote`。不开放 option trades、trade_quote、market value、implied volatility、Greeks。
+ThetaData Value 开放期权 list、minute/EOD OHLC、snapshot `ohlc` / `quote` / `open_interest`、history `eod` / `ohlc` / `quote` / `open_interest`、`at_time/quote`。不开放 option trades、trade_quote、market value、implied volatility、Greeks。
 
-💡 **指数期权支持 (REST)**: REST 接口（如 `/v1/history/options/bars` 和 `/v1/options/contracts`）在指定 `provider=thetadata` 时，**完全支持** `SPX`、`SPXW`、`NDX` 等指数期权的历史 K 线和合约列表查询。由于 ThetaData 拥有完整的历史期权数据库（部分数据多达 8-12 年），期权链在历史上是非常齐全的。你可以使用 `date` 参数来重构历史上任何一天的完整期权链（包括已到期过期的合约）。
+💡 **指数期权支持 (REST)**：期权 bars 必须传 OCC 合约代码；归档/ThetaData 覆盖到的 `SPX`、`SPXW`、`NDX` 等合约可以查询历史 K 线。历史/已到期合约的发现使用 `/v3/option/list/contracts/trade` 或 `/v3/option/list/contracts/quote`，并传历史 `date`；不要用当前活跃合约 wrapper 代替历史合约列表。
 
 ### 期权历史 K 线
 
@@ -314,27 +319,54 @@ POST /v1/history/options/bars
 | 参数 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `token` | string | ✅ | 代理 token |
-| `symbols` | string | ✅ | **支持两种格式**：<br>1. OCC 格式期权代码：`AAPL260522C00200000`<br>2. **股票代码**：`AAPL`（自动解析为期权链，返回前10个合约） |
+| `symbols` | string | ✅ | OCC 期权代码，可逗号分隔多个合约，例如 `AAPL260522C00200000` |
 | `start` | string | ✅ | 开始日期 |
 | `end` | string | ✅ | 结束日期 |
-| `timeframe` | string | ❌ | 默认 `1Min` |
-| `provider` | string | ❌ | `auto` / `thetadata` / `alpaca`，默认 `auto` |
+| `timeframe` | string | ❌ | 输出固定为 `1Min`；传入其他值会兼容性归一化为 `1Min`，不会返回服务端聚合的 5 分钟 K 线 |
+| `provider` | string | ❌ | 当前 v2 bars wrapper 不把它作为硬切换开关；实际来源看响应中的 `provider`、`providers`、`coverage_roles` |
 | `limit` | int | ❌ | 默认 10000 |
 | `max_pages` | int | ❌ | 默认 100 |
-
-💡 也可以用 `symbol`（单数），会自动转成 `symbols`。
-
-**新功能**：传入股票代码（如 `AAPL`）时，系统会自动查询期权链并返回前10个合约的数据，无需手动指定 OCC 代码。
 
 OCC 格式: [股票代码][到期日YYMMDD][C/P][行权价*1000]
 - 示例: AAPL260522C00200000 = AAPL 2026-05-22 Call 200.00
 
 获取期权代码流程:
-1. 先用 /v1/options/contracts 查询合约列表
-2. 从返回的 symbol 字段获取 OCC 代码
-3. 再用该代码请求 /v1/history/options/bars
+1. 当前活跃合约可先用 `/v1/options/contracts` 查询
+2. 历史/已到期合约使用 `/v3/option/list/contracts/trade` 或 `/v3/option/list/contracts/quote` 并传 `date`
+3. 从返回的 `symbol` 字段获取 OCC 代码
+4. 再用该代码请求 `/v1/history/options/bars`
 
-数据源: 默认优先从 ThetaData Value 获取，失败或无数据时自动回退到 Alpaca。响应包含 `provider` 字段。
+返回固定为 `timeframe: "1Min"`，并通过 `provider`、`providers` 和 `coverage_roles` 标明实际来源；必要时可能回退到 Alpaca 的稀疏成交活动。
+
+> ⚠️ **固定粒度边界**：期权历史 bars 永远返回 `1Min`。传入 `5Min`、`15Min`、`30Min` 或 `1Hour` 只会被兼容性归一化为 `1Min`，不会返回服务端聚合结果。需要其他周期时，请在客户端使用返回的 `1Min` bars 自行重采样。
+>
+> ⚠️ **来源边界**：`provider`、`providers` 和 `coverage_roles` 是实际来源证据；稀疏成交回退不能当作完整合约链覆盖。
+>
+> **Basic** 可以查询全部可用历史，但日期跨度、symbol 数、分页数和并发是单次请求预算。长区间应拆成顺序请求；遇到 `429` 请等待在途请求完成并指数退避。
+
+兼容旧客户端的请求：
+
+```bash
+curl -X POST "https://api.leandata.uk/v1/history/options/bars" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"symbols":"AAPL260620C00200000","start":"2025-05-01","end":"2025-05-02","timeframe":"5Min"}'
+```
+
+上面的请求仍返回 `"timeframe": "1Min"`。客户端重采样示例：
+
+```python
+import pandas as pd
+
+frame = pd.DataFrame(payload["bars"]["AAPL260620C00200000"])
+frame["t"] = pd.to_datetime(frame["t"], utc=True)
+bars_5m = (
+    frame.set_index("t")
+    .resample("5min")
+    .agg({"o": "first", "h": "max", "l": "min", "c": "last", "v": "sum", "n": "sum"})
+    .dropna(subset=["o", "h", "l", "c"])
+)
+```
 
 ### 期权历史逐笔成交
 
@@ -361,16 +393,15 @@ POST /v1/options/contracts
   "token": "你的token",
   "underlying_symbols": "AAPL",
   "expiration_date_gte": "2026-05-16",
-  "provider": "auto",
   "limit": 100
 }
 ```
 
-支持的筛选字段: `underlying_symbols`, `expiration_date`, `expiration_date_gte`, `expiration_date_lte`, `strike_price_gte`, `strike_price_lte`, `type` / `option_type`, `provider`, `date`, `request_type`, `max_dte`, `limit`。
+支持的筛选字段: `underlying_symbols`, `expiration_date`, `expiration_date_gte`, `expiration_date_lte`, `strike_price_gte`, `strike_price_lte`, `type` / `option_type`, `limit`。
 
-- `provider=auto`: Alpaca 优先，失败时用 ThetaData Value contract list。
-- `provider=thetadata`: 只支持 `underlying_symbols` 查询，不支持 `symbol_or_id` 单合约 lookup。
-- `request_type`: ThetaData list metadata 使用 `quote` 或 `trade`，默认 `quote`。
+- 该 wrapper 返回当前活跃合约，数据源为 Alpaca native。
+- 历史/已到期合约请直接使用 `/v3/option/list/contracts/trade` 或 `/v3/option/list/contracts/quote`。
+- 历史合约列表的 `date`、`request_type` 和 `max_dte` 参数属于 native v3 路由，不是这个 wrapper 的历史开关。
 
 ### 期权快照
 
@@ -621,23 +652,25 @@ POST /v1/history/news
 | `400` | 请求参数有误 |
 | `401` | token 无效（不在注册表中） |
 | `403` | token 有效但没有该端点的权限 |
-| `429` | **速率超限**（REST 请求太频繁或 WS 订阅 symbol 数超限制） |
+| `429` | **运行时限制**（历史 REST 并发、上游 QPS/key pool，或 WS subject 数超限） |
 | `500` | 代理内部错误（上游 Alpaca 故障等） |
 
-### 速率限制
+### 运行时限制
 
-代理按用户角色执行限流，超限返回 `429`。
+套餐角色决定 endpoint 和频道权限；以下限制由当前 Runtime 实际执行，超限返回 `429`。
 
-| 角色 | REST 请求/分钟 | WS 最大 Symbol 数 | 说明 |
-| --- | --- | --- | --- |
-| `basic` / `basic_flow` | 10 | 10 | 基础套餐 |
-| `standard` / `standard_flow` | 60 | 100 | 标准套餐 |
-| `premium` / `advanced` | 300 | 500 | 高级/ premium |
-| `fallback` / `admin` | 1000 | 1000 | 管理员/回退（实际不限） |
+| 限制 | 当前值 | 作用域 |
+| --- | --- | --- |
+| 历史 REST 并发 | 3 | 每普通账号 |
+| ThetaData REST QPS | 5/s | 每普通账号 |
+| ThetaData native 并发 | 2 | 全服务共享 |
+| WS subjects | 500 | 每条连接 |
+| Free WS subjects | 10 | 同账号所有连接合计 |
+| 付费 WS 连接数 | 无账号级硬上限 | 仍受服务实际容量约束 |
 
 > 注意: `/v1/stock/history/trade_quote` 端点由于返回逐笔 Tick 数据量极大，建议单次查询不超过 1 个交易日，并合理设置 `start_time`/`end_time` 缩小范围。
 
-> WS symbol 限制：每次 `subscribe` 会累加 symbol 数量，超出限制时 subscribe 被拒绝。断开后自动释放。
+> WS 按实际 subject 投递计数，不按唯一 ticker 去重。`AAPL trades` 与 `AAPL quotes` 算两个 subjects；同一 subject 在两条连接上订阅也算两次，因为数据会发送两次。不同账号独立计数。需要向多个本地进程分发时，建议只维持少量上游 WS，再通过本地代理扇出。
 
 ### 管理接口（Admin）
 
@@ -751,41 +784,23 @@ ALPACA_PROXY_TOKEN=你的token
 检查帧编码表 —— 股票和期权的 WS 流是 MsgPack，需要用 `msgpack.unpackb()` 解码。
 
 **Q: 支持哪些时间框架？**  
-实时流无 bars；历史 K 线支持 `1Min` `5Min` `15Min` `1Hour` `1Day`。
+实时流无 bars；期权历史 K 线输出固定为 `1Min`，客户端如需 `5Min` 等周期请自行聚合。期权 bars 使用 OCC 合约代码；Basic 的全部历史查询仍需按单次请求预算拆分日期区间。
 
 ---
 
-## 🚀 期权链自动解析 (Option Chain Auto-Resolution)
+## 期权链与历史合约发现
 
-> 新增端点: `/v1/history/options/bars` 现已支持**股票代码自动解析期权链**。
+`/v1/history/options/bars` 当前要求传入 OCC 期权合约代码。`/v1/options/contracts` 只用于发现当前活跃合约，不是历史/已到期合约全集。
 
-这个特性允许客户端通过传入标准股票代码（如 `"AAPL"`）而非复杂的 OCC 期权合约字符串，来请求历史期权 bars。代理会自动：
-
-1. 检测输入为股票代码（非 OCC 格式）
-2. 查询 **ThetaData 合约列表**（过滤当日活跃合约）
-3. 自动解析前 10 个期权合约为标准 OCC 字符串（如 `AAPL260918C00360000`）
-4. 并行查询返回这些合约的历史 bars
+查询历史或已到期合约时，先调用：
 
 ### 使用示例
 
 ```bash
-curl -X POST http://52.37.182.24:8768/v1/history/options/bars \
-  -H "Content-Type: application/json" \
-  -d '{
-    "token": "你的token",
-    "symbol": "AAPL",
-    "timeframe": "1Min",
-    "start": "2026-05-19T09:30:00Z",
-    "end": "2026-05-19T16:00:00Z"
-  }'
+curl -G https://api.leandata.uk/v3/option/list/contracts/trade \
+  -H "Authorization: Bearer 你的token" \
+  --data-urlencode "date=2024-10-01" \
+  --data-urlencode "symbol=AAPL"
 ```
 
-**返回示例**：
-```json
-{
-  "bars": {
-    "AAPL260522C00200000": [...],
-    "AAPL260522C00210000": [...]
-  }
-}
-```
+再把历史合约列表返回的 OCC `symbol` 传给 `/v1/history/options/bars`。
