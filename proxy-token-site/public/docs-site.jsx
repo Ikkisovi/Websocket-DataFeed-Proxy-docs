@@ -2164,7 +2164,7 @@ Authorization: Bearer c88662...720a
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/history/bars \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbol":"AAPL","timeframe":"1Day","start":"2024-01-02","end":"2024-01-05","limit":5}'`}
       </pre>
@@ -2238,7 +2238,7 @@ Authorization: Bearer c88662...720a
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/history/news \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL","start":"2024-01-02","end":"2024-01-03","limit":3}'`}
       </pre>
@@ -2404,7 +2404,7 @@ curl -H "Authorization: Bearer <TOKEN>" \\
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/contracts \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"underlying_symbols":"AAPL","limit":2}'`}
       </pre>
@@ -2467,7 +2467,7 @@ curl -H "Authorization: Bearer <TOKEN>" \\
       <pre className="code" style={{ marginBottom: 12 }}>
 {`// With explicit OCC symbol
 curl -X POST ${REST_BASE}/v1/history/options/bars \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260620C00200000","start":"2025-05-01","end":"2025-05-15","timeframe":"1Min"}'`}
       </pre>
@@ -2486,7 +2486,7 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
       <pre className="code" style={{ marginBottom: 40 }}>
 {`// Legacy client compatibility: the response remains 1Min
 curl -X POST ${REST_BASE}/v1/history/options/bars \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260620C00200000","start":"2025-05-01","end":"2025-05-02","timeframe":"5Min"}'
 
@@ -2515,7 +2515,7 @@ bars_5m = (frame.set_index("t").resample("5min")
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/open_interest \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbol":"AAPL","start":"2025-01-02","end":"2025-01-05"}'`}
       </pre>
@@ -2693,7 +2693,7 @@ for row in data["data"][:5]:
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260620C00200000","feed":"indicative"}'`}
       </pre>
@@ -2739,7 +2739,7 @@ for row in data["data"][:5]:
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/quote \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260522C00110000","feed":"indicative"}'`}
       </pre>
@@ -2802,7 +2802,7 @@ for sym, snap in resp.json()["snapshots"].items():
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/open_interest \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260522C00110000","feed":"thetadata"}'`}
       </pre>
@@ -2848,7 +2848,7 @@ for sym, snap in resp.json()["snapshots"].items():
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/expiry \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"underlying":"AAPL","expiry":"2026-05-22","feed":"indicative"}'`}
       </pre>
@@ -2984,7 +2984,7 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/crypto/us/latest/orderbooks \\
-  -H "Authorization: Bearer *** \\
+  -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"BTC/USD,ETH/USD"}'`}
       </pre>
