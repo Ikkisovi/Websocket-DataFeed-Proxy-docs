@@ -1,0 +1,4 @@
+interface:
+  display_name: "Leandata Market Data"
+  short_description: "Fetch market data and diagnose API errors safely"
+  default_prompt: "Use $leandata-market-data to fetch Leandata market data and diagnose any HTTP errors."

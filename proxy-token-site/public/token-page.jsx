@@ -122,6 +122,21 @@ function TokenPage() {
             仅限已审核账户。输入注册时的用户名和手机号，即可恢复现有 Token；只有缺失时才会生成新的 UUID 并完成账户访问更新。
           </p>
 
+          <div className="card" style={{ padding: 14, marginBottom: 24 }}>
+            <div className="eyebrow" style={{ marginBottom: 6 }}>AI agent skill</div>
+            <p style={{ color: "var(--ink-muted)", fontSize: 12.5, lineHeight: 1.55, margin: "0 0 10px" }}>
+              下载公开 skill，让 AI agent 按正确字段拉取数据，并分析 400–504 错误。内容不包含服务内部实现。
+            </p>
+            <a
+              className="btn"
+              href="/skills/leandata-market-data/SKILL.md"
+              download="SKILL.md"
+              style={{ display: "inline-flex", textDecoration: "none", fontSize: 12 }}
+            >
+              Download SKILL.md
+            </a>
+          </div>
+
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <div>
               <label className="label">用户名</label>
