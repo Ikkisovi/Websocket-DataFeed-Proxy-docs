@@ -2064,8 +2064,8 @@ Authorization: Bearer c88662...720a
         <br/>每个账号的历史 REST 同时在途请求请保持在 <strong>3</strong> 以内。上游 QPS 或 key pool 限制也可能返回 <strong>429</strong>，请使用指数退避。
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
-        Basic has access to the full available historical range. The Basic date-span, symbol, and page values shown by <code>/v1/account/usage</code> are <strong>per-request budgets</strong>, not a lookback cutoff: split a long history into sequential requests. Basic may be slower because it remains subject to the shared historical concurrency and upstream quotas. Bulk Download is a separate one-off delivery product, not a requirement for older dates.
-        <br/>Basic 可以访问全部可用历史数据。<code>/v1/account/usage</code> 显示的日期跨度、symbol 数和页数是<strong>单次请求限制</strong>，不是只能查最近多少天；长区间拆成多个请求顺序拉取即可。Basic 主要是速度和请求预算更保守。Bulk Download 是单独的一次性交付产品，不是解锁旧日期的必要条件。
+        Basic has access to the full available historical range. There is no Basic-specific date-span, symbol-count, or page-count budget. Requests remain subject to provider limits and shared proxy runtime controls such as historical concurrency, QPS, timeouts, and overload backpressure. Bulk Download is a separate one-off delivery product, not a requirement for older dates.
+        <br/>Basic 可以访问全部可用历史数据，不设 Basic 专属的日期跨度、symbol 数或页数预算。请求仍受上游限制和 proxy 运行时控制影响，包括历史并发、QPS、超时和过载背压。Bulk Download 是单独的一次性交付产品，不是解锁旧日期的必要条件。
       </p>
 
       {/* ── Token API ── */}
@@ -2447,8 +2447,8 @@ curl -H "Authorization: Bearer <TOKEN>" \\
         <br/><span style={{ color: "var(--ink-soft)" }}>覆盖说明：规范 <code>1Min</code> 期权 K 线已支持。请检查 <code>provider</code>、<code>providers</code> 和 <code>coverage_roles</code> 判断来源；稀疏成交回退不代表完整合约覆盖。</span>
       </div>
       <div style={{ background: "#fff8e1", border: "1px solid #f0c36d", borderRadius: 8, padding: "10px 14px", margin: "0 0 12px", fontSize: 12 }}>
-        <strong>{"\u26A0\uFE0F"} Fixed-granularity warning:</strong> The wrapper always returns <code>1Min</code>. Legacy inputs such as <code>5Min</code>, <code>15Min</code>, <code>30Min</code>, or <code>1Hour</code> are normalized to <code>1Min</code>; there is no server-side aggregate. Basic can query all available historical dates, but date-span, symbol, page, and concurrency values are per-request budgets. Split long ranges sequentially and back off on <code>429</code>.
-        <br/><span style={{ color: "var(--ink-soft)" }}>固定粒度警告：此 wrapper 永远返回 <code>1Min</code>。<code>5Min</code> 等旧参数只归一化为 <code>1Min</code>，不提供服务端聚合；Basic 可查全部可用历史，但日期跨度、symbol、页数和并发都是单次请求预算，长区间请顺序拆分，<code>429</code> 请退避重试。</span>
+        <strong>{"\u26A0\uFE0F"} Fixed-granularity warning:</strong> The wrapper always returns <code>1Min</code>. Legacy inputs such as <code>5Min</code>, <code>15Min</code>, <code>30Min</code>, or <code>1Hour</code> are normalized to <code>1Min</code>; there is no server-side aggregate. Basic has no plan-specific request-size budget. Provider limits and proxy runtime limits still apply; on <code>429</code> wait and retry with exponential backoff.
+        <br/><span style={{ color: "var(--ink-soft)" }}>固定粒度警告：此 wrapper 永远返回 <code>1Min</code>。<code>5Min</code> 等旧参数只归一化为 <code>1Min</code>，不提供服务端聚合；Basic 不设套餐专属的请求大小预算。上游限制和 proxy 运行时限制仍然生效；收到 <code>429</code> 请等待并指数退避重试。</span>
       </div>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/options/bars`} />
       <ParamTable rows={[
@@ -3137,7 +3137,8 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
         </tbody>
       </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
-        These are current runtime limits, not capacity guarantees. Service-wide backpressure can return <code>503</code>, and upstream key exhaustion can return <code>429</code>.
+        These are current runtime limits, not capacity guarantees. No plan-specific historical request-size budget is enforced. Service-wide backpressure can return <code>503</code>, and upstream key exhaustion can return <code>429</code>.
+        <br/><span style={{ color: "var(--ink-soft)" }}>这些是当前运行时限制，不是容量保证；历史请求大小不按套餐单独设预算。服务总背压可能返回 <code>503</code>，上游 key 耗尽可能返回 <code>429</code>。</span>
       </p>
 
       <h2 id="concurrency-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Concurrency limits</h2>

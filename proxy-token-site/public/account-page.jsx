@@ -321,18 +321,18 @@ function AccountDashboard({ overview, loading, onRefresh, onRenew }) {
         </section>
 
         <aside className="card account-renewal account-span-4">
-          <div className="eyebrow" style={{ marginBottom: 8 }}>Plan limits</div>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>Runtime limits</div>
           <div className="account-pair">
-            <span className="account-pair-label">Symbols / request</span>
-            <span className="account-pair-value">{formatAccountNumber(rest?.limits?.max_symbols_per_request)}</span>
+            <span className="account-pair-label">Historical REST concurrency</span>
+            <span className="account-pair-value">{formatAccountNumber(rest?.limits?.historical_concurrent_max)}</span>
           </div>
           <div className="account-pair">
-            <span className="account-pair-label">Date span</span>
-            <span className="account-pair-value">{rest?.limits?.max_date_span_days ? `${rest.limits.max_date_span_days} days` : "—"}</span>
+            <span className="account-pair-label">Request-size policy</span>
+            <span className="account-pair-value">{rest?.limits?.request_size_policy === "no_plan_specific_budget" ? "No plan cap" : "—"}</span>
           </div>
           <div className="account-pair">
-            <span className="account-pair-label">Max pages</span>
-            <span className="account-pair-value">{formatAccountNumber(rest?.limits?.max_pages)}</span>
+            <span className="account-pair-label">Rate policy</span>
+            <span className="account-pair-value">{rest?.limits?.rate_policy === "shared_proxy_and_provider_limits" ? "Proxy + provider" : "—"}</span>
           </div>
           <button className="btn" onClick={onRefresh} disabled={loading} style={{ width: "100%", justifyContent: "center", marginTop: 16 }}>
             {loading ? "刷新中…" : "刷新实时用量"}

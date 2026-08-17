@@ -798,7 +798,7 @@ ALPACA_PROXY_TOKEN=你的token
 检查帧编码表 —— 股票和期权的 WS 流是 MsgPack，需要用 `msgpack.unpackb()` 解码。
 
 **Q: 支持哪些时间框架？**  
-实时流无 bars；历史 K 线支持 `1Min` `5Min` `15Min` `1Hour` `1Day`。
+实时流无 bars；期权历史 K 线输出固定为 `1Min`，客户端如需其他周期请自行聚合。Basic 可以访问全部可用历史，不设套餐专属请求大小预算；请求仍受 proxy 并发/QPS/背压和上游限制。
 
 ---
 
