@@ -165,7 +165,7 @@ Authorization: Bearer 你的token
 
 ### 无效 Token 滥用防护
 
-REST 与 WebSocket 鉴权均启用同一套运行时防护：同一伪匿名 abuse key 在 60 秒内出现 5 次无效 Token 会软限流 60 秒；5 分钟内达到 15 次会临时封禁 15 分钟；1 小时内触发 3 次临时封禁会升级为 60 分钟封禁。REST 返回带 `Retry-After` 的 `429`，WS 返回带 `retry_after_seconds` 的 `429` 控制错误后关闭失败连接。一次过期或输错 Token 不会单独触发封禁。
+REST 与 WebSocket 鉴权均启用同一套运行时防护：同一伪匿名 abuse key 在 60 秒内出现 5 次无效 Token 会软限流 60 秒；5 分钟内达到 15 次会临时封禁 5 分钟。临时封禁 5 分钟后自动解除，不会升级。REST 返回带 `Retry-After` 的 `429`，WS 返回带 `retry_after_seconds` 的 `429` 控制错误后关闭失败连接。一次过期或输错 Token 不会单独触发封禁。
 
 abuse key 使用每日 `00:00 UTC` 轮换的源 IP HMAC 和粗粒度 User-Agent 类别；Token 只做 HMAC 指纹短期关联。原始 IP 和 Token 不写入日志或持久化。伪匿名计数/封禁状态最多保留 7 天，去标识日聚合最多保留 30 天。
 

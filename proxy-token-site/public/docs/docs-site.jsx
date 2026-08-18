@@ -2005,12 +2005,11 @@ Authorization: Bearer <TOKEN>
           <thead><tr><th>Signal</th><th>Action</th><th>Scope</th></tr></thead>
           <tbody>
             <tr><td><code>5</code> invalid-token failures / <code>60s</code></td><td><code>429</code> soft throttle for <code>60s</code> with <code>Retry-After</code></td><td>abuse key</td></tr>
-            <tr><td><code>15</code> failures / <code>5m</code></td><td>temporary ban for <code>15m</code></td><td>abuse key</td></tr>
-            <tr><td><code>3</code> temporary bans / <code>1h</code></td><td>temporary ban for <code>60m</code> and operator review</td><td>abuse key</td></tr>
+            <tr><td><code>15</code> failures / <code>5m</code></td><td>temporary ban for <code>5m</code></td><td>abuse key</td></tr>
           </tbody>
         </table>
-        The abuse key uses a daily-rotated HMAC of the source IP plus a coarse User-Agent category. A presented token may be HMAC-fingerprinted for short-lived correlation, but raw IPs and raw tokens are never logged or persisted. Pseudonymous counters and ban events are retained for at most <code>7 days</code>; identifier-free aggregate totals may be retained for <code>30 days</code>. Rotation occurs at <code>00:00 UTC</code>.
-        <br/><span style={{ color: "var(--ink-soft)" }}>防护键由每日轮换的源 IP HMAC 和粗粒度 User-Agent 类别组成。Token 只允许以 HMAC 指纹做短期关联，不记录或持久化原始 IP/Token。伪匿名计数和封禁事件最多保留 <code>7 天</code>；去标识聚合总数可保留 <code>30 天</code>，每日 <code>00:00 UTC</code> 轮换。</span>
+        The abuse key uses a daily-rotated HMAC of the source IP plus a coarse User-Agent category. A presented token may be HMAC-fingerprinted for short-lived correlation, but raw IPs and raw tokens are never logged or persisted. Each temporary ban expires automatically after <code>5 minutes</code>; bans do not escalate. Pseudonymous counters and ban events are retained for at most <code>7 days</code>; identifier-free aggregate totals may be retained for <code>30 days</code>. Rotation occurs at <code>00:00 UTC</code>.
+        <br/><span style={{ color: "var(--ink-soft)" }}>防护键由每日轮换的源 IP HMAC 和粗粒度 User-Agent 类别组成。Token 只允许以 HMAC 指纹做短期关联，不记录或持久化原始 IP/Token。每次临时封禁 <code>5 分钟</code>后自动解除，不会升级。伪匿名计数和封禁事件最多保留 <code>7 天</code>；去标识聚合总数可保留 <code>30 天</code>，每日 <code>00:00 UTC</code> 轮换。</span>
       </div>
 
       <h2 id="tiers-permissions" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Tiers &amp; permissions</h2>

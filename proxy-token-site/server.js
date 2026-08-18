@@ -564,10 +564,10 @@ const PRODUCT_UPDATES = [
   {
     id: 'auth-abuse-protection-2026-08',
     date: '2026-08-18',
-    title: '认证滥用防护已启用：7/30 天隐私保留',
-    title_en: 'Invalid-token abuse protection is live: 7/30-day privacy retention',
-    body: 'REST 与 WebSocket 现在都会对重复无效 Token 采用 5 次/60 秒软限流、15 次/5 分钟临时封禁和 1 小时内 3 次封禁升级。伪匿名状态最多保留 7 天，去标识日聚合最多保留 30 天；原始 IP 与 Token 不记录、不持久化。',
-    body_en: 'REST and WebSocket authentication now apply a 5-per-60s soft throttle, a 15-per-5m temporary ban, and escalation after 3 bans within 1 hour. Pseudonymous state is retained for at most 7 days and identifier-free daily aggregates for at most 30 days; raw IPs and tokens are never logged or persisted.',
+    title: '认证滥用防护已启用：5 分钟临时封禁与 7/30 天隐私保留',
+    title_en: 'Invalid-token abuse protection is live: five-minute bans and 7/30-day privacy retention',
+    body: 'REST 与 WebSocket 现在都会对重复无效 Token 采用 5 次/60 秒软限流和 15 次/5 分钟触发、持续 5 分钟的临时封禁；封禁 5 分钟后自动解除，不会升级。伪匿名状态最多保留 7 天，去标识日聚合最多保留 30 天；原始 IP 与 Token 不记录、不持久化。',
+    body_en: 'REST and WebSocket authentication now apply a 5-per-60s soft throttle and a 15-per-5m trigger for a five-minute temporary ban; each ban expires automatically after five minutes and bans do not escalate. Pseudonymous state is retained for at most 7 days and identifier-free daily aggregates for at most 30 days; raw IPs and tokens are never logged or persisted.',
     tag: 'Security · Auth'
   },
   {
