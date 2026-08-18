@@ -1988,14 +1988,30 @@ function ProxyApiBody() {
       </p>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`# Option A — Authorization header (preferred)
-Authorization: Bearer c88662...720a
+Authorization: Bearer <TOKEN>
 
 # Option B — token field in request body
-{ "token": "c886624f-232d-4803-99fa-f8b970e4720a", "symbol": "AAPL", ... }`}
+{ "token": "<TOKEN>", "symbol": "AAPL", ... }`}
       </pre>
       <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 40px" }}>
         Tokens expire 30 days after issuance (trial: 3 days, non-renewable). The proxy returns <code>401</code> for invalid or expired tokens and <code>403</code> if your tier lacks permission for the endpoint.
       </p>
+
+      <h3 style={{ fontSize: 20, margin: "0 0 10px" }}>Invalid-token abuse protection (enabled runtime contract)</h3>
+      <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px", margin: "0 0 40px", fontSize: 13, lineHeight: 1.6 }}>
+        <strong>Runtime status: enabled on REST and WebSocket authentication.</strong> The limiter applies only to repeated invalid-token attempts; one expired or mistyped token is not a ban condition. REST returns <code>429</code> with <code>Retry-After</code>; WS returns a <code>429</code> control error with <code>retry_after_seconds</code> before closing the failed session.
+        <br/><span style={{ color: "var(--ink-soft)" }}>运行状态：REST 与 WebSocket 鉴权均已启用。仅对重复的无效 Token 尝试限流；一次过期或输入错误不会触发封禁。REST 返回带 <code>Retry-After</code> 的 <code>429</code>；WS 在关闭失败连接前返回带 <code>retry_after_seconds</code> 的 <code>429</code> 控制错误。</span>
+        <table className="tbl card" style={{ overflow: "hidden", margin: "12px 0" }}>
+          <thead><tr><th>Signal</th><th>Action</th><th>Scope</th></tr></thead>
+          <tbody>
+            <tr><td><code>5</code> invalid-token failures / <code>60s</code></td><td><code>429</code> soft throttle for <code>60s</code> with <code>Retry-After</code></td><td>abuse key</td></tr>
+            <tr><td><code>15</code> failures / <code>5m</code></td><td>temporary ban for <code>15m</code></td><td>abuse key</td></tr>
+            <tr><td><code>3</code> temporary bans / <code>1h</code></td><td>temporary ban for <code>60m</code> and operator review</td><td>abuse key</td></tr>
+          </tbody>
+        </table>
+        The abuse key uses a daily-rotated HMAC of the source IP plus a coarse User-Agent category. A presented token may be HMAC-fingerprinted for short-lived correlation, but raw IPs and raw tokens are never logged or persisted. Pseudonymous counters and ban events are retained for at most <code>7 days</code>; identifier-free aggregate totals may be retained for <code>30 days</code>. Rotation occurs at <code>00:00 UTC</code>.
+        <br/><span style={{ color: "var(--ink-soft)" }}>防护键由每日轮换的源 IP HMAC 和粗粒度 User-Agent 类别组成。Token 只允许以 HMAC 指纹做短期关联，不记录或持久化原始 IP/Token。伪匿名计数和封禁事件最多保留 <code>7 天</code>；去标识聚合总数可保留 <code>30 天</code>，每日 <code>00:00 UTC</code> 轮换。</span>
+      </div>
 
       <h2 id="tiers-permissions" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Tiers &amp; permissions</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -2134,7 +2150,7 @@ Authorization: Bearer c88662...720a
 // Response 200
 {
   "success": true,
-  "token":  "c886624f-232d-4803-99fa-f8b970e4720a",
+  "token":  "<TOKEN>",
   "expiry": "2026-06-19T14:15:57.059704+00:00",
   "role":   "premium"
 }
@@ -3056,7 +3072,7 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
 {
   "success": true,
   "message": "已批准 tonnysun，Token 已自动注册到 proxy。",
-  "token":  "c886624f-232d-4803-99fa-f8b970e4720a",
+  "token":  "<TOKEN>",
   "expiry": "2026-06-19T14:15:57.059Z"
 }`}
       </pre>

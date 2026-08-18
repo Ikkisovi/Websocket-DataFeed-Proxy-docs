@@ -58,7 +58,7 @@ Capture the HTTP status, response JSON, request ID header/body field, endpoint, 
 | `403` | Permission or request-policy rejection | Read the error body and account usage endpoint. Reduce the request or use an authorized endpoint; do not retry unchanged. |
 | `404` | Route or resource not found | Verify the exact documented path. A missing result is not proof that the symbol never existed. |
 | `408` | Request timeout | Retry a smaller date window with exponential backoff. |
-| `429` | Concurrency or rate limit | Stop parallel calls, honor `Retry-After`, then retry with exponential backoff and jitter. |
+| `429` | Invalid-token abuse protection, concurrency, or rate limit | If `error` is `invalid_token_rate_limited` or `invalid_token_temporarily_blocked`, stop retrying the unchanged credential, honor `Retry-After`, and obtain/verify a token first. For other `429` responses, stop parallel calls and retry with exponential backoff and jitter. |
 | `500` | Server error | Retry once after backoff; if repeated, record the request ID and report it. |
 | `502` | Temporary data-path failure | Retry a small known-valid request. If that works, reduce the original request and retry sequentially. Report repeated failures with request IDs. |
 | `503` | Service temporarily unavailable or overloaded | Do not change symbols or fabricate alternate parameters. Back off, retry a small health/known-valid request, then retry the original request later. |
@@ -69,6 +69,7 @@ Capture the HTTP status, response JSON, request ID header/body field, endpoint, 
 - Retry only `408`, `429`, `500`, `502`, `503`, and `504` automatically.
 - Use delays such as 1s, 2s, 4s, 8s plus random jitter, capped at five attempts.
 - Retry `400`, `401`, `403`, or route-level `404` only after correcting the request or credentials.
+- Never automatically retry an unchanged token after `invalid_token_rate_limited` or `invalid_token_temporarily_blocked`.
 - Never silently switch endpoints, symbol formats, dates, or granularities to make a request appear successful.
 
 ## Report results

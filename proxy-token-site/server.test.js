@@ -891,12 +891,16 @@ describe('Product updates and account-scoped feedback', () => {
   it('serves public update entries and requires account auth for feedback', async () => {
     const updates = await request(app).get('/api/product-updates');
     expect(updates.statusCode).toBe(200);
-    expect(updates.body.updates[0]).toMatchObject({
-      id: 'ws-symbol-error-isolation-2026-08',
-      date: '2026-08-06'
-    });
-    expect(updates.body.updates[0].title).toContain('逐 symbol');
     expect(updates.body.updates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'ws-symbol-error-isolation-2026-08',
+        date: '2026-08-06',
+        title: expect.stringContaining('逐 symbol')
+      }),
+      expect.objectContaining({
+        title: expect.stringContaining('认证滥用防护'),
+        body: expect.stringContaining('7 天')
+      }),
       expect.objectContaining({
         title: expect.stringContaining('Index options'),
         body: expect.stringContaining('SPX / SPXW')
