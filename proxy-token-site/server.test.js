@@ -25,13 +25,17 @@ process.env.EMAIL_CODE_RESEND_COOLDOWN_MS = '0';
 const mockSendMail = jest.fn().mockResolvedValue({ messageId: 'mock' });
 
 const request = require('supertest');
+const server = require('./server');
 const {
   app,
   TIERS,
   computeExpiry,
   getLastTestVerificationEmail,
-  clearTestVerificationEmails
-} = require('./server');
+  clearTestVerificationEmails,
+  __resetUsageAggregatorForTest,
+  __refreshUsageAggregatorForTest,
+  __setUsageAggregatorTestHooks
+} = server;
 
 const USERS_FILE = path.join(TEST_DATA_DIR, 'users.json');
 const PENDING_FILE = path.join(TEST_DATA_DIR, 'pending.json');
@@ -3354,5 +3358,332 @@ describe('Admin announce API', () => {
     expect(res.statusCode).toBe(422);
     expect(res.body.error).toBe('no_recipients');
     expect(mockSendMail).not.toHaveBeenCalled();
+  });
+});
+
+describe('Admin usage monitoring API', () => {
+  let adminToken;
+
+  const USAGE_LOG = path.join(TEST_DIR, 'usage-monitor.jsonl');
+  const USAGE_EVENTS = [
+    {
+      event: 'http_request', request_id: 'r1', route: '/v1/history/bars', method: 'POST',
+      user_id: 'usage_free_a', user_role: 'free', status: 200, cache_status: 'HIT',
+      data_source: 'hot_cache', upstream_provider: 'alpaca', bytes_in: 10,
+      bytes_out_hint: 1000, latency_ms: 5, error: null,
+      timestamp: new Date(Date.now() - 3600000).toISOString()
+    },
+    {
+      event: 'http_request', request_id: 'r2', route: '/v1/history/bars', method: 'POST',
+      user_id: 'usage_free_a', user_role: 'free', status: 429, cache_status: 'MISS',
+      data_source: 'upstream', upstream_provider: 'alpaca', bytes_in: 10,
+      bytes_out_hint: 50, latency_ms: 5, error: 'rate_limited',
+      timestamp: new Date(Date.now() - 7200000).toISOString()
+    },
+    {
+      event: 'ws_session', user_id: 'usage_premium_b', user_role: 'premium', mode: 'stocks',
+      status: 200, subject_count: 3, frames_out: 42, bytes_in: 1,
+      bytes_out_hint: 2048, connection_seconds: 60,
+      termination_cause: 'peer_normal_close',
+      timestamp: new Date().toISOString()
+    }
+  ];
+
+  const writeUsageFixtureUsers = () => {
+    fs.writeFileSync(USERS_FILE, JSON.stringify([
+      {
+        username: 'usage_free_a', phone: '15120992482', email: 'a@example.com',
+        tier: 'free', registered_at: '2026-08-01T00:00:00Z', account_id: 'usage_free_a'
+      },
+      {
+        username: 'usage_premium_b', phone: '18600000000', tier: 'premium',
+        registered_at: '2026-08-02T00:00:00Z', account_id: 'usage_premium_b'
+      }
+    ]));
+    fs.writeFileSync(PENDING_FILE, JSON.stringify([]));
+  };
+
+  const usageEvent = (overrides = {}) => ({
+    event: 'http_request',
+    request_id: 'usage-test',
+    route: '/v1/test',
+    method: 'GET',
+    user_id: 'usage_free_a',
+    user_role: 'free',
+    status: 200,
+    bytes_out_hint: 1,
+    timestamp: new Date().toISOString(),
+    ...overrides
+  });
+
+  const overview = () => request(app)
+    .get('/api/admin/usage/overview')
+    .set('x-admin-token', adminToken);
+
+  beforeAll(async () => {
+    process.env.USAGE_LOG_PATH = USAGE_LOG;
+    const login = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    adminToken = login.body.token;
+  });
+
+  // The file-level resetTestData() empties portal data before every test.
+  // Reset the append-only log and its reader state too, so each regression has
+  // a deterministic snapshot boundary.
+  beforeEach(() => {
+    fs.writeFileSync(USAGE_LOG, USAGE_EVENTS.map(e => JSON.stringify(e)).join('\n') + '\n');
+    __resetUsageAggregatorForTest();
+    writeUsageFixtureUsers();
+  });
+
+  afterAll(() => {
+    delete process.env.USAGE_LOG_PATH;
+    __resetUsageAggregatorForTest();
+  });
+
+  test('requires admin auth on every usage endpoint', async () => {
+    for (const pathName of [
+      '/api/admin/usage/overview',
+      '/api/admin/usage/user?id=usage_free_a',
+      '/api/admin/users/search?q=15120992482'
+    ]) {
+      const res = await request(app).get(pathName);
+      expect(res.statusCode).toBe(401);
+    }
+  });
+
+  test('overview aggregates http and ws usage with registry join', async () => {
+    const res = await request(app)
+      .get('/api/admin/usage/overview')
+      .set('x-admin-token', adminToken);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.log_available).toBe(true);
+    expect(res.body.totals.requests_today_utc).toBe(2);
+    expect(res.body.totals.ws_sessions_7d_utc).toBe(1);
+    expect(res.body.totals.errors_7d_utc).toBe(1);
+    const freeRow = res.body.users.find(u => u.user_id === 'usage_free_a');
+    expect(freeRow.requests_today_utc).toBe(2);
+    expect(freeRow.errors_7d_utc).toBe(1);
+    const premiumRow = res.body.users.find(u => u.user_id === 'usage_premium_b');
+    expect(premiumRow.ws_sessions_7d_utc).toBe(1);
+    // recent registrations include the portal users joined with registry roles
+    const regA = res.body.recent_registrations.find(r => r.username === 'usage_free_a');
+    expect(regA).toBeTruthy();
+    expect(regA.phone).toBe('15120992482');
+  });
+
+  test('search finds a user by phone number, username, and email', async () => {
+    for (const query of ['15120992482', 'usage_free_a', 'a@example.com']) {
+      const res = await request(app)
+        .get(`/api/admin/users/search?q=${encodeURIComponent(query)}`)
+        .set('x-admin-token', adminToken);
+      expect(res.statusCode).toBe(200);
+      expect(res.body.count).toBe(1);
+      expect(res.body.items[0].user_id).toBe('usage_free_a');
+      expect(res.body.items[0].usage.requests_today_utc).toBe(2);
+    }
+  });
+
+  test('user detail returns daily series and routes without tokens', async () => {
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({ users: [{
+      user_id: 'usage_free_a',
+      role: 'free',
+      token: 'registry-secret-token',
+      secret_registry_field: 'must-not-leak'
+    }] }));
+    const res = await request(app)
+      .get('/api/admin/usage/user?id=usage_free_a')
+      .set('x-admin-token', adminToken);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.user_id).toBe('usage_free_a');
+    expect(res.body.daily_14d).toHaveLength(14);
+    expect(res.body.top_routes[0].route).toBe('/v1/history/bars');
+    expect(JSON.stringify(res.body)).not.toContain('registry-secret-token');
+    expect(JSON.stringify(res.body)).not.toContain('must-not-leak');
+  });
+
+  test('user detail returns 404 for unknown user', async () => {
+    const res = await request(app)
+      .get('/api/admin/usage/user?id=nobody_here')
+      .set('x-admin-token', adminToken);
+    expect(res.statusCode).toBe(404);
+  });
+
+  test('user detail rejects missing id', async () => {
+    const res = await request(app)
+      .get('/api/admin/usage/user')
+      .set('x-admin-token', adminToken);
+    expect(res.statusCode).toBe(400);
+  });
+
+  test('full reload picks up appended events', async () => {
+    const appended = {
+      event: 'http_request', request_id: 'r3', route: '/v2/stocks/AAPL/snapshot',
+      method: 'GET', user_id: 'usage_free_a', user_role: 'free', status: 200,
+      cache_status: 'BYPASS', data_source: 'stream_passthrough', bytes_in: 0,
+      bytes_out_hint: 500, latency_ms: 9, error: null,
+      timestamp: new Date().toISOString()
+    };
+    fs.appendFileSync(USAGE_LOG, JSON.stringify(appended) + '\n');
+    __resetUsageAggregatorForTest();
+    const res = await request(app)
+      .get('/api/admin/usage/overview')
+      .set('x-admin-token', adminToken);
+    expect(res.statusCode).toBe(200);
+    const freeRow = res.body.users.find(u => u.user_id === 'usage_free_a');
+    expect(freeRow.requests_today_utc).toBe(3);
+  });
+
+  test('does not consume an unterminated EOF fragment and ingests it once after its newline arrives', async () => {
+    const first = usageEvent({ user_id: 'partial_first', timestamp: new Date().toISOString() });
+    const second = usageEvent({ user_id: 'partial_second', timestamp: new Date().toISOString() });
+    fs.writeFileSync(USAGE_LOG, `${JSON.stringify(first)}\n${JSON.stringify(second)}`);
+    __resetUsageAggregatorForTest();
+
+    let res = await overview();
+    expect(res.body.users.map(row => row.user_id)).toEqual(['partial_first']);
+    expect(res.body.log_coverage.retained_events).toBe(1);
+    expect(res.body.log_coverage.trailing_fragment_bytes).toBeGreaterThan(0);
+
+    fs.appendFileSync(USAGE_LOG, '\n');
+    await __refreshUsageAggregatorForTest();
+    res = await overview();
+    expect(res.body.users.map(row => row.user_id).sort()).toEqual(['partial_first', 'partial_second']);
+    expect(res.body.log_coverage.retained_events).toBe(2);
+  });
+
+  test('scans only the fixed snapshot boundary when a writer appends concurrently', async () => {
+    await overview();
+    const atSnapshot = usageEvent({ user_id: 'snapshot_user', timestamp: new Date().toISOString() });
+    const afterSnapshot = usageEvent({ user_id: 'after_snapshot_user', timestamp: new Date().toISOString() });
+    fs.appendFileSync(USAGE_LOG, `${JSON.stringify(atSnapshot)}\n`);
+    __setUsageAggregatorTestHooks({
+      afterSnapshot: () => {
+        fs.appendFileSync(USAGE_LOG, `${JSON.stringify(afterSnapshot)}\n`);
+        __setUsageAggregatorTestHooks(null);
+      }
+    });
+
+    await __refreshUsageAggregatorForTest();
+    let res = await overview();
+    expect(res.body.users.find(row => row.user_id === 'snapshot_user')).toBeTruthy();
+    expect(res.body.users.find(row => row.user_id === 'after_snapshot_user')).toBeFalsy();
+
+    await __refreshUsageAggregatorForTest();
+    res = await overview();
+    expect(res.body.users.find(row => row.user_id === 'after_snapshot_user')).toBeTruthy();
+  });
+
+  test('inode replacement resets coverage and aggregates before a full reload', async () => {
+    await overview();
+    const rotated = `${USAGE_LOG}.rotated`;
+    const replacement = usageEvent({ user_id: 'rotated_user', timestamp: new Date().toISOString() });
+    fs.writeFileSync(rotated, `${JSON.stringify(replacement)}\n`);
+    fs.renameSync(rotated, USAGE_LOG);
+
+    await __refreshUsageAggregatorForTest();
+    const res = await overview();
+    expect(res.body.users.map(row => row.user_id)).toEqual(['rotated_user']);
+    expect(res.body.log_coverage.retained_events).toBe(1);
+  });
+
+  test('truncation resets coverage and aggregates before a full reload', async () => {
+    await overview();
+    const replacement = usageEvent({ user_id: 'truncated_user', timestamp: new Date().toISOString() });
+    fs.writeFileSync(USAGE_LOG, `${JSON.stringify(replacement)}\n`);
+
+    await __refreshUsageAggregatorForTest();
+    const res = await overview();
+    expect(res.body.users.map(row => row.user_id)).toEqual(['truncated_user']);
+    expect(res.body.log_coverage.retained_events).toBe(1);
+  });
+
+  test('prunes users, roles, routes, recent events, coverage, and counters as the 35-day window advances', async () => {
+    const nowMs = Date.now();
+    const retained = usageEvent({
+      user_id: 'retention_user',
+      user_role: 'premium',
+      route: '/v1/retained',
+      timestamp: new Date(nowMs - 34 * 86400000).toISOString()
+    });
+    fs.writeFileSync(USAGE_LOG, `${JSON.stringify(retained)}\n`);
+    __resetUsageAggregatorForTest();
+
+    let res = await overview();
+    expect(res.body.users.find(row => row.user_id === 'retention_user').roles).toEqual(['premium']);
+    expect(res.body.log_coverage.retained_events).toBe(1);
+
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(nowMs + 2 * 86400000);
+    await __refreshUsageAggregatorForTest();
+    nowSpy.mockRestore();
+
+    res = await overview();
+    expect(res.body.users.find(row => row.user_id === 'retention_user')).toBeFalsy();
+    expect(res.body.totals.requests_30d_utc).toBe(0);
+    expect(res.body.log_coverage.retained_events).toBe(0);
+    const detail = await request(app)
+      .get('/api/admin/usage/user?id=retention_user')
+      .set('x-admin-token', adminToken);
+    expect(detail.statusCode).toBe(404);
+  });
+
+  test('reuses an in-flight refresh promise even after more than one minute', async () => {
+    let release;
+    let snapshots = 0;
+    const waitForRelease = new Promise(resolve => { release = resolve; });
+    __setUsageAggregatorTestHooks({
+      afterSnapshot: async () => {
+        snapshots += 1;
+        await waitForRelease;
+      }
+    });
+
+    const first = __refreshUsageAggregatorForTest();
+    await Promise.resolve();
+    const originalNow = Date.now();
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(originalNow + 61000);
+    const second = __refreshUsageAggregatorForTest();
+    expect(second).toBe(first);
+    expect(snapshots).toBe(1);
+    release();
+    await first;
+    nowSpy.mockRestore();
+  });
+
+  test('uses explicit UTC calendar-day windows and counts WS-only users as active', async () => {
+    const now = new Date();
+    const todayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const eventAtDay = (daysAgo, userId, event = 'http_request') => usageEvent({
+      event,
+      user_id: userId,
+      route: event === 'http_request' ? '/v1/window' : undefined,
+      mode: event === 'ws_session' ? 'stocks' : undefined,
+      timestamp: new Date(todayStart - daysAgo * 86400000 + 12 * 3600000).toISOString()
+    });
+    const events = [
+      eventAtDay(0, 'window_http'),
+      eventAtDay(6, 'window_http'),
+      eventAtDay(7, 'window_http'),
+      eventAtDay(29, 'window_http'),
+      eventAtDay(30, 'window_http'),
+      eventAtDay(0, 'window_ws_only', 'ws_session')
+    ];
+    fs.writeFileSync(USAGE_LOG, `${events.map(event => JSON.stringify(event)).join('\n')}\n`);
+    __resetUsageAggregatorForTest();
+
+    const res = await overview();
+    const http = res.body.users.find(row => row.user_id === 'window_http');
+    expect(http.requests_today_utc).toBe(1);
+    expect(http.requests_7d_utc).toBe(2);
+    expect(http.requests_30d_utc).toBe(4);
+    expect(res.body.active_users).toEqual({
+      today_utc: 2,
+      last_7_utc_days: 2,
+      last_30_utc_days: 2
+    });
+    const source = fs.readFileSync(path.join(__dirname, 'public', 'admin.html'), 'utf8');
+    expect(source).toContain('今天（UTC）');
+    expect(source).toContain('近 7 天（UTC）');
+    expect(source).not.toContain('HTTP 请求 24h');
   });
 });

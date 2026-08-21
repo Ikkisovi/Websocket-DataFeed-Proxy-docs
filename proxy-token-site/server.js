@@ -5062,6 +5062,661 @@ app.post('/api/admin/sync-users', requireAdmin, async (req, res) => {
 });
 
 // ============================================================
+// ADMIN: Usage monitoring (per-user request/WS usage from the
+// shared REST+WS usage.jsonl log; read-only, never exposes tokens)
+// ============================================================
+
+const USAGE_LOG_PATH = () => process.env.USAGE_LOG_PATH
+  || '/var/log/leandata-v2/usage.jsonl';
+const USAGE_RETENTION_DAYS = 35;
+const USAGE_REFRESH_MIN_INTERVAL_MS = 15000;
+const USAGE_MAX_ROUTES_PER_USER = 128;
+const USAGE_MAX_RECENT_EVENTS = 5000;
+const USAGE_MAX_PARTIAL_LINE_BYTES = 1024 * 1024;
+
+function usageDayKey(value) {
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function utcDayStartMs(value) {
+  const date = new Date(value);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+function usageRetentionStartMs(nowMs = Date.now()) {
+  return utcDayStartMs(nowMs) - (USAGE_RETENTION_DAYS - 1) * 86400000;
+}
+
+function usageWindowStartDay(nowMs, days) {
+  return usageDayKey(utcDayStartMs(nowMs) - (days - 1) * 86400000);
+}
+
+function compactUsageEvent(entry, eventMs) {
+  return {
+    user_id: entry.user_id || 'anonymous',
+    t: entry.timestamp,
+    m: eventMs,
+    ev: entry.event,
+    route: entry.route || undefined,
+    mode: entry.mode || undefined,
+    status: entry.status,
+    b_out: entry.bytes_out_hint || 0
+  };
+}
+
+function createUsageUserState() {
+  return {
+    lastSeenMs: 0,
+    dailyEvents: new Map(),
+    roles: new Map(),
+    dailyHttp: new Map(),
+    dailyBytesOut: new Map(),
+    dailyErrors: new Map(),
+    dailyWsSessions: new Map(),
+    routes: new Map()
+  };
+}
+
+const usageAggregator = (() => {
+  let state = null; // { offset, inode, users: Map, recentEvents: Array }
+  let refreshCompletedAt = 0;
+  let refreshPromise = null;
+  let testHooks = null;
+
+  function parseTimestamp(value) {
+    const ms = Date.parse(value);
+    return Number.isFinite(ms) ? ms : 0;
+  }
+
+  function addDayValue(map, day, value) {
+    map.set(day, (map.get(day) || 0) + value);
+  }
+
+  function addNestedDayValue(map, key, day, value) {
+    let buckets = map.get(key);
+    if (!buckets) {
+      buckets = new Map();
+      map.set(key, buckets);
+    }
+    addDayValue(buckets, day, value);
+  }
+
+  function nestedTotal(buckets) {
+    let total = 0;
+    for (const value of buckets.values()) total += value;
+    return total;
+  }
+
+  function evictLeastUsedRoute(routes) {
+    let leastRoute = null;
+    let leastCount = Infinity;
+    for (const [route, buckets] of routes) {
+      const count = nestedTotal(buckets);
+      if (count < leastCount || (count === leastCount && (leastRoute === null || route < leastRoute))) {
+        leastRoute = route;
+        leastCount = count;
+      }
+    }
+    if (leastRoute !== null) routes.delete(leastRoute);
+  }
+
+  function addUserEvent(users, entry, eventMs) {
+    const userId = entry.user_id || 'anonymous';
+    let user = users.get(userId);
+    if (!user) {
+      user = createUsageUserState();
+      users.set(userId, user);
+    }
+    const day = usageDayKey(new Date(eventMs));
+    const isHttp = entry.event === 'http_request';
+    const isWsSession = entry.event === 'ws_session';
+    const bytesOut = Number(entry.bytes_out_hint) || 0;
+    const isError = typeof entry.status === 'number' && entry.status >= 400;
+
+    const activity = user.dailyEvents.get(day) || { events: 0, firstMs: eventMs, lastMs: eventMs };
+    activity.events += 1;
+    activity.firstMs = Math.min(activity.firstMs, eventMs);
+    activity.lastMs = Math.max(activity.lastMs, eventMs);
+    user.dailyEvents.set(day, activity);
+
+    const role = entry.user_role || 'unknown';
+    if (role !== 'unknown') addNestedDayValue(user.roles, role, day, 1);
+    if (eventMs > user.lastSeenMs) user.lastSeenMs = eventMs;
+    addDayValue(user.dailyBytesOut, day, bytesOut);
+
+    if (isHttp) {
+      addDayValue(user.dailyHttp, day, 1);
+      if (isError) addDayValue(user.dailyErrors, day, 1);
+      const route = String(entry.route || 'unknown');
+      if (!user.routes.has(route) && user.routes.size >= USAGE_MAX_ROUTES_PER_USER) {
+        evictLeastUsedRoute(user.routes);
+      }
+      addNestedDayValue(user.routes, route, day, 1);
+    } else if (isWsSession) {
+      addDayValue(user.dailyWsSessions, day, 1);
+    }
+  }
+
+  function ingestLine(line, users, nowMs) {
+    const trimmed = line.toString('utf8').trim();
+    if (!trimmed) return null;
+    let entry;
+    try {
+      entry = JSON.parse(trimmed);
+    } catch {
+      return { parseError: true };
+    }
+    if (!entry || typeof entry !== 'object') return { parseError: true };
+    const eventMs = parseTimestamp(entry.timestamp);
+    if (!eventMs || eventMs < usageRetentionStartMs(nowMs)) return { skippedOld: true };
+    addUserEvent(users, entry, eventMs);
+    return { eventMs, event: compactUsageEvent(entry, eventMs) };
+  }
+
+  async function scanSnapshot(fd, start, snapshotSize, users, recentEvents, nowMs) {
+    if (start >= snapshotSize) return { offset: start, trailingFragmentBytes: 0, partialTooLarge: false };
+    const stream = fs.createReadStream(null, {
+      fd,
+      autoClose: false,
+      start,
+      end: snapshotSize - 1
+    });
+    let pending = Buffer.alloc(0);
+    let pendingStart = start;
+    let partialTooLarge = false;
+    for await (const chunk of stream) {
+      const buffer = pending.length ? Buffer.concat([pending, chunk]) : chunk;
+      let consumed = 0;
+      for (let newline = buffer.indexOf(0x0a, consumed);
+        newline !== -1;
+        newline = buffer.indexOf(0x0a, consumed)) {
+        const result = ingestLine(buffer.subarray(consumed, newline), users, nowMs);
+        if (result && result.event) recentEvents.push(result.event);
+        consumed = newline + 1;
+      }
+      pending = buffer.subarray(consumed);
+      pendingStart += consumed;
+      // Only newline-terminated records advance the offset. A final fragment is
+      // reread after its newline arrives, never parsed or skipped at EOF.
+      if (pending.length > USAGE_MAX_PARTIAL_LINE_BYTES) {
+        partialTooLarge = true;
+        stream.destroy();
+        break;
+      }
+    }
+    return {
+      offset: pendingStart,
+      trailingFragmentBytes: pending.length,
+      partialTooLarge
+    };
+  }
+
+  function createUsageState(inode) {
+    return {
+      offset: 0,
+      inode,
+      users: new Map(),
+      recentEvents: [],
+      trailingFragmentBytes: 0,
+      partialTooLarge: false
+    };
+  }
+
+  function pruneDayMap(map, firstDay) {
+    for (const day of map.keys()) {
+      if (day < firstDay) map.delete(day);
+    }
+  }
+
+  function pruneNestedDayMap(map, firstDay) {
+    for (const [key, buckets] of map) {
+      pruneDayMap(buckets, firstDay);
+      if (!buckets.size) map.delete(key);
+    }
+  }
+
+  function pruneState(nowMs = Date.now()) {
+    if (!state) return;
+    const firstDay = usageDayKey(usageRetentionStartMs(nowMs));
+    for (const [userId, user] of state.users) {
+      pruneDayMap(user.dailyEvents, firstDay);
+      pruneDayMap(user.dailyHttp, firstDay);
+      pruneDayMap(user.dailyBytesOut, firstDay);
+      pruneDayMap(user.dailyErrors, firstDay);
+      pruneDayMap(user.dailyWsSessions, firstDay);
+      pruneNestedDayMap(user.roles, firstDay);
+      pruneNestedDayMap(user.routes, firstDay);
+      if (!user.dailyEvents.size) {
+        state.users.delete(userId);
+        continue;
+      }
+      user.lastSeenMs = 0;
+      for (const activity of user.dailyEvents.values()) {
+        user.lastSeenMs = Math.max(user.lastSeenMs, activity.lastMs);
+      }
+    }
+    state.recentEvents = state.recentEvents
+      .filter(event => event.m >= usageRetentionStartMs(nowMs))
+      .slice(-USAGE_MAX_RECENT_EVENTS);
+  }
+
+  function openUsageSnapshot(logPath) {
+    const fd = fs.openSync(logPath, 'r');
+    try {
+      return { fd, stat: fs.fstatSync(fd) };
+    } catch (err) {
+      fs.closeSync(fd);
+      throw err;
+    }
+  }
+
+  async function fullReload(fd, stat, nowMs) {
+    // A new inode or smaller file starts with fresh aggregates and coverage.
+    const fresh = createUsageState(stat.ino);
+    state = fresh;
+    const summary = await scanSnapshot(fd, 0, stat.size, fresh.users, fresh.recentEvents, nowMs);
+    fresh.offset = summary.offset;
+    fresh.trailingFragmentBytes = summary.trailingFragmentBytes;
+    fresh.partialTooLarge = summary.partialTooLarge;
+    pruneState(nowMs);
+  }
+
+  async function refreshNow() {
+    const logPath = USAGE_LOG_PATH();
+    let snapshot;
+    try {
+      snapshot = openUsageSnapshot(logPath);
+    } catch {
+      state = null; // log unavailable (e.g. local dev without the mount)
+      return;
+    }
+    try {
+      if (testHooks && typeof testHooks.afterSnapshot === 'function') {
+        await testHooks.afterSnapshot({ path: logPath, size: snapshot.stat.size, inode: snapshot.stat.ino });
+      }
+      const nowMs = Date.now();
+      if (!state || state.inode !== snapshot.stat.ino || snapshot.stat.size < state.offset) {
+        await fullReload(snapshot.fd, snapshot.stat, nowMs);
+        return;
+      }
+      if (snapshot.stat.size > state.offset) {
+        const summary = await scanSnapshot(
+          snapshot.fd, state.offset, snapshot.stat.size, state.users, state.recentEvents, nowMs
+        );
+        state.offset = summary.offset;
+        state.trailingFragmentBytes = summary.trailingFragmentBytes;
+        state.partialTooLarge = summary.partialTooLarge;
+      }
+      pruneState(nowMs);
+
+      // Appends beyond the original boundary are deliberately left for the
+      // next refresh. A replacement or truncation is different: discard this
+      // snapshot's aggregates and immediately rebuild from a fresh empty state.
+      let currentPathStat;
+      try {
+        currentPathStat = fs.statSync(logPath);
+      } catch {
+        state = null;
+        return;
+      }
+      if (currentPathStat.ino !== snapshot.stat.ino || currentPathStat.size < snapshot.stat.size) {
+        const replacement = openUsageSnapshot(logPath);
+        try {
+          await fullReload(replacement.fd, replacement.stat, Date.now());
+        } finally {
+          fs.closeSync(replacement.fd);
+        }
+      }
+    } finally {
+      fs.closeSync(snapshot.fd);
+    }
+  }
+
+  function ensureFresh(maxAgeMs = USAGE_REFRESH_MIN_INTERVAL_MS) {
+    if (refreshPromise) return refreshPromise;
+    const nowMs = Date.now();
+    if (state && nowMs - refreshCompletedAt < maxAgeMs) {
+      pruneState(nowMs);
+      return Promise.resolve();
+    }
+    refreshPromise = refreshNow().catch((err) => {
+      console.error('Usage log refresh error:', err.message);
+    }).finally(() => {
+      refreshCompletedAt = Date.now();
+      refreshPromise = null;
+    });
+    return refreshPromise;
+  }
+
+  function sumCalendarDays(map, firstDay) {
+    let total = 0;
+    for (const [day, value] of map) {
+      if (day >= firstDay) total += value;
+    }
+    return total;
+  }
+
+  function activeRoles(user) {
+    return [...user.roles.keys()];
+  }
+
+  function windowCounts(user, nowMs) {
+    const today = usageWindowStartDay(nowMs, 1);
+    const days7 = usageWindowStartDay(nowMs, 7);
+    const days30 = usageWindowStartDay(nowMs, 30);
+    return {
+      requests_today_utc: sumCalendarDays(user.dailyHttp, today),
+      requests_7d_utc: sumCalendarDays(user.dailyHttp, days7),
+      requests_30d_utc: sumCalendarDays(user.dailyHttp, days30),
+      ws_sessions_today_utc: sumCalendarDays(user.dailyWsSessions, today),
+      ws_sessions_7d_utc: sumCalendarDays(user.dailyWsSessions, days7),
+      ws_sessions_30d_utc: sumCalendarDays(user.dailyWsSessions, days30),
+      bytes_out_7d_utc: sumCalendarDays(user.dailyBytesOut, days7),
+      errors_7d_utc: sumCalendarDays(user.dailyErrors, days7)
+    };
+  }
+
+  function publicUserRow(userId, user, nowMs) {
+    return {
+      user_id: userId,
+      roles: activeRoles(user),
+      last_seen: user.lastSeenMs ? new Date(user.lastSeenMs).toISOString() : null,
+      ...windowCounts(user, nowMs)
+    };
+  }
+
+  function retainedCoverage() {
+    if (!state) return null;
+    let firstTs = 0;
+    let lastTs = 0;
+    let retainedEvents = 0;
+    for (const user of state.users.values()) {
+      for (const activity of user.dailyEvents.values()) {
+        retainedEvents += activity.events;
+        if (!firstTs || activity.firstMs < firstTs) firstTs = activity.firstMs;
+        if (activity.lastMs > lastTs) lastTs = activity.lastMs;
+      }
+    }
+    return {
+      first_ts: firstTs ? new Date(firstTs).toISOString() : null,
+      last_ts: lastTs ? new Date(lastTs).toISOString() : null,
+      retained_events: retainedEvents,
+      retention_utc_calendar_days: USAGE_RETENTION_DAYS,
+      trailing_fragment_bytes: state.trailingFragmentBytes,
+      partial_fragment_too_large: state.partialTooLarge
+    };
+  }
+
+  return {
+    ensureFresh,
+    isAvailable: () => Boolean(state),
+    coverage: () => {
+      pruneState();
+      return retainedCoverage();
+    },
+    allUsers: () => {
+      pruneState();
+      return state ? state.users : new Map();
+    },
+    publicUsers: () => {
+      const nowMs = Date.now();
+      pruneState(nowMs);
+      const rows = [];
+      if (state) {
+        for (const [userId, user] of state.users) {
+          if (userId === 'anonymous') continue; // auth failures without identity
+          rows.push(publicUserRow(userId, user, nowMs));
+        }
+      }
+      rows.sort((a, b) => b.requests_7d_utc - a.requests_7d_utc
+        || b.ws_sessions_7d_utc - a.ws_sessions_7d_utc
+        || (b.last_seen || '').localeCompare(a.last_seen || ''));
+      return rows;
+    },
+    totals: () => {
+      const nowMs = Date.now();
+      pruneState(nowMs);
+      const totals = createUsageUserState();
+      if (state) {
+        for (const user of state.users.values()) {
+          for (const [day, value] of user.dailyHttp) addDayValue(totals.dailyHttp, day, value);
+          for (const [day, value] of user.dailyWsSessions) addDayValue(totals.dailyWsSessions, day, value);
+          for (const [day, value] of user.dailyBytesOut) addDayValue(totals.dailyBytesOut, day, value);
+          for (const [day, value] of user.dailyErrors) addDayValue(totals.dailyErrors, day, value);
+        }
+      }
+      return publicUserRow('__total__', totals, nowMs);
+    },
+    userDetail: (userId) => {
+      if (!state) return null;
+      const nowMs = Date.now();
+      pruneState(nowMs);
+      const user = state.users.get(userId);
+      if (!user) return null;
+      const days = [];
+      for (let i = 13; i >= 0; i -= 1) {
+        const day = usageDayKey(utcDayStartMs(nowMs) - i * 86400000);
+        days.push({
+          date: day,
+          http: user.dailyHttp.get(day) || 0,
+          ws_sessions: user.dailyWsSessions.get(day) || 0,
+          bytes_out: user.dailyBytesOut.get(day) || 0,
+          errors: user.dailyErrors.get(day) || 0
+        });
+      }
+      const routes = [...user.routes.entries()]
+        .map(([route, buckets]) => ({ route, count: nestedTotal(buckets) }))
+        .sort((a, b) => b.count - a.count || a.route.localeCompare(b.route))
+        .slice(0, 12)
+        ;
+      const recentEvents = state.recentEvents
+        .filter(event => event.user_id === userId)
+        .sort((a, b) => b.m - a.m)
+        .slice(0, 20)
+        .map(({ user_id, m, ...event }) => event);
+      return {
+        user_id: userId,
+        roles: activeRoles(user),
+        ...windowCounts(user, nowMs),
+        daily_14d: days,
+        top_routes: routes,
+        recent_events: recentEvents
+      };
+    },
+    __resetForTest: () => {
+      state = null;
+      refreshCompletedAt = 0;
+      refreshPromise = null;
+      testHooks = null;
+    },
+    __setTestHooks: (hooks) => { testHooks = hooks || null; }
+  };
+})();
+
+function readRegistryUsersSafe() {
+  try {
+    const data = readJSON(PROXY_USERS_FILE, { users: [] });
+    return Array.isArray(data.users) ? data.users : [];
+  } catch {
+    return [];
+  }
+}
+
+function registryRoleCounts(registryUsers) {
+  const counts = {};
+  let expired = 0;
+  const nowMs = Date.now();
+  for (const user of registryUsers) {
+    const role = user.role || 'unknown';
+    counts[role] = (counts[role] || 0) + 1;
+    const expiresMs = user.expires_at ? Date.parse(user.expires_at) : NaN;
+    if (Number.isFinite(expiresMs) && expiresMs < nowMs) expired += 1;
+  }
+  return { counts, expired };
+}
+
+app.get('/api/admin/usage/overview', requireAdmin, async (_req, res) => {
+  await usageAggregator.ensureFresh();
+  const registryUsers = readRegistryUsersSafe();
+  const roleInfo = registryRoleCounts(registryUsers);
+  const registryById = new Map(registryUsers.map(u => [u.user_id, u]));
+
+  // Recent registrations: approved portal accounts plus pending history.
+  const portalUsers = readJSON(USERS_FILE, []);
+  const pendingItems = readJSON(PENDING_FILE, []);
+  const registrations = [
+    ...portalUsers.map(u => ({
+      username: u.username,
+      account_id: u.account_id || u.username,
+      phone: u.phone,
+      email: u.email || undefined,
+      tier: u.tier || u.role,
+      registered_at: u.registered_at,
+      status: 'approved',
+      source: 'users'
+    })),
+    ...pendingItems.map(p => ({
+      username: p.username,
+      account_id: p.account_id || p.username,
+      phone: p.phone,
+      email: p.email || undefined,
+      tier: p.tier,
+      registered_at: p.registered_at,
+      status: p.status,
+      type: p.type || 'registration',
+      source: 'pending'
+    }))
+  ];
+  registrations.sort((a, b) => String(b.registered_at || '').localeCompare(String(a.registered_at || '')));
+  const recentRegistrations = registrations.slice(0, 12).map(item => {
+    const registryEntry = registryById.get(item.account_id);
+    return {
+      ...item,
+      role: registryEntry ? registryEntry.role : undefined,
+      expires_at: registryEntry ? registryEntry.expires_at : undefined
+    };
+  });
+
+  const usageRows = usageAggregator.publicUsers();
+  const nowMs = Date.now();
+  const activeUsers = { today_utc: 0, last_7_utc_days: 0, last_30_utc_days: 0 };
+  for (const row of usageRows) {
+    if (row.requests_today_utc > 0 || row.ws_sessions_today_utc > 0) activeUsers.today_utc += 1;
+    if (row.requests_7d_utc > 0 || row.ws_sessions_7d_utc > 0) activeUsers.last_7_utc_days += 1;
+    if (row.requests_30d_utc > 0 || row.ws_sessions_30d_utc > 0) activeUsers.last_30_utc_days += 1;
+  }
+
+  return res.json({
+    success: true,
+    generated_at: new Date(nowMs).toISOString(),
+    log_available: usageAggregator.isAvailable(),
+    log_coverage: usageAggregator.coverage(),
+    registry: {
+      total: registryUsers.length,
+      expired: roleInfo.expired,
+      roles: roleInfo.counts
+    },
+    active_users: activeUsers,
+    totals: usageAggregator.totals(),
+    users: usageRows.slice(0, 200),
+    recent_registrations: recentRegistrations
+  });
+});
+
+app.get('/api/admin/usage/user', requireAdmin, async (req, res) => {
+  const userId = String(req.query.id || '').trim();
+  if (!userId || userId.length > 128) {
+    return res.status(400).json({ success: false, message: 'Missing or invalid id.' });
+  }
+  await usageAggregator.ensureFresh();
+  const detail = usageAggregator.userDetail(userId);
+  if (!detail) {
+    return res.status(404).json({ success: false, message: 'No usage recorded for this user in the retained window.' });
+  }
+  const registryEntry = readRegistryUsersSafe().find(u => u.user_id === userId) || null;
+  return res.json({
+    success: true,
+    registry: registryEntry ? {
+      role: registryEntry.role,
+      expires_at: registryEntry.expires_at || null
+    } : null,
+    ...detail
+  });
+});
+
+app.get('/api/admin/users/search', requireAdmin, async (req, res) => {
+  const q = String(req.query.q || '').trim().toLowerCase();
+  if (!q || q.length > 128) {
+    return res.status(400).json({ success: false, message: 'Missing or invalid query.' });
+  }
+  await usageAggregator.ensureFresh();
+  const matchesQuery = (values) => values.some(v => typeof v === 'string' && v.toLowerCase().includes(q));
+
+  const registryUsers = readRegistryUsersSafe();
+  const portalUsers = readJSON(USERS_FILE, []);
+  const results = new Map();
+
+  const upsert = (userId, patch) => {
+    if (!results.has(userId)) {
+      results.set(userId, { user_id: userId, sources: [] });
+    }
+    const row = results.get(userId);
+    Object.assign(row, patch, { sources: [...new Set([...row.sources, ...(patch.sources || [])])] });
+    delete row.sources_dup;
+  };
+
+  for (const user of registryUsers) {
+    if (matchesQuery([user.user_id])) {
+      upsert(user.user_id, {
+        role: user.role,
+        expires_at: user.expires_at || null,
+        sources: ['registry']
+      });
+    }
+  }
+  for (const user of portalUsers) {
+    const accountId = user.account_id || user.username;
+    if (matchesQuery([user.username, user.phone, user.email, accountId])) {
+      upsert(accountId, {
+        username: user.username,
+        phone: user.phone,
+        email: user.email || undefined,
+        tier: user.tier || user.role,
+        registered_at: user.registered_at || null,
+        sources: ['portal_users']
+      });
+    }
+  }
+  for (const item of readJSON(PENDING_FILE, [])) {
+    if (matchesQuery([item.username, item.phone, item.email])) {
+      upsert(item.account_id || item.username, {
+        username: item.username,
+        phone: item.phone,
+        email: item.email || undefined,
+        tier: item.tier,
+        registered_at: item.registered_at || null,
+        registration_status: item.status,
+        sources: ['pending']
+      });
+    }
+  }
+
+  const usageByUser = new Map(usageAggregator.publicUsers().map(row => [row.user_id, row]));
+  const items = [...results.values()].slice(0, 20).map(row => {
+    const usage = usageByUser.get(row.user_id);
+    return {
+      ...row,
+      usage: usage ? {
+        requests_today_utc: usage.requests_today_utc,
+        requests_7d_utc: usage.requests_7d_utc,
+        last_seen: usage.last_seen
+      } : null
+    };
+  });
+  return res.json({ success: true, query: q, count: items.length, items });
+});
+
+// ============================================================
 // ORIGINAL: Generate token (for approved users)
 // ============================================================
 app.post('/api/generate-token', async (req, res) => {
@@ -5565,5 +6220,8 @@ module.exports = {
   PROXY_USERS_FILE,
   EC2_HOST,
   EC2_USERS_PATH,
-  EC2_SSH_KEY
+  EC2_SSH_KEY,
+  __resetUsageAggregatorForTest: () => usageAggregator.__resetForTest(),
+  __refreshUsageAggregatorForTest: () => usageAggregator.ensureFresh(0),
+  __setUsageAggregatorTestHooks: (hooks) => usageAggregator.__setTestHooks(hooks)
 };
