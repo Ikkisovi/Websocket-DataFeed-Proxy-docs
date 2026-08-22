@@ -3827,4 +3827,78 @@ describe('Admin usage monitoring API', () => {
     expect(source).toContain('近 7 天（UTC）');
     expect(source).not.toContain('HTTP 请求 24h');
   });
+
+  test('GET /api/admin/payments/overview returns KPIs, orders, and Cold Ads CRM segments', async () => {
+    // Setup test payment orders
+    const orders = [
+      {
+        id: 'order_test_1',
+        user_id: 'alice',
+        status: 'COMPLETED',
+        payment_status: 'PAID',
+        provider: 'stripe_checkout',
+        payment_method: 'stripe_card',
+        provider_charge: { currency: 'USD', amount_minor: 2500 },
+        bundle: { id: 'premium-1m', name: 'Premium', tier: 'premium', months: 1 },
+        created_at: new Date().toISOString()
+      },
+      {
+        id: 'order_test_2',
+        user_id: 'bob',
+        status: 'PENDING',
+        payment_status: 'UNPAID',
+        provider: 'zpay',
+        payment_method: 'alipay',
+        provider_charge: { currency: 'CNY', amount_minor: 10000 },
+        bundle: { id: 'standard-1m', name: 'Standard', tier: 'standard', months: 1 },
+        created_at: new Date().toISOString()
+      }
+    ];
+    fs.writeFileSync(PAYMENT_ORDERS_FILE, JSON.stringify(orders, null, 2));
+
+    const loginRes = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    const token = loginRes.body.token;
+    const res = await request(app)
+      .get('/api/admin/payments/overview')
+      .set('X-Admin-Token', token);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.kpis.paid_orders_count).toBe(1);
+    expect(res.body.kpis.pending_orders_count).toBe(1);
+    expect(res.body.kpis.revenue.USD).toBe(25);
+    expect(Array.isArray(res.body.segments)).toBe(true);
+    expect(res.body.segments.some(s => s.id === 'abandoned_checkout')).toBe(true);
+  });
+
+  test('GET /api/admin/crm/user returns complete user 360 profile, payments, and diagnostics', async () => {
+    // Setup test payment orders
+    const orders = [
+      {
+        id: 'order_test_crm',
+        user_id: 'alice',
+        status: 'COMPLETED',
+        payment_status: 'PAID',
+        provider: 'stripe_checkout',
+        payment_method: 'stripe_card',
+        provider_charge: { currency: 'USD', amount_minor: 2500 },
+        bundle: { id: 'premium-1m', name: 'Premium', tier: 'premium', months: 1 },
+        created_at: new Date().toISOString()
+      }
+    ];
+    fs.writeFileSync(PAYMENT_ORDERS_FILE, JSON.stringify(orders, null, 2));
+
+    const loginRes = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    const token = loginRes.body.token;
+    const res = await request(app)
+      .get('/api/admin/crm/user?id=alice')
+      .set('X-Admin-Token', token);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.profile.user_id).toBe('alice');
+    expect(res.body.payments.paid_orders_count).toBe(1);
+    expect(res.body.error_diagnostics).toBeDefined();
+  });
 });
+

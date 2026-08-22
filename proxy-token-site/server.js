@@ -5729,6 +5729,470 @@ app.get('/api/admin/users/search', requireAdmin, async (req, res) => {
 });
 
 // ============================================================
+// ADMIN: Payments & CRM Overview
+// ============================================================
+app.get('/api/admin/payments/overview', requireAdmin, async (_req, res) => {
+  await usageAggregator.ensureFresh();
+  const allOrders = readPaymentOrders();
+  const registryUsers = readRegistryUsersSafe();
+  const portalUsers = readJSON(USERS_FILE, []);
+  const pendingItems = readJSON(PENDING_FILE, []);
+  const usageByUser = new Map(usageAggregator.publicUsers().map(row => [row.user_id, row]));
+  const registryById = new Map(registryUsers.map(u => [u.user_id, u]));
+
+  // Revenue calculation
+  const revenue = { CNY: 0, USD: 0, CAD: 0 };
+  let completedCount = 0;
+  let pendingCount = 0;
+  let cancelledCount = 0;
+  const paidUserIds = new Set();
+
+  for (const order of allOrders) {
+    const isPaid = order.status === 'COMPLETED' || order.payment_status === 'PAID';
+    if (isPaid) {
+      completedCount++;
+      const uid = order.user_id || accountRegistryId(order.registration);
+      if (uid) paidUserIds.add(uid);
+      const charge = order.provider_charge || {};
+      const currency = charge.currency || order.bundle?.currency || 'CNY';
+      const minor = Number(charge.amount_minor || order.bundle?.amount_cny_fen || 0);
+      const major = minor / 100;
+      if (currency === 'USD') revenue.USD += major;
+      else if (currency === 'CAD') revenue.CAD += major;
+      else revenue.CNY += major;
+    } else if (order.status === 'CANCELLED') {
+      cancelledCount++;
+    } else {
+      pendingCount++;
+    }
+  }
+
+  // Format orders list with user context
+  const ordersList = allOrders.map(order => {
+    const uid = order.user_id || accountRegistryId(order.registration) || order.registration?.username || '';
+    const regUser = registryById.get(uid);
+    const pUser = portalUsers.find(u => (u.account_id || u.username) === uid);
+    const charge = order.provider_charge || {};
+    const currency = charge.currency || order.bundle?.currency || 'CNY';
+    const minor = Number(charge.amount_minor || order.bundle?.amount_cny_fen || 0);
+    const amountDisplay = `${(minor / 100).toFixed(2)} ${currency}`;
+
+    let daysRemaining = null;
+    if (regUser?.expires_at) {
+      const expMs = Date.parse(regUser.expires_at);
+      if (Number.isFinite(expMs)) {
+        daysRemaining = Math.ceil((expMs - Date.now()) / 86400000);
+      }
+    }
+
+    return {
+      id: order.id,
+      user_id: uid,
+      username: pUser?.username || order.registration?.username || uid,
+      email: pUser?.email || order.registration?.email || undefined,
+      phone: pUser?.phone || order.registration?.phone || undefined,
+      kind: order.kind || 'registration',
+      bundle_id: order.bundle?.id || order.bundle_id || 'unknown',
+      bundle_name: order.bundle?.name || order.bundle?.id || 'Unknown',
+      tier: order.bundle?.tier || 'standard',
+      months: order.bundle?.months || 1,
+      amount_display: amountDisplay,
+      currency,
+      provider: order.provider,
+      payment_method: order.payment_method,
+      status: order.status,
+      payment_status: order.payment_status,
+      created_at: order.created_at,
+      paid_at: order.paid_at || null,
+      completed_at: order.completed_at || null,
+      last_error: order.last_error || null,
+      current_role: regUser?.role || pUser?.tier || null,
+      days_remaining: daysRemaining
+    };
+  }).sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+
+  // Unified user dictionary for segmentation
+  const userMap = new Map();
+  const registerUserRecord = (id, base) => {
+    if (!id) return;
+    if (!userMap.has(id)) userMap.set(id, { user_id: id, sources: [] });
+    const u = userMap.get(id);
+    Object.assign(u, base);
+    if (base.source && !u.sources.includes(base.source)) u.sources.push(base.source);
+  };
+
+  for (const p of portalUsers) {
+    const id = p.account_id || p.username;
+    registerUserRecord(id, {
+      username: p.username,
+      phone: p.phone,
+      email: p.email,
+      tier: p.tier || p.role || 'free',
+      registered_at: p.registered_at,
+      source: 'portal_users'
+    });
+  }
+
+  for (const r of registryUsers) {
+    registerUserRecord(r.user_id, {
+      role: r.role,
+      expires_at: r.expires_at,
+      token_present: Boolean(r.token),
+      source: 'registry'
+    });
+  }
+
+  for (const pend of pendingItems) {
+    const id = pend.account_id || pend.username;
+    registerUserRecord(id, {
+      username: pend.username,
+      phone: pend.phone,
+      email: pend.email,
+      tier: pend.tier,
+      registered_at: pend.registered_at,
+      registration_status: pend.status,
+      source: 'pending'
+    });
+  }
+
+  // Enrich user metrics
+  const nowMs = Date.now();
+  const allAudienceUsers = [...userMap.values()].map(u => {
+    const usage = usageByUser.get(u.user_id) || {};
+    const regUser = registryById.get(u.user_id);
+    const expStr = u.expires_at || regUser?.expires_at;
+    let daysRemaining = null;
+    if (expStr) {
+      const expMs = Date.parse(expStr);
+      if (Number.isFinite(expMs)) daysRemaining = Math.ceil((expMs - nowMs) / 86400000);
+    }
+    const role = u.role || regUser?.role || u.tier || 'free';
+    const isPaid = paidUserIds.has(u.user_id) || ['standard', 'premium', 'basic', 'value'].includes(role);
+    const userOrders = allOrders.filter(o => (o.user_id || accountRegistryId(o.registration)) === u.user_id);
+    const completedOrders = userOrders.filter(o => o.status === 'COMPLETED' || o.payment_status === 'PAID');
+    const unpaidOrders = userOrders.filter(o => o.status !== 'COMPLETED' && o.payment_status !== 'PAID');
+
+    return {
+      user_id: u.user_id,
+      username: u.username || u.user_id,
+      phone: u.phone,
+      email: u.email,
+      role,
+      tier: u.tier || role,
+      registered_at: u.registered_at,
+      expires_at: expStr,
+      days_remaining: daysRemaining,
+      is_paid: isPaid,
+      orders_count: userOrders.length,
+      paid_orders_count: completedOrders.length,
+      has_unpaid_order: unpaidOrders.length > 0 && !isPaid,
+      requests_today: usage.requests_today_utc || 0,
+      requests_7d: usage.requests_7d_utc || 0,
+      requests_30d: usage.requests_30d_utc || 0,
+      ws_7d: usage.ws_sessions_7d_utc || 0,
+      errors_7d: usage.errors_7d_utc || 0,
+      last_seen: usage.last_seen || null
+    };
+  });
+
+  // Segments
+  const segments = [
+    {
+      id: 'high_intent_trial',
+      name: '高活跃未付费 (High Intent Trial)',
+      badge: 'warn',
+      description: '免费试用中且近 7 天有实际调用（API ≥ 5 次或有 WS 会话），最具付费转化潜力的核心目标',
+      users: allAudienceUsers.filter(u => !u.is_paid && (u.requests_7d >= 5 || u.ws_7d > 0)),
+      template: {
+        subject: '【LeanData 数据服务】专享升级优惠：解锁全部历史数据与独家期权实时行情',
+        body: `尊敬的 {{username}}，\n\n感谢您近期使用 LeanData 市场数据服务！系统监测到您在近期研究中调用了较多行情请求。\n\n为了给您提供更完整、更低延迟的数据支持，我们现为您提供【限时 8 折升级优惠】：\n- 包含全部股票/期权深度历史分钟线与高阶 Greeks\n- 不限连接数的高速实时 WebSocket\n\n欢迎登录控制台（https://leandata.uk/account.html）升级您的套餐。\n如有任何定制数据需求，欢迎随时回复本邮件。`
+      }
+    },
+    {
+      id: 'abandoned_checkout',
+      name: '弃单未支付 (Abandoned Checkout)',
+      badge: 'danger',
+      description: '已在收银台下单但未完成支付的用户，可能遇到支付问题或需要协助',
+      users: allAudienceUsers.filter(u => u.has_unpaid_order),
+      template: {
+        subject: '【LeanData】您的订单尚未完成支付，需要协助吗？',
+        body: `尊敬的 {{username}}，\n\n我们注意到您近期在 LeanData 发起了订阅订单但尚未完成支付。\n\n如果您在结账过程中遇到了支付方式（支付宝 / 信用卡）或网络问题，或者对套餐权限有任何疑问，请直接回复本邮件，我们的技术团队将第一时间为您协助解决。\n\n您也可以直接访问：https://leandata.uk/checkout.html 重新选择支付。`
+      }
+    },
+    {
+      id: 'expiring_soon',
+      name: '试用即将到期 (Expiring Soon ≤ 3天)',
+      badge: 'warn',
+      description: '试用期剩余 ≤ 3 天或最近刚过期的用户，促转化黄金窗口',
+      users: allAudienceUsers.filter(u => !u.is_paid && u.days_remaining !== null && u.days_remaining <= 3 && u.days_remaining >= -7),
+      template: {
+        subject: '【重要提醒】您的 LeanData 免费试用即将到期',
+        body: `尊敬的 {{username}}，\n\n您的 LeanData 免费试用账号即将在近期到期。\n\n为了避免您的量化回测或实盘数据订阅中断，建议您及时在账户中心进行续费：\n👉 登录续费：https://leandata.uk/account.html\n\n支持 Basic、Standard、Premium 多种档位，按月/按年灵活订阅。`
+      }
+    },
+    {
+      id: 'paid_vip',
+      name: '已付费客户 (Paid Active)',
+      badge: 'ok',
+      description: '已成功付费的高价值客户，重点做好满意度维护与新功能宣贯',
+      users: allAudienceUsers.filter(u => u.is_paid),
+      template: {
+        subject: '【LeanData 客户关怀】近期服务体验与新功能升级通知',
+        body: `尊敬的 {{username}}，\n\n感谢您一直以来对 LeanData 的支持与信任！\n\n我们近期对底层 WebSocket 网关及历史行情缓存集群进行了进一步优化，延迟与稳定性均有显著提升。\n如果您在日常使用中有任何新需求、特定标的覆盖或希望优化的功能，请随时回复本邮件与我们交流。`
+      }
+    },
+    {
+      id: 'all_with_email',
+      name: '全量有效邮箱 (All Valid Emails)',
+      badge: 'info',
+      description: '所有已登记有效邮箱的注册用户',
+      users: allAudienceUsers.filter(u => Boolean(u.email && u.email.includes('@'))),
+      template: {
+        subject: '【LeanData】产品更新与服务通告',
+        body: `尊敬的用户，\n\n感谢您关注 LeanData 市场数据服务。以下是本期最新产品进展与服务说明：\n\nhttps://leandata.uk/updates.html`
+      }
+    }
+  ];
+
+  return res.json({
+    success: true,
+    kpis: {
+      total_users: allAudienceUsers.length,
+      paid_users_count: paidUserIds.size,
+      paid_orders_count: completedCount,
+      pending_orders_count: pendingCount,
+      cancelled_orders_count: cancelledCount,
+      conversion_rate: allAudienceUsers.length > 0 ? `${((paidUserIds.size / allAudienceUsers.length) * 100).toFixed(1)}%` : '0%',
+      revenue
+    },
+    orders: ordersList,
+    segments: segments.map(s => ({
+      id: s.id,
+      name: s.name,
+      badge: s.badge,
+      description: s.description,
+      count: s.users.length,
+      users: s.users,
+      template: s.template
+    }))
+  });
+});
+
+// ============================================================
+// ADMIN: User 360 Object-wise Detail
+// ============================================================
+app.get('/api/admin/crm/user', requireAdmin, async (req, res) => {
+  const userId = String(req.query.id || '').trim();
+  if (!userId || userId.length > 128) {
+    return res.status(400).json({ success: false, message: 'Missing or invalid id.' });
+  }
+  await usageAggregator.ensureFresh();
+  const usageDetail = usageAggregator.userDetail(userId);
+  const registryUsers = readRegistryUsersSafe();
+  const registryEntry = registryUsers.find(u => u.user_id === userId) || null;
+  const portalUsers = readJSON(USERS_FILE, []);
+  const portalUser = portalUsers.find(u => (u.account_id || u.username) === userId) || null;
+  const pendingItems = readJSON(PENDING_FILE, []);
+  const pendingItem = pendingItems.find(p => (p.account_id || p.username) === userId) || null;
+  const allOrders = readPaymentOrders();
+  const userOrders = allOrders.filter(o => (o.user_id || accountRegistryId(o.registration)) === userId || o.registration?.username === userId);
+  const bulkOrders = readJSON(BULK_ORDERS_FILE, []).filter(b => b.username === userId);
+  const feedbacks = readJSON(PRODUCT_FEEDBACK_FILE, []).filter(f => f.account_id === userId || f.username === userId);
+
+  if (!registryEntry && !portalUser && !pendingItem && !usageDetail && userOrders.length === 0) {
+    return res.status(404).json({ success: false, message: 'User not found across registry, accounts, or usage.' });
+  }
+
+  // Calculate days remaining
+  const expStr = registryEntry?.expires_at || portalUser?.expires_at || null;
+  let daysRemaining = null;
+  let isActive = false;
+  if (expStr) {
+    const expMs = Date.parse(expStr);
+    if (Number.isFinite(expMs)) {
+      daysRemaining = Math.ceil((expMs - Date.now()) / 86400000);
+      isActive = expMs > Date.now();
+    }
+  }
+
+  // Mask token
+  let tokenMasked = null;
+  if (registryEntry?.token) {
+    const t = registryEntry.token;
+    tokenMasked = t.length > 10 ? `${t.slice(0, 6)}····${t.slice(-4)}` : '••••••••';
+  }
+
+  // Calculate spent
+  const totalSpent = { CNY: 0, USD: 0, CAD: 0 };
+  let completedCount = 0;
+  for (const o of userOrders) {
+    if (o.status === 'COMPLETED' || o.payment_status === 'PAID') {
+      completedCount++;
+      const charge = o.provider_charge || {};
+      const currency = charge.currency || o.bundle?.currency || 'CNY';
+      const minor = Number(charge.amount_minor || o.bundle?.amount_cny_fen || 0);
+      const major = minor / 100;
+      if (currency === 'USD') totalSpent.USD += major;
+      else if (currency === 'CAD') totalSpent.CAD += major;
+      else totalSpent.CNY += major;
+    }
+  }
+
+  // Error diagnostics summary from usage detail
+  const recentEvents = usageDetail?.recent_events || [];
+  const errorEvents = recentEvents.filter(ev => typeof ev.status === 'number' && ev.status >= 400);
+  const statusCounts = {};
+  for (const ev of errorEvents) {
+    const st = String(ev.status);
+    statusCounts[st] = (statusCounts[st] || 0) + 1;
+  }
+
+  const profile = {
+    user_id: userId,
+    username: portalUser?.username || pendingItem?.username || userId,
+    phone: portalUser?.phone || pendingItem?.phone || null,
+    email: portalUser?.email || pendingItem?.email || null,
+    role: registryEntry?.role || portalUser?.tier || 'free',
+    tier: portalUser?.tier || registryEntry?.role || 'free',
+    registered_at: portalUser?.registered_at || pendingItem?.registered_at || null,
+    expires_at: expStr,
+    days_remaining: daysRemaining,
+    is_active: isActive,
+    token_present: Boolean(registryEntry?.token),
+    token_masked: tokenMasked,
+    permissions: registryEntry?.permissions || null,
+    sources: [
+      ...(registryEntry ? ['registry'] : []),
+      ...(portalUser ? ['portal_users'] : []),
+      ...(pendingItem ? ['pending'] : []),
+      ...(usageDetail ? ['usage_logs'] : [])
+    ]
+  };
+
+  return res.json({
+    success: true,
+    profile,
+    payments: {
+      total_spent: totalSpent,
+      total_orders_count: userOrders.length,
+      paid_orders_count: completedCount,
+      orders: userOrders.map(o => {
+        const charge = o.provider_charge || {};
+        const currency = charge.currency || o.bundle?.currency || 'CNY';
+        const minor = Number(charge.amount_minor || o.bundle?.amount_cny_fen || 0);
+        return {
+          id: o.id,
+          bundle_id: o.bundle?.id || o.bundle_id || 'unknown',
+          bundle_name: o.bundle?.name || o.bundle?.id || 'Unknown',
+          tier: o.bundle?.tier || 'standard',
+          months: o.bundle?.months || 1,
+          amount_display: `${(minor / 100).toFixed(2)} ${currency}`,
+          currency,
+          provider: o.provider,
+          payment_method: o.payment_method,
+          status: o.status,
+          payment_status: o.payment_status,
+          created_at: o.created_at,
+          paid_at: o.paid_at || null,
+          completed_at: o.completed_at || null,
+          last_error: o.last_error || null
+        };
+      }).sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
+    },
+    usage: usageDetail ? {
+      requests_today_utc: usageDetail.requests_today_utc,
+      requests_7d_utc: usageDetail.requests_7d_utc,
+      requests_30d_utc: usageDetail.requests_30d_utc,
+      ws_sessions_today_utc: usageDetail.ws_sessions_today_utc,
+      ws_sessions_7d_utc: usageDetail.ws_sessions_7d_utc,
+      ws_sessions_30d_utc: usageDetail.ws_sessions_30d_utc,
+      bytes_out_7d_utc: usageDetail.bytes_out_7d_utc,
+      errors_7d_utc: usageDetail.errors_7d_utc,
+      daily_14d: usageDetail.daily_14d,
+      top_routes: usageDetail.top_routes,
+      recent_events: usageDetail.recent_events
+    } : null,
+    error_diagnostics: {
+      errors_7d_utc: usageDetail?.errors_7d_utc || 0,
+      recent_error_events: errorEvents,
+      status_counts: statusCounts
+    },
+    bulk_orders: bulkOrders,
+    feedback: feedbacks
+  });
+});
+
+app.post('/api/admin/users/extend-expiry', requireAdmin, async (req, res) => {
+  const { user_id, days } = req.body;
+  const daysToAdd = Number(days);
+  if (!user_id || !Number.isInteger(daysToAdd) || daysToAdd <= 0 || daysToAdd > 365) {
+    return res.status(400).json({ success: false, message: 'Invalid user_id or days.' });
+  }
+
+  let updatedExpiry = null;
+  await withUsersLock(async () => {
+    const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+    const user = (proxyData.users || []).find(u => u.user_id === user_id);
+    if (!user) {
+      throw new Error(`User "${user_id}" not found in proxy registry.`);
+    }
+
+    const currentExp = user.expires_at ? Date.parse(user.expires_at) : NaN;
+    const baseMs = Number.isFinite(currentExp) && currentExp > Date.now() ? currentExp : Date.now();
+    const newExpMs = baseMs + daysToAdd * 86400000;
+    user.expires_at = new Date(newExpMs).toISOString();
+    updatedExpiry = user.expires_at;
+
+    writeProxyUsersFile(proxyData);
+
+    // Also update portal users if present
+    const portalUsers = readJSON(USERS_FILE, []);
+    const pUser = portalUsers.find(u => (u.account_id || u.username) === user_id);
+    if (pUser) {
+      pUser.expires_at = updatedExpiry;
+      writeJSON(USERS_FILE, portalUsers);
+    }
+  });
+
+  return res.json({ success: true, user_id, expires_at: updatedExpiry, message: `已成功为 ${user_id} 延期 ${daysToAdd} 天。` });
+});
+
+app.post('/api/admin/users/set-role', requireAdmin, async (req, res) => {
+  const { user_id, role } = req.body;
+  if (!user_id || !role || !TIERS[role]) {
+    return res.status(400).json({ success: false, message: 'Invalid user_id or role.' });
+  }
+
+  const tierDef = TIERS[role];
+  let updatedRole = null;
+  await withUsersLock(async () => {
+    const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+    const user = (proxyData.users || []).find(u => u.user_id === user_id);
+    if (!user) {
+      throw new Error(`User "${user_id}" not found in proxy registry.`);
+    }
+
+    user.role = tierDef.role;
+    user.permissions = tierDef.permissions;
+    updatedRole = user.role;
+
+    writeProxyUsersFile(proxyData);
+
+    // Also update portal users
+    const portalUsers = readJSON(USERS_FILE, []);
+    const pUser = portalUsers.find(u => (u.account_id || u.username) === user_id);
+    if (pUser) {
+      pUser.tier = role;
+      pUser.role = tierDef.role;
+      writeJSON(USERS_FILE, portalUsers);
+    }
+  });
+
+  return res.json({ success: true, user_id, role: updatedRole, message: `已成功将 ${user_id} 的权限调整为 ${role}。` });
+});
+
+
+// ============================================================
 // ADMIN: Pseudonymous request attribution
 //
 // Both files are mounted read-only from leandata-v2. This endpoint deliberately

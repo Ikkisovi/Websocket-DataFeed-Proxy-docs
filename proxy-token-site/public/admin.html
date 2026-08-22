@@ -697,6 +697,268 @@
       .test-send-row { display: grid; }
       .send-summary { grid-template-columns: 1fr; }
     }
+
+    /* ── Clickable user link ── */
+    .user-link {
+      color: var(--ink-strong);
+      text-decoration: none;
+      border-bottom: 1px dotted var(--rule-strong);
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      font-family: var(--f-mono);
+    }
+    .user-link:hover {
+      color: var(--accent-ink);
+      border-bottom: 1px solid var(--accent);
+    }
+
+    /* ── Payments & Cold Ads CRM tab ── */
+    .crm-kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .crm-kpi-card {
+      background: var(--bg-paper);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+    }
+    .crm-kpi-card .k {
+      font-family: var(--f-mono);
+      font-size: 10px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+    }
+    .crm-kpi-card .v {
+      font-family: var(--f-display);
+      font-size: 24px;
+      color: var(--ink-strong);
+      margin-top: 2px;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .crm-kpi-card .v-sub {
+      font-family: var(--f-mono);
+      font-size: 11px;
+      color: var(--ink-muted);
+    }
+    .crm-segments-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .segment-card {
+      background: var(--bg-paper);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .segment-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .segment-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink-strong);
+    }
+    .segment-desc {
+      font-size: 12px;
+      color: var(--ink-muted);
+      margin-top: 4px;
+      line-height: 1.45;
+    }
+    .segment-count-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-family: var(--f-mono);
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--bg-sunken);
+      border: 1px solid var(--rule-strong);
+      color: var(--ink-strong);
+      white-space: nowrap;
+    }
+    .segment-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .segment-user-preview {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--rule);
+      font-size: 11px;
+      color: var(--ink-muted);
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    .user-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-sunken);
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      font-family: var(--f-mono);
+      font-size: 11px;
+      margin: 2px 3px 2px 0;
+    }
+
+    /* ── User 360 Object Page ── */
+    .user360-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--rule-strong);
+    }
+    .user360-title-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .user360-username {
+      font-family: var(--f-display);
+      font-size: 28px;
+      color: var(--ink-strong);
+    }
+    .user360-grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 1024px) {
+      .user360-grid { grid-template-columns: 1fr; }
+    }
+    .user360-card {
+      background: var(--bg-paper);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+    .user360-card-title {
+      font-family: var(--f-mono);
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .profile-meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--rule);
+      font-size: 12.5px;
+    }
+    .profile-meta-row:last-child {
+      border-bottom: none;
+    }
+    .profile-meta-label {
+      color: var(--ink-muted);
+      font-size: 12px;
+    }
+    .profile-meta-value {
+      font-family: var(--f-mono);
+      color: var(--ink-strong);
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+    .error-breakdown-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .error-stat-card {
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      background: var(--bg-sunken);
+      border: 1px solid var(--rule);
+      text-align: center;
+    }
+    .error-stat-card.has-error {
+      background: var(--danger-soft);
+      border-color: var(--danger-muted);
+    }
+    .error-stat-card .code {
+      font-family: var(--f-mono);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink-strong);
+    }
+    .error-stat-card.has-error .code {
+      color: var(--danger);
+    }
+    .error-stat-card .label {
+      font-size: 10px;
+      color: var(--ink-muted);
+      margin-top: 2px;
+    }
+    .orders-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .order-item-card {
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--rule);
+      background: var(--bg-canvas);
+    }
+    .order-item-card.paid {
+      border-left: 3px solid var(--ok);
+    }
+    .order-item-card.unpaid {
+      border-left: 3px solid var(--warn);
+    }
+    .order-item-card.cancelled {
+      border-left: 3px solid var(--ink-soft);
+    }
+    .order-head-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+    .order-sub-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--ink-muted);
+      margin-top: 4px;
+    }
+    .quick-action-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -766,6 +1028,9 @@
     <div class="tab" data-tab="usage" onclick="switchTab(this)">
       用量监控 <span class="count" id="tab-count-usage">—</span>
     </div>
+    <div class="tab" data-tab="payments" onclick="switchTab(this)">
+      付费与转化 <span class="count" id="tab-count-payments">0</span>
+    </div>
     <div class="tab" data-tab="bulk" onclick="switchTab(this)">
       Bulk 下载 <span class="count" id="tab-count-bulk">0</span>
     </div>
@@ -774,6 +1039,9 @@
     </div>
     <div class="tab" data-tab="template" onclick="switchTab(this)">
       注册邮件模板
+    </div>
+    <div class="tab hidden" id="tab-user360" data-tab="user360" onclick="switchTab(this)">
+      用户全景
     </div>
   </div>
 
@@ -853,6 +1121,62 @@
         <div id="usage-detail" class="usage-detail hidden"></div>
       </div>
     </div>
+
+    <!-- Panel Payments & CRM -->
+    <div id="panel-payments" class="hidden">
+      <!-- KPIs -->
+      <div class="crm-kpis" id="crm-kpis">
+        <div class="empty">正在加载付费与转化数据…</div>
+      </div>
+
+      <!-- Cold Ads Email Helper & Audience Segments -->
+      <div class="usage-section">
+        <div class="usage-section-head">
+          <div>
+            <div class="usage-section-title">Cold Ads Email Helper · 智能受众分群与精准触达</div>
+            <div class="log-note">根据付费状态、试用剩余天数、调用活跃度一键定位目标人群。支持一键复制 BCC 邮箱或一键导入邮件群发后台。</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn ghost" type="button" onclick="loadPaymentsOverview()">刷新数据</button>
+          </div>
+        </div>
+        <div class="crm-segments-grid" id="crm-segments"></div>
+      </div>
+
+      <!-- Payment Orders Table -->
+      <div class="usage-section">
+        <div class="usage-section-head">
+          <div>
+            <div class="usage-section-title">全量支付与订单流水</div>
+            <div class="log-note">记录所有 Stripe / ZPay 支付订单、支付状态、到期展期及错误原因。点击用户名可直接进入该用户的 Object-wise 全景详情。</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="orders-filter-status" class="input" style="width:140px;" onchange="filterOrdersTable()">
+              <option value="all">全部状态</option>
+              <option value="COMPLETED">COMPLETED (已完成)</option>
+              <option value="PENDING">PENDING (待支付)</option>
+              <option value="CANCELLED">CANCELLED (已取消)</option>
+            </select>
+            <select id="orders-filter-provider" class="input" style="width:140px;" onchange="filterOrdersTable()">
+              <option value="all">全部渠道</option>
+              <option value="stripe">Stripe</option>
+              <option value="zpay">ZPay (支付宝)</option>
+            </select>
+          </div>
+        </div>
+        <div id="orders-table-wrap">
+          <div class="empty">正在加载订单流水…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel User 360 Object Page -->
+    <div id="panel-user360" class="hidden">
+      <div id="user360-container">
+        <div class="empty">正在加载用户全景画像…</div>
+      </div>
+    </div>
+
     <div id="panel-bulk" class="hidden">
       <div class="bulk-admin-header">
         <div>
@@ -1024,6 +1348,14 @@
 <script>
   let adminToken = null;
   let emailTemplate = null;
+  const crmState = {
+    kpis: null,
+    orders: [],
+    segments: [],
+    currentUserId: null,
+    currentUserData: null,
+    previousTab: 'usage'
+  };
   const announceState = {
     loaded: false,
     templateSubject: '',
@@ -1085,16 +1417,24 @@
     document.getElementById('panel-pending').classList.toggle('hidden', tab !== 'pending');
     document.getElementById('panel-all').classList.toggle('hidden', tab !== 'all');
     document.getElementById('panel-usage').classList.toggle('hidden', tab !== 'usage');
+    document.getElementById('panel-payments').classList.toggle('hidden', tab !== 'payments');
     document.getElementById('panel-bulk').classList.toggle('hidden', tab !== 'bulk');
     document.getElementById('panel-announce').classList.toggle('hidden', tab !== 'announce');
     document.getElementById('panel-template').classList.toggle('hidden', tab !== 'template');
+    document.getElementById('panel-user360').classList.toggle('hidden', tab !== 'user360');
+
     document.querySelector('.topbar-title').textContent =
-      tab === 'usage' ? '用户用量监控'
+      tab === 'payments' ? '付费与转化 (CRM)'
+        : tab === 'user360' ? '用户全景画像 (User 360)'
+        : tab === 'usage' ? '用户用量监控'
         : tab === 'announce' ? '公告后台'
         : tab === 'template' ? '注册邮件模板'
         : tab === 'bulk' ? 'Bulk 订单后台'
         : '审核后台';
-    if (tab === 'usage') {
+
+    if (tab === 'payments') {
+      loadPaymentsOverview();
+    } else if (tab === 'usage') {
       loadUsageOverview();
       if (!attributionLoaded) {
         document.getElementById('attribution-summary').textContent =
@@ -1196,7 +1536,7 @@
       return `
         <div class="user-card" id="card-${item.id}">
           <div class="card-top">
-            <span class="card-username">${escHtml(item.username || '—')}</span>
+            <span class="card-username"><a class="user-link" onclick="openUser360('${escHtml(item.account_id || item.username || '').replace(/'/g, "\\'")}')">${escHtml(item.username || '—')}</a></span>
             <div class="card-badges">
               <span class="tier ${tier}">${tierLabel(tier)}</span>
               ${!showActions ? `<span class="status-chip ${status}">${statusLabel(status)}</span>` : ''}
@@ -1283,7 +1623,7 @@
       String((data.users || []).length);
 
     renderUsageRecent(data.recent_registrations || []);
-    renderUsageTable(data.users || []);
+    renderUsageTable(data.users || [], true);
   }
 
   function shortFingerprint(value) {
@@ -1382,9 +1722,9 @@
 
   function renderUsageRecent(items) {
     const el = document.getElementById('usage-recent');
-    if (!items.length) { el.innerHTML = '<div class="empty">暂无注册记录</div>'; return; }
+    if (!items.length) { el.innerHTML = '<div class=\"empty\">暂无注册记录</div>'; return; }
     el.innerHTML = `
-      <table class="usage-table">
+      <table class=\"usage-table\">
         <thead><tr>
           <th>用户名</th><th>层级</th><th>手机</th><th>邮箱</th>
           <th>注册时间</th><th>状态</th><th>到期</th>
@@ -1392,10 +1732,10 @@
         <tbody>
           ${items.map(it => `
             <tr>
-              <td><strong>${escHtml(it.username || it.account_id || '—')}</strong>${it.type === 'renewal' ? ' <span class="log-note">续费</span>' : ''}</td>
+              <td><strong><a class=\"user-link\" onclick=\"openUser360('${escHtml(it.account_id || it.username || '').replace(/'/g, "\\'")}')\">${escHtml(it.username || it.account_id || '—')}</a></strong>${it.type === 'renewal' ? ' <span class=\"log-note\">续费</span>' : ''}</td>
               <td>${roleBadge(it.role || it.tier)}</td>
-              <td class="mono">${escHtml(it.phone || '—')}</td>
-              <td class="mono">${escHtml(it.email || '—')}</td>
+              <td class=\"mono\">${escHtml(it.phone || '—')}</td>
+              <td class=\"mono\">${escHtml(it.email || '—')}</td>
               <td>${fmtTime(it.registered_at)}</td>
               <td>${registrationStatusChip(it.status)}</td>
               <td>${it.expires_at ? fmtTime(it.expires_at) : '—'}</td>
@@ -1404,13 +1744,47 @@
       </table>`;
   }
 
-  function renderUsageTable(users) {
+  let usageDisplayLimit = 30;
+  let cachedUsageUsers = [];
+
+  function userPriorityScore(u) {
+    const roles = u.roles || (u.role ? [u.role] : [u.tier || 'free']);
+    const isTest = roles.some(r => r === 'test') || (u.user_id || '').startsWith('perftest_') || (u.user_id || '').startsWith('smoke_');
+    if (isTest) return -10;
+
+    let score = 0;
+    if (roles.includes('premium')) score += 100;
+    else if (roles.includes('standard')) score += 80;
+    else if (roles.includes('basic')) score += 60;
+    else if (roles.includes('value')) score += 50;
+    else score += 10; // free / trial
+
+    if ((u.requests_today_utc || 0) > 0) score += 30;
+    if ((u.requests_7d_utc || 0) > 0) score += 20;
+    if ((u.ws_sessions_7d_utc || 0) > 0) score += 15;
+    return score;
+  }
+
+  function renderUsageTable(users, resetLimit = false) {
     const wrap = document.getElementById('usage-table-wrap');
     if (!users.length) {
       wrap.innerHTML = '<div class="empty">保留窗口内没有用量数据</div>';
       return;
     }
+    if (resetLimit) usageDisplayLimit = 30;
+    cachedUsageUsers = [...users].sort((a, b) => {
+      const scoreDiff = userPriorityScore(b) - userPriorityScore(a);
+      if (scoreDiff !== 0) return scoreDiff;
+      return (b.requests_7d_utc || 0) - (a.requests_7d_utc || 0) || String(b.last_seen || '').localeCompare(String(a.last_seen || ''));
+    });
+
+    const displayed = cachedUsageUsers.slice(0, usageDisplayLimit);
+    const hasMore = cachedUsageUsers.length > usageDisplayLimit;
+
     wrap.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span class="log-note">优先展示付费与高活跃用户 · 当前显示 ${displayed.length} / 共 ${cachedUsageUsers.length} 位</span>
+      </div>
       <table class="usage-table">
         <thead><tr>
           <th>用户</th><th>角色</th>
@@ -1423,20 +1797,30 @@
           <th>最后活跃</th>
         </tr></thead>
         <tbody>
-          ${users.map(u => `
-            <tr class="u-row" onclick="showUserDetail('${escHtml(u.user_id).replace(/'/g, "\\'")}')">
-              <td class="mono"><strong>${escHtml(u.user_id)}</strong></td>
+          ${displayed.map(u => `
+            <tr class="u-row" onclick="openUser360('${escHtml(u.user_id).replace(/'/g, "\\'")}')">
+              <td class="mono"><strong><a class="user-link">${escHtml(u.user_id)}</a></strong></td>
               <td>${(u.roles || []).map(r => roleBadge(r)).join(' ')}</td>
-              <td class="num">${u.requests_today_utc.toLocaleString()}</td>
-              <td class="num">${u.requests_7d_utc.toLocaleString()}</td>
-              <td class="num">${u.requests_30d_utc.toLocaleString()}</td>
-              <td class="num">${u.ws_sessions_7d_utc.toLocaleString()}</td>
+              <td class="num">${(u.requests_today_utc || 0).toLocaleString()}</td>
+              <td class="num">${(u.requests_7d_utc || 0).toLocaleString()}</td>
+              <td class="num">${(u.requests_30d_utc || 0).toLocaleString()}</td>
+              <td class="num">${(u.ws_sessions_7d_utc || 0).toLocaleString()}</td>
               <td class="num">${fmtBytes(u.bytes_out_7d_utc)}</td>
               <td class="num">${u.errors_7d_utc ? `<span style="color:var(--danger)">${u.errors_7d_utc}</span>` : '0'}</td>
               <td>${fmtTime(u.last_seen)}</td>
             </tr>`).join('')}
         </tbody>
-      </table>`;
+      </table>
+      ${hasMore ? `
+        <div style="text-align:center;margin-top:14px;">
+          <button class="btn ghost" type="button" onclick="loadMoreUsageUsers()">显示剩余 ${cachedUsageUsers.length - displayed.length} 个用户</button>
+        </div>` : ''}
+    `;
+  }
+
+  function loadMoreUsageUsers() {
+    usageDisplayLimit = cachedUsageUsers.length;
+    renderUsageTable(cachedUsageUsers, false);
   }
 
   async function showUserDetail(userId) {
@@ -1485,8 +1869,11 @@
 
     panel.innerHTML = `
       <div class="usage-section-head" style="margin-bottom:4px">
-        <div class="usage-section-title mono" style="font-family:var(--f-mono);font-size:16px">${escHtml(d.user_id)}</div>
-        <button class="btn ghost" type="button" onclick="document.getElementById('usage-detail').classList.add('hidden')">✕ 关闭</button>
+        <div class="usage-section-title mono" style="font-family:var(--f-mono);font-size:16px"><a class="user-link" onclick="openUser360('${escHtml(d.user_id).replace(/'/g, "\\'")}')">${escHtml(d.user_id)}</a></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" type="button" onclick="openUser360('${escHtml(d.user_id).replace(/'/g, "\\'")}')">打开 User 360 单页</button>
+          <button class="btn ghost" type="button" onclick="document.getElementById('usage-detail').classList.add('hidden')">✕ 关闭</button>
+        </div>
       </div>
       <div style="margin-bottom:6px">${regLine}</div>
       <div class="log-note">近 7 天（UTC）：${(d.requests_7d_utc || 0).toLocaleString()} 请求 · ${(d.ws_sessions_7d_utc || 0).toLocaleString()} WS 会话 · ${fmtBytes(d.bytes_out_7d_utc)} 流出 · ${d.errors_7d_utc || 0} 错误</div>
@@ -1529,13 +1916,13 @@
       box.innerHTML = data.items.map(u => `
         <div class="user-card">
           <div class="card-top">
-            <span class="card-username">${escHtml(u.username || u.user_id)}</span>
+            <span class="card-username"><a class="user-link" onclick="openUser360('${escHtml(u.user_id).replace(/'/g, "\\'")}')">${escHtml(u.username || u.user_id)}</a></span>
             <div class="card-badges">${roleBadge(u.role || u.tier, u.expires_at)}</div>
           </div>
           <div class="card-meta">
             <span><span class="meta-label">ID</span><span class="mono">${escHtml(u.user_id)}</span></span>
             ${u.phone ? `<span><span class="meta-label">手机</span><span class="mono">${escHtml(u.phone)}</span></span>` : ''}
-            ${u.email ? `<span><span class="meta-label">邮箱</span><span class="mono">${escHtml(u.email)}</span></span>` : ''}
+            ${u.email ? `<span><span class="meta-label">邮箱</span><a class="mono" href="mailto:${encodeURIComponent(u.email)}">${escHtml(u.email)}</a></span>` : ''}
             ${u.registered_at ? `<span><span class="meta-label">注册</span>${fmtTime(u.registered_at)}</span>` : ''}
             ${u.expires_at ? `<span><span class="meta-label">到期</span>${fmtTime(u.expires_at)}</span>` : ''}
             ${u.registration_status ? `<span><span class="meta-label">状态</span>${registrationStatusChip(u.registration_status)}</span>` : ''}
@@ -1543,7 +1930,7 @@
             <span><span class="meta-label">来源</span><span class="mono">${escHtml((u.sources || []).join(', '))}</span></span>
           </div>
           <div class="card-actions">
-            <button class="btn ghost" onclick="showUserDetail('${escHtml(u.user_id).replace(/'/g, "\\'")}')">查看用量详情</button>
+            <button class="btn ghost" onclick="openUser360('${escHtml(u.user_id).replace(/'/g, "\\'")}')">查看用户全景</button>
           </div>
         </div>`).join('');
     } catch (e) {
@@ -2194,6 +2581,470 @@
     } catch {
       showToast('请求失败', 'error');
     }
+  }
+
+  /* ── Payments & CRM Logic ── */
+  async function loadPaymentsOverview() {
+    const kpisEl = document.getElementById('crm-kpis');
+    const segsEl = document.getElementById('crm-segments');
+    const tableWrap = document.getElementById('orders-table-wrap');
+    kpisEl.innerHTML = '<div class="empty">正在加载付费指标…</div>';
+    segsEl.innerHTML = '<div class="empty">正在计算受众分群…</div>';
+    tableWrap.innerHTML = '<div class="empty">正在加载订单流水…</div>';
+
+    try {
+      const h = { 'X-Admin-Token': adminToken };
+      const resp = await fetch('/api/admin/payments/overview', { headers: h });
+      if (resp.status === 401) { location.reload(); return; }
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.message || '加载付费数据失败');
+
+      crmState.kpis = data.kpis;
+      crmState.orders = data.orders || [];
+      crmState.segments = data.segments || [];
+
+      document.getElementById('tab-count-payments').textContent = data.kpis.paid_orders_count;
+      renderPaymentsKPIs(data.kpis);
+      renderAudienceSegments(data.segments);
+      filterOrdersTable();
+    } catch (e) {
+      kpisEl.innerHTML = `<div class="empty">加载失败: ${escHtml(e.message)}</div>`;
+      segsEl.innerHTML = '';
+      tableWrap.innerHTML = '';
+      showToast('加载付费数据失败: ' + e.message, 'error');
+    }
+  }
+
+  function renderPaymentsKPIs(kpis) {
+    const rev = kpis.revenue || {};
+    const revStr = [
+      rev.USD ? `$${rev.USD.toFixed(2)} USD` : null,
+      rev.CAD ? `$${rev.CAD.toFixed(2)} CAD` : null,
+      rev.CNY ? `¥${rev.CNY.toFixed(2)} CNY` : null
+    ].filter(Boolean).join(' · ') || '¥0.00 CNY';
+
+    document.getElementById('crm-kpis').innerHTML = `
+      <div class="crm-kpi-card">
+        <div class="k">总成交客户 (Paid Users)</div>
+        <div class="v">${kpis.paid_users_count} <span class="v-sub">/ ${kpis.total_users} 用户</span></div>
+      </div>
+      <div class="crm-kpi-card">
+        <div class="k">付费转化率 (Conversion Rate)</div>
+        <div class="v">${kpis.conversion_rate}</div>
+      </div>
+      <div class="crm-kpi-card">
+        <div class="k">累计付费订单 (Completed Orders)</div>
+        <div class="v">${kpis.paid_orders_count} <span class="v-sub">(${kpis.pending_orders_count} 待付 / ${kpis.cancelled_orders_count} 取消)</span></div>
+      </div>
+      <div class="crm-kpi-card" style="grid-column: span 2;">
+        <div class="k">总营收 (Gross Revenue)</div>
+        <div class="v" style="font-size:20px;color:var(--accent-ink);">${escHtml(revStr)}</div>
+      </div>
+    `;
+  }
+
+  function renderAudienceSegments(segments) {
+    const el = document.getElementById('crm-segments');
+    if (!segments.length) {
+      el.innerHTML = '<div class="empty">暂无分群数据</div>';
+      return;
+    }
+    el.innerHTML = segments.map((seg, idx) => {
+      const emailUsers = seg.users.filter(u => u.email && u.email.includes('@'));
+      const emailsList = emailUsers.map(u => u.email);
+      const emailsBccStr = emailsList.join(', ');
+
+      const previewPills = seg.users.slice(0, 10).map(u => `
+        <span class="user-pill">
+          <a class="user-link" onclick="openUser360('${escHtml(u.user_id).replace(/'/g, "\\'")}')">${escHtml(u.username || u.user_id)}</a>
+          ${u.role ? roleBadge(u.role, u.expires_at) : ''}
+        </span>`).join('');
+
+      return `
+        <div class="segment-card">
+          <div>
+            <div class="segment-head">
+              <span class="segment-title">${escHtml(seg.name)}</span>
+              <span class="segment-count-badge">${seg.count} 人 (${emailUsers.length} 邮箱)</span>
+            </div>
+            <div class="segment-desc">${escHtml(seg.description)}</div>
+            ${seg.users.length ? `<div class="segment-user-preview">${previewPills}${seg.users.length > 10 ? ` <span style="color:var(--ink-soft)">+${seg.users.length - 10} 更多</span>` : ''}</div>` : ''}
+          </div>
+          <div class="segment-actions">
+            <button class="btn ghost" type="button" onclick="copySegmentEmails(${idx})" title="复制该分群的所有有效邮箱">
+              复制 ${emailUsers.length} 个邮箱
+            </button>
+            <button class="btn" type="button" onclick="importSegmentToAnnounce(${idx})" title="将该分群导入 Email 公告后台并预填邮件模版">
+              针对该人群发邮件
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function copySegmentEmails(segIndex) {
+    const seg = crmState.segments[segIndex];
+    if (!seg) return;
+    const emails = seg.users.filter(u => u.email && u.email.includes('@')).map(u => u.email);
+    if (!emails.length) {
+      showToast('该分群没有登记邮箱的用户', 'warn');
+      return;
+    }
+    const text = emails.join(', ');
+    navigator.clipboard.writeText(text).then(() => {
+      showToast(`已复制 ${emails.length} 个邮箱到剪贴板`, 'success');
+    }).catch(() => {
+      prompt('请手动复制邮箱列表：', text);
+    });
+  }
+
+  function importSegmentToAnnounce(segIndex) {
+    const seg = crmState.segments[segIndex];
+    if (!seg) return;
+    const emailUsers = seg.users.filter(u => u.email && u.email.includes('@'));
+
+    // Switch to announce tab
+    const announceTabEl = document.querySelector('.tab[data-tab="announce"]');
+    switchTab(announceTabEl);
+
+    // Apply template
+    if (seg.template) {
+      document.getElementById('announce-subject').value = seg.template.subject || '';
+      document.getElementById('announce-body').value = seg.template.body || '';
+    }
+
+    // Set selected recipients in announce state
+    announceState.selected = new Set(emailUsers.map(u => u.user_id));
+    invalidateAnnouncePreview();
+    renderAnnounceRecipients();
+    updateAnnounceSelectionSummary();
+
+    if (emailUsers.length > 0) {
+      showToast(`已导入 ${emailUsers.length} 位受众与营销模板到公告后台`, 'success');
+    } else {
+      showToast(`已加载营销模板，当前分群暂无登记邮箱的用户`, 'info');
+    }
+  }
+
+  function filterOrdersTable() {
+    const statusFilter = document.getElementById('orders-filter-status').value;
+    const providerFilter = document.getElementById('orders-filter-provider').value;
+    const wrap = document.getElementById('orders-table-wrap');
+
+    let list = crmState.orders;
+    if (statusFilter !== 'all') {
+      list = list.filter(o => o.status === statusFilter || (statusFilter === 'COMPLETED' && o.payment_status === 'PAID'));
+    }
+    if (providerFilter !== 'all') {
+      list = list.filter(o => (o.provider || '').toLowerCase().includes(providerFilter));
+    }
+
+    if (!list.length) {
+      wrap.innerHTML = '<div class="empty">没有匹配的订单记录</div>';
+      return;
+    }
+
+    wrap.innerHTML = `
+      <table class="usage-table">
+        <thead><tr>
+          <th>创建时间</th><th>用户</th><th>套餐 / 档位</th><th>金额</th>
+          <th>渠道 / 方式</th><th>状态</th><th>到期天数</th><th>操作</th>
+        </tr></thead>
+        <tbody>
+          ${list.map(o => {
+            const isCompleted = o.status === 'COMPLETED' || o.payment_status === 'PAID';
+            const statusClass = isCompleted ? 'approved' : o.status === 'CANCELLED' ? 'rejected' : 'pending';
+            const statusText = isCompleted ? '已完成 (PAID)' : o.status === 'CANCELLED' ? '已取消' : '待支付 (UNPAID)';
+            const daysText = o.days_remaining !== null ? (o.days_remaining > 0 ? `剩 ${o.days_remaining} 天` : '<span style="color:var(--danger)">已过期</span>') : '—';
+            return `
+              <tr>
+                <td class="mono">${fmtTime(o.created_at)}</td>
+                <td>
+                  <strong><a class="user-link" onclick="openUser360('${escHtml(o.user_id).replace(/'/g, "\\'")}')">${escHtml(o.username || o.user_id)}</a></strong>
+                  ${o.current_role ? roleBadge(o.current_role) : ''}
+                </td>
+                <td>
+                  <strong>${escHtml(o.bundle_name)}</strong>
+                  <div class="log-note">${o.months} 个月 · ${escHtml(o.tier)}</div>
+                </td>
+                <td class="mono num" style="font-weight:600;">${escHtml(o.amount_display)}</td>
+                <td>
+                  <span class="mono">${escHtml(o.provider)}</span>
+                  <div class="log-note">${escHtml(o.payment_method || '—')}</div>
+                </td>
+                <td>
+                  <span class="status-chip ${statusClass}">${statusText}</span>
+                  ${o.last_error ? `<div class="log-note" style="color:var(--danger)">${escHtml(o.last_error)}</div>` : ''}
+                </td>
+                <td>${daysText}</td>
+                <td>
+                  <button class="btn ghost" style="padding:3px 7px;font-size:11px;" onclick="openUser360('${escHtml(o.user_id).replace(/'/g, "\\'")}')">User 360</button>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  /* ── User 360 Object-wise Logic ── */
+  async function openUser360(userId) {
+    if (!userId) return;
+    crmState.currentUserId = userId;
+    const tabEl = document.getElementById('tab-user360');
+    tabEl.classList.remove('hidden');
+    tabEl.textContent = `用户画像: ${userId}`;
+    switchTab(tabEl);
+
+    const container = document.getElementById('user360-container');
+    container.innerHTML = '<div class="empty">正在加载用户全景画像…</div>';
+
+    try {
+      const h = { 'X-Admin-Token': adminToken };
+      const resp = await fetch(`/api/admin/crm/user?id=${encodeURIComponent(userId)}`, { headers: h });
+      if (resp.status === 401) { location.reload(); return; }
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.message || '加载用户画像失败');
+      crmState.currentUserData = data;
+      renderUser360(data);
+    } catch (e) {
+      container.innerHTML = `<div class="empty">加载失败: ${escHtml(e.message)}</div>`;
+      showToast('加载用户详情失败: ' + e.message, 'error');
+    }
+  }
+
+  function renderUser360(d) {
+    const container = document.getElementById('user360-container');
+    const p = d.profile || {};
+    const pay = d.payments || {};
+    const u = d.usage;
+    const diag = d.error_diagnostics || {};
+
+    const spentStr = [
+      pay.total_spent?.USD ? `$${pay.total_spent.USD.toFixed(2)} USD` : null,
+      pay.total_spent?.CAD ? `$${pay.total_spent.CAD.toFixed(2)} CAD` : null,
+      pay.total_spent?.CNY ? `¥${pay.total_spent.CNY.toFixed(2)} CNY` : null
+    ].filter(Boolean).join(' · ') || '¥0.00 CNY';
+
+    // Daily 14d rows
+    const dailyRows = (u?.daily_14d || []).map(day => `
+      <tr>
+        <td class="mono">${escHtml(day.date)}</td>
+        <td class="num">${day.http.toLocaleString()}</td>
+        <td class="num">${day.ws_sessions.toLocaleString()}</td>
+        <td class="num">${fmtBytes(day.bytes_out)}</td>
+        <td class="num">${day.errors ? `<span style="color:var(--danger)">${day.errors}</span>` : '0'}</td>
+      </tr>`).join('');
+
+    // Routes
+    const routeChips = (u?.top_routes || []).map(r =>
+      `<span class="route-chip">${escHtml(r.route)} × ${r.count.toLocaleString()}</span>`).join('')
+      || '<span class="log-note">无路由记录</span>';
+
+    // Orders timeline
+    const orderItems = (pay.orders || []).map(o => {
+      const isPaid = o.status === 'COMPLETED' || o.payment_status === 'PAID';
+      const cardClass = isPaid ? 'paid' : o.status === 'CANCELLED' ? 'cancelled' : 'unpaid';
+      const statusText = isPaid ? '已支付 (COMPLETED)' : o.status === 'CANCELLED' ? '已取消' : '待支付 (PENDING)';
+      return `
+        <div class="order-item-card ${cardClass}">
+          <div class="order-head-row">
+            <strong>${escHtml(o.bundle_name)} (${o.months} 个月)</strong>
+            <span class="mono" style="font-weight:600;">${escHtml(o.amount_display)}</span>
+          </div>
+          <div class="order-sub-row">
+            <span>${fmtTime(o.created_at)} · ${escHtml(o.provider)} (${escHtml(o.payment_method || '—')})</span>
+            <span class="status-chip ${isPaid ? 'approved' : o.status === 'CANCELLED' ? 'rejected' : 'pending'}" style="font-size:10px;padding:1px 6px;">${statusText}</span>
+          </div>
+          ${o.last_error ? `<div class="log-note" style="color:var(--danger);margin-top:4px;">${escHtml(o.last_error)}</div>` : ''}
+        </div>
+      `;
+    }).join('') || '<div class="log-note">暂无订单记录</div>';
+
+    // Status breakdown cards
+    const statusCodes = ['400', '401', '403', '429', '500'];
+    const errorStatsCards = statusCodes.map(code => {
+      const count = diag.status_counts?.[code] || 0;
+      return `
+        <div class="error-stat-card ${count > 0 ? 'has-error' : ''}">
+          <div class="code">${code}</div>
+          <div class="label">${count} 次报错</div>
+        </div>
+      `;
+    }).join('');
+
+    // Error events table
+    const errorEventRows = (diag.recent_error_events || []).map(ev => `
+      <tr>
+        <td class="mono">${escHtml((ev.t || '').slice(5, 19).replace('T', ' '))}</td>
+        <td class="mono">${escHtml(ev.ev || '')}</td>
+        <td class="mono">${escHtml(ev.route || ev.mode || '')}</td>
+        <td class="num" style="color:var(--danger);font-weight:600;">${ev.status ?? ''}</td>
+        <td class="num">${fmtBytes(ev.b_out)}</td>
+      </tr>`).join('') || '<tr><td colspan="5" class="empty">近期无 4xx/5xx 报错事件</td></tr>';
+
+    container.innerHTML = `
+      <div class="user360-header">
+        <div class="user360-title-row">
+          <button class="btn ghost" type="button" onclick="switchTab(document.querySelector('.tab[data-tab=\\'payments\\']'))">← 返回付费概览</button>
+          <div class="user360-username">${escHtml(p.username || p.user_id)}</div>
+          ${roleBadge(p.role || p.tier, p.expires_at)}
+          ${p.days_remaining !== null ? `<span class="stat-chip">${p.days_remaining > 0 ? `剩余 ${p.days_remaining} 天` : '<span style="color:var(--danger)">已过期</span>'}</span>` : ''}
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" type="button" onclick="composeEmailToUser('${escHtml(p.email || '')}', '${escHtml(p.username || p.user_id)}')">发送邮件</button>
+          <button class="btn ghost" type="button" onclick="openUser360('${escHtml(p.user_id).replace(/'/g, "\\'")}')">刷新画像</button>
+        </div>
+      </div>
+
+      <div class="user360-grid">
+        <!-- Left column: Profile & Quick Operations -->
+        <div>
+          <div class="user360-card">
+            <div class="user360-card-title">基本信息与身份 (Profile)</div>
+            <div class="profile-meta-row">
+              <span class="profile-meta-label">User ID / 账号</span>
+              <span class="profile-meta-value">${escHtml(p.user_id)}</span>
+            </div>
+            <div class="profile-meta-row">
+              <span class="profile-meta-label">手机号码</span>
+              <span class="profile-meta-value">${escHtml(p.phone || '—')}</span>
+            </div>
+            <div class="profile-meta-row">
+              <span class="profile-meta-label">注册邮箱</span>
+              <span class="profile-meta-value">${p.email ? `<a href="mailto:${encodeURIComponent(p.email)}">${escHtml(p.email)}</a>` : '—'}</span>
+            </div>
+            <div class="profile-meta-row">
+              <span class="profile-meta-label">注册时间</span>
+              <span class="profile-meta-value">${fmtTime(p.registered_at)}</span>
+            </div>
+            <div class="profile-meta-row">
+              <span class="profile-meta-label">到期时间</span>
+              <span class="profile-meta-value">${p.expires_at ? fmtTime(p.expires_at) : '—'}</span>
+            </div>
+            <div class="profile-meta-row">
+              <span class="profile-meta-label">Token 状态</span>
+              <span class="profile-meta-value">${p.token_present ? `<span style="color:var(--ok)">有效 (${escHtml(p.token_masked)})</span>` : '<span style="color:var(--danger)">未就绪</span>'}</span>
+            </div>
+            <div class="profile-meta-row">
+              <span class="profile-meta-label">数据来源</span>
+              <span class="profile-meta-value">${escHtml((p.sources || []).join(', '))}</span>
+            </div>
+          </div>
+
+          <!-- Quick Action Card -->
+          <div class="user360-card">
+            <div class="user360-card-title">快捷管理操作 (Admin Actions)</div>
+            <div class="log-note" style="margin-bottom:8px;">直接为该用户延期或调整角色：</div>
+            <div style="display:flex;gap:6px;margin-bottom:10px;">
+              <button class="btn ghost" type="button" onclick="quickExtendUser('${escHtml(p.user_id).replace(/'/g, "\\'")}', 30)">+30 天</button>
+              <button class="btn ghost" type="button" onclick="quickExtendUser('${escHtml(p.user_id).replace(/'/g, "\\'")}', 90)">+90 天</button>
+              <button class="btn ghost" type="button" onclick="quickExtendUser('${escHtml(p.user_id).replace(/'/g, "\\'")}', 365)">+1 年</button>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <select id="user360-role-select" class="input" style="flex:1;">
+                <option value="free" ${p.role==='free'?'selected':''}>Free</option>
+                <option value="basic" ${p.role==='basic'?'selected':''}>Basic</option>
+                <option value="standard" ${p.role==='standard'?'selected':''}>Standard</option>
+                <option value="premium" ${p.role==='premium'?'selected':''}>Premium</option>
+              </select>
+              <button class="btn" type="button" onclick="quickSetUserRole('${escHtml(p.user_id).replace(/'/g, "\\'")}')">调整角色</button>
+            </div>
+          </div>
+
+          <!-- Payment History Summary -->
+          <div class="user360-card">
+            <div class="user360-card-title">
+              <span>消费与订单记录</span>
+              <span style="font-size:12px;color:var(--accent-ink);">${escHtml(spentStr)}</span>
+            </div>
+            <div class="orders-timeline">${orderItems}</div>
+          </div>
+        </div>
+
+        <!-- Right column: Usage, Routes & Error Diagnostics -->
+        <div>
+          <!-- Error Diagnostics Card -->
+          <div class="user360-card">
+            <div class="user360-card-title">
+              <span>报错与异常诊断 (Error Summary)</span>
+              <span class="log-note">近 7 天累计 ${diag.errors_7d_utc || 0} 次错误</span>
+            </div>
+            <div class="error-breakdown-grid">${errorStatsCards}</div>
+            <div class="detail-sub-title">最近错误日志事件 (4xx/5xx Events)</div>
+            <table class="usage-table">
+              <thead><tr><th>时间</th><th>事件</th><th>路由 / 模式</th><th style="text-align:right">状态码</th><th style="text-align:right">流出</th></tr></thead>
+              <tbody>${errorEventRows}</tbody>
+            </table>
+          </div>
+
+          <!-- Usage Series -->
+          <div class="user360-card">
+            <div class="user360-card-title">
+              <span>调用量统计 (Usage)</span>
+              <span class="log-note">近 7 天：${(u?.requests_7d_utc || 0).toLocaleString()} 请求 · ${(u?.ws_sessions_7d_utc || 0).toLocaleString()} WS 会话 · ${fmtBytes(u?.bytes_out_7d_utc)} 流出</span>
+            </div>
+            <div class="detail-sub-title">常用路由分布 (Top Routes)</div>
+            <div class="chip-row" style="margin-bottom:14px;">${routeChips}</div>
+            <div class="detail-sub-title">每日活动记录（近 14 天，UTC）</div>
+            <table class="usage-table">
+              <thead><tr><th>日期</th><th style="text-align:right">HTTP 请求</th><th style="text-align:right">WS 会话</th><th style="text-align:right">数据流出</th><th style="text-align:right">错误数</th></tr></thead>
+              <tbody>${dailyRows || '<tr><td colspan="5" class="empty">无调用记录</td></tr>'}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function quickExtendUser(userId, days) {
+    if (!confirm(`确认要为用户 ${userId} 延长 ${days} 天有效期吗？`)) return;
+    try {
+      const resp = await fetch('/api/admin/users/extend-expiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Token': adminToken },
+        body: JSON.stringify({ user_id: userId, days })
+      });
+      if (resp.status === 401) { location.reload(); return; }
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.message || '延期失败');
+      showToast(data.message || '延期成功', 'success');
+      openUser360(userId);
+    } catch (e) {
+      showToast('操作失败: ' + e.message, 'error');
+    }
+  }
+
+  async function quickSetUserRole(userId) {
+    const role = document.getElementById('user360-role-select').value;
+    if (!confirm(`确认要将用户 ${userId} 的角色权限调整为 ${role} 吗？`)) return;
+    try {
+      const resp = await fetch('/api/admin/users/set-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Token': adminToken },
+        body: JSON.stringify({ user_id: userId, role })
+      });
+      if (resp.status === 401) { location.reload(); return; }
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.message || '调整失败');
+      showToast(data.message || '调整成功', 'success');
+      openUser360(userId);
+    } catch (e) {
+      showToast('操作失败: ' + e.message, 'error');
+    }
+  }
+
+  function composeEmailToUser(email, name) {
+    const announceTabEl = document.querySelector('.tab[data-tab="announce"]');
+    switchTab(announceTabEl);
+    if (email && email.includes('@')) {
+      document.getElementById('manual-email').value = email;
+      document.getElementById('manual-name').value = name || '';
+      addManualRecipient();
+    }
+    showToast(`已切换到邮件公告，收件人：${email || name}`, 'success');
   }
 
   /* ── Sync users ── */
