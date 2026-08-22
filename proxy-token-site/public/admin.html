@@ -803,7 +803,7 @@
             <div class="usage-section-title">请求归因</div>
             <div class="log-note">仅管理员可见的 IP 与归属地估计。不会显示 token、Authorization 或 query；归属地是 IP 网络位置，可能不等于用户实际地址。</div>
           </div>
-          <button class="btn ghost" type="button" onclick="loadAttribution()">刷新</button>
+          <button class="btn ghost" type="button" onclick="loadAttribution()">加载归因</button>
         </div>
         <div class="usage-search-row">
           <input id="attribution-day" class="input" type="date" aria-label="归因日期 UTC">
@@ -818,9 +818,9 @@
           <input id="attribution-source-ip" class="input mono" type="text" maxlength="45" placeholder="例如 203.0.113.8（可选）">
           <button class="btn" type="button" onclick="loadAttribution()">筛选</button>
         </div>
-        <div id="attribution-summary" class="log-note">正在加载归因数据…</div>
+        <div id="attribution-summary" class="log-note">按需加载：点击“加载归因”查看请求 IP 与所在地。</div>
         <div id="attribution-top" class="chip-row"></div>
-        <div id="attribution-table-wrap"><div class="empty">正在加载…</div></div>
+        <div id="attribution-table-wrap"><div class="empty">归因数据不会随用量概览自动刷新。</div></div>
       </div>
 
       <div class="usage-section">
@@ -1039,6 +1039,8 @@
   const bulkState = {
     orders: []
   };
+  let attributionLoaded = false;
+  let attributionLoading = false;
 
   /* ── Toast ── */
   function showToast(msg, type) {
@@ -1094,12 +1096,14 @@
         : '审核后台';
     if (tab === 'usage') {
       loadUsageOverview();
-      loadAttribution();
+      if (!attributionLoaded) {
+        document.getElementById('attribution-summary').textContent =
+          '按需加载：点击“加载归因”查看请求 IP 与所在地。';
+      }
       if (usageTimer) clearInterval(usageTimer);
       usageTimer = setInterval(() => {
         if (!document.getElementById('panel-usage').classList.contains('hidden')) {
           loadUsageOverview();
-          loadAttribution();
         }
       }, 60000);
     } else if (usageTimer) {
@@ -1288,6 +1292,7 @@
   }
 
   async function loadAttribution() {
+    if (attributionLoading) return;
     const dayInput = document.getElementById('attribution-day');
     const statusInput = document.getElementById('attribution-status');
     const pathInput = document.getElementById('attribution-path');
@@ -1296,6 +1301,7 @@
     const table = document.getElementById('attribution-table-wrap');
     const top = document.getElementById('attribution-top');
     if (!dayInput.value) dayInput.value = new Date().toISOString().slice(0, 10);
+    attributionLoading = true;
     summary.textContent = '正在加载归因数据…';
     try {
       const query = new URLSearchParams({ day: dayInput.value, lines: '5000' });
@@ -1308,11 +1314,14 @@
       if (resp.status === 401) { location.reload(); return; }
       const data = await resp.json();
       if (!data.success) throw new Error(data.message || '加载失败');
+      attributionLoaded = true;
       renderAttribution(data);
     } catch (e) {
       summary.textContent = `加载失败: ${e.message}`;
       top.innerHTML = '';
       table.innerHTML = '<div class="empty">无法读取归因日志</div>';
+    } finally {
+      attributionLoading = false;
     }
   }
 

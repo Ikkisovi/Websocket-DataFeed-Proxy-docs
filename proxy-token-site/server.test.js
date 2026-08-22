@@ -304,11 +304,14 @@ describe('GET /api/admin/attribution', () => {
     expect(res.body.recent_events.some(event => event.credential_hash === 'none')).toBe(true);
   });
 
-  test('ships the admin request-attribution controls with IP and location copy', () => {
+  test('ships on-demand request attribution controls without slowing the usage refresh', () => {
     const source = fs.readFileSync(path.join(__dirname, 'public', 'admin.html'), 'utf8');
     expect(source).toContain('请求归因');
     expect(source).toContain('/api/admin/attribution');
     expect(source).toContain('IP 与归属地估计');
+    expect(source).toContain('加载归因');
+    expect(source).toContain('if (attributionLoading) return;');
+    expect(source).not.toContain('          loadAttribution();');
   });
 });
 
