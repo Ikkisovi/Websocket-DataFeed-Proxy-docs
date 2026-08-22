@@ -483,26 +483,28 @@ function UptimeBlock({ label, data }) {
 const { useState } = React;
 
 function DocsTopbar({ active = "proxy", onNav }) {
+  const lang = useCurrentLanguage();
+  const isZh = lang === "zh";
   return (
     <div className="topbar">
       <div className="brand">
         <span className="dot"></span>
-        <span><strong>代理文档</strong></span>
+        <span><strong>{isZh ? "数据接口文档" : "Proxy Docs"}</strong></span>
       </div>
       <div className="divider"></div>
       <div className="nav">
-        <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>代理 API</a>
-        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>财务数据</a>
-        <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>批量下载</a>
-        <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>WS 用法</a>
-        <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>状态</a>
-        <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>用量</a>
-        <a href="/updates" style={{ cursor: "pointer" }}>更新 / Updates</a>
+        <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>{isZh ? "行情 API" : "Proxy API"}</a>
+        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>{isZh ? "财务数据" : "Financial Data"}</a>
+        <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>{isZh ? "批量下载" : "Bulk Download"}</a>
+        <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>{isZh ? "WS 实时流" : "WS Stream"}</a>
+        <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>{isZh ? "服务状态" : "Status"}</a>
+        <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>{isZh ? "用量统计" : "Usage"}</a>
+        <a href="/updates" style={{ cursor: "pointer" }}>{isZh ? "产品更新" : "Updates"}</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
         <LanguageToggle />
-        <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>Token 入口 →</a>
+        <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>{isZh ? "Token 账户管理 →" : "Token Portal →"}</a>
       </div>
     </div>
   );
@@ -511,6 +513,8 @@ function DocsTopbar({ active = "proxy", onNav }) {
 
 
 function IndexOptionsBanner() {
+  const lang = useCurrentLanguage();
+  const isZh = lang === "zh";
   return (
     <div style={{
       display: "flex",
@@ -534,8 +538,8 @@ function IndexOptionsBanner() {
         letterSpacing: ".08em",
         textTransform: "uppercase",
       }}>New</span>
-      <strong>指数期权现已全面上线。</strong>
-      <span>SPX/SPXW、VIX/VIXW、DJX 和 XSP 等合约查询与实时期权行情流已就绪。</span>
+      <strong>{isZh ? "指数期权现已全面上线。" : "Index options are fully supported."}</strong>
+      <span>{isZh ? "SPX/SPXW、VIX/VIXW、DJX 和 XSP 等合约查询与实时期权行情流已就绪。" : "SPX/SPXW, VIX/VIXW, DJX, and XSP contract discovery and live option streaming are available."}</span>
     </div>
   );
 }
@@ -652,6 +656,178 @@ function Tab({ id, tab, setTab, label, count }) {
   );
 }
 
+const SECTION_ZH_LABELS = {
+  "Getting started": "入门指南",
+  "Overview": "概览与架构",
+  "Authentication": "身份鉴权",
+  "Tiers & permissions": "套餐与权限",
+  "Free plan usage": "Free 计划指引",
+  "Token API": "Token 账户接口",
+  "register": "注册接口",
+  "check-status": "查询状态",
+  "generate-token": "获取 Token",
+  "REST History": "REST 历史行情",
+  "history/bars": "历史 K 线",
+  "history/news": "历史新闻",
+  "stock trade+quote": "逐笔成交与报价",
+  "Index Data": "指数数据",
+  "index history": "指数日线历史",
+  "Stock Data": "股票数据",
+  "overview": "数据概览",
+  "Multi-symbol": "多股票批量",
+  "auctions": "集合竞价",
+  "multi bars": "批量历史 K 线",
+  "multi latest bars": "批量最新 K 线",
+  "multi quotes": "批量逐笔报价",
+  "multi latest quotes": "批量最新报价",
+  "multi snapshots": "批量综合快照",
+  "multi trades": "批量逐笔成交",
+  "multi latest trades": "批量最新成交",
+  "Metadata": "元数据字典",
+  "condition codes": "成交条件代码",
+  "exchange codes": "交易所代码",
+  "Single symbol": "单只股票",
+  "single bars": "单股历史 K 线",
+  "single latest bar": "单股最新 K 线",
+  "single quotes": "单股逐笔报价",
+  "single latest quote": "单股最新报价",
+  "single snapshot": "单股综合快照",
+  "single trades": "单股逐笔成交",
+  "single latest trade": "单股最新成交",
+  "Options Data": "期权数据",
+  "routing model": "路由与多级缓存",
+  "contracts": "期权合约列表",
+  "Snapshots": "期权快照",
+  "snapshots": "全链快照与 Greeks",
+  "quote": "最新报价快照",
+  "snapshot trade": "最新成交快照",
+  "open interest": "未平仓量快照",
+  "expiry": "按到期日快照",
+  "snapshot ohlc": "快照 OHLC",
+  "History": "期权历史",
+  "bars": "历史分钟 K 线",
+  "eod": "日终结算数据",
+  "history open interest": "历史未平仓量",
+  "trades": "历史逐笔成交",
+  "history ohlc": "历史 OHLC",
+  "Direct API": "原生接口",
+  "direct endpoints": "高频原生接口",
+  "Crypto Data": "加密货币",
+  "orderbooks": "实时订单簿",
+  "Admin endpoints": "管理后台接口",
+  "login": "管理员登录",
+  "pending": "待审核列表",
+  "approve": "审批开通",
+  "reject": "拒绝申请",
+  "Reference": "参考说明",
+  "Error codes": "错误代码",
+  "Rate limits": "并发与限流",
+  "Financial data API": "财务数据 API",
+  "Financial data overview": "财务数据概览",
+  "Request contract": "请求规范",
+  "Response metadata": "响应元数据",
+  "Market history": "市场历史",
+  "historical-price-eod/full": "日终历史价格全量",
+  "Market snapshots": "市场快照",
+  "quote-short": "简版报价",
+  "aftermarket-quote": "盘后报价",
+  "aftermarket-trade": "盘后成交",
+  "stock-price-change": "价格涨跌幅",
+  "market-capitalization": "当前市值",
+  "historical-market-capitalization": "历史市值",
+  "batch-quote": "批量报价",
+  "batch-quote-short": "批量简版报价",
+  "batch-aftermarket-quote": "批量盘后报价",
+  "batch-aftermarket-trade": "批量盘后成交",
+  "market-capitalization-batch": "批量市值",
+  "Company reference": "公司资料与基本面",
+  "profile": "公司资料",
+  "stock-peers": "同行公司",
+  "key-executives": "核心高管",
+  "company-notes": "公司备忘录",
+  "financial-reports-dates": "财报发布日期",
+  "employee-count": "员工人数",
+  "historical-employee-count": "历史员工人数",
+  "shares-float": "流通股本",
+  "shares-float-all": "全量流通股本",
+  "dividends": "历史分红",
+  "splits": "历史拆股",
+  "Financial statements": "财务三大报表",
+  "income-statement": "利润表 (Income Statement)",
+  "balance-sheet-statement": "资产负债表 (Balance Sheet)",
+  "cash-flow-statement": "现金流量表 (Cash Flow)",
+  "PIT statements": "时点财报 (Point-in-Time)",
+  "Ratios & metrics": "财务比率与指标",
+  "ratios": "财务比率 (Ratios)",
+  "ratios-ttm": "TTM 财务比率",
+  "key-metrics": "关键指标 (Key Metrics)",
+  "key-metrics-ttm": "TTM 关键指标",
+  "Growth & valuation": "增长与估值",
+  "income-statement-growth": "收入增长分析",
+  "balance-sheet-statement-growth": "资产负债增长",
+  "cash-flow-statement-growth": "现金流增长",
+  "financial-growth": "综合财务增长",
+  "enterprise-values": "企业价值 (EV)",
+  "financial-scores": "财务健康评分",
+  "Research & valuation": "深度研究与评级",
+  "analyst-estimates": "分析师一致预测",
+  "price-target-summary": "目标价汇总",
+  "price-target-consensus": "目标价共识",
+  "discounted-cash-flow": "DCF 现金流折现估值",
+  "custom-discounted-cash-flow": "自定义 DCF 估值",
+  "levered-discounted-cash-flow": "杠杆 DCF 估值",
+  "custom-levered-discounted-cash-flow": "自定义杠杆 DCF",
+  "owner-earnings": "所有者收益",
+  "earnings": "历史收益数据",
+  "grades": "分析师评级",
+  "grades-consensus": "评级共识",
+  "grades-historical": "历史评级变动",
+  "ratings-snapshot": "综合评分快照",
+  "ratings-historical": "历史评分记录",
+  "Revenue & directories": "营收细分与代码目录",
+  "revenue-geographic-segmentation": "按地区营收细分",
+  "revenue-product-segmentation": "按产品营收细分",
+  "available-countries": "支持国家列表",
+  "available-exchanges": "支持交易所列表",
+  "available-industries": "支持行业列表",
+  "available-sectors": "支持板块列表",
+  "cik-list": "CIK 代码列表",
+  "delisted-companies": "已退市公司列表",
+  "financial-statement-symbol-list": "财报股票代码列表",
+  "stock-list": "全部美股列表",
+  "symbol-change": "代码变更历史",
+  "Coverage": "覆盖范围说明",
+  "Snapshot boundary": "快照更新边界",
+  "Future data families": "即将推出数据族",
+  "Connecting": "连接与认证",
+  "Endpoint": "连接端点",
+  "Auth message": "认证消息格式",
+  "Heartbeat": "心跳保活机制",
+  "Channels": "数据通道",
+  "stocks": "美股实时流 (stocks)",
+  "options": "期权实时流 (options)",
+  "boats": "大宗暗盘流 (boats)",
+  "overnight": "夜盘交易流 (overnight)",
+  "crypto": "加密货币流 (crypto)",
+  "news": "新闻快讯流 (news)",
+  "Messages": "交互消息格式",
+  "Subscribe": "订阅消息 (Subscribe)",
+  "Unsubscribe": "退订消息 (Unsubscribe)",
+  "Trade": "逐笔成交帧 (Trade)",
+  "Quote": "逐笔报价帧 (Quote)",
+  "Bar": "分钟 K 线帧 (Bar)",
+  "Operations": "高级运维",
+  "Reconnect": "断线重连与退避",
+  "Backpressure": "背压与流控机制",
+  "System": "系统架构",
+  "Components": "核心组件",
+  "Latency": "延迟时延",
+  "History": "历史指标",
+  "Uptime": "90 天在线率",
+  "Incidents": "故障与维护记录",
+  "Methodology": "统计方法论"
+};
+
 function SideNav({ tab }) {
   const [activeId, setActiveId] = React.useState("");
   const [expanded, setExpanded] = React.useState({
@@ -722,6 +898,8 @@ function SideNav({ tab }) {
   }
 
   function Section({ s, depth = 0 }) {
+    const lang = useCurrentLanguage();
+    const isZh = lang === "zh";
     const hasChildren = s.children && s.children.length > 0;
     const hasItems    = s.items && s.items.length > 0;
     const isParent    = hasChildren || hasItems;
@@ -775,7 +953,7 @@ function SideNav({ tab }) {
             userSelect: "none",
           }}
         >
-          <span style={{ flex: 1 }}>{s.title}</span>
+          <span style={{ flex: 1 }}>{isZh ? (SECTION_ZH_LABELS[s.title] ? `${SECTION_ZH_LABELS[s.title]}` : s.title) : s.title}</span>
           {isParent && <Chevron open={isOpen} />}
         </div>
 
@@ -802,7 +980,7 @@ function SideNav({ tab }) {
                           fontWeight: activeId === getId(it) ? 500 : 400,
                           fontFamily: isMono ? "var(--f-mono)" : "var(--f-sans)",
                           fontSize: isMono ? 12 : 13,
-                        }}>{it}</a>
+                        }}>{isZh && SECTION_ZH_LABELS[it] ? `${SECTION_ZH_LABELS[it]}` : it}</a>
                       </li>
                     ))}
                   </ul>
@@ -966,8 +1144,41 @@ const RT_BASE    = "https://rt-api.leandata.uk";
 const TOKEN_BASE = "https://leandata.uk";
 const WS_BASE = "wss://leandata.uk";
 
+function useCurrentLanguage() {
+  const [lang, setLang] = React.useState(() => {
+    try {
+      return localStorage.getItem("leandata.language") || "zh";
+    } catch {
+      return "zh";
+    }
+  });
+  React.useEffect(() => {
+    const handler = (e) => {
+      try {
+        setLang(e?.detail?.language || localStorage.getItem("leandata.language") || "zh");
+      } catch {}
+    };
+    window.addEventListener("leandata:languagechange", handler);
+    return () => window.removeEventListener("leandata:languagechange", handler);
+  }, []);
+  return lang;
+}
+
 function Bilingual({ en, zh }) {
-  return <>{en} / {zh}</>;
+  const lang = useCurrentLanguage();
+  return <>{lang === "zh" ? zh : en}</>;
+}
+
+function DocDesc({ en, zh, style }) {
+  const lang = useCurrentLanguage();
+  const isZh = lang === "zh";
+  return (
+    <p style={{ fontSize: 15, color: "var(--ink-base)", margin: "0 0 12px", lineHeight: 1.65, ...style }}>
+      {isZh ? (zh || en) : (en || zh)}
+      {isZh && en && zh && <><br/><span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{en}</span></>}
+      {!isZh && zh && en && <><br/><span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{zh}</span></>}
+    </p>
+  );
 }
 
 const API_CATEGORIES = {
@@ -975,26 +1186,37 @@ const API_CATEGORIES = {
   financial: { en: "Financial data", zh: "财务数据" },
 };
 
-function ParamRow({ name, type, required, desc }) {
+function ParamRow({ name, type, required, desc, zh }) {
+  const lang = useCurrentLanguage();
+  const isZh = lang === "zh";
+  const descText = isZh ? (zh || desc) : desc;
+  const subText = isZh ? (zh ? desc : null) : (zh || null);
   return (
     <tr>
       <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, color: "var(--ink-strong)", whiteSpace: "nowrap" }}>{name}</td>
       <td style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{type}</td>
-      <td style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: required ? "var(--accent)" : "var(--ink-soft)" }}>{required ? "required" : "optional"}</td>
-      <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>{desc}</td>
+      <td style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: required ? "var(--accent)" : "var(--ink-soft)" }}>
+        {isZh ? (required ? "必填" : "可选") : (required ? "required" : "optional")}
+      </td>
+      <td style={{ fontSize: 12, color: "var(--ink-base)" }}>
+        {descText}
+        {subText && <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2 }}>{subText}</div>}
+      </td>
     </tr>
   );
 }
 
 function ParamTable({ rows }) {
+  const lang = useCurrentLanguage();
+  const isZh = lang === "zh";
   return (
     <table className="tbl" style={{ marginBottom: 20, width: "100%", fontSize: 13 }}>
       <thead>
         <tr>
-          <th style={{ width: 180 }}>Parameter</th>
-          <th style={{ width: 90 }}>Type</th>
-          <th style={{ width: 90 }}>Required</th>
-          <th>Description</th>
+          <th style={{ width: 180 }}>{isZh ? "参数名 / Parameter" : "Parameter"}</th>
+          <th style={{ width: 90 }}>{isZh ? "类型 / Type" : "Type"}</th>
+          <th style={{ width: 90 }}>{isZh ? "必填 / Required" : "Required"}</th>
+          <th>{isZh ? "说明 / Description" : "Description"}</th>
         </tr>
       </thead>
       <tbody>
@@ -1015,16 +1237,16 @@ function EndpointBadge({ method, path }) {
 }
 
 const STOCK_COMMON = {
-  symbols: { name: "symbols", type: "string", required: true, desc: "Comma-separated symbols, e.g. AAPL,MSFT" },
-  symbolPath: { name: "symbol", type: "path", required: true, desc: "Single ticker in the URL path, e.g. AAPL" },
-  start: { name: "start", type: "string", required: true, desc: "Inclusive start time/date. ISO 8601 recommended." },
-  end: { name: "end", type: "string", required: true, desc: "Exclusive end time/date. ISO 8601 recommended." },
-  feed: { name: "feed", type: "string", required: false, desc: "iex is default; sip/delayed_sip/boats/overnight/otc depend on endpoint and entitlement." },
-  limit: { name: "limit", type: "integer", required: false, desc: "Page size. Use next_page_token for pagination when returned." },
-  pageToken: { name: "page_token", type: "string", required: false, desc: "Pagination token from the previous response." },
-  timeframe: { name: "timeframe", type: "string", required: true, desc: "1Min, 5Min, 15Min, 30Min, 1Hour, 1Day, etc." },
-  sort: { name: "sort", type: "string", required: false, desc: "asc or desc for historical tick endpoints." },
-  tape: { name: "tape", type: "string", required: true, desc: "Tape A, B, or C. Example: tape=C for Nasdaq-listed symbols." },
+  symbols: { name: "symbols", type: "string", required: true, desc: "Comma-separated symbols, e.g. AAPL,MSFT", zh: "逗号分隔的标的代码列表，例如 AAPL,MSFT" },
+  symbolPath: { name: "symbol", type: "path", required: true, desc: "Single ticker in the URL path, e.g. AAPL", zh: "URL 路径中的单个标的代码，例如 AAPL" },
+  start: { name: "start", type: "string", required: true, desc: "Inclusive start time/date. ISO 8601 recommended.", zh: "起始时间/日期（包含），推荐 ISO 8601 格式" },
+  end: { name: "end", type: "string", required: true, desc: "Exclusive end time/date. ISO 8601 recommended.", zh: "截止时间/日期（不含），推荐 ISO 8601 格式" },
+  feed: { name: "feed", type: "string", required: false, desc: "iex is default; sip/delayed_sip/boats/overnight/otc depend on endpoint and entitlement.", zh: "数据源通道（默认 iex，可选 sip、delayed_sip、boats、overnight 等）" },
+  limit: { name: "limit", type: "integer", required: false, desc: "Page size. Use next_page_token for pagination when returned.", zh: "单页最大条数，配合 next_page_token 翻页" },
+  pageToken: { name: "page_token", type: "string", required: false, desc: "Pagination token from the previous response.", zh: "上一页返回的翻页游标 Token" },
+  timeframe: { name: "timeframe", type: "string", required: true, desc: "1Min, 5Min, 15Min, 30Min, 1Hour, 1Day, etc.", zh: "K 线周期：1Min、5Min、15Min、30Min、1Hour、1Day 等" },
+  sort: { name: "sort", type: "string", required: false, desc: "asc or desc for historical tick endpoints.", zh: "排序方式：asc（升序）或 desc（降序）" },
+  tape: { name: "tape", type: "string", required: true, desc: "Tape A, B, or C. Example: tape=C for Nasdaq-listed symbols.", zh: "交易磁带：Tape A（纽交所）、B（美交所/ETF）或 C（纳斯达克）" },
 };
 
 const STOCK_ENDPOINT_GROUPS = [
@@ -1236,16 +1458,19 @@ const STOCK_ENDPOINT_GROUPS = [
 ];
 
 function StockEndpointSection({ endpoint }) {
+  const lang = useCurrentLanguage();
+  const isZh = lang === "zh";
   return (
     <section style={{ marginBottom: 42 }}>
       <h2 id={endpoint.id} className="display-title" style={{ fontSize: 24, margin: "0 0 8px" }}>{endpoint.title}</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        {endpoint.desc}
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>{endpoint.zh}</span>
+      <p style={{ fontSize: 15, color: "var(--ink-base)", margin: "0 0 12px", lineHeight: 1.6 }}>
+        {isZh ? (endpoint.zh || endpoint.desc) : endpoint.desc}
+        {isZh && endpoint.desc && <><br/><span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{endpoint.desc}</span></>}
+        {!isZh && endpoint.zh && <><br/><span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{endpoint.zh}</span></>}
       </p>
       <EndpointBadge method="GET" path={`${REST_BASE}${endpoint.route}`} />
       {endpoint.params.length > 0 ? <ParamTable rows={endpoint.params} /> : (
-        <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 20px" }}>No query parameters are required.</p>
+        <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 20px" }}>{isZh ? "无需必填查询参数。" : "No query parameters are required."}</p>
       )}
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
@@ -1968,12 +2193,10 @@ function ProxyApiBody() {
       {/* ── Getting started ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Getting started</div>
       <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}><Bilingual {...API_CATEGORIES.market} /></h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 16px", maxWidth: 640 }}>
-        Leandata provides two core surfaces: a <strong style={{ color: "var(--ink-strong)" }}>token portal</strong> for registration and token issuance,
-        and a high-performance <strong style={{ color: "var(--ink-strong)" }}>market data proxy</strong> for historical REST, realtime REST, and secure WebSocket streaming.
-        Authenticate with a single unified token across all historical and realtime data endpoints without managing third-party credentials.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Leandata 提供两类核心服务：<strong>Token 门户</strong>负责账户注册与 Token 签发管理；<strong>行情代理</strong>通过稳定公共域名提供历史 REST、实时 REST 与 WebSocket 实时行情流。使用单一 Token 即可访问全部数据接口，无需自行配置第三方凭证。</span>
-      </p>
+      <DocDesc
+        zh="Leandata 提供两类核心服务：Token 门户负责账户注册与 Token 签发管理；行情代理通过稳定公共域名提供历史 REST、实时 REST 与 WebSocket 实时行情流。使用单一 Token 即可访问全部数据接口，无需自行配置第三方凭证。"
+        en="Leandata provides two core surfaces: a token portal for registration and token issuance, and a high-performance market data proxy for historical REST, realtime REST, and secure WebSocket streaming. Authenticate with a single unified token across all historical and realtime data endpoints without managing third-party credentials."
+      />
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
         <thead><tr><th>Surface</th><th>Public URL</th><th>Auth</th></tr></thead>
         <tbody>
@@ -1990,11 +2213,11 @@ function ProxyApiBody() {
         <br/><span style={{ color: "var(--ink-soft)" }}>历史 REST、实时 REST 与 WebSocket 均使用稳定域名和同一 Token。故障切换时源站与缓存层可能调整，客户端不应绑定裸 IP。</span>
       </div>
 
-      <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Authentication</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        All data endpoints (REST and WS) require a UUID token. Pass it as an HTTP header or in the JSON body:
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>所有数据接口（REST 和 WS）都需要 UUID Token，可通过 HTTP Header 或 JSON Body 传递。</span>
-      </p>
+      <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>{isZh ? "身份鉴权 (Authentication)" : "Authentication"}</h2>
+      <DocDesc
+        zh="所有数据接口（REST 和 WS）都需要 UUID Token。推荐通过 HTTP Authorization 请求头传递，也支持在 POST JSON 请求体中传递："
+        en="All data endpoints (REST and WS) require a UUID token. Pass it as an HTTP header or in the JSON body:"
+      />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`# Option A — Authorization header (preferred)
 Authorization: Bearer <TOKEN>
@@ -2021,12 +2244,11 @@ Authorization: Bearer <TOKEN>
         <br/><span style={{ color: "var(--ink-soft)" }}>防护键由每日轮换的源 IP HMAC 和粗粒度 User-Agent 类别组成。Token 只允许以 HMAC 指纹做短期关联，不记录或持久化原始 IP/Token。每次临时封禁 <code>5 分钟</code>后自动解除，不会升级。伪匿名计数和封禁事件最多保留 <code>7 天</code>；去标识聚合总数可保留 <code>30 天</code>，每日 <code>00:00 UTC</code> 轮换。</span>
       </div>
 
-      <h2 id="tiers-permissions" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Tiers &amp; permissions</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Token plans control access to channels and REST endpoints. Runtime safety limits are shared unless stated otherwise below.
-        Basic is shown only for existing-account compatibility and is closed to new registration; Bulk Download is the separate one-off product above.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Token 套餐决定通道和 REST endpoint 权限；运行时安全限制除下方特别说明外为共享配置。Basic 仅为老账户兼容，不再开放新注册；批量导出请使用上方独立的 Bulk Download。</span>
-      </p>
+      <h2 id="tiers-permissions" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>{isZh ? "套餐与权限说明 (Tiers & Permissions)" : "Tiers & permissions"}</h2>
+      <DocDesc
+        zh="Token 套餐决定数据通道和 REST endpoint 权限；运行时安全限制除特别说明外为共享配置。Basic 仅为老账户兼容，不再开放新注册；大批量数据导出请使用独立的 Bulk Download。"
+        en="Token plans control access to channels and REST endpoints. Runtime safety limits are shared unless stated otherwise below. Basic is shown only for existing-account compatibility and is closed to new registration; Bulk Download is the separate one-off product above."
+      />
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
           <tr><th style={{ width: 120 }}>Plan</th><th>Price</th><th>WS channels</th><th>WS subjects</th><th>WS account connection cap</th><th>REST historical parallel</th><th>REST endpoints</th></tr>
@@ -2243,11 +2465,11 @@ print("Option contracts:", resp_opt.status_code)`}
       </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/register`} />
       <ParamTable rows={[
-        { name: "username", type: "string", required: true, desc: "Unique display name (must not exist in approved users)" },
-        { name: "phone",    type: "string", required: true, desc: "Mobile number used to verify identity on token generation" },
-        { name: "email",    type: "string", required: true, desc: "Valid email used for account identity, service notices, and future login verification." },
-        { name: "tier",     type: "string", required: false, desc: "trial | value | standard | premium (default: standard). Basic is retired for new registrations." },
-        { name: "mode",     type: "string", required: false, desc: "stocks | options — required when tier is value. Determines which data vertical is enabled." },
+        { name: "username", type: "string", required: true, desc: "Unique display name (must not exist in approved users)", zh: "唯一用户名（不可与已有账户重复）" },
+        { name: "phone",    type: "string", required: true, desc: "Mobile number used to verify identity on token generation", zh: "用于验证身份与匹配订单的手机号" },
+        { name: "email",    type: "string", required: true, desc: "Valid email used for account identity, service notices, and future login verification.", zh: "接收服务通告、安全通知与登录凭据的邮箱" },
+        { name: "tier",     type: "string", required: false, desc: "trial | value | standard | premium (default: standard). Basic is retired for new registrations.", zh: "套餐类型：trial | value | standard | premium（默认 standard）" },
+        { name: "mode",     type: "string", required: false, desc: "stocks | options — required when tier is value. Determines which data vertical is enabled.", zh: "数据方向：stocks 或 options（仅当 tier 为 value 时必填）" },
       ]} />
       <pre className="code" style={{ marginBottom: 28 }}>
 {`// Request
@@ -2272,8 +2494,8 @@ print("Option contracts:", resp_opt.status_code)`}
       </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/check-status`} />
       <ParamTable rows={[
-        { name: "username", type: "string", required: true, desc: "The username submitted at registration" },
-        { name: "phone",    type: "string", required: true, desc: "The phone number submitted at registration" },
+        { name: "username", type: "string", required: true, desc: "The username submitted at registration", zh: "注册时提交的用户名" },
+        { name: "phone",    type: "string", required: true, desc: "The phone number submitted at registration", zh: "注册时提交的手机号" },
       ]} />
       <pre className="code" style={{ marginBottom: 28 }}>
 {`// Request
@@ -2290,8 +2512,8 @@ print("Option contracts:", resp_opt.status_code)`}
       </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/generate-token`} />
       <ParamTable rows={[
-        { name: "username", type: "string", required: true, desc: "Must match an entry in the approved users database" },
-        { name: "phone",    type: "string", required: true, desc: "Must match the phone number on record" },
+        { name: "username", type: "string", required: true, desc: "Must match an entry in the approved users database", zh: "必须与已开通数据库中的用户名一致" },
+        { name: "phone",    type: "string", required: true, desc: "Must match the phone number on record", zh: "必须与登记在册的手机号一致" },
       ]} />
       <pre className="code" style={{ marginBottom: 48 }}>
 {`// Request
@@ -2313,19 +2535,19 @@ print("Option contracts:", resp_opt.status_code)`}
       <div className="eyebrow" style={{ marginBottom: 10, marginTop: 0 }}>REST History</div>
 
       <h2 id="post-v1-history-bars" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/bars</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Fetch historical OHLCV bars for US equities (SIP consolidated feed, split/dividend adjusted). Paginates automatically up to <code>max_pages</code>. Results are cached server-side; check the <code>X-Cache</code> response header for <code>HIT</code> / <code>MISS</code>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取美股历史 OHLCV K 线数据（全市场 SIP 官方聚合行情，已复权）。支持自动分页与多级服务端缓存，响应头可通过 <code>X-Cache</code> 查看缓存命中状态。</span>
-      </p>
+      <DocDesc
+        zh="获取美股历史 OHLCV K 线数据（全市场 SIP 官方聚合行情，已复权）。支持自动分页与多级服务端缓存，响应头可通过 X-Cache 查看缓存命中状态。"
+        en="Fetch historical OHLCV bars for US equities (SIP consolidated feed, split/dividend adjusted). Paginates automatically up to max_pages. Results are cached server-side; check the X-Cache response header for HIT / MISS."
+      />
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/bars`} />
       <ParamTable rows={[
-        { name: "symbol",    type: "string",  required: true,  desc: "Ticker (e.g. AAPL). Comma-separated for multi-symbol." },
-        { name: "start",     type: "string",  required: true,  desc: "ISO 8601 date or datetime (e.g. 2024-01-02)" },
-        { name: "end",       type: "string",  required: true,  desc: "ISO 8601 date or datetime" },
-        { name: "timeframe", type: "string",  required: false, desc: "1Min | 5Min | 15Min | 30Min | 1Hour | 1Day (default: 1Min)" },
-        { name: "feed",      type: "string",  required: false, desc: "sip | iex (default: sip)" },
-        { name: "limit",     type: "integer", required: false, desc: "Bars per page, 1–10000 (default: 10000)" },
-        { name: "max_pages", type: "integer", required: false, desc: "Max pagination pages (default: 100)" },
+        { name: "symbol",    type: "string",  required: true,  desc: "Ticker (e.g. AAPL). Comma-separated for multi-symbol.", zh: "美股股票代码（如 AAPL），支持逗号分隔多标的" },
+        { name: "start",     type: "string",  required: true,  desc: "ISO 8601 date or datetime (e.g. 2024-01-02)", zh: "起始日期或时间戳（包含），推荐 ISO 8601 格式" },
+        { name: "end",       type: "string",  required: true,  desc: "ISO 8601 date or datetime", zh: "截止日期或时间戳（不含），推荐 ISO 8601 格式" },
+        { name: "timeframe", type: "string",  required: false, desc: "1Min | 5Min | 15Min | 30Min | 1Hour | 1Day (default: 1Min)", zh: "K 线周期（默认 1Min，支持 5Min/15Min/1Hour/1Day）" },
+        { name: "feed",      type: "string",  required: false, desc: "sip | iex (default: sip)", zh: "数据源通道（默认 sip 官方全市场聚合行情）" },
+        { name: "limit",     type: "integer", required: false, desc: "Bars per page, 1–10000 (default: 10000)", zh: "单页最大返回 K 线路数（1-10000，默认 10000）" },
+        { name: "max_pages", type: "integer", required: false, desc: "Max pagination pages (default: 100)", zh: "自动分页拉取的最大页数上限（默认 100）" },
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/history/bars \\
@@ -2351,16 +2573,15 @@ print("Option contracts:", resp_opt.status_code)`}
       </pre>
 
       <h2 id="get-post-v1-indices-history" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/indices/history</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Fetch normalized daily cash-index history from CBOE. Supported symbols are <code>SPX</code>, <code>VIX</code>, and <code>VIX3M</code>.
-        This is index-level data, not option-chain contracts or VIX futures. CBOE publishes SPX as close-only, so its <code>open</code>, <code>high</code>, and <code>low</code> fields are <code>null</code>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取 CBOE 官方现金指数日线。支持 SPX、VIX、VIX3M；这是指数值，不是期权链或 VIX 期货。SPX 官方文件仅含收盘价。</span>
-      </p>
+      <DocDesc
+        zh="获取 CBOE 官方现金指数日线数据。支持标普500指数 (SPX)、恐慌指数 (VIX) 和 3个月波动率指数 (VIX3M)。这是现金指数本身的历史价格，非期权链或期货；CBOE 官方发布的 SPX 数据仅含收盘价。"
+        en="Fetch normalized daily cash-index history from CBOE. Supported symbols are SPX, VIX, and VIX3M. This is index-level data, not option-chain contracts or VIX futures. CBOE publishes SPX as close-only, so its open, high, and low fields are null."
+      />
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/indices/history`} />
       <ParamTable rows={[
-        { name: "symbol", type: "string", required: true, desc: "SPX | VIX | VIX3M" },
-        { name: "start",  type: "string", required: true, desc: "Inclusive start date in YYYY-MM-DD format" },
-        { name: "end",    type: "string", required: true, desc: "Inclusive end date in YYYY-MM-DD format" },
+        { name: "symbol", type: "string", required: true, desc: "SPX | VIX | VIX3M", zh: "指数代码：SPX（标普500）、VIX（恐慌指数）、VIX3M" },
+        { name: "start",  type: "string", required: true, desc: "Inclusive start date in YYYY-MM-DD format", zh: "起始日期（包含），YYYY-MM-DD 格式" },
+        { name: "end",    type: "string", required: true, desc: "Inclusive end date in YYYY-MM-DD format", zh: "截止日期（包含），YYYY-MM-DD 格式" },
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
@@ -2385,11 +2606,10 @@ print("Option contracts:", resp_opt.status_code)`}
       </pre>
 
       <h2 id="post-v1-history-news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/news</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Fetch historical news articles. Available to all tiers including Basic.
-        Pass <code>max_pages</code> greater than 1 to auto-paginate; each page contains up to 50 articles.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取历史新闻文章，所有套餐可用。支持自动分页，每页最多 50 篇。</span>
-      </p>
+      <DocDesc
+        zh="获取全市场或指定标的的历史新闻文章与快讯，所有套餐均可使用。支持 max_pages 自动分页，每页返回最多 50 篇。"
+        en="Fetch historical news articles. Available to all tiers including Basic. Pass max_pages greater than 1 to auto-paginate; each page contains up to 50 articles."
+      />
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/news`} />
       <ParamTable rows={[
         { name: "symbols",            type: "string",  required: false, desc: "Comma-separated tickers; omit for market-wide news" },
@@ -2496,11 +2716,11 @@ print("Option contracts:", resp_opt.status_code)`}
       {/* ── Provider Data ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Options Data</div>
 
-      <h2 id="provider-fallback-cache" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Options routing model and server-side cache</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Market data is unified behind a high-availability proxy layer handling authentication, multi-tier caching (hot memory + historical archive), rate limiting, and automated upstream routing:
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>底层行情接入多源专业数据链路，由代理网关统一处理鉴权、多级缓存（热点内存 + 历史海量归档）与并发调度：</span>
-      </p>
+      <h2 id="provider-fallback-cache" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "期权数据路由与多级缓存架构" : "Options routing model and server-side cache"}</h2>
+      <DocDesc
+        zh="底层行情接入多源专业数据链路，由代理网关统一处理鉴权、多级缓存（热点内存 + 历史海量归档）与并发调度："
+        en="Market data is unified behind a high-availability proxy layer handling authentication, multi-tier caching (hot memory + historical archive), rate limiting, and automated upstream routing:"
+      />
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
         <thead><tr><th>Surface</th><th>Route</th><th>Routing behavior</th></tr></thead>
         <tbody>
@@ -2541,23 +2761,21 @@ curl -H "Authorization: Bearer <TOKEN>" \\
       </pre>
 
       <h2 id="post-v1-options-contracts" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/contracts</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        List current active option contracts for one or more underlying symbols.
-        Returns OCC symbol, strike, expiration, option type, open interest where available, and pricing fields.
-        Use the returned <code>symbol</code> field as input to <code>/v1/options/snapshots</code> or <code>/v1/history/options/bars</code>. For historical or expired contracts, use <code>/v3/option/list/contracts/trade</code> or <code>/v3/option/list/contracts/quote</code> with a historical <code>date</code>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>查询指定标的当前活跃期权合约（包含 OCC 代码、行权价、到期日、未平仓合约数等）。获取的 OCC 代码可直接用于查询快照或历史 K 线。历史到期合约请使用 <code>/v3/option/list/contracts/*</code>。</span>
-      </p>
+      <DocDesc
+        zh="查询指定标的当前活跃期权合约列表（包含 OCC 标准代码、行权价、到期日、未平仓合约数及行情字段）。返回的 symbol 可直接作为期权快照与历史 K 线的入参。Free 用户自动返回最近 2 轮有效到期日合约。"
+        en="List current active option contracts for one or more underlying symbols. Returns OCC symbol, strike, expiration, option type, open interest where available, and pricing fields. Free users receive the nearest 2 upcoming expiration cycles."
+      />
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/contracts`} />
       <ParamTable rows={[
-        { name: "underlying_symbols",  type: "string",  required: false, desc: "Comma-separated underlyings (e.g. AAPL,TSLA). Required if symbol_or_id not set." },
-        { name: "symbol_or_id",        type: "string",  required: false, desc: "Lookup a single OCC symbol or contract ID directly" },
-        { name: "expiration_date",     type: "string",  required: false, desc: "Exact expiry YYYY-MM-DD" },
-        { name: "expiration_date_gte", type: "string",  required: false, desc: "Expiry on or after date" },
-        { name: "expiration_date_lte", type: "string",  required: false, desc: "Expiry on or before date" },
-        { name: "strike_price_gte",    type: "number",  required: false, desc: "Minimum strike price" },
-        { name: "strike_price_lte",    type: "number",  required: false, desc: "Maximum strike price" },
-        { name: "type",                type: "string",  required: false, desc: "call | put" },
-        { name: "limit",               type: "integer", required: false, desc: "1–10000 (default: 1000)" },
+        { name: "underlying_symbols",  type: "string",  required: false, desc: "Comma-separated underlyings (e.g. AAPL,TSLA). Required if symbol_or_id not set.", zh: "正股或指数代码（如 AAPL, TSLA），与 symbol_or_id 二选一" },
+        { name: "symbol_or_id",        type: "string",  required: false, desc: "Lookup a single OCC symbol or contract ID directly", zh: "直接查询单张期权的 OCC 代码或合约 ID" },
+        { name: "expiration_date",     type: "string",  required: false, desc: "Exact expiry YYYY-MM-DD", zh: "精确匹配目标到期日 YYYY-MM-DD" },
+        { name: "expiration_date_gte", type: "string",  required: false, desc: "Expiry on or after date", zh: "到期日大于等于指定日期" },
+        { name: "expiration_date_lte", type: "string",  required: false, desc: "Expiry on or before date", zh: "到期日小于等于指定日期" },
+        { name: "strike_price_gte",    type: "number",  required: false, desc: "Minimum strike price", zh: "最低行权价" },
+        { name: "strike_price_lte",    type: "number",  required: false, desc: "Maximum strike price", zh: "最高行权价" },
+        { name: "type",                type: "string",  required: false, desc: "call | put", zh: "期权类型：call（看涨）或 put（看跌）" },
+        { name: "limit",               type: "integer", required: false, desc: "1–10000 (default: 1000)", zh: "返回合约条数上限（1-10000，默认 1000）" },
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/contracts \\
@@ -2593,11 +2811,10 @@ curl -H "Authorization: Bearer <TOKEN>" \\
 
       <div className="eyebrow" style={{ marginBottom: 6, marginTop: 32, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · History</div>
       <h2 id="post-v1-history-options-bars" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/options/bars</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Historical OHLCV bars for OCC option contracts. The canonical route is <code>/v1/history/options/bars</code> (the legacy <code>/v1/options/bars</code> is accepted as an alias).
-        The response is standard <code>1Min</code> resolution; multi-period requests are normalized to 1Min. Client-side resampling should be used for higher timeframe aggregations.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>按 OCC 合约代码查询期权历史 OHLCV K 线。接口统一返回标准 1 分钟（1Min）K 线，多周期聚合请在客户端进行重采样（如使用 pandas.resample）。</span>
-      </p>
+      <DocDesc
+        zh="按 OCC 合约代码查询期权历史 OHLCV K 线数据。接口统一返回标准 1 分钟（1Min）分辨率，多周期聚合请在客户端进行重采样（如 pandas.resample）。"
+        en="Historical OHLCV bars for OCC option contracts. The canonical route is /v1/history/options/bars. The response is standard 1Min resolution; multi-period requests are normalized to 1Min."
+      />
       <div style={{ background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 8, padding: "10px 14px", margin: "0 0 12px", fontSize: 12 }}>
         <strong>{"\u2139\uFE0F"} Coverage note:</strong> Canonical <code>1Min</code> option bars are supported. Inspect <code>provider</code>, <code>providers</code>, and <code>coverage_roles</code> for provenance; sparse traded-activity fallback is not complete contract coverage. That fallback is eligible only when <code>start &gt;= 2024-02-01</code>. Requests starting earlier, including ranges crossing the boundary, require dense historical coverage and fail closed with HTTP <code>502</code> when it is unavailable.
         <br/><span style={{ color: "var(--ink-soft)" }}>覆盖说明：规范 <code>1Min</code> 期权 K 线已支持。请检查 <code>provider</code>、<code>providers</code> 和 <code>coverage_roles</code> 判断来源；稀疏成交回退不代表完整合约覆盖。该回退仅适用于 <code>start &gt;= 2024-02-01</code>。更早开始、包括跨过边界的请求需要完整历史覆盖；不可用时会以 HTTP <code>502</code> 失败关闭。</span>
@@ -2608,12 +2825,12 @@ curl -H "Authorization: Bearer <TOKEN>" \\
       </div>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/options/bars`} />
       <ParamTable rows={[
-        { name: "symbols",   type: "string",  required: true,  desc: "OCC symbol(s), comma-separated" },
-        { name: "start",     type: "string",  required: true,  desc: "ISO 8601 date" },
-        { name: "end",       type: "string",  required: true,  desc: "ISO 8601 date" },
-        { name: "timeframe", type: "string",  required: false, desc: "Output is standard 1Min. Multi-minute requests are normalized to 1Min." },
-        { name: "limit",     type: "integer", required: false, desc: "Bars per page, 1–10000 (default: 10000)" },
-        { name: "max_pages", type: "integer", required: false, desc: "Max pagination pages (default: 100)" },
+        { name: "symbols",   type: "string",  required: true,  desc: "OCC symbol(s), comma-separated", zh: "OCC 标准期权代码（如 AAPL260620C00200000），逗号分隔" },
+        { name: "start",     type: "string",  required: true,  desc: "ISO 8601 date", zh: "起始日期（包含，ISO 8601 格式）" },
+        { name: "end",       type: "string",  required: true,  desc: "ISO 8601 date", zh: "截止日期（包含，ISO 8601 格式）" },
+        { name: "timeframe", type: "string",  required: false, desc: "Output is standard 1Min. Multi-minute requests are normalized to 1Min.", zh: "K 线周期（统一返回 1Min 标准分钟线）" },
+        { name: "limit",     type: "integer", required: false, desc: "Bars per page, 1–10000 (default: 10000)", zh: "单页条数上限（1-10000，默认 10000）" },
+        { name: "max_pages", type: "integer", required: false, desc: "Max pagination pages (default: 100)", zh: "自动分页最大页数（默认 100）" },
       ]} />
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
         OCC symbol format: <code>{"<ROOT><YYMMDD><C|P><8-digit-strike>"}</code> — strike is in thousandths of a dollar, zero-padded to 8 digits.
@@ -3281,20 +3498,22 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
 }
 
 function WsUsageBody() {
+  const lang = useCurrentLanguage();
+  const isZh = lang === "zh";
   const H3 = ({ children }) => (
     <h3 style={{ fontFamily: "var(--f-sans)", fontWeight: 500, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--ink-muted)", margin: "32px 0 12px" }}>{children}</h3>
   );
   return (
     <div style={{ maxWidth: 760 }}>
-      <div className="eyebrow" style={{ marginBottom: 10 }}>Realtime</div>
-      <h2 id="endpoint" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>WebSocket connection</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 20px", maxWidth: 640 }}>
-        Each channel has a dedicated path. Connect to the appropriate URL, send an <code>auth</code> message with your token, then send <code>subscribe</code> messages.
-        Stocks/options/overnight/boats messages are binary MessagePack; crypto and news channels use JSON.
-      </p>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>{isZh ? "实时数据流" : "Realtime"}</div>
+      <h2 id="endpoint" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>{isZh ? "WebSocket 连接与实时数据流" : "WebSocket connection"}</h2>
+      <DocDesc
+        zh="每个数据通道都有专属的独立 URL 路径。连接至对应 URL 后，先发送包含 Token 的 auth 认证消息，随后即可发送 subscribe 进行标的订阅。股票、期权、夜盘和暗盘通道采用二进制 MessagePack 格式编码，延迟更低；加密货币与新闻通道采用标准 JSON 格式。"
+        en="Each channel has a dedicated path. Connect to the appropriate URL, send an auth message with your token, then send subscribe messages. Stocks/options/overnight/boats messages are binary MessagePack; crypto and news channels use JSON."
+      />
 
       <table className="tbl card" style={{ marginBottom: 28, overflow: "hidden" }}>
-        <thead><tr><th>Channel</th><th>Path</th><th>Format</th><th>Basic</th><th>Trial</th><th>Value</th><th>Standard</th><th>Premium</th></tr></thead>
+        <thead><tr><th>{isZh ? "通道 / Channel" : "Channel"}</th><th>{isZh ? "路径 / Path" : "Path"}</th><th>{isZh ? "格式 / Format" : "Format"}</th><th>Basic</th><th>Trial</th><th>Value</th><th>Standard</th><th>Premium</th></tr></thead>
         <tbody>
           {[
             ["stocks",    "/stream",           "msgpack", "—", "✓", "✓", "✓", "✓"],
@@ -3321,9 +3540,10 @@ function WsUsageBody() {
       {/* ── Connecting ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Connecting</div>
       <h2 id="auth-message" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Connect, authenticate, subscribe / 连接、认证、订阅</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        After opening the WebSocket, send an <code>auth</code> action. Authentication happens in the message body — no HTTP headers are needed.
-      </p>
+      <DocDesc
+        zh="建立 WebSocket 连接后，客户端首先发送一条包含 Token 的 auth 认证动作。鉴权在消息体中完成，无需 HTTP 请求头。"
+        en="After opening the WebSocket, send an auth action. Authentication happens in the message body — no HTTP headers are needed."
+      />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`{"action": "auth", "token": "<TOKEN>"}
 {"action": "subscribe", "trades": ["AAPL"], "quotes": ["AAPL"]}`}
@@ -3369,36 +3589,33 @@ await ws.send(json.dumps({
       </pre>
 
       <h2 id="heartbeat" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Heartbeat</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 28px" }}>
-        The server sends WebSocket ping frames automatically. Most client libraries respond to pings automatically. If your client does not, call <code>pong()</code> on receipt to stay connected.
-        The server will close connections that exceed the send queue limit (200 messages).
-        WebSocket plans have no account-level connection cap; the subject and send-queue limits still apply. See <a href="#concurrency-limits">Concurrency limits</a>.
-      </p>
+      <DocDesc
+        zh="服务端会自动向客户端发送 WebSocket Ping 帧进行链路活性探测。绝大部分主流客户端库会自动响应 Pong 帧。若客户端不支持自动响应，请在收到 Ping 帧后调用 pong() 以保持长连接。若客户端发送队列积压超过 200 条消息，服务端将主动断开连接以保护系统健康。WebSocket 不设账号级连接数上限；单连接 500 个 subjects 限制依然适用。"
+        en="The server sends WebSocket ping frames automatically. Most client libraries respond to pings automatically. If your client does not, call pong() on receipt to stay connected. The server will close connections that exceed the send queue limit (200 messages)."
+      />
 
       {/* ── Channels ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Channels</div>
 
-      <h2 id="stocks" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>stocks</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Live US equities: trades, quotes, and minute bars from the consolidated SIP feed. Subscribe to <code>trades</code>, <code>quotes</code>, and/or <code>bars</code> lists.
-        Use <code>"*"</code> to subscribe to all symbols.
-      </p>
+      <h2 id="stocks" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "美股实时行情流 (stocks)" : "stocks"}</h2>
+      <DocDesc
+        zh="美股实时行情流：支持全市场 SIP 官方聚合行情的 Trades 逐笔成交、Quotes 逐笔买卖盘与分钟 K 线。通过 trades、quotes 或 bars 列表订阅，支持 "*" 订阅全市场标的。"
+        en="Live US equities: trades, quotes, and minute bars from the consolidated SIP feed. Subscribe to trades, quotes, and/or bars lists. Use "*" to subscribe to all symbols."
+      />
       <H3>Subject limit</H3>
       <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>Each connection supports up to 500 subjects. A ticker subscribed under both <code>trades</code> and <code>quotes</code> consumes two subjects.</p>
 
-      <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>options</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Live OPRA options feed. Subscribe using OCC symbols in the <code>trades</code> and <code>quotes</code> lists.
-        All tiers except Basic.
-        <strong style={{ color: "var(--ink-strong)" }}> Index options are supported</strong> for SPX/SPXW, VIX/VIXW, DJX and XSP families.
-        Use the standard OCC contract symbol; streaming is delivered via standard MessagePack frames on <code>/stream/options</code>.
-      </p>
+      <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "期权实时行情流 (options)" : "options"}</h2>
+      <DocDesc
+        zh="OPRA 官方期权行情实时流：在 trades 和 quotes 列表中传入标准 OCC 期权代码进行订阅。除 Basic 套餐外均可使用。支持 SPX/SPXW、VIX/VIXW、DJX、XSP 等主流指数期权。行情通过 /stream/options 上的二进制 MessagePack 帧高效推送。"
+        en="Live OPRA options feed. Subscribe using OCC symbols in the trades and quotes lists. All tiers except Basic. Index options are supported for SPX/SPXW, VIX/VIXW, DJX and XSP families."
+      />
 
-      <h2 id="crypto" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>crypto</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Live US crypto orderbooks and trades. Subscribe using <code>orderbooks</code> and/or <code>trades</code> lists with pairs like <code>BTC/USD</code>.
-        Messages are plain JSON (not msgpack). All tiers except Basic.
-      </p>
+      <h2 id="crypto" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "加密货币实时流 (crypto)" : "crypto"}</h2>
+      <DocDesc
+        zh="美国主流加密货币实时订单簿与逐笔成交：在 orderbooks 和 trades 列表中传入 BTC/USD、ETH/USD 等交易对。消息为标准 JSON 格式。除 Basic 外所有套餐可用。"
+        en="Live US crypto orderbooks and trades. Subscribe using orderbooks and/or trades lists with pairs like BTC/USD. Messages are plain JSON (not msgpack). All tiers except Basic."
+      />
       <pre className="code" style={{ marginBottom: 24 }}>
 {`await ws.send(json.dumps({
     "action": "subscribe",
@@ -3407,25 +3624,26 @@ await ws.send(json.dumps({
 }))`}
       </pre>
 
-      <h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>news</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Realtime market news events. Subscribe with a <code>news</code> list of tickers or <code>"*"</code> for all.
-        Messages are plain JSON. All tiers except Basic. Historical news is also available via REST <code>/v1/history/news</code>.
-      </p>
+      <h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "实时新闻快讯流 (news)" : "news"}</h2>
+      <DocDesc
+        zh="实时金融新闻与快讯流：传入目标 ticker 列表或 "*" 订阅全量新闻。消息为标准 JSON 格式。历史新闻亦可通过 REST /v1/history/news 获取。"
+        en="Realtime market news events. Subscribe with a news list of tickers or "*" for all. Messages are plain JSON. All tiers except Basic. Historical news is also available via REST /v1/history/news."
+      />
 
-      <h2 id="overnight" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>overnight</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 28px" }}>
-        Extended-hours equity data. Same subscribe format as stocks (trades + quotes). All tiers except Basic.
-      </p>
+      <h2 id="overnight" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "美股夜盘交易流 (overnight)" : "overnight"}</h2>
+      <DocDesc
+        zh="美股夜盘交易时段数据：订阅格式与股票流一致（包含 trades 与 quotes）。除 Basic 外所有套餐可用。"
+        en="Extended-hours equity data. Same subscribe format as stocks (trades + quotes). All tiers except Basic."
+      />
 
       {/* ── Messages ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Messages</div>
 
-      <h2 id="subscribe" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Subscribe / Unsubscribe</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Subscribe and unsubscribe actions share the same shape — only the <code>action</code> field differs.
-        You can update subscriptions incrementally; each call adds or removes the listed symbols.
-      </p>
+      <h2 id="subscribe" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "订阅与退订 (Subscribe / Unsubscribe)" : "Subscribe / Unsubscribe"}</h2>
+      <DocDesc
+        zh="订阅与退订共用相同的数据结构，仅 action 字段不同（subscribe 或 unsubscribe）。支持增量订阅，每次调用会在当前连接已有标的上追加或移除。"
+        en="Subscribe and unsubscribe actions share the same shape — only the action field differs. You can update subscriptions incrementally; each call adds or removes the listed symbols."
+      />
       <pre className="code" style={{ marginBottom: 24 }}>
 {`// Subscribe
 { "action": "subscribe",   "trades": ["AAPL"], "quotes": ["AAPL", "TSLA"], "bars": [] }
