@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(scriptDir, "..", "public");
-const disallowed = /\b(?:thinkcentre|ec2|tailscale|cloudflare|fmp|alpaca|thetadata|cache(?:[ _-]?(?:hit|miss|layer|warm|cold))?|forward(?:ing|ed)?|relay|upstream)\b/gi;
+// Public contract terms such as cache status and the legacy /v1/pit/fmp route
+// are valid documentation. Reject supplier and private-infrastructure branding
+// without treating stable route names or implementation identifiers as prose.
+const disallowed = /\b(?:ThinkCentre|EC2|Tailscale|Cloudflare|Alpaca|ThetaData)\b/g;
 
 function walk(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
@@ -33,7 +36,13 @@ assert.deepEqual(
 
 const docsSource = fs.readFileSync(path.join(publicDir, "docs", "docs-site.jsx"), "utf8");
 assert.match(docsSource, /function Bilingual/, "Docs must retain the bilingual copy helper.");
-assert.match(docsSource, /lang="zh-CN"/, "Docs must include Chinese copy.");
-assert.match(docsSource, /Market data API \/ 市场数据 API/, "Docs must use the neutral public title.");
+assert.match(docsSource, /[\u3400-\u9fff]/, "Docs must include Chinese copy.");
+assert.match(docsSource, /market: \{ en: "Market data", zh: "行情数据" \}/, "Docs must use the neutral market-data category.");
+assert.match(docsSource, /financial: \{ en: "Financial data", zh: "财务数据" \}/, "Docs must use the neutral financial-data category.");
+assert.doesNotMatch(docsSource, />FMP(?:\s|<)/, "Rendered headings and labels must not expose supplier branding.");
+assert.doesNotMatch(docsSource, /No FMP/, "Credential guidance must remain supplier-neutral.");
+
+const compatibilitySource = fs.readFileSync(path.join(publicDir, "docs-site.jsx"), "utf8");
+assert.match(compatibilitySource, /\/docs\/docs-site\.jsx\?v=public-docs-v2/, "The compatibility entry must load the canonical docs source.");
 
 process.stdout.write("public documentation language check ok\n");

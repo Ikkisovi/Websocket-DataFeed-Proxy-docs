@@ -321,10 +321,10 @@ docker-compose -f docker-compose.cloud-proxy.yml up -d --build
 |---|---|---|
 | `/v1/history/bars` | basic+ | Alpaca |
 | `/v1/history/news` | basic+ | Alpaca |
-| `/v1/options/contracts` | standard+ | Alpaca |
+| `/v1/options/contracts` | basic+ | Current active contracts from Alpaca |
 | `/v1/options/snapshots[/ohlc\|/trade\|/quote\|/market_value]` | standard+ | Alpaca/ThetaData |
 | `/v1/options/snapshots/expiry` | standard+ | Alpaca |
-| `/v1/history/options/bars` | standard+ | ThetaData primary, Alpaca fallback |
+| `/v1/history/options/bars` | basic+ | AWS hot cache → ThinkCentre archive → ThetaData; partial Alpaca fallback |
 | `/v1/options/open_interest` | standard+ | ThetaData |
 | `/v1/options/eod` | standard+ | ThetaData |
 | `/v1/crypto/us/latest/orderbooks` | premium | Alpaca |

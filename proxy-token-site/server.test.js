@@ -809,6 +809,23 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).toContain('/stable/income-statement');
   });
 
+  it('documents the deployed REST concurrency and uncapped paid WebSocket connection contract', () => {
+    for (const source of [docsSource]) {
+      expect(source).toContain('ordinary accounts may have up to <strong>3</strong> requests in flight');
+      expect(source).toContain('WebSocket accounts have no account-level connection cap');
+      expect(source).toContain('Each connection supports up to 500 subjects');
+      expect(source).toContain('subscribing to the same subject on two connections counts twice');
+      expect(source).toContain('two paid accounts may each open 100 WebSocket connections');
+      expect(source).toContain('redistribute locally through a local proxy');
+      expect(source).not.toContain('Connection limit exceeded: 3/3 active websockets');
+      expect(source).not.toContain('Premium",  "10",  "\\u221E"');
+      expect(source).not.toContain('Premium",  "6000"');
+    }
+    expect(registerSource).toContain('restParallel: 3');
+    expect(registerSource).toContain('wsConns: "∞"');
+    expect(registerSource).not.toContain('restParallel: 10');
+  });
+
   it('keeps endpoint guidance focused on public request contracts', () => {
     expect(docsSource).toContain('Each endpoint defines its own fields, timeframes, limits, and availability.');
     expect(docsSource).toContain('每个端点均定义自己的字段、时间周期、限制与可用范围。');
@@ -827,6 +844,7 @@ describe('Registration and bulk product UI contract', () => {
     expect(rootIndexSource).toContain('src="/docs/docs-site.jsx?v=public-docs-v2"');
     expect(rootIndexSource).not.toContain('src="docs-site.jsx"');
     expect(docsIndexSource).toContain('src="docs-site.jsx?v=public-docs-v2"');
+    expect(docsSource.match(/Index options are supported/g)).toHaveLength(1);
   });
 
   it('uses stable domain endpoints and one canonical document source', () => {
@@ -842,7 +860,10 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).toContain('Premium access includes company statements, ratios, metrics, profiles, and reference data.');
     expect(docsSource).toContain('Premium 账户可访问公司财报、财务比率、关键指标、公司资料及参考数据。');
     expect(docsSource).toContain('function Bilingual');
-    expect(docsSource).not.toMatch(/alpaca|thetadata|fmp|cache|upstream/i);
+    expect(docsSource).not.toMatch(/Alpaca|ThetaData/);
+    expect(docsSource).not.toContain('FMP 数据');
+    expect(docsSource).not.toContain('FMP Fundamentals');
+    expect(docsSource).not.toContain('No FMP');
   });
 
   it('adds a bilingual updates banner and updates page entry point', () => {
@@ -850,6 +871,7 @@ describe('Registration and bulk product UI contract', () => {
     const updatesSource = fs.readFileSync(path.join(__dirname, 'public', 'updates-page.jsx'), 'utf8');
     expect(tokenPageSource).toContain('股票 WebSocket 现可定位错误 symbol');
     expect(tokenPageSource).toContain('href="/updates"');
+    expect(tokenPageSource).toContain('查看更新 / View updates →');
     expect(updatesHtml).toContain('updates-page.jsx');
     expect(updatesSource).toContain('近期改动');
     expect(updatesSource).toContain('数据更新与历史版本');

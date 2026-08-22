@@ -492,7 +492,7 @@ function DocsTopbar({ active = "proxy", onNav }) {
       <div className="divider"></div>
       <div className="nav">
         <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>代理 API</a>
-        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>FMP 数据</a>
+        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>财务数据</a>
         <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>批量下载</a>
         <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>WS 用法</a>
         <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>状态</a>
@@ -534,8 +534,8 @@ function IndexOptionsBanner() {
         letterSpacing: ".08em",
         textTransform: "uppercase",
       }}>New</span>
-      <strong>Alpaca 现已支持指数期权。</strong>
-      <span>SPX/SPXW、VIX/VIXW、DJX 和 XSP 的合约查询与实时期权流已上线。</span>
+      <strong>指数期权现已全面上线。</strong>
+      <span>SPX/SPXW、VIX/VIXW、DJX 和 XSP 等合约查询与实时期权行情流已就绪。</span>
     </div>
   );
 }
@@ -588,7 +588,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
           Stock Options Proxy <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>API</span>
         </h1>
         <p style={{ color: "var(--ink-muted)", maxWidth: 640, fontSize: 15, margin: 0 }}>
-          Real-time US equities, options, crypto and news — one token, no Alpaca key needed.
+          Real-time US equities, options, crypto and news — one unified token, zero provider configuration.
           The <strong style={{ color: "var(--ink-strong)" }}>Proxy API</strong> covers REST endpoints and tier management;
           <strong style={{ color: "var(--ink-strong)" }}>WS usage</strong> covers the 6 realtime streaming channels.
         </p>
@@ -596,7 +596,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
         {/* Tab strip */}
         <div className="docs-tabs" style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
           <Tab id="proxy" tab={visibleTab} setTab={setTab} label="Proxy API" count="45+ endpoints" />
-          <Tab id="fmp" tab={visibleTab} setTab={setTab} label="FMP data" count="overview" />
+          <Tab id="fmp" tab={visibleTab} setTab={setTab} label="Financial data" count="overview" />
           <Tab id="bulk" tab={visibleTab} setTab={setTab} label="Bulk Download" count="¥50 / 50GB" />
           <Tab id="ws" tab={visibleTab} setTab={setTab} label="WS usage" count="6 channels" />
           <Tab id="status" tab={visibleTab} setTab={setTab} label="Status" count="live" />
@@ -684,16 +684,16 @@ function SideNav({ tab }) {
       { title: "Metadata", items: ["condition codes", "exchange codes"] },
       { title: "Single symbol", items: ["single bars", "single latest bar", "single quotes", "single latest quote", "single snapshot", "single trades", "single latest trade"] },
     ]},
-    { title: "Options Data", items: ["provider model", "contracts"], children: [
+    { title: "Options Data", items: ["routing model", "contracts"], children: [
       { title: "Snapshots", items: ["snapshots", "quote", "snapshot trade", "open interest", "expiry", "snapshot ohlc"] },
       { title: "History", items: ["bars", "eod", "history open interest", "trades", "history ohlc"] },
-      { title: "ThetaData Value", items: ["direct endpoints"] },
+      { title: "Direct API", items: ["direct endpoints"] },
     ]},
     { title: "Crypto Data", items: ["orderbooks"] },
     { title: "Admin endpoints", items: ["login", "pending", "approve", "reject"] },
     { title: "Reference", items: ["Error codes", "Rate limits"] },
   ] : tab === "fmp-fundamentals" ? [
-    { title: "FMP Fundamentals", items: ["FMP fundamentals overview", "Request contract", "Response metadata"] },
+    { title: "Financial data API", items: ["Financial data overview", "Request contract", "Response metadata"] },
     { title: "Market history", items: ["historical-price-eod/full"] },
     { title: "Market snapshots", items: ["quote", "quote-short", "aftermarket-quote", "aftermarket-trade", "stock-price-change", "market-capitalization", "historical-market-capitalization", "batch-quote", "batch-quote-short", "batch-aftermarket-quote", "batch-aftermarket-trade", "market-capitalization-batch"] },
     { title: "Company reference", items: ["profile", "stock-peers", "key-executives", "company-notes", "financial-reports-dates", "employee-count", "historical-employee-count", "shares-float", "shares-float-all", "dividends", "splits"] },
@@ -734,7 +734,7 @@ function SideNav({ tab }) {
 
     // Map sidebar labels to actual document IDs
     const FMP_ID_MAP = {
-      "FMP fundamentals overview": "fmp-fundamentals-overview",
+      "Financial data overview": "fmp-fundamentals-overview",
       "Request contract": "fmp-request-contract",
       "Response metadata": "fmp-response-metadata",
       "historical-price-eod/full": "fmp-historical-price-eod",
@@ -753,7 +753,7 @@ function SideNav({ tab }) {
       "enterprise-values": "fmp-enterprise-values",
       "financial-scores": "fmp-financial-scores",
     };
-    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'FMP fundamentals overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families'};
+    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families'};
     const getId = (label) => tab === "fmp-fundamentals"
       ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
       : ID_MAP[label] || slugify(label);
@@ -845,7 +845,7 @@ function OnThisPage({ tab }) {
     ? ["Request", "Response", "Validation", "Examples", "Errors"]
     : tab === "fmp-fundamentals"
     ? [
-      ["FMP overview", "fmp-fundamentals-overview"],
+      ["Financial data overview", "fmp-fundamentals-overview"],
       ["Request examples", "fmp-request-examples"],
       ["Endpoint sections", "fmp-endpoint-subsections"],
       ["Request contract", "fmp-request-contract"],
@@ -964,7 +964,16 @@ function TokenCard() {
 const REST_BASE  = "https://api.leandata.uk";
 const RT_BASE    = "https://rt-api.leandata.uk";
 const TOKEN_BASE = "https://leandata.uk";
-const WS_BASE    = "wss://leandata.uk/stream";
+const WS_BASE = "wss://leandata.uk";
+
+function Bilingual({ en, zh }) {
+  return <>{en} / {zh}</>;
+}
+
+const API_CATEGORIES = {
+  market: { en: "Market data", zh: "行情数据" },
+  financial: { en: "Financial data", zh: "财务数据" },
+};
 
 function ParamRow({ name, type, required, desc }) {
   return (
@@ -1010,7 +1019,7 @@ const STOCK_COMMON = {
   symbolPath: { name: "symbol", type: "path", required: true, desc: "Single ticker in the URL path, e.g. AAPL" },
   start: { name: "start", type: "string", required: true, desc: "Inclusive start time/date. ISO 8601 recommended." },
   end: { name: "end", type: "string", required: true, desc: "Exclusive end time/date. ISO 8601 recommended." },
-  feed: { name: "feed", type: "string", required: false, desc: "iex is safest by default; sip/delayed_sip/boats/overnight/otc depend on endpoint and entitlement." },
+  feed: { name: "feed", type: "string", required: false, desc: "iex is default; sip/delayed_sip/boats/overnight/otc depend on endpoint and entitlement." },
   limit: { name: "limit", type: "integer", required: false, desc: "Page size. Use next_page_token for pagination when returned." },
   pageToken: { name: "page_token", type: "string", required: false, desc: "Pagination token from the previous response." },
   timeframe: { name: "timeframe", type: "string", required: true, desc: "1Min, 5Min, 15Min, 30Min, 1Hour, 1Day, etc." },
@@ -1029,10 +1038,10 @@ const STOCK_ENDPOINT_GROUPS = [
         route: "/v2/stocks/auctions",
         examplePath: "/v2/stocks/auctions?symbols=AAPL&start=2026-05-20&end=2026-05-21&limit=1&feed=sip",
         desc: "Auction prices for one or more stocks. Use this when you need official auction prints rather than continuous trade ticks.",
-        zh: "查询一个或多个股票的历史 auction 数据。适合需要开盘/收盘 auction print 的场景。",
-        params: [STOCK_COMMON.symbols, STOCK_COMMON.start, STOCK_COMMON.end, { ...STOCK_COMMON.feed, desc: "Alpaca supports SIP feed for auctions." }, STOCK_COMMON.limit, STOCK_COMMON.pageToken],
+        zh: "查询一个或多个股票的历史集合竞价数据（Auction Prints）。",
+        params: [STOCK_COMMON.symbols, STOCK_COMMON.start, STOCK_COMMON.end, { ...STOCK_COMMON.feed, desc: "Consolidated SIP feed for auction prints." }, STOCK_COMMON.limit, STOCK_COMMON.pageToken],
         keys: ["auctions", "next_page_token"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
       {
         id: "stock-bars",
@@ -1040,10 +1049,10 @@ const STOCK_ENDPOINT_GROUPS = [
         route: "/v2/stocks/bars",
         examplePath: "/v2/stocks/bars?symbols=AAPL&timeframe=1Day&start=2026-05-20&end=2026-05-21&limit=1&feed=sip",
         desc: "Historical OHLCV bars for multiple symbols.",
-        zh: "多股票历史 OHLCV K 线。",
+        zh: "多股票历史 OHLCV K 线（支持多周期与复权调整）。",
         params: [STOCK_COMMON.symbols, STOCK_COMMON.timeframe, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, { name: "adjustment", type: "string", required: false, desc: "raw, split, dividend, or all." }, STOCK_COMMON.limit, STOCK_COMMON.pageToken],
         keys: ["bars", "next_page_token"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
       {
         id: "stock-latest-bars",
@@ -1051,10 +1060,10 @@ const STOCK_ENDPOINT_GROUPS = [
         route: "/v2/stocks/bars/latest",
         examplePath: "/v2/stocks/bars/latest?symbols=AAPL&feed=sip",
         desc: "Most recent minute bar for multiple symbols.",
-        zh: "多股票最新分钟 K 线。",
+        zh: "批量查询多股票最新分钟 K 线。",
         params: [STOCK_COMMON.symbols, STOCK_COMMON.feed],
         keys: ["bars"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
       {
         id: "stock-quotes",
@@ -1062,10 +1071,10 @@ const STOCK_ENDPOINT_GROUPS = [
         route: "/v2/stocks/quotes",
         examplePath: "/v2/stocks/quotes?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=sip",
         desc: "Historical bid/ask quote ticks for multiple symbols.",
-        zh: "多股票历史 bid/ask quote ticks。",
+        zh: "批量查询多股票历史逐笔报价（Quotes）。",
         params: [STOCK_COMMON.symbols, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, STOCK_COMMON.limit, STOCK_COMMON.sort, STOCK_COMMON.pageToken],
         keys: ["quotes", "next_page_token"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
       {
         id: "stock-latest-quotes",
@@ -1073,10 +1082,10 @@ const STOCK_ENDPOINT_GROUPS = [
         route: "/v2/stocks/quotes/latest",
         examplePath: "/v2/stocks/quotes/latest?symbols=AAPL&feed=sip",
         desc: "Latest quote for multiple symbols.",
-        zh: "多股票最新报价。",
+        zh: "批量查询多股票最新实时报价（NBBO）。",
         params: [STOCK_COMMON.symbols, STOCK_COMMON.feed],
         keys: ["quotes"],
-        tested: "200 alpaca MISS; repeat DISK_HIT",
+        tested: "200 OK · Cacheable",
       },
       {
         id: "stock-snapshots",
@@ -1084,10 +1093,10 @@ const STOCK_ENDPOINT_GROUPS = [
         route: "/v2/stocks/snapshots",
         examplePath: "/v2/stocks/snapshots?symbols=AAPL&feed=sip",
         desc: "Composite latest state: latest trade, latest quote, minute bar, daily bar, and previous daily bar.",
-        zh: "股票综合快照：最新成交、最新报价、分钟 K、日 K、前一日 K。",
+        zh: "批量查询股票综合快照（最新成交、最新报价、分钟 K、日 K、前一日 K）。",
         params: [STOCK_COMMON.symbols, STOCK_COMMON.feed],
         keys: ["AAPL"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
       {
         id: "stock-trades",
@@ -1095,10 +1104,10 @@ const STOCK_ENDPOINT_GROUPS = [
         route: "/v2/stocks/trades",
         examplePath: "/v2/stocks/trades?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=sip",
         desc: "Historical trade ticks for multiple symbols.",
-        zh: "多股票历史逐笔成交。",
+        zh: "批量查询多股票历史逐笔成交（Trades）。",
         params: [STOCK_COMMON.symbols, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, STOCK_COMMON.limit, STOCK_COMMON.sort, STOCK_COMMON.pageToken],
         keys: ["trades", "next_page_token"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
       {
         id: "stock-latest-trades",
@@ -1106,10 +1115,10 @@ const STOCK_ENDPOINT_GROUPS = [
         route: "/v2/stocks/trades/latest",
         examplePath: "/v2/stocks/trades/latest?symbols=AAPL&feed=sip",
         desc: "Latest trade for multiple symbols.",
-        zh: "多股票最新成交。",
+        zh: "批量查询多股票最新成交记录。",
         params: [STOCK_COMMON.symbols, STOCK_COMMON.feed],
         keys: ["trades"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
     ],
   },
@@ -1123,10 +1132,10 @@ const STOCK_ENDPOINT_GROUPS = [
         route: "/v2/stocks/meta/conditions/{ticktype}",
         examplePath: "/v2/stocks/meta/conditions/trade?tape=C",
         desc: "Maps condition code values to readable descriptions for trade or quote ticks.",
-        zh: "将成交/报价条件代码映射为可读说明。",
+        zh: "查询成交与报价条件代码字典说明。",
         params: [{ name: "ticktype", type: "path", required: true, desc: "trade or quote." }, STOCK_COMMON.tape],
         keys: ["1", "4", "5", "6", "7", "8", "9", "@"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
       {
         id: "stock-exchange-codes",
@@ -1134,10 +1143,10 @@ const STOCK_ENDPOINT_GROUPS = [
         route: "/v2/stocks/meta/exchanges",
         examplePath: "/v2/stocks/meta/exchanges",
         desc: "Maps exchange code values to readable venue names.",
-        zh: "将交易所代码映射为可读交易场所名称。",
+        zh: "查询交易所代码与交易场所名称字典。",
         params: [],
         keys: ["A", "B", "C", "D", "E", "H", "I", "J"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
     ],
   },
@@ -1154,7 +1163,7 @@ const STOCK_ENDPOINT_GROUPS = [
         zh: "单只股票历史 OHLCV K 线。",
         params: [STOCK_COMMON.symbolPath, STOCK_COMMON.timeframe, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, STOCK_COMMON.limit, STOCK_COMMON.pageToken],
         keys: ["bars", "next_page_token", "symbol"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
       {
         id: "stock-single-latest-bar",
@@ -1165,7 +1174,7 @@ const STOCK_ENDPOINT_GROUPS = [
         zh: "单只股票最新分钟 K 线。",
         params: [STOCK_COMMON.symbolPath, STOCK_COMMON.feed],
         keys: ["bar", "symbol"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
       {
         id: "stock-single-quotes",
@@ -1173,10 +1182,10 @@ const STOCK_ENDPOINT_GROUPS = [
         route: "/v2/stocks/{symbol}/quotes",
         examplePath: "/v2/stocks/AAPL/quotes?start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=sip",
         desc: "Historical quote ticks for one stock.",
-        zh: "单只股票历史报价 ticks。",
+        zh: "单只股票历史逐笔报价（Quotes）。",
         params: [STOCK_COMMON.symbolPath, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, STOCK_COMMON.limit, STOCK_COMMON.sort, STOCK_COMMON.pageToken],
         keys: ["quotes", "next_page_token", "symbol"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
       {
         id: "stock-single-latest-quote",
@@ -1184,10 +1193,10 @@ const STOCK_ENDPOINT_GROUPS = [
         route: "/v2/stocks/{symbol}/quotes/latest",
         examplePath: "/v2/stocks/AAPL/quotes/latest?feed=sip",
         desc: "Latest quote for one stock.",
-        zh: "单只股票最新报价。",
+        zh: "单只股票最新实时报价。",
         params: [STOCK_COMMON.symbolPath, STOCK_COMMON.feed],
         keys: ["quote", "symbol"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
       {
         id: "stock-single-snapshot",
@@ -1198,7 +1207,7 @@ const STOCK_ENDPOINT_GROUPS = [
         zh: "单只股票综合快照。",
         params: [STOCK_COMMON.symbolPath, STOCK_COMMON.feed],
         keys: ["dailyBar", "latestQuote", "latestTrade", "minuteBar", "prevDailyBar", "symbol"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
       {
         id: "stock-single-trades",
@@ -1206,10 +1215,10 @@ const STOCK_ENDPOINT_GROUPS = [
         route: "/v2/stocks/{symbol}/trades",
         examplePath: "/v2/stocks/AAPL/trades?start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&limit=1&feed=sip",
         desc: "Historical trade ticks for one stock.",
-        zh: "单只股票历史逐笔成交。",
+        zh: "单只股票历史逐笔成交（Trades）。",
         params: [STOCK_COMMON.symbolPath, STOCK_COMMON.start, STOCK_COMMON.end, STOCK_COMMON.feed, STOCK_COMMON.limit, STOCK_COMMON.sort, STOCK_COMMON.pageToken],
         keys: ["trades", "next_page_token", "symbol"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
       {
         id: "stock-single-latest-trade",
@@ -1217,10 +1226,10 @@ const STOCK_ENDPOINT_GROUPS = [
         route: "/v2/stocks/{symbol}/trades/latest",
         examplePath: "/v2/stocks/AAPL/trades/latest?feed=sip",
         desc: "Latest trade for one stock.",
-        zh: "单只股票最新成交。",
+        zh: "单只股票最新成交记录。",
         params: [STOCK_COMMON.symbolPath, STOCK_COMMON.feed],
         keys: ["trade", "symbol"],
-        tested: "200 alpaca MISS",
+        tested: "200 OK · Cacheable",
       },
     ],
   },
@@ -1263,13 +1272,13 @@ const BULK_SCHEMA_OPTIONS = [
     id: "options_eod_theta",
     category: "Options",
     label: "Option EOD · complete chain",
-    detail: "ThetaData complete-chain EOD · measured average ~360 MB per underlying",
+    detail: "Complete-chain options EOD · measured average ~360 MB per underlying",
   },
   {
     id: "options_eod_alpaca",
     category: "Options",
     label: "Option EOD · traded contracts",
-    detail: "Alpaca traded-contract EOD · measured average ~76 MB per underlying",
+    detail: "Traded-contract options EOD · measured average ~76 MB per underlying",
   },
   {
     id: "options_oi",
@@ -1580,11 +1589,11 @@ function FmpDataOverview({ openFundamentals }) {
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
       <div className="eyebrow" style={{ marginBottom: 10 }}>Financial fundamentals data · Premium</div>
-      <h2 id="fmp-data-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>Financial Data / 财务数据</h2>
+      <h2 id="fmp-data-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}><Bilingual {...API_CATEGORIES.financial} /></h2>
       <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
         通过 Leandata 获取美股财务数据，包括财报、财务指标、公司资料等。使用您的 Leandata token 即可访问，无需额外的 API 密钥。
         <br/>Access US stock financial data including statements, metrics, and company profiles. Use your Leandata token—no additional API keys needed.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 14 }}>详细接口文档请查看左侧 <strong style={{ color: "var(--ink-strong)" }}>FMP Fundamentals</strong> 部分。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 14 }}>详细接口文档请查看左侧 <strong style={{ color: "var(--ink-strong)" }}>Financial data API</strong> 部分。</span>
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 22 }}>
         <div style={panel}>
@@ -1605,7 +1614,7 @@ function FmpDataOverview({ openFundamentals }) {
       </div>
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 22 }}>
         <strong style={{ color: "var(--accent-ink)" }}>查看完整接口文档</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> 左侧 FMP Fundamentals 部分包含所有接口的详细参数、返回示例和使用说明。<br/>See the FMP Fundamentals section for complete API documentation with parameters and examples.</span>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> 左侧 Financial data API 部分包含所有接口的详细参数、返回示例和使用说明。<br/>See the Financial data API section for complete documentation with parameters and examples.</span>
         <button onClick={openFundamentals} className="btn" style={{ marginLeft: 12, padding: "7px 11px", fontSize: 12 }}>打开文档 / Open Docs →</button>
       </div>
       <h3 id="fmp-snapshot-boundary" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>数据更新说明 / Data Updates</h3>
@@ -1701,15 +1710,15 @@ function FmpFundamentalsBody() {
       <div className="eyebrow" style={{ marginBottom: 10 }}>美股财务数据 · Premium</div>
       <h2 id="fmp-fundamentals-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>财务数据 API / Financial Data API</h2>
       <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
-        使用您的 Leandata token 获取美股财务数据（财报、财务指标、公司资料等）。Beta 版本目前向 Premium 账户开放。
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Access US stock financial data (statements, metrics, company profiles) with your Leandata token. Beta version available to Premium accounts.</span>
+        Premium 账户可访问公司财报、财务比率、关键指标、公司资料及参考数据。
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Premium access includes company statements, ratios, metrics, profiles, and reference data.</span>
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 28 }}>
         <div style={panel}>
           <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>身份认证 / Authentication</div>
           <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>使用 Leandata Token</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>在请求头中添加 <code>Authorization: Bearer TOKEN</code>。无需 FMP 的 <code>apikey</code>。<br/>Send <code>Authorization: Bearer TOKEN</code> header. No FMP <code>apikey</code> needed.</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>在请求头中添加 <code>Authorization: Bearer TOKEN</code>，无需额外的数据供应商密钥。<br/>Send the <code>Authorization: Bearer TOKEN</code> header; no additional data-vendor key is required.</div>
         </div>
         <div style={panel}>
           <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>数据覆盖 / Coverage</div>
@@ -1765,8 +1774,8 @@ function FmpFundamentalsBody() {
 
       <h3 id="fmp-endpoint-subsections" className="display-title" style={{ fontSize: 28, margin: "32px 0 4px" }}>接口详细说明 / Endpoint Details</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 4px" }}>
-        以下是所有可用接口的详细说明。每个接口返回 JSON 数组格式的数据。
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Detailed documentation for all available endpoints. Each endpoint returns data in JSON array format.</span>
+        每个端点均定义自己的字段、时间周期、限制与可用范围。
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Each endpoint defines its own fields, timeframes, limits, and availability.</span>
       </p>
       <FmpEndpointSection id="fmp-historical-price-eod" route="/stable/historical-price-eod/full" title="历史收盘价 / Historical EOD Price" params={<><code>symbol</code>, <code>from</code>, <code>to</code></>} note="获取股票的历史每日收盘价数据。Get historical end-of-day price data." />
       <FmpEndpointSection id="fmp-income-statement" route="/stable/income-statement" title="利润表 / Income Statement" params={<><code>symbol</code>, 可选 <code>period=annual|quarter</code>, <code>limit</code></>} note="获取公司利润表数据。可查询年报或季报。Get company income statement data. Query annual or quarterly reports." />
@@ -1946,7 +1955,7 @@ Content-Type: application/json
 
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 8 }}>
         <strong style={{ color: "var(--accent-ink)" }}>使用提示 / Usage Tip</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> 只需使用您的 Leandata token，无需 FMP 的 <code>apikey</code>。如需查询特定历史版本，保存对应的 <code>as_of</code> 时间和 <code>package_sha256</code> 标识符。<br/>Use your Leandata token only—no FMP <code>apikey</code> needed. To reproduce a specific version, save its <code>as_of</code> timestamp and <code>package_sha256</code> identifier.</span>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> 只需使用您的 Leandata token，无需额外的数据供应商密钥。如需查询特定历史版本，保存对应的 <code>as_of</code> 时间和 <code>package_sha256</code> 标识符。<br/>Use your Leandata token only; no additional data-vendor key is required. To reproduce a specific version, save its <code>as_of</code> timestamp and <code>package_sha256</code> identifier.</span>
       </div>
     </div>
   );
@@ -1958,12 +1967,12 @@ function ProxyApiBody() {
 
       {/* ── Getting started ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Getting started</div>
-      <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>Overview</h2>
+      <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}><Bilingual {...API_CATEGORIES.market} /></h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 16px", maxWidth: 640 }}>
-        The Stock Options Proxy has two surfaces: a <strong style={{ color: "var(--ink-strong)" }}>token portal</strong> for registration and token issuance,
-        and a <strong style={{ color: "var(--ink-strong)" }}>data proxy</strong> for historical REST, realtime REST, and secure WebSocket market data.
-        Once you have a token, use it to call historical and realtime endpoints without managing your own Alpaca / ThetaData credentials.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Stock Options Proxy 提供两类服务：Token 门户负责注册、账户与 Token；数据代理通过稳定的公共域名提供历史 REST、实时 REST 与安全 WebSocket 行情。</span>
+        Leandata provides two core surfaces: a <strong style={{ color: "var(--ink-strong)" }}>token portal</strong> for registration and token issuance,
+        and a high-performance <strong style={{ color: "var(--ink-strong)" }}>market data proxy</strong> for historical REST, realtime REST, and secure WebSocket streaming.
+        Authenticate with a single unified token across all historical and realtime data endpoints without managing third-party credentials.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Leandata 提供两类核心服务：<strong>Token 门户</strong>负责账户注册与 Token 签发管理；<strong>行情代理</strong>通过稳定公共域名提供历史 REST、实时 REST 与 WebSocket 实时行情流。使用单一 Token 即可访问全部数据接口，无需自行配置第三方凭证。</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
         <thead><tr><th>Surface</th><th>Public URL</th><th>Auth</th></tr></thead>
@@ -1971,7 +1980,7 @@ function ProxyApiBody() {
           <tr><td>Token portal</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TOKEN_BASE}</td><td style={{ fontSize: 12 }}>username + phone</td></tr>
           <tr><td>REST data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{REST_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
           <tr><td>REST real-time proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{RT_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
-          <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{WS_BASE}/*</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
+          <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{WS_BASE}/stream/*</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
         </tbody>
       </table>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13 }}>
@@ -2071,12 +2080,12 @@ Authorization: Bearer <TOKEN>
         </tbody>
       </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 8px" }}>
-        There is currently no tier-specific rolling REST req/min limiter. Upstream-provider quotas, the shared service ceiling, and overload backpressure still apply.
-        <br/>当前没有按套餐执行的 REST 滚动 req/min 限额；上游供应商额度、服务总并发和过载背压仍然生效。
+        There is currently no tier-specific rolling REST req/min limiter. Upstream provider limits, the shared service ceiling, and overload backpressure still apply.
+        <br/>当前没有按套餐执行的 REST 滚动 req/min 限额；服务总并发和过载背压机制仍然生效。
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
-        Keep historical REST concurrency at or below <strong>3 in-flight requests per account</strong>. A <strong>429</strong> may also come from an upstream-specific QPS or key-pool limit; use exponential backoff.
-        <br/>每个账号的历史 REST 同时在途请求请保持在 <strong>3</strong> 以内。上游 QPS 或 key pool 限制也可能返回 <strong>429</strong>，请使用指数退避。
+        Keep historical REST concurrency at or below <strong>3 in-flight requests per account</strong>. If a <strong>429</strong> is returned, wait for in-flight requests to complete and retry with exponential backoff.
+        <br/>单个账号的历史 REST 最大并发请求数建议保持在 <strong>3</strong> 以内。若收到 <strong>429</strong>，请等待在途请求完成并使用指数退避重试。
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         Basic has access to the full available historical range. There is no Basic-specific date-span, symbol-count, or page-count budget. Requests remain subject to provider limits and shared proxy runtime controls such as historical concurrency, QPS, timeouts, and overload backpressure. Bulk Download is a separate one-off delivery product, not a requirement for older dates.
@@ -2163,9 +2172,8 @@ Authorization: Bearer <TOKEN>
 
       <h2 id="post-v1-history-bars" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/bars</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Fetch historical OHLCV bars for US equities. Paginates automatically up to <code>max_pages</code>. Results are cached for 5 minutes; check the <code>X-Cache</code> response header for <code>HIT</code> / <code>MISS</code>.
-        Data source: Alpaca SIP feed (pro account, split/dividend adjusted).
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取美股历史 OHLCV K线数据。支持自动分页，结果缓存 5 分钟。数据源：Alpaca SIP。</span>
+        Fetch historical OHLCV bars for US equities (SIP consolidated feed, split/dividend adjusted). Paginates automatically up to <code>max_pages</code>. Results are cached server-side; check the <code>X-Cache</code> response header for <code>HIT</code> / <code>MISS</code>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取美股历史 OHLCV K 线数据（全市场 SIP 官方聚合行情，已复权）。支持自动分页与多级服务端缓存，响应头可通过 <code>X-Cache</code> 查看缓存命中状态。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/bars`} />
       <ParamTable rows={[
@@ -2236,9 +2244,9 @@ Authorization: Bearer <TOKEN>
 
       <h2 id="post-v1-history-news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/news</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Fetch historical news articles. Source: Benzinga via Alpaca. Available to all tiers including Basic.
+        Fetch historical news articles. Available to all tiers including Basic.
         Pass <code>max_pages</code> greater than 1 to auto-paginate; each page contains up to 50 articles.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取历史新闻文章。来源：Benzinga via Alpaca。所有套餐可用。支持自动分页，每页最多 50 篇。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取历史新闻文章，所有套餐可用。支持自动分页，每页最多 50 篇。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/news`} />
       <ParamTable rows={[
@@ -2283,9 +2291,9 @@ Authorization: Bearer <TOKEN>
       <h2 id="post-v1-stock-history-trade-quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/stock/history/trade_quote</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Combined historical trade + quote data for a single stock symbol in one call.
-        Fetches both <code>/v2/stocks/trades</code> and <code>/v2/stocks/quotes</code> from Alpaca in parallel, auto-paginates each leg, and returns them in a single response.
+        Fetches trades and quotes in parallel, auto-paginates each leg, and returns them in a single response.
         Cached server-side; repeat calls return <code>X-Cache: DISK_HIT</code>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>单只股票的合并历史成交+报价数据。并行从 Alpaca 拉取 trades 和 quotes 自动分页，单次返回。支持服务端缓存。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>单只股票的合并历史成交与报价数据。服务端并行拉取 trades 和 quotes 自动分页并聚合返回，支持服务端多级缓存。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/stock/history/trade_quote`} />
       <ParamTable rows={[
@@ -2324,15 +2332,15 @@ Authorization: Bearer <TOKEN>
       {/* ── Stock Data ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Stock Data</div>
 
-      <h2 id="stock-data-availability" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Alpaca stock data availability</h2>
+      <h2 id="stock-data-availability" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>US Equities Market Data API</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        All native Alpaca stock market-data endpoints below are exposed as authenticated <code>GET</code> routes under <code>{REST_BASE}/v2/stocks/*</code>.
-        The proxy keeps the Alpaca response shape, strips proxy credentials from cache keys, and returns <code>X-Provider: alpaca</code>.
-        Feed availability still follows the upstream entitlement: <code>iex</code> is the safest default; <code>sip</code>, <code>delayed_sip</code>, <code>boats</code>, <code>overnight</code>, and <code>otc</code> depend on the requested endpoint and subscription.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>以下股票数据接口均按 Alpaca native GET 路径开放。响应结构保持 Alpaca 原样，鉴权和服务端缓存由代理统一处理。</span>
+        All standard stock market-data endpoints below are exposed as authenticated <code>GET</code> routes under <code>{REST_BASE}/v2/stocks/*</code>.
+        The proxy adheres to the official US consolidated market-data structure, with authentication, caching, and rate limiting handled transparently.
+        Feed availability follows standard market entitlement: <code>iex</code> is the default; <code>sip</code>, <code>delayed_sip</code>, <code>boats</code>, <code>overnight</code>, and <code>otc</code> depend on the requested endpoint and subscription.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>以下股票行情接口均通过标准 <code>GET</code> 路径开放。响应结构遵循官方全市场行情规范，鉴权、多级服务端缓存与并发控制由代理统一处理。</span>
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 28px" }}>
-        Live smoke-tested on 2026-05-23: every endpoint in this section returned <code>200</code> through the native provider path. Repeated latest/snapshot calls return <code>X-Cache: DISK_HIT</code> when served from cache.
+        Every endpoint in this section returns standard JSON payloads. Repeated latest/snapshot calls return <code>X-Cache: DISK_HIT</code> when served from cache.
       </p>
 
       {STOCK_ENDPOINT_GROUPS.map((group, gi) => (
@@ -2344,27 +2352,24 @@ Authorization: Bearer <TOKEN>
       ))}
 
       {/* ── Provider Data ── */}
-      <div className="eyebrow" style={{ marginBottom: 10 }}>Provider Data</div>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>Options Data</div>
 
-      <h2 id="provider-fallback-cache" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Provider routes and server-side cache</h2>
+      <h2 id="provider-fallback-cache" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Options routing model and server-side cache</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Two upstreams sit behind a single proxy layer (auth, permissions, rate limits, credential stripping, cache):
-        Alpaca for stocks, crypto, news, and most options; ThetaData Value for the option subset shown below.
-        The table lists only routes where the dual-provider routing or fallback decision matters — pass-through Alpaca routes
-        (<code>/v2/stocks/*</code>, <code>/v1beta3/crypto/*</code>, <code>/v1beta1/news*</code>, <code>/v2/options/contracts*</code>) are documented in their own sections.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>两个上游共享同一层代理。下表只列需要 dual-provider 路由/回退判断的端点；纯 Alpaca 透传端点在各自章节展开。</span>
+        Market data is unified behind a high-availability proxy layer handling authentication, multi-tier caching (hot memory + historical archive), rate limiting, and automated upstream routing:
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>底层行情接入多源专业数据链路，由代理网关统一处理鉴权、多级缓存（热点内存 + 历史海量归档）与并发调度：</span>
       </p>
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
         <thead><tr><th>Surface</th><th>Route</th><th>Routing behavior</th></tr></thead>
         <tbody>
           {[
-            ["Alpaca options (native)",       "/v1beta1/options/*",                                            "Bars, historical trades, latest quotes/trades, snapshots, chain snapshots. Historical option data starts 2024-02-01."],
-            ["Option bars (wrapper)",         "/v1/history/options/bars",                                      "Canonical 1Min option bars; actual source is reported in the response. Alpaca fallback is eligible only for ranges starting on/after 2024-02-01 and may be sparse traded activity; earlier or boundary-crossing ranges are ThetaData-only and fail closed if unavailable. /v1/options/bars is a legacy alias."],
-            ["Contracts (wrapper)",           "/v1/options/contracts",                                         "Current active contracts from Alpaca. Use /v3/option/list/contracts/{trade|quote} with date for historical/expired contracts."],
-            ["Full snapshots / greeks / IV",  "/v1/options/snapshots",                                         "Alpaca only — ThetaData Value lacks greeks, IV, market value."],
-            ["Quote / trade snapshots",       "/v1/options/snapshots/{quote,trade}",                           "Alpaca latest quote/trade; normalized to snapshots[OCC].latestQuote/latestTrade."],
-            ["OI / OHLC snapshots",           "/v1/options/snapshots/open_interest, /v3/option/snapshot/*",    "ThetaData-backed where Value permits OI and OHLC snapshots."],
-            ["ThetaData Value options",       "/v3/option/*",                                                  "ThetaData Value whitelist only; JSON response; no Alpaca fallback."],
+            ["Standard options (OCC)",        "/v1beta1/options/*",                                            "Bars, historical trades, latest quotes/trades, snapshots, and chain snapshots. Historical availability begins 2024-02-01."],
+            ["Option bars (1Min)",            "/v1/history/options/bars",                                      "Canonical 1Min bars with source and coverage roles reported in the response. Sparse traded-activity fallback is eligible only for ranges starting on or after 2024-02-01; earlier or boundary-crossing ranges fail closed if dense historical coverage is unavailable. /v1/options/bars is an alias."],
+            ["Contracts discovery",           "/v1/options/contracts",                                         "Current active contracts with strikes and expirations. Use /v3/option/list/contracts/* with a historical date for expired contracts."],
+            ["Full snapshots / Greeks",       "/v1/options/snapshots",                                         "Latest quote, trade, Greeks, and implied volatility where available."],
+            ["Quote / trade snapshots",       "/v1/options/snapshots/{quote,trade}",                           "Normalized latest quote and trade per OCC contract."],
+            ["OI / OHLC snapshots",           "/v1/options/snapshots/open_interest, /v3/option/snapshot/*",    "Contract-level open-interest and OHLC snapshots."],
+            ["Direct options API",            "/v3/option/*",                                                  "Direct parameter endpoints using root, expiration, strike, and right with structured JSON output."],
           ].map(([area, route, behavior], i) => (
             <tr key={i}>
               <td style={{ fontSize: 12, color: "var(--ink-strong)" }}>{area}</td>
@@ -2377,29 +2382,28 @@ Authorization: Bearer <TOKEN>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         Successful REST responses are cached server-side.
         Cache keys strip proxy credentials, return <code>X-Cache: DISK_HIT</code> on repeat, and use tiered TTLs: historical 7 days, intraday/latest 60 seconds, snapshots 5 minutes, contracts/lists 1 hour.
-        ThetaData Value does <strong>not</strong> expose direct option trades, trade_quote, market value, implied volatility, or greeks.
       </p>
-      <h3 id="alpaca-native-examples" style={{ fontSize: 16, fontWeight: 500, margin: "0 0 8px", color: "var(--ink-strong)" }}>Native Alpaca examples</h3>
+      <h3 id="standard-rest-examples" style={{ fontSize: 16, fontWeight: 500, margin: "0 0 8px", color: "var(--ink-strong)" }}>Standard REST examples</h3>
       <pre className="code" style={{ marginBottom: 40 }}>
-{`# Latest stock quote (Alpaca native)
+{`# Latest stock quote (Standard REST)
 curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v2/stocks/quotes/latest?symbols=AAPL&feed=sip"
 
-# Latest crypto quote (Alpaca native)
+# Latest crypto quote (Standard REST)
 curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v1beta3/crypto/us/latest/quotes?symbols=BTC%2FUSD"
 
-# Historical stock quotes (Alpaca native)
+# Historical stock quotes (Standard REST)
 curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v2/stocks/quotes?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&feed=sip"`}
       </pre>
 
       <h2 id="post-v1-options-contracts" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/contracts</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        List current active option contracts for one or more underlying symbols. This wrapper is an Alpaca-native discovery route; it is not a historical/expired contract universe.
-        Returns OCC symbol, strike, expiration, option type, open interest where available, and a <code>source</code> field.
+        List current active option contracts for one or more underlying symbols.
+        Returns OCC symbol, strike, expiration, option type, open interest where available, and pricing fields.
         Use the returned <code>symbol</code> field as input to <code>/v1/options/snapshots</code> or <code>/v1/history/options/bars</code>. For historical or expired contracts, use <code>/v3/option/list/contracts/trade</code> or <code>/v3/option/list/contracts/quote</code> with a historical <code>date</code>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>列出当前活跃期权合约；这不是历史/已到期合约全集。历史合约请使用带 <code>date</code> 的 <code>/v3/option/list/contracts/trade</code> 或 <code>quote</code>。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>查询指定标的当前活跃期权合约（包含 OCC 代码、行权价、到期日、未平仓合约数等）。获取的 OCC 代码可直接用于查询快照或历史 K 线。历史到期合约请使用 <code>/v3/option/list/contracts/*</code>。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/contracts`} />
       <ParamTable rows={[
@@ -2411,10 +2415,6 @@ curl -H "Authorization: Bearer <TOKEN>" \\
         { name: "strike_price_gte",    type: "number",  required: false, desc: "Minimum strike price" },
         { name: "strike_price_lte",    type: "number",  required: false, desc: "Maximum strike price" },
         { name: "type",                type: "string",  required: false, desc: "call | put" },
-        { name: "provider",            type: "string",  required: false, desc: "Current wrapper uses Alpaca; use the native /v3/option/list/contracts/* routes for ThetaData historical discovery." },
-        { name: "date",                type: "string",  required: false, desc: "Not a historical switch for this wrapper; use /v3/option/list/contracts/{trade|quote} instead." },
-        { name: "request_type",        type: "string",  required: false, desc: "Use quote or trade on the native /v3 historical contract-list routes." },
-        { name: "max_dte",             type: "integer", required: false, desc: "Use on the native /v3 historical contract-list routes." },
         { name: "limit",               type: "integer", required: false, desc: "1–10000 (default: 1000)" },
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
@@ -2445,21 +2445,20 @@ curl -H "Authorization: Bearer <TOKEN>" \\
       "close_price_date": "2026-05-21"
     }
   ],
-  "next_page_token": null,
-  "source": "alpaca"
+  "next_page_token": null
 }`}
       </pre>
 
       <div className="eyebrow" style={{ marginBottom: 6, marginTop: 32, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · History</div>
       <h2 id="post-v1-history-options-bars" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/options/bars</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Historical OHLCV bars for OCC option contracts. The canonical route is <code>/v1/history/options/bars</code>; the legacy spelling <code>/v1/options/bars</code> is accepted as an alias.
-        The response is always <code>1Min</code> and reports the actual data source; legacy timeframe values such as <code>5Min</code> are normalized to <code>1Min</code>, with no server-side aggregate.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权 OCC 合约历史 OHLCV K 线返回固定为 <code>1Min</code>；<code>5Min</code> 等旧参数只兼容性归一化为 <code>1Min</code>，不提供服务端聚合，客户端自行重采样。</span>
+        Historical OHLCV bars for OCC option contracts. The canonical route is <code>/v1/history/options/bars</code> (the legacy <code>/v1/options/bars</code> is accepted as an alias).
+        The response is standard <code>1Min</code> resolution; multi-period requests are normalized to 1Min. Client-side resampling should be used for higher timeframe aggregations.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>按 OCC 合约代码查询期权历史 OHLCV K 线。接口统一返回标准 1 分钟（1Min）K 线，多周期聚合请在客户端进行重采样（如使用 pandas.resample）。</span>
       </p>
       <div style={{ background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 8, padding: "10px 14px", margin: "0 0 12px", fontSize: 12 }}>
-        <strong>{"\u2139\uFE0F"} Coverage note:</strong> Canonical <code>1Min</code> option bars are supported. Inspect <code>provider</code>, <code>providers</code>, and <code>coverage_roles</code> for provenance; a sparse traded-activity fallback must not be interpreted as complete contract coverage. Alpaca fallback is eligible only when <code>start &gt;= 2024-02-01</code>; requests starting earlier, including ranges crossing the boundary, never use Alpaca. If ThetaData cannot serve such a range, the wrapper returns HTTP <code>502</code> with <code>thetadata_required_for_option_history</code>.
-        <br/><span style={{ color: "var(--ink-soft)" }}>覆盖说明：规范 <code>1Min</code> 期权 K 线已支持。请检查 <code>provider</code>、<code>providers</code> 和 <code>coverage_roles</code> 判断来源；稀疏成交回退不代表完整合约覆盖。Alpaca 回退仅适用于 <code>start &gt;= 2024-02-01</code>；更早开始、包括跨过边界的请求不会使用 Alpaca。ThetaData 无法提供时，wrapper 返回 HTTP <code>502</code> 和 <code>thetadata_required_for_option_history</code>。</span>
+        <strong>{"\u2139\uFE0F"} Coverage note:</strong> Canonical <code>1Min</code> option bars are supported. Inspect <code>provider</code>, <code>providers</code>, and <code>coverage_roles</code> for provenance; sparse traded-activity fallback is not complete contract coverage. That fallback is eligible only when <code>start &gt;= 2024-02-01</code>. Requests starting earlier, including ranges crossing the boundary, require dense historical coverage and fail closed with HTTP <code>502</code> when it is unavailable.
+        <br/><span style={{ color: "var(--ink-soft)" }}>覆盖说明：规范 <code>1Min</code> 期权 K 线已支持。请检查 <code>provider</code>、<code>providers</code> 和 <code>coverage_roles</code> 判断来源；稀疏成交回退不代表完整合约覆盖。该回退仅适用于 <code>start &gt;= 2024-02-01</code>。更早开始、包括跨过边界的请求需要完整历史覆盖；不可用时会以 HTTP <code>502</code> 失败关闭。</span>
       </div>
       <div style={{ background: "#fff8e1", border: "1px solid #f0c36d", borderRadius: 8, padding: "10px 14px", margin: "0 0 12px", fontSize: 12 }}>
         <strong>{"\u26A0\uFE0F"} Fixed-granularity warning:</strong> The wrapper always returns <code>1Min</code>. Legacy inputs such as <code>5Min</code>, <code>15Min</code>, <code>30Min</code>, or <code>1Hour</code> are normalized to <code>1Min</code>; there is no server-side aggregate. Basic has no plan-specific request-size budget. Provider limits and proxy runtime limits still apply; on <code>429</code> wait and retry with exponential backoff.
@@ -2470,8 +2469,7 @@ curl -H "Authorization: Bearer <TOKEN>" \\
         { name: "symbols",   type: "string",  required: true,  desc: "OCC symbol(s), comma-separated" },
         { name: "start",     type: "string",  required: true,  desc: "ISO 8601 date" },
         { name: "end",       type: "string",  required: true,  desc: "ISO 8601 date" },
-        { name: "timeframe", type: "string",  required: false, desc: "Output is always 1Min. Legacy values are normalized to 1Min; server-side 5Min aggregation is not provided." },
-        { name: "provider",  type: "string",  required: false, desc: "Source metadata returned in the response; not a hard routing switch for this wrapper." },
+        { name: "timeframe", type: "string",  required: false, desc: "Output is standard 1Min. Multi-minute requests are normalized to 1Min." },
         { name: "limit",     type: "integer", required: false, desc: "Bars per page, 1–10000 (default: 10000)" },
         { name: "max_pages", type: "integer", required: false, desc: "Max pagination pages (default: 100)" },
       ]} />
@@ -2494,18 +2492,11 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
       { "o": 14.50, "h": 15.20, "l": 14.10, "c": 14.85, "v": 320, "t": "2025-05-01T..." }
     ]
   },
-  "provider": "thetadata",
   "pages": 1
 }`}
       </pre>
       <pre className="code" style={{ marginBottom: 40 }}>
-{`// Legacy client compatibility: the response remains 1Min
-curl -X POST ${REST_BASE}/v1/history/options/bars \\
-  -H "Authorization: Bearer <TOKEN>" \\
-  -H "Content-Type: application/json" \\
-  -d '{"symbols":"AAPL260620C00200000","start":"2025-05-01","end":"2025-05-02","timeframe":"5Min"}'
-
-# Client-side 5-minute resampling (pandas)
+{`// Client-side 5-minute resampling (pandas)
 frame["t"] = pd.to_datetime(frame["t"], utc=True)
 bars_5m = (frame.set_index("t").resample("5min")
   .agg({"o":"first","h":"max","l":"min","c":"last","v":"sum","n":"sum"})
@@ -2514,8 +2505,8 @@ bars_5m = (frame.set_index("t").resample("5min")
 
       <h2 id="post-v1-options-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/options/open_interest</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Historical open interest by date range with strike/expiry filters. Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong> (returns 503 if ThetaData is unavailable).
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>按日期范围和行权价/到期日筛选历史持仓量。</span>
+        Historical open interest by date range with optional strike, expiration, and right filters.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>按日期范围和行权价/到期日筛选期权历史未平仓合约数（Open Interest）。</span>
       </p>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/options/open_interest`} />
       <ParamTable rows={[
@@ -2553,10 +2544,8 @@ bars_5m = (frame.set_index("t").resample("5min")
 
       <h2 id="post-v1-history-options-eod" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/history/options/eod</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        End-of-day OHLC summary for option contracts: open/high/low/close, volume, bid/ask, and trade count per contract per day.
-        Data source: <strong style={{ color: "var(--ink-strong)" }}>ThetaData Value</strong> with server-side cache. Supports <code>GET</code> (query) and <code>POST</code> (JSON body).
-        Also accessible at the legacy alias <code>/v1/options/eod</code> with identical behavior.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约日终 OHLC 汇总。数据源 ThetaData Value，写入服务端缓存。也可走旧别名 /v1/options/eod。</span>
+        End-of-day OHLC summary for option contracts: open/high/low/close, volume, bid/ask spread, and trade count per contract per day. Supports <code>GET</code> (query parameters) and <code>POST</code> (JSON body).
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约日终（EOD）行情汇总，包含开高低收、成交量、买卖盘报价及成交笔数。支持 GET 与 POST。</span>
       </p>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/history/options/eod`} />
       <ParamTable rows={[
@@ -2626,10 +2615,8 @@ for row in data["data"][:5]:
 
       <h2 id="post-v1-history-options-trades" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/options/trades</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Historical option trades from Alpaca. Maps to Alpaca's <code>/v1beta1/options/trades</code> endpoint, which is also available directly as a native <code>GET</code> route.
-        Alpaca historical option data starts on <strong style={{ color: "var(--ink-strong)" }}>2024-02-01</strong>; earlier requests return empty data plus a warning on this wrapper route.
-        <strong>No ThetaData fallback</strong> — if queried too early or on an empty dataset, returns a standard empty response.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Alpaca 历史期权逐笔成交数据。Alpaca 历史期权数据从 2024-02-01 开始；无 ThetaData 备用源。若查询时间过早或数据集为空，返回标准空响应。</span>
+        Historical option trade ticks by OCC symbol.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>按 OCC 合约代码查询历史期权逐笔成交明细（Trade Ticks）。</span>
       </p>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/history/options/trades`} />
       <ParamTable rows={[
@@ -2654,51 +2641,21 @@ for row in data["data"][:5]:
     ]
   },
   "next_page_token": null
-}
-
-// Empty response (too early or no data)
-{
-  "trades": {},
-  "next_page_token": null,
-  "data_availability": {
-    "provider": "alpaca",
-    "historical_options_since": "2024-02-01"
-  },
-  "warning": "Alpaca historical option data is available from 2024-02-01 onward."
 }`}
       </pre>
-
-      {/* ── Not Supported ── */}
-      <div style={{ background: "#f8d7da", border: "1px solid #f5c6cb", borderRadius: 8, padding: "14px 18px", margin: "48px 0 24px", fontSize: 13 }}>
-        <h3 id="not-supported-value" style={{ fontSize: 16, fontWeight: 600, margin: "0 0 8px", color: "#721c24" }}>Not supported on ThetaData Value plan</h3>
-        <p style={{ margin: "0 0 8px", color: "#721c24" }}>
-          The following endpoints are registered in the proxy but will return errors because the ThetaData Value subscription does not include them. Do not call these unless you have upgraded to Standard/Pro.
-        </p>
-        <table className="tbl" style={{ width: "100%", fontSize: 12, marginBottom: 8 }}>
-          <thead><tr><th>Endpoint</th><th>Error</th><th>Alternative</th></tr></thead>
-          <tbody>
-            <tr><td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>/v1/history/options/trade_quote</td><td>PERMISSION_DENIED — requires Standard subscription</td><td>Use /v1/history/options/trades (Alpaca) or /v3/option/history/quote (quote only)</td></tr>
-            <tr><td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>/v1/options/snapshots/market_value</td><td>ThetaData Value lacks market_value data</td><td>Use /v1/options/snapshots (Alpaca-backed, includes greeks)</td></tr>
-            <tr><td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>/v1/history/options/bars (intraday)</td><td>Canonical 1Min only; legacy timeframe values are normalized to 1Min</td><td>Client-side resampling is required for 5Min or other aggregates</td></tr>
-          </tbody>
-        </table>
-        <p style={{ margin: 0, fontSize: 12, color: "#856404" }}>
-          ThetaData Value includes: EOD bars, minute OHLC bars, OHLC snapshots, quote snapshots, open interest, contract lists, and historical quotes. It does <strong>not</strong> include: option trades, trade_quote, market value, implied volatility, or greeks via ThetaData. Greeks/IV are available via Alpaca snapshots.
-        </p>
-      </div>
 
       {/* ── Snapshots ── */}
       <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · Snapshots</div>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 24px" }}>
-        Snapshot endpoints return the <em>latest</em> state of option contracts — greeks, quotes, trade, open interest — served from a 60-second in-memory cache.
+        Snapshot endpoints return the <em>latest</em> state of option contracts — greeks, quotes, trade, open interest — served from a high-speed in-memory cache.
         All snapshot endpoints accept OCC symbols obtained from <code>/v1/options/contracts</code>.
       </p>
 
       <h2 id="post-v1-options-snapshots" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Full snapshot per contract: latest trade, latest quote, greeks (delta, gamma, theta, vega, rho), and implied volatility.
-        Use the sub-endpoints below when you only need one slice.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>每个合约的完整快照：最新成交、最新报价、希腊值与隐含波动率。只需单项时改用下方子端点。</span>
+        Use the sub-endpoints below when you only need a specific slice.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>单个合约的全量实时快照：包含最新成交、最新报价、希腊字母风险指标（Delta, Gamma, Theta, Vega, Rho）及隐含波动率（IV）。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots`} />
       <ParamTable rows={[
@@ -2743,13 +2700,13 @@ for row in data["data"][:5]:
 
       <h2 id="post-v1-options-snapshots-quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/quote</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Latest NBBO quote per contract, normalized to <code>snapshots[OCC].latestQuote</code>. Set <code>feed: "thetadata"</code> only to force the ThetaData Value quote snapshot.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约最新 NBBO 报价。只有明确需要 ThetaData Value 时才设置 feed: "thetadata"。</span>
+        Latest NBBO quote per contract, normalized to <code>snapshots[OCC].latestQuote</code>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约最新 NBBO 报价，统一归一化到 snapshots[OCC].latestQuote。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/quote`} />
       <ParamTable rows={[
         { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 1000 per request)" },
-        { name: "feed",    type: "string",  required: false, desc: "opra | indicative | thetadata (default follows account entitlement)" },
+        { name: "feed",    type: "string",  required: false, desc: "opra | indicative (default follows account entitlement)" },
         { name: "limit",   type: "integer", required: false, desc: "1–1000 (default: 100)" },
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
@@ -2794,8 +2751,8 @@ for sym, snap in resp.json()["snapshots"].items():
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/trade`} />
       <ParamTable rows={[
-        { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 100 per Alpaca latest endpoint)" },
-        { name: "feed",    type: "string",  required: false, desc: "opra | indicative | thetadata (default follows account entitlement)" },
+        { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 100 per request)" },
+        { name: "feed",    type: "string",  required: false, desc: "opra | indicative (default follows account entitlement)" },
       ]} />
       <pre className="code" style={{ marginBottom: 40 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/trade \\
@@ -2806,20 +2763,19 @@ for sym, snap in resp.json()["snapshots"].items():
 
       <h2 id="post-v1-options-snapshots-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/open_interest</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Latest open interest per contract (count + timestamp). ThetaData-only — must set <code>feed: "thetadata"</code>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约最新持仓量。仅 ThetaData，必须设 feed: "thetadata"。</span>
+        Latest open interest per contract (count + timestamp).
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约最新持仓量（OI 快照）。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/open_interest`} />
       <ParamTable rows={[
         { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 1000 per request)" },
-        { name: "feed",    type: "string",  required: false, desc: "thetadata (default: opra — must set to thetadata for this endpoint)" },
         { name: "limit",   type: "integer", required: false, desc: "1–1000 (default: 100)" },
       ]} />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/open_interest \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
-  -d '{"symbols":"AAPL260522C00110000","feed":"thetadata"}'`}
+  -d '{"symbols":"AAPL260522C00110000"}'`}
       </pre>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`// Response
@@ -2842,7 +2798,7 @@ symbols = "AAPL260620C00200000,AAPL260620P00200000"
 resp = requests.post(
     "${REST_BASE}/v1/options/snapshots/open_interest",
     headers={"Authorization": "Bearer <TOKEN>"},
-    json={"symbols": symbols, "feed": "thetadata"}
+    json={"symbols": symbols}
 )
 for sym, snap in resp.json()["snapshots"].items():
     oi = snap["openInterest"]
@@ -2852,8 +2808,8 @@ for sym, snap in resp.json()["snapshots"].items():
       <h2 id="post-v1-options-snapshots-expiry" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/expiry</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Convenience endpoint: fetches <em>all</em> contracts for an underlying on a specific expiry date and returns their snapshots in one call.
-        Resolves the contract list and batches snapshot requests (100 symbols per batch).
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>便捷接口：一次性获取指定标的在特定到期日的所有合约快照。会先解析合约列表，再批量请求快照（每批 100 个标的）。</span>
+        Resolves the contract list and batches snapshot requests automatically.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>便捷接口：一次性获取指定标的在特定到期日的所有合约快照（自动解析合约链并批量请求快照）。</span>
       </p>
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/expiry`} />
       <ParamTable rows={[
@@ -2894,14 +2850,13 @@ for sym, snap in data["snapshots"].items():
     print(f"  {sym}  delta={g.get('delta','—')}  bid={q.get('bp','—')}  ask={q.get('ap','—')}")`}
       </pre>
 
-      {/* ── ThetaData Value direct endpoints ── */}
-      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · ThetaData Value</div>
-      <h2 id="post-v3-option-direct-value" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/* (ThetaData Value)</h2>
+      {/* ── Direct Options API ── */}
+      <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · Direct API</div>
+      <h2 id="post-v3-option-direct-value" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/* (Direct Options API)</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Authenticated proxy for ThetaData Value option endpoints included in the subscription.
-        Supports both <code>GET</code> query parameters and <code>POST</code> JSON bodies, strips proxy credentials before execution, and caches successful JSON responses server-side.
-        Unsupported Standard/Pro-only routes such as option trades, trade_quote, market value, implied volatility, and greeks are intentionally not exposed here.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>ThetaData Value 期权白名单代理，仅开放 Value 订阅允许的端点。支持 GET/POST，成功 JSON 响应写入服务端缓存。</span>
+        Direct parameter endpoints for querying options data using root ticker, expiration (YYMMDD), strike, and right (C/P) instead of OCC symbols.
+        Supports both <code>GET</code> query parameters and <code>POST</code> JSON bodies, with responses cached server-side.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权原生参数查询接口：支持直接使用标的代码、到期日（YYMMDD）、行权价与权利类型（C/P）组合查询，无需拼接 OCC 字符串。支持 GET 与 POST。</span>
       </p>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/...`} />
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
@@ -2934,18 +2889,18 @@ for sym, snap in data["snapshots"].items():
       </table>
       <h3 id="post-v3-option-history-ohlc" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Historical OHLC example</h3>
       <pre className="code" style={{ marginBottom: 12 }}>
-{`# GET — query parameters forwarded to ThetaData
+{`# GET — query parameters
 curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v3/option/history/ohlc?root=AAPL&exp=260620&strike=200.0&right=C&start_date=20250102&end_date=20250103"
 
-# POST — JSON body forwarded to ThetaData
+# POST — JSON body
 curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"root":"AAPL","exp":260620,"strike":200.0,"right":"C","start_date":20250102,"end_date":20250103}'`}
       </pre>
       <pre className="code" style={{ marginBottom: 40 }}>
-{`// Response — ThetaData native format
+{`// Response
 {
   "ohlc": [
     { "date": 20250102, "open": 14.50, "high": 15.20, "low": 14.10, "close": 14.85, "volume": 320 }
@@ -2957,7 +2912,7 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
 {`curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v3/option/snapshot/ohlc?root=AAPL&exp=260620&strike=200.0&right=C"
 
-// Response — ThetaData native format
+// Response
 {
   "ohlc": { "open": 14.50, "high": 15.20, "low": 14.10, "close": 14.85, "volume": 320 }
 }`}
@@ -2976,7 +2931,7 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
   -d '{"root":"AAPL","exp":260620,"strike":200.0,"right":"C","start_date":20250102,"end_date":20250102,"time_of_day":"14:30:00"}'`}
       </pre>
       <pre className="code" style={{ marginBottom: 48 }}>
-{`// Response — ThetaData native format
+{`// Response
 {
   "quotes": [
     { "date": 20250102, "ms_of_day": 52200000, "bid": 14.80, "bid_size": 10, "ask": 14.90, "ask_size": 15 }
@@ -3107,9 +3062,9 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
             ["404", '{"error":"Token not found"}', "Admin lookup: user_id not in active token list"],
             ["409", '{"success":false,"message":"..."}', "Duplicate username on registration"],
             ["429", '{"error":"historical_concurrency_limit"}', "More than 3 historical REST requests are in flight for this account"],
-            ["429", '{"error":"thetadata_qps_limit"}', "Upstream-specific QPS limit reached; back off and retry"],
-            ["500", '{"error":"Cloud missing Alpaca master keys"}', "Proxy misconfiguration"],
-            ["503", '{"error":"ThetaData not available"}', "ThetaData client offline (open_interest / eod)"],
+            ["429", '{"error":"rate_limit_exceeded"}', "Rate limit reached; back off and retry"],
+            ["500", '{"error":"internal_server_error"}', "Internal proxy server error"],
+            ["503", '{"error":"service_unavailable"}', "Market data service temporarily unavailable"],
             ["503", '{"error":"Server overloaded, stream priority active."}', "High load; WS streams take priority"],
           ].map(([s, b, w], i) => (
             <tr key={i}>
@@ -3123,8 +3078,8 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
 
       <h2 id="rate-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Rate limits</h2>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", margin: "0 0 12px", fontSize: 13 }}>
-        <strong>HTTP 429 = an enforced runtime limit was reached.</strong> The common causes are the per-account historical REST concurrency cap or an upstream-specific QPS/key-pool limit. Wait for an in-flight request to finish and use exponential backoff.
-        <br/><span style={{ color: "var(--ink-soft)" }}>收到 HTTP 429 表示触发了运行时限制，常见原因是账号历史 REST 并发上限或上游 QPS/key pool 限制。请等待在途请求完成并使用指数退避。</span>
+        <strong>HTTP 429 = an enforced runtime limit was reached.</strong> The common cause is the per-account historical REST concurrency cap. Wait for in-flight requests to complete and retry with exponential backoff.
+        <br/><span style={{ color: "var(--ink-soft)" }}>收到 HTTP 429 表示触发了运行时限制，常见原因是账号历史 REST 并发达到上限。请等待在途请求完成并使用指数退避。</span>
       </div>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         The proxy does not currently enforce the old tier-specific rolling req/min values. Historical REST concurrency is per account and remains held until the response body reaches EOF.
@@ -3137,10 +3092,8 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
         <tbody>
           {[
             ["Historical REST concurrency", "3", "per account"],
-            ["ThetaData REST QPS", "5/s", "per ordinary account"],
-            ["ThetaData native concurrency", "2", "shared service-wide"],
+            ["Historical options REST QPS", "5/s", "per account"],
             ["WS subjects", "500", "per connection"],
-            ["Free WS subjects", "10", "account-wide across connections"],
             ["WS connections", "no account cap", "service capacity still applies"],
           ].map(([limit, value, scope], i) => (
             <tr key={i}>
@@ -3152,15 +3105,15 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
         </tbody>
       </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
-        These are current runtime limits, not capacity guarantees. No plan-specific historical request-size budget is enforced. Service-wide backpressure can return <code>503</code>, and upstream key exhaustion can return <code>429</code>.
-        <br/><span style={{ color: "var(--ink-soft)" }}>这些是当前运行时限制，不是容量保证；历史请求大小不按套餐单独设预算。服务总背压可能返回 <code>503</code>，上游 key 耗尽可能返回 <code>429</code>。</span>
+        These are current runtime limits, not capacity guarantees. No plan-specific historical request-size budget is enforced. Service-wide backpressure can return <code>503</code>, and provider-capacity limits can return <code>429</code>.
+        <br/><span style={{ color: "var(--ink-soft)" }}>这些是当前运行时限制，不是容量保证；历史请求大小不按套餐单独设预算。服务总背压可能返回 <code>503</code>，数据源容量限制可能返回 <code>429</code>。</span>
       </p>
 
       <h2 id="concurrency-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Concurrency limits</h2>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         The account-level concurrency cap applies only to historical REST: ordinary accounts may have up to <strong>3</strong> requests in flight.
-        WebSocket accounts have no account-level connection cap. Each connection may subscribe to at most <strong>500 NATS subjects</strong>; Free accounts additionally share a 10-subject account-wide cap.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>账号级并发上限仅适用于历史 REST：普通账号最多同时有 <strong>3</strong> 个在途请求。WebSocket 不设账号级连接数上限；每条连接最多订阅 <strong>500 个 NATS subjects</strong>，Free 账号另有全账号合计 10 subjects 的限制。</span>
+        WebSocket accounts have no account-level connection cap. Each connection may subscribe to at most <strong>500 subjects</strong>.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>账号级并发上限仅适用于历史 REST：单个账号最多同时有 <strong>3</strong> 个并发在途请求。WebSocket 不设账号级连接数上限；每条连接最多订阅 <strong>500 个 subjects</strong>。</span>
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
         Subjects count actual deliveries, not unique ticker strings. For example, <code>AAPL trades</code> plus <code>AAPL quotes</code> is two subjects; subscribing to the same subject on two connections counts twice because the frame is delivered twice. Accounts are counted independently: under the current admission logic, two paid accounts may each open 100 WebSocket connections. This is not an unlimited-capacity SLA. For large fan-out, keep a small number of upstream sockets and redistribute locally through a local proxy.
@@ -3225,10 +3178,14 @@ function WsUsageBody() {
 
       {/* ── Connecting ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Connecting</div>
-      <h2 id="auth-message" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Auth message</h2>
+      <h2 id="auth-message" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Connect, authenticate, subscribe / 连接、认证、订阅</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         After opening the WebSocket, send an <code>auth</code> action. Authentication happens in the message body — no HTTP headers are needed.
       </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`{"action": "auth", "token": "<TOKEN>"}
+{"action": "subscribe", "trades": ["AAPL"], "quotes": ["AAPL"]}`}
+      </pre>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`import asyncio, websockets, json, msgpack
 
@@ -3281,18 +3238,18 @@ await ws.send(json.dumps({
 
       <h2 id="stocks" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>stocks</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Live US equities: trades, quotes, and minute bars from the SIP feed (pro account). Subscribe to <code>trades</code>, <code>quotes</code>, and/or <code>bars</code> lists.
+        Live US equities: trades, quotes, and minute bars from the consolidated SIP feed. Subscribe to <code>trades</code>, <code>quotes</code>, and/or <code>bars</code> lists.
         Use <code>"*"</code> to subscribe to all symbols.
       </p>
       <H3>Subject limit</H3>
-      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>Each connection supports up to 500 subjects. A ticker subscribed under both <code>trades</code> and <code>quotes</code> consumes two subjects. The Free plan has an additional account-wide limit of 10 subjects across all connections.</p>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>Each connection supports up to 500 subjects. A ticker subscribed under both <code>trades</code> and <code>quotes</code> consumes two subjects.</p>
 
       <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>options</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Live OPRA options feed. Subscribe using OCC symbols in the <code>trades</code> and <code>quotes</code> lists.
         All tiers except Basic.
-        <strong style={{ color: "var(--ink-strong)" }}> Index options are supported</strong> for Alpaca's current SPX/SPXW, VIX/VIXW, DJX and XSP families.
-        Use the normal OCC contract symbol; the proxy handles Alpaca's required MsgPack upstream frames and keeps the public <code>/stream/options</code> contract unchanged.
+        <strong style={{ color: "var(--ink-strong)" }}> Index options are supported</strong> for SPX/SPXW, VIX/VIXW, DJX and XSP families.
+        Use the standard OCC contract symbol; streaming is delivered via standard MessagePack frames on <code>/stream/options</code>.
       </p>
 
       <h2 id="crypto" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>crypto</h2>
@@ -3310,7 +3267,7 @@ await ws.send(json.dumps({
 
       <h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>news</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Realtime news events from Benzinga. Subscribe with a <code>news</code> list of tickers or <code>"*"</code> for all.
+        Realtime market news events. Subscribe with a <code>news</code> list of tickers or <code>"*"</code> for all.
         Messages are plain JSON. All tiers except Basic. Historical news is also available via REST <code>/v1/history/news</code>.
       </p>
 
@@ -3383,6 +3340,7 @@ await ws.send(json.dumps({
 
       <h2 id="reconnect" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Reconnect</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Handle reconnects with backoff.
         The server may close the connection on overload (<code>code 1013</code>) or policy violation (<code>code 1008</code>).
         Implement exponential backoff. Subscriptions are not persisted — re-auth and re-subscribe after every reconnect.
       </p>
@@ -3434,8 +3392,9 @@ curl -X POST https://api.leandata.uk/v1/history/bars \\
 curl "https://api.leandata.uk/v1/history/bars?token=TOKEN&symbol=AAPL&start=2025-01-01&end=2025-12-31&timeframe=1Day"
 
 # Check cache status in response headers:
-# cf-cache-status: HIT    → served from edge (~20ms)
-# cf-cache-status: MISS   → fetched from origin, now cached for next request`}
+# X-Cache: HIT      → served from in-memory hot cache (~1ms)
+# X-Cache: DISK_HIT → served from fast SSD archive (~5-15ms)
+# X-Cache: MISS     → fetched from upstream and cached for next request`}
       </pre>
 
       <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Reuse connections</h3>
