@@ -5073,6 +5073,13 @@ const USAGE_REFRESH_MIN_INTERVAL_MS = 15000;
 const USAGE_MAX_ROUTES_PER_USER = 128;
 const USAGE_MAX_RECENT_EVENTS = 5000;
 const USAGE_MAX_PARTIAL_LINE_BYTES = 1024 * 1024;
+const ACCESS_LOG_DIR = () => process.env.ACCESS_LOG_DIR
+  || '/var/log/leandata-v2/access';
+const ATTRIBUTION_DEFAULT_LINES = 5000;
+const ATTRIBUTION_MAX_LINES = 20000;
+const ATTRIBUTION_MAX_BYTES_PER_SOURCE = 4 * 1024 * 1024;
+const ATTRIBUTION_MAX_RECENT_EVENTS = 50;
+const ATTRIBUTION_SCHEMA = 'pseudonymous_request_attribution_v1';
 
 function usageDayKey(value) {
   return new Date(value).toISOString().slice(0, 10);
@@ -5714,6 +5721,207 @@ app.get('/api/admin/users/search', requireAdmin, async (req, res) => {
     };
   });
   return res.json({ success: true, query: q, count: items.length, items });
+});
+
+// ============================================================
+// ADMIN: Pseudonymous request attribution
+//
+// Both files are mounted read-only from leandata-v2. This endpoint deliberately
+// returns only the daily HMAC fingerprints emitted by REST and WS; it never
+// returns raw source IPs, credentials, Authorization values, or query strings.
+// ============================================================
+
+function utcDayString(now = new Date()) {
+  return now.toISOString().slice(0, 10);
+}
+
+function boundedAttributionLines(value) {
+  const parsed = Number.parseInt(String(value || ''), 10);
+  if (!Number.isFinite(parsed)) return ATTRIBUTION_DEFAULT_LINES;
+  return Math.min(Math.max(parsed, 100), ATTRIBUTION_MAX_LINES);
+}
+
+function cleanAttributionHash(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return /^[0-9a-f]{64}$/.test(normalized) ? normalized : '';
+}
+
+function cleanCredentialFingerprint(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === 'none' ? normalized : cleanAttributionHash(normalized);
+}
+
+function attributionFilters(req) {
+  const candidateDay = String(req.query.day || '').trim();
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(candidateDay) ? candidateDay : utcDayString();
+  const statusCandidate = Number.parseInt(String(req.query.status || ''), 10);
+  const status = Number.isInteger(statusCandidate) && statusCandidate >= 100 && statusCandidate <= 599
+    ? statusCandidate
+    : null;
+  const pathValue = String(req.query.path || '').trim().slice(0, 160);
+  const path = pathValue.startsWith('/') && !pathValue.includes('?') ? pathValue : '';
+  return {
+    day,
+    lines: boundedAttributionLines(req.query.lines),
+    status,
+    path,
+    sourceIpHash: cleanAttributionHash(req.query.source_ip_hash),
+    credentialHash: cleanCredentialFingerprint(req.query.credential_hash),
+    uaCategory: String(req.query.ua_category || '').trim().toLowerCase().slice(0, 40)
+  };
+}
+
+async function readAttributionLines(logPath, lines) {
+  let handle;
+  try {
+    handle = await fs.promises.open(logPath, 'r');
+    const stat = await handle.stat();
+    if (!stat.isFile()) {
+      return { state: 'unavailable', scannedLines: 0, truncated: false, lines: [] };
+    }
+    const bytes = Math.min(stat.size, ATTRIBUTION_MAX_BYTES_PER_SOURCE);
+    const start = stat.size - bytes;
+    const buffer = Buffer.alloc(bytes);
+    const { bytesRead } = await handle.read(buffer, 0, bytes, start);
+    let text = buffer.subarray(0, bytesRead).toString('utf8');
+    if (start > 0) {
+      const firstNewline = text.indexOf('\n');
+      text = firstNewline === -1 ? '' : text.slice(firstNewline + 1);
+    }
+    const completeLines = text.split('\n');
+    if (completeLines.length && completeLines[completeLines.length - 1] === '') completeLines.pop();
+    return {
+      state: 'available',
+      scannedLines: Math.min(completeLines.length, lines),
+      truncated: start > 0,
+      lines: completeLines.slice(-lines)
+    };
+  } catch (err) {
+    if (err && err.code === 'ENOENT') {
+      return { state: 'missing', scannedLines: 0, truncated: false, lines: [] };
+    }
+    return { state: 'unavailable', scannedLines: 0, truncated: false, lines: [] };
+  } finally {
+    if (handle) await handle.close();
+  }
+}
+
+function attributionRecord(entry, transport, day) {
+  if (!entry || typeof entry !== 'object' || entry.attribution_schema !== ATTRIBUTION_SCHEMA) return null;
+  const timestamp = typeof entry.timestamp === 'string' ? entry.timestamp : null;
+  if (!timestamp || timestamp.slice(0, 10) !== day) return null;
+  const sourceIpHash = cleanAttributionHash(entry.source_ip_hash);
+  const credentialHash = cleanCredentialFingerprint(entry.credential_hash);
+  if (!sourceIpHash || !credentialHash) return null;
+  const status = Number(entry.status);
+  return {
+    timestamp,
+    transport,
+    event: String(entry.event || 'unknown').slice(0, 64),
+    method: transport === 'http' ? String(entry.method || '').slice(0, 16) || null : null,
+    path: transport === 'http' ? String(entry.path || '').slice(0, 160) || null : null,
+    mode: transport === 'ws' ? String(entry.mode || '').slice(0, 64) || null : null,
+    status: Number.isFinite(status) ? status : 0,
+    user_id: typeof entry.user_id === 'string' ? entry.user_id.slice(0, 128) : null,
+    user_role: typeof entry.user_role === 'string' ? entry.user_role.slice(0, 64) : null,
+    source_ip_hash: sourceIpHash,
+    credential_hash: credentialHash,
+    ua_category: typeof entry.ua_category === 'string' ? entry.ua_category.slice(0, 40) : 'unknown'
+  };
+}
+
+function matchesAttributionFilters(record, filters) {
+  return (!filters.status || record.status === filters.status)
+    && (!filters.path || record.path === filters.path)
+    && (!filters.sourceIpHash || record.source_ip_hash === filters.sourceIpHash)
+    && (!filters.credentialHash || record.credential_hash === filters.credentialHash)
+    && (!filters.uaCategory || record.ua_category === filters.uaCategory);
+}
+
+function attributionTopRows(records, key) {
+  const rows = new Map();
+  for (const record of records) {
+    const value = record[key];
+    if (!value) continue;
+    const row = rows.get(value) || { value, count: 0, errors: 0, last_seen: null };
+    row.count += 1;
+    if (record.status >= 400) row.errors += 1;
+    if (!row.last_seen || record.timestamp > row.last_seen) row.last_seen = record.timestamp;
+    rows.set(value, row);
+  }
+  return [...rows.values()]
+    .sort((a, b) => b.count - a.count || b.errors - a.errors || a.value.localeCompare(b.value))
+    .slice(0, 12);
+}
+
+app.get('/api/admin/attribution', requireAdmin, async (req, res) => {
+  const filters = attributionFilters(req);
+  const accessPath = path.join(ACCESS_LOG_DIR(), `access-${filters.day}.jsonl`);
+  const [accessSource, usageSource] = await Promise.all([
+    readAttributionLines(accessPath, filters.lines),
+    readAttributionLines(USAGE_LOG_PATH(), filters.lines)
+  ]);
+  const records = [];
+  for (const line of accessSource.lines) {
+    try {
+      const record = attributionRecord(JSON.parse(line), 'http', filters.day);
+      if (record && matchesAttributionFilters(record, filters)) records.push(record);
+    } catch {
+      // A concurrent writer or an older malformed line is ignored.
+    }
+  }
+  for (const line of usageSource.lines) {
+    try {
+      const record = attributionRecord(JSON.parse(line), 'ws', filters.day);
+      if (record && matchesAttributionFilters(record, filters)) records.push(record);
+    } catch {
+      // A concurrent writer or an older malformed line is ignored.
+    }
+  }
+
+  records.sort((left, right) => right.timestamp.localeCompare(left.timestamp));
+  const statusCounts = {};
+  let errors = 0;
+  for (const record of records) {
+    statusCounts[String(record.status)] = (statusCounts[String(record.status)] || 0) + 1;
+    if (record.status >= 400) errors += 1;
+  }
+
+  return res.json({
+    success: true,
+    schema_version: 'pseudonymous_request_attribution_summary_v1',
+    fingerprint_day: filters.day,
+    filters,
+    summary: {
+      total: records.length,
+      errors,
+      unique_source_ips: new Set(records.map(record => record.source_ip_hash)).size,
+      unique_credentials: new Set(records.map(record => record.credential_hash)).size,
+      unique_ua_categories: new Set(records.map(record => record.ua_category)).size,
+      status_counts: statusCounts
+    },
+    sources: {
+      access: {
+        state: accessSource.state,
+        scanned_lines: accessSource.scannedLines,
+        byte_window_truncated: accessSource.truncated
+      },
+      usage: {
+        state: usageSource.state,
+        scanned_lines: usageSource.scannedLines,
+        byte_window_truncated: usageSource.truncated
+      }
+    },
+    top_source_ips: attributionTopRows(records, 'source_ip_hash'),
+    top_credentials: attributionTopRows(records, 'credential_hash'),
+    ua_categories: attributionTopRows(records, 'ua_category').map(row => ({
+      category: row.value,
+      count: row.count,
+      errors: row.errors,
+      last_seen: row.last_seen
+    })),
+    recent_events: records.slice(0, ATTRIBUTION_MAX_RECENT_EVENTS)
+  });
 });
 
 // ============================================================

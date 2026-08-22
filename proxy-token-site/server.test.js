@@ -8,7 +8,10 @@ const { execFileSync } = require('child_process');
 const TEST_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'proxy-test-'));
 const TEST_DATA_DIR = path.join(TEST_DIR, 'data');
 const TEST_PROXY_FILE = path.join(TEST_DIR, 'proxy-users.json');
+const TEST_ACCESS_LOG_DIR = path.join(TEST_DIR, 'access');
+const TEST_ATTRIBUTION_USAGE_LOG = path.join(TEST_DIR, 'attribution-usage.jsonl');
 fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+fs.mkdirSync(TEST_ACCESS_LOG_DIR, { recursive: true });
 
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.PROXY_USERS_FILE = TEST_PROXY_FILE;
@@ -18,6 +21,7 @@ process.env.PROXY_RT_URL = 'http://127.0.0.1:1'; // prevent real rt-api probe in
 process.env.PROXY_REST_URL = 'http://127.0.0.1:1'; // prevent real REST proxy calls in tests
 process.env.PROXY_WS_HOST = '127.0.0.1';         // fast-fail WS probe (ECONNREFUSED)
 process.env.PROXY_WS_PORT = '1';
+process.env.ACCESS_LOG_DIR = TEST_ACCESS_LOG_DIR;
 process.env.EMAIL_VERIFY_SECRET = 'test-email-verification-secret';
 process.env.EMAIL_TEST_MODE = 'memory';
 process.env.EMAIL_CODE_RESEND_COOLDOWN_MS = '0';
@@ -193,6 +197,117 @@ describe('Tier definitions', () => {
     for (const [, tier] of Object.entries(TIERS)) {
       expect(tier.permissions.rest.admin_token_lookup).toBe(false);
     }
+  });
+});
+
+describe('GET /api/admin/attribution', () => {
+  let adminToken;
+  const day = new Date().toISOString().slice(0, 10);
+  const accessLog = path.join(TEST_ACCESS_LOG_DIR, `access-${day}.jsonl`);
+  const sourceIpHash = 'a'.repeat(64);
+  const credentialHash = 'b'.repeat(64);
+
+  const accessEvent = (overrides = {}) => ({
+    event: 'http_access',
+    attribution_schema: 'pseudonymous_request_attribution_v1',
+    source_ip_hash: sourceIpHash,
+    credential_hash: credentialHash,
+    ua_category: 'sdk',
+    method: 'GET',
+    path: '/v2/stocks/bars',
+    user_id: 'attribution-user',
+    user_role: 'premium',
+    status: 401,
+    timestamp: new Date().toISOString(),
+    source_ip: '203.0.113.77',
+    authorization: 'must-not-leak',
+    ...overrides
+  });
+
+  beforeAll(async () => {
+    const login = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    adminToken = login.body.token;
+  });
+
+  beforeEach(() => {
+    fs.mkdirSync(TEST_ACCESS_LOG_DIR, { recursive: true });
+    fs.writeFileSync(accessLog, `${JSON.stringify(accessEvent())}\n${JSON.stringify({
+      event: 'http_access',
+      status: 200,
+      timestamp: new Date().toISOString()
+    })}\n`);
+    fs.writeFileSync(TEST_ATTRIBUTION_USAGE_LOG, `${JSON.stringify({
+      event: 'ws_session',
+      attribution_schema: 'pseudonymous_request_attribution_v1',
+      source_ip_hash: sourceIpHash,
+      credential_hash: credentialHash,
+      ua_category: 'sdk',
+      user_id: 'attribution-user',
+      user_role: 'premium',
+      mode: 'stocks',
+      status: 200,
+      timestamp: new Date().toISOString()
+    })}\n`);
+    process.env.USAGE_LOG_PATH = TEST_ATTRIBUTION_USAGE_LOG;
+  });
+
+  test('requires admin authentication', async () => {
+    const res = await request(app).get('/api/admin/attribution');
+    expect(res.statusCode).toBe(401);
+  });
+
+  test('returns bounded HTTP and WS fingerprints without raw sensitive fields', async () => {
+    const res = await request(app)
+      .get(`/api/admin/attribution?day=${day}&lines=5000`)
+      .set('x-admin-token', adminToken);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.schema_version).toBe('pseudonymous_request_attribution_summary_v1');
+    expect(res.body.summary.total).toBe(2);
+    expect(res.body.summary.errors).toBe(1);
+    expect(res.body.summary.unique_source_ips).toBe(1);
+    expect(res.body.sources.access.state).toBe('available');
+    expect(res.body.sources.usage.state).toBe('available');
+    expect(res.body.recent_events.map(event => event.transport).sort()).toEqual(['http', 'ws']);
+    const serialized = JSON.stringify(res.body);
+    expect(serialized).not.toContain('203.0.113.77');
+    expect(serialized).not.toContain('must-not-leak');
+  });
+
+  test('filters by status, path, and daily fingerprint', async () => {
+    const base = `/api/admin/attribution?day=${day}&source_ip_hash=${sourceIpHash}`;
+    const matching = await request(app)
+      .get(`${base}&status=401&path=%2Fv2%2Fstocks%2Fbars`)
+      .set('x-admin-token', adminToken);
+    expect(matching.statusCode).toBe(200);
+    expect(matching.body.summary.total).toBe(1);
+    expect(matching.body.recent_events[0].transport).toBe('http');
+
+    const missing = await request(app)
+      .get(`${base}&status=429`)
+      .set('x-admin-token', adminToken);
+    expect(missing.statusCode).toBe(200);
+    expect(missing.body.summary.total).toBe(0);
+  });
+
+  test('retains the non-secret anonymous credential marker for unauthenticated traffic', async () => {
+    fs.writeFileSync(accessLog, `${JSON.stringify(accessEvent({
+      credential_hash: 'none',
+      user_id: null
+    }))}\n`);
+    const res = await request(app)
+      .get(`/api/admin/attribution?day=${day}`)
+      .set('x-admin-token', adminToken);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.summary.total).toBe(2);
+    expect(res.body.recent_events.some(event => event.credential_hash === 'none')).toBe(true);
+  });
+
+  test('ships the admin request-attribution controls with a raw-IP privacy boundary', () => {
+    const source = fs.readFileSync(path.join(__dirname, 'public', 'admin.html'), 'utf8');
+    expect(source).toContain('请求归因');
+    expect(source).toContain('/api/admin/attribution');
+    expect(source).toContain('不显示原始 IP、token、Authorization 或 query');
   });
 });
 

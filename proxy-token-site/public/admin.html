@@ -799,6 +799,32 @@
 
       <div class="usage-section">
         <div class="usage-section-head">
+          <div>
+            <div class="usage-section-title">请求归因</div>
+            <div class="log-note">只显示按 UTC 日滚动的匿名 IP / credential 指纹；不显示原始 IP、token、Authorization 或 query。</div>
+          </div>
+          <button class="btn ghost" type="button" onclick="loadAttribution()">刷新</button>
+        </div>
+        <div class="usage-search-row">
+          <input id="attribution-day" class="input" type="date" aria-label="归因日期 UTC">
+          <select id="attribution-status" class="input" aria-label="归因状态">
+            <option value="">全部状态</option>
+            <option value="401">401</option>
+            <option value="403">403</option>
+            <option value="429">429</option>
+            <option value="500">500</option>
+          </select>
+          <input id="attribution-path" class="input" type="text" maxlength="160" placeholder="/v2/stocks/bars">
+          <input id="attribution-source-ip" class="input mono" type="text" maxlength="64" placeholder="Source IP hash（可选）">
+          <button class="btn" type="button" onclick="loadAttribution()">筛选</button>
+        </div>
+        <div id="attribution-summary" class="log-note">正在加载归因数据…</div>
+        <div id="attribution-top" class="chip-row"></div>
+        <div id="attribution-table-wrap"><div class="empty">正在加载…</div></div>
+      </div>
+
+      <div class="usage-section">
+        <div class="usage-section-head">
           <div class="usage-section-title">查找用户</div>
         </div>
         <div class="usage-search-row">
@@ -1068,10 +1094,12 @@
         : '审核后台';
     if (tab === 'usage') {
       loadUsageOverview();
+      loadAttribution();
       if (usageTimer) clearInterval(usageTimer);
       usageTimer = setInterval(() => {
         if (!document.getElementById('panel-usage').classList.contains('hidden')) {
           loadUsageOverview();
+          loadAttribution();
         }
       }, 60000);
     } else if (usageTimer) {
@@ -1252,6 +1280,87 @@
 
     renderUsageRecent(data.recent_registrations || []);
     renderUsageTable(data.users || []);
+  }
+
+  function shortFingerprint(value) {
+    const text = String(value || '');
+    return text.length === 64 ? `${text.slice(0, 10)}…${text.slice(-6)}` : (text || '—');
+  }
+
+  async function loadAttribution() {
+    const dayInput = document.getElementById('attribution-day');
+    const statusInput = document.getElementById('attribution-status');
+    const pathInput = document.getElementById('attribution-path');
+    const sourceInput = document.getElementById('attribution-source-ip');
+    const summary = document.getElementById('attribution-summary');
+    const table = document.getElementById('attribution-table-wrap');
+    const top = document.getElementById('attribution-top');
+    if (!dayInput.value) dayInput.value = new Date().toISOString().slice(0, 10);
+    summary.textContent = '正在加载归因数据…';
+    try {
+      const query = new URLSearchParams({ day: dayInput.value, lines: '5000' });
+      if (statusInput.value) query.set('status', statusInput.value);
+      if (pathInput.value.trim()) query.set('path', pathInput.value.trim());
+      if (sourceInput.value.trim()) query.set('source_ip_hash', sourceInput.value.trim());
+      const resp = await fetch(`/api/admin/attribution?${query.toString()}`, {
+        headers: { 'X-Admin-Token': adminToken }
+      });
+      if (resp.status === 401) { location.reload(); return; }
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.message || '加载失败');
+      renderAttribution(data);
+    } catch (e) {
+      summary.textContent = `加载失败: ${e.message}`;
+      top.innerHTML = '';
+      table.innerHTML = '<div class="empty">无法读取归因日志</div>';
+    }
+  }
+
+  function renderAttribution(data) {
+    const summary = document.getElementById('attribution-summary');
+    const table = document.getElementById('attribution-table-wrap');
+    const top = document.getElementById('attribution-top');
+    const s = data.summary || {};
+    const sources = data.sources || {};
+    const access = sources.access || {};
+    const usage = sources.usage || {};
+    summary.textContent =
+      `${data.fingerprint_day || '—'} UTC · ${Number(s.total || 0).toLocaleString()} 条归因事件 · `
+      + `${Number(s.errors || 0).toLocaleString()} 条错误 · ${Number(s.unique_source_ips || 0).toLocaleString()} 个来源 IP 指纹 · `
+      + `HTTP ${access.state || 'unknown'} / WS ${usage.state || 'unknown'}`
+      + ((access.byte_window_truncated || usage.byte_window_truncated) ? ' · 读取窗口已截断' : '');
+
+    const topRows = (data.top_source_ips || []).map(row =>
+      `<button class="route-chip" type="button" title="${escHtml(row.value)}" onclick="document.getElementById('attribution-source-ip').value='${escHtml(row.value)}';loadAttribution()">${escHtml(shortFingerprint(row.value))} × ${Number(row.count || 0).toLocaleString()}${row.errors ? ` · ${row.errors} err` : ''}</button>`).join('');
+    top.innerHTML = topRows || '<span class="log-note">该筛选窗口内没有归因指纹</span>';
+
+    const rows = data.recent_events || [];
+    if (!rows.length) {
+      table.innerHTML = '<div class="empty">该筛选窗口内没有归因事件</div>';
+      return;
+    }
+    table.innerHTML = `
+      <div style="overflow-x:auto">
+        <table class="usage-table">
+          <thead><tr>
+            <th>时间（本地）</th><th>传输</th><th>用户</th><th>请求</th><th>状态</th>
+            <th>Source IP 指纹</th><th>Credential 指纹</th><th>UA</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(row => `
+              <tr>
+                <td class="mono">${escHtml(fmtTime(row.timestamp))}</td>
+                <td class="mono">${escHtml(row.transport || '—')}</td>
+                <td class="mono">${escHtml(row.user_id || 'anonymous')}</td>
+                <td class="mono">${escHtml(row.path || row.mode || row.event || '—')}</td>
+                <td class="num">${Number(row.status || 0)}</td>
+                <td class="mono" title="${escHtml(row.source_ip_hash)}">${escHtml(shortFingerprint(row.source_ip_hash))}</td>
+                <td class="mono" title="${escHtml(row.credential_hash)}">${escHtml(shortFingerprint(row.credential_hash))}</td>
+                <td>${escHtml(row.ua_category || 'unknown')}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
   }
 
   function registrationStatusChip(status) {
