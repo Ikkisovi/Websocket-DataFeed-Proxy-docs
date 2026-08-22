@@ -801,7 +801,7 @@
         <div class="usage-section-head">
           <div>
             <div class="usage-section-title">请求归因</div>
-            <div class="log-note">只显示按 UTC 日滚动的匿名 IP / credential 指纹；不显示原始 IP、token、Authorization 或 query。</div>
+            <div class="log-note">仅管理员可见的 IP 与归属地估计。不会显示 token、Authorization 或 query；归属地是 IP 网络位置，可能不等于用户实际地址。</div>
           </div>
           <button class="btn ghost" type="button" onclick="loadAttribution()">刷新</button>
         </div>
@@ -815,7 +815,7 @@
             <option value="500">500</option>
           </select>
           <input id="attribution-path" class="input" type="text" maxlength="160" placeholder="/v2/stocks/bars">
-          <input id="attribution-source-ip" class="input mono" type="text" maxlength="64" placeholder="Source IP hash（可选）">
+          <input id="attribution-source-ip" class="input mono" type="text" maxlength="45" placeholder="例如 203.0.113.8（可选）">
           <button class="btn" type="button" onclick="loadAttribution()">筛选</button>
         </div>
         <div id="attribution-summary" class="log-note">正在加载归因数据…</div>
@@ -1301,7 +1301,7 @@
       const query = new URLSearchParams({ day: dayInput.value, lines: '5000' });
       if (statusInput.value) query.set('status', statusInput.value);
       if (pathInput.value.trim()) query.set('path', pathInput.value.trim());
-      if (sourceInput.value.trim()) query.set('source_ip_hash', sourceInput.value.trim());
+      if (sourceInput.value.trim()) query.set('source_ip', sourceInput.value.trim());
       const resp = await fetch(`/api/admin/attribution?${query.toString()}`, {
         headers: { 'X-Admin-Token': adminToken }
       });
@@ -1326,13 +1326,13 @@
     const usage = sources.usage || {};
     summary.textContent =
       `${data.fingerprint_day || '—'} UTC · ${Number(s.total || 0).toLocaleString()} 条归因事件 · `
-      + `${Number(s.errors || 0).toLocaleString()} 条错误 · ${Number(s.unique_source_ips || 0).toLocaleString()} 个来源 IP 指纹 · `
+      + `${Number(s.errors || 0).toLocaleString()} 条错误 · ${Number(s.unique_source_ips || 0).toLocaleString()} 个来源 IP · `
       + `HTTP ${access.state || 'unknown'} / WS ${usage.state || 'unknown'}`
       + ((access.byte_window_truncated || usage.byte_window_truncated) ? ' · 读取窗口已截断' : '');
 
     const topRows = (data.top_source_ips || []).map(row =>
       `<button class="route-chip" type="button" title="${escHtml(row.value)}" onclick="document.getElementById('attribution-source-ip').value='${escHtml(row.value)}';loadAttribution()">${escHtml(shortFingerprint(row.value))} × ${Number(row.count || 0).toLocaleString()}${row.errors ? ` · ${row.errors} err` : ''}</button>`).join('');
-    top.innerHTML = topRows || '<span class="log-note">该筛选窗口内没有归因指纹</span>';
+    top.innerHTML = topRows || '<span class="log-note">该筛选窗口内没有来源 IP</span>';
 
     const rows = data.recent_events || [];
     if (!rows.length) {
@@ -1344,7 +1344,7 @@
         <table class="usage-table">
           <thead><tr>
             <th>时间（本地）</th><th>传输</th><th>用户</th><th>请求</th><th>状态</th>
-            <th>Source IP 指纹</th><th>Credential 指纹</th><th>UA</th>
+            <th>来源 IP</th><th>所在地</th><th>Credential 指纹</th><th>UA</th>
           </tr></thead>
           <tbody>
             ${rows.map(row => `
@@ -1354,7 +1354,8 @@
                 <td class="mono">${escHtml(row.user_id || 'anonymous')}</td>
                 <td class="mono">${escHtml(row.path || row.mode || row.event || '—')}</td>
                 <td class="num">${Number(row.status || 0)}</td>
-                <td class="mono" title="${escHtml(row.source_ip_hash)}">${escHtml(shortFingerprint(row.source_ip_hash))}</td>
+                <td class="mono">${escHtml(row.source_ip || '—')}</td>
+                <td>${escHtml((row.source_location && row.source_location.label) || '位置未知')}</td>
                 <td class="mono" title="${escHtml(row.credential_hash)}">${escHtml(shortFingerprint(row.credential_hash))}</td>
                 <td>${escHtml(row.ua_category || 'unknown')}</td>
               </tr>`).join('')}

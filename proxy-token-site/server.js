@@ -5079,7 +5079,12 @@ const ATTRIBUTION_DEFAULT_LINES = 5000;
 const ATTRIBUTION_MAX_LINES = 20000;
 const ATTRIBUTION_MAX_BYTES_PER_SOURCE = 4 * 1024 * 1024;
 const ATTRIBUTION_MAX_RECENT_EVENTS = 50;
-const ATTRIBUTION_SCHEMA = 'pseudonymous_request_attribution_v1';
+const ATTRIBUTION_SCHEMA = 'request_attribution_v2';
+const ATTRIBUTION_GEO_MAX_LOOKUPS = 20;
+const ATTRIBUTION_GEO_LOOKUP_TIMEOUT_MS = 2500;
+const ATTRIBUTION_GEO_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const ATTRIBUTION_GEO_FAILURE_TTL_MS = 60 * 60 * 1000;
+const attributionGeoCache = new Map();
 
 function usageDayKey(value) {
   return new Date(value).toISOString().slice(0, 10);
@@ -5751,6 +5756,101 @@ function cleanCredentialFingerprint(value) {
   return normalized === 'none' ? normalized : cleanAttributionHash(normalized);
 }
 
+function cleanSourceIp(value) {
+  const normalized = String(value || '').trim();
+  return normalized.length <= 45 && net.isIP(normalized) ? normalized : '';
+}
+
+function isPublicSourceIp(value) {
+  if (net.isIP(value) === 4) {
+    const octets = value.split('.').map(Number);
+    const [a, b] = octets;
+    if (a === 0 || a === 10 || a === 127 || a >= 224) return false;
+    if (a === 100 && b >= 64 && b <= 127) return false;
+    if (a === 169 && b === 254) return false;
+    if (a === 172 && b >= 16 && b <= 31) return false;
+    if (a === 192 && (b === 0 || b === 168)) return false;
+    if (a === 198 && (b === 18 || b === 19 || b === 51)) return false;
+    if (a === 203 && b === 0) return false;
+    return true;
+  }
+  if (net.isIP(value) === 6) {
+    const normalized = value.toLowerCase();
+    return normalized !== '::1'
+      && !normalized.startsWith('fc')
+      && !normalized.startsWith('fd')
+      && !normalized.startsWith('fe80:')
+      && !normalized.startsWith('2001:db8:');
+  }
+  return false;
+}
+
+function cleanLocationPart(value, maxLength) {
+  return typeof value === 'string'
+    ? value.replace(/[\r\n\t]/g, ' ').trim().slice(0, maxLength)
+    : '';
+}
+
+async function lookupAttributionLocation(sourceIp) {
+  if (!isPublicSourceIp(sourceIp)) {
+    return { state: 'not_lookupable', label: '保留或内网地址' };
+  }
+  const cached = attributionGeoCache.get(sourceIp);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  let result = { state: 'unavailable', label: '位置未知' };
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ATTRIBUTION_GEO_LOOKUP_TIMEOUT_MS);
+    try {
+      const response = await fetch(`https://ipwho.is/${encodeURIComponent(sourceIp)}`, {
+        headers: { accept: 'application/json' },
+        signal: controller.signal
+      });
+      const body = response.ok ? await response.json() : null;
+      if (body && body.success !== false) {
+        const country = cleanLocationPart(body.country, 80);
+        const region = cleanLocationPart(body.region, 80);
+        const city = cleanLocationPart(body.city, 80);
+        const parts = [country, region, city].filter((value, index, values) => value && values.indexOf(value) === index);
+        if (parts.length) {
+          result = {
+            state: 'available',
+            country: country || null,
+            region: region || null,
+            city: city || null,
+            label: parts.join(' · ')
+          };
+        }
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch {
+    // Location is best-effort only; access attribution remains available.
+  }
+  attributionGeoCache.set(sourceIp, {
+    value: result,
+    expiresAt: Date.now() + (result.state === 'available'
+      ? ATTRIBUTION_GEO_CACHE_TTL_MS
+      : ATTRIBUTION_GEO_FAILURE_TTL_MS)
+  });
+  return result;
+}
+
+async function attachAttributionLocations(records) {
+  const sourceIps = [...new Set(records.map(record => record.source_ip).filter(Boolean))]
+    .slice(0, ATTRIBUTION_GEO_MAX_LOOKUPS);
+  const locations = new Map(await Promise.all(sourceIps.map(async sourceIp => [
+    sourceIp,
+    await lookupAttributionLocation(sourceIp)
+  ])));
+  for (const record of records) {
+    record.source_location = locations.get(record.source_ip)
+      || { state: 'deferred', label: '本页未查询' };
+  }
+}
+
 function attributionFilters(req) {
   const candidateDay = String(req.query.day || '').trim();
   const day = /^\d{4}-\d{2}-\d{2}$/.test(candidateDay) ? candidateDay : utcDayString();
@@ -5765,7 +5865,7 @@ function attributionFilters(req) {
     lines: boundedAttributionLines(req.query.lines),
     status,
     path,
-    sourceIpHash: cleanAttributionHash(req.query.source_ip_hash),
+    sourceIp: cleanSourceIp(req.query.source_ip),
     credentialHash: cleanCredentialFingerprint(req.query.credential_hash),
     uaCategory: String(req.query.ua_category || '').trim().toLowerCase().slice(0, 40)
   };
@@ -5810,9 +5910,10 @@ function attributionRecord(entry, transport, day) {
   if (!entry || typeof entry !== 'object' || entry.attribution_schema !== ATTRIBUTION_SCHEMA) return null;
   const timestamp = typeof entry.timestamp === 'string' ? entry.timestamp : null;
   if (!timestamp || timestamp.slice(0, 10) !== day) return null;
+  const sourceIp = cleanSourceIp(entry.source_ip);
   const sourceIpHash = cleanAttributionHash(entry.source_ip_hash);
   const credentialHash = cleanCredentialFingerprint(entry.credential_hash);
-  if (!sourceIpHash || !credentialHash) return null;
+  if (!sourceIp || !sourceIpHash || !credentialHash) return null;
   const status = Number(entry.status);
   return {
     timestamp,
@@ -5824,6 +5925,7 @@ function attributionRecord(entry, transport, day) {
     status: Number.isFinite(status) ? status : 0,
     user_id: typeof entry.user_id === 'string' ? entry.user_id.slice(0, 128) : null,
     user_role: typeof entry.user_role === 'string' ? entry.user_role.slice(0, 64) : null,
+    source_ip: sourceIp,
     source_ip_hash: sourceIpHash,
     credential_hash: credentialHash,
     ua_category: typeof entry.ua_category === 'string' ? entry.ua_category.slice(0, 40) : 'unknown'
@@ -5833,7 +5935,7 @@ function attributionRecord(entry, transport, day) {
 function matchesAttributionFilters(record, filters) {
   return (!filters.status || record.status === filters.status)
     && (!filters.path || record.path === filters.path)
-    && (!filters.sourceIpHash || record.source_ip_hash === filters.sourceIpHash)
+    && (!filters.sourceIp || record.source_ip === filters.sourceIp)
     && (!filters.credentialHash || record.credential_hash === filters.credentialHash)
     && (!filters.uaCategory || record.ua_category === filters.uaCategory);
 }
@@ -5880,6 +5982,7 @@ app.get('/api/admin/attribution', requireAdmin, async (req, res) => {
   }
 
   records.sort((left, right) => right.timestamp.localeCompare(left.timestamp));
+  await attachAttributionLocations(records);
   const statusCounts = {};
   let errors = 0;
   for (const record of records) {
@@ -5889,7 +5992,7 @@ app.get('/api/admin/attribution', requireAdmin, async (req, res) => {
 
   return res.json({
     success: true,
-    schema_version: 'pseudonymous_request_attribution_summary_v1',
+    schema_version: 'request_attribution_summary_v2',
     fingerprint_day: filters.day,
     filters,
     summary: {

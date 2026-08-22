@@ -209,7 +209,7 @@ describe('GET /api/admin/attribution', () => {
 
   const accessEvent = (overrides = {}) => ({
     event: 'http_access',
-    attribution_schema: 'pseudonymous_request_attribution_v1',
+    attribution_schema: 'request_attribution_v2',
     source_ip_hash: sourceIpHash,
     credential_hash: credentialHash,
     ua_category: 'sdk',
@@ -238,7 +238,8 @@ describe('GET /api/admin/attribution', () => {
     })}\n`);
     fs.writeFileSync(TEST_ATTRIBUTION_USAGE_LOG, `${JSON.stringify({
       event: 'ws_session',
-      attribution_schema: 'pseudonymous_request_attribution_v1',
+      attribution_schema: 'request_attribution_v2',
+      source_ip: '203.0.113.77',
       source_ip_hash: sourceIpHash,
       credential_hash: credentialHash,
       ua_category: 'sdk',
@@ -256,13 +257,13 @@ describe('GET /api/admin/attribution', () => {
     expect(res.statusCode).toBe(401);
   });
 
-  test('returns bounded HTTP and WS fingerprints without raw sensitive fields', async () => {
+  test('returns bounded HTTP and WS source IPs without credential leakage', async () => {
     const res = await request(app)
       .get(`/api/admin/attribution?day=${day}&lines=5000`)
       .set('x-admin-token', adminToken);
     expect(res.statusCode).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.schema_version).toBe('pseudonymous_request_attribution_summary_v1');
+    expect(res.body.schema_version).toBe('request_attribution_summary_v2');
     expect(res.body.summary.total).toBe(2);
     expect(res.body.summary.errors).toBe(1);
     expect(res.body.summary.unique_source_ips).toBe(1);
@@ -270,12 +271,12 @@ describe('GET /api/admin/attribution', () => {
     expect(res.body.sources.usage.state).toBe('available');
     expect(res.body.recent_events.map(event => event.transport).sort()).toEqual(['http', 'ws']);
     const serialized = JSON.stringify(res.body);
-    expect(serialized).not.toContain('203.0.113.77');
+    expect(serialized).toContain('203.0.113.77');
     expect(serialized).not.toContain('must-not-leak');
   });
 
-  test('filters by status, path, and daily fingerprint', async () => {
-    const base = `/api/admin/attribution?day=${day}&source_ip_hash=${sourceIpHash}`;
+  test('filters by status, path, and source IP', async () => {
+    const base = `/api/admin/attribution?day=${day}&source_ip=203.0.113.77`;
     const matching = await request(app)
       .get(`${base}&status=401&path=%2Fv2%2Fstocks%2Fbars`)
       .set('x-admin-token', adminToken);
@@ -303,11 +304,11 @@ describe('GET /api/admin/attribution', () => {
     expect(res.body.recent_events.some(event => event.credential_hash === 'none')).toBe(true);
   });
 
-  test('ships the admin request-attribution controls with a raw-IP privacy boundary', () => {
+  test('ships the admin request-attribution controls with IP and location copy', () => {
     const source = fs.readFileSync(path.join(__dirname, 'public', 'admin.html'), 'utf8');
     expect(source).toContain('请求归因');
     expect(source).toContain('/api/admin/attribution');
-    expect(source).toContain('不显示原始 IP、token、Authorization 或 query');
+    expect(source).toContain('IP 与归属地估计');
   });
 });
 
