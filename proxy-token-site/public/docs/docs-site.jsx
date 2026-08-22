@@ -675,7 +675,7 @@ function SideNav({ tab }) {
   const toggle = (title) => setExpanded(prev => ({ ...prev, [title]: !prev[title] }));
 
   const sections = tab === "proxy" ? [
-    { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions"] },
+    { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions", "Free plan usage"] },
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news", "stock trade+quote"] },
     { title: "Index Data", items: ["index history"] },
@@ -753,7 +753,7 @@ function SideNav({ tab }) {
       "enterprise-values": "fmp-enterprise-values",
       "financial-scores": "fmp-financial-scores",
     };
-    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families'};
+    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families'};
     const getId = (label) => tab === "fmp-fundamentals"
       ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
       : ID_MAP[label] || slugify(label);
@@ -2033,6 +2033,15 @@ Authorization: Bearer <TOKEN>
         </thead>
         <tbody>
           <tr>
+            <td><span className="tier free">Free</span></td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Free (30 days)</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
+            <td style={{ fontSize: 12 }}>Recent 31 days REST history · Nearest 2 option expiries · Instant activation</td>
+          </tr>
+          <tr>
             <td><span className="tier trial">Trial</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥50/3 days</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
@@ -2091,6 +2100,139 @@ Authorization: Bearer <TOKEN>
         Basic has access to the full available historical range. There is no Basic-specific date-span, symbol-count, or page-count budget. Requests remain subject to provider limits and shared proxy runtime controls such as historical concurrency, QPS, timeouts, and overload backpressure. Bulk Download is a separate one-off delivery product, not a requirement for older dates.
         <br/>Basic 可以访问全部可用历史数据，不设 Basic 专属的日期跨度、symbol 数或页数预算。请求仍受上游限制和 proxy 运行时控制影响，包括历史并发、QPS、超时和过载背压。Bulk Download 是单独的一次性交付产品，不是解锁旧日期的必要条件。
       </p>
+
+      {/* ── Free Plan Usage & Quickstart ── */}
+      <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>Free Plan Guide</div>
+      <h2 id="free-plan-usage" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Free plan usage &amp; code examples</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 16px" }}>
+        The Free plan activates automatically on signup and provides access to market endpoints for evaluation and algorithm prototyping.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Free 计划在注册后自动开通，为策略原型设计与算法回测验证提供市场数据接口访问。</span>
+      </p>
+
+      <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "16px", margin: "0 0 24px", fontSize: 13, lineHeight: 1.6 }}>
+        <h4 style={{ margin: "0 0 8px", fontSize: 14, color: "var(--ink-strong)" }}>Free Plan Quota &amp; Access Boundaries / 权益与限制边界</h4>
+        <ul style={{ margin: "0 0 10px 18px", padding: 0 }}>
+          <li><strong>REST Historical Date Window:</strong> Queries must specify explicit <code>start</code> and <code>end</code> bounds within the most recent <strong>31 calendar days</strong>. Older dates return <code>403 free_historical_window_exceeded</code>.</li>
+          <li><strong>Option Chains &amp; Snapshots:</strong> Access is limited to the <strong>nearest 2 upcoming expiration cycles</strong> (e.g. 0DTE, nearest weekly or monthly expiries). Expiries further out return <code>403 free_option_chain_window_exceeded</code>.</li>
+          <li><strong>Real-time WebSocket:</strong> Full channel access (stocks, options, crypto, news, overnight) with standard connection limits.</li>
+          <li><strong>Financial Statements:</strong> Fundamental balance sheet, income, and cash flow archives require an active <strong>Premium</strong> plan (returns <code>403 fmp_premium_required</code>).</li>
+        </ul>
+        <span style={{ color: "var(--ink-soft)", fontSize: 12 }}>
+          中文说明：REST 历史数据必须携带最近 31 个日历日内的明确 <code>start</code> / <code>end</code> 时间范围；期权链与 Greeks 快照支持最近 2 轮到期日；实时 WebSocket 通道全部开放；基本面财务数据需升级至 Premium。
+        </span>
+      </div>
+
+      <h3 style={{ fontSize: 18, margin: "24px 0 8px" }}>1. Querying historical stock bars (Bounded 31-day range)</h3>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 8px" }}>
+        Always provide <code>start</code> and <code>end</code> within the 31-day rolling window:
+      </p>
+      <pre className="code" style={{ marginBottom: 16 }}>
+{`# cURL Example (Recent 5 days of 1-minute bars)
+curl -X GET "https://api.leandata.uk/v2/stocks/bars?symbols=SPY&timeframe=1Min&start=2026-08-17&end=2026-08-21" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`}
+      </pre>
+
+      <h3 style={{ fontSize: 18, margin: "24px 0 8px" }}>2. Option contracts &amp; Greeks snapshots (Nearest 2 expiries)</h3>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 8px" }}>
+        Fetch option chain contracts or snapshot Greeks for the nearest 2 expiration cycles:
+      </p>
+      <pre className="code" style={{ marginBottom: 16 }}>
+{`# Fetch contracts for the nearest upcoming expiries
+curl -X GET "https://api.leandata.uk/v1/options/contracts?underlying_symbols=SPY" \\
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Query Greeks and snapshot quotes for a specific near-term expiry
+curl -X GET "https://api.leandata.uk/v1/options/snapshots/expiry?underlying=SPY&expiry=2026-08-25" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`}
+      </pre>
+
+      <h3 style={{ fontSize: 18, margin: "24px 0 8px" }}>3. Real-time WebSocket streaming</h3>
+      <pre className="code" style={{ marginBottom: 16 }}>
+{`// Connect to wss://leandata.uk/stream
+const ws = new WebSocket("wss://leandata.uk/stream");
+
+ws.onopen = () => {
+  // Authenticate
+  ws.send(JSON.stringify({
+    action: "auth",
+    key: "YOUR_TOKEN",
+    secret: "YOUR_TOKEN"
+  }));
+};
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  if (Array.isArray(msg) && msg[0]?.T === "success") {
+    // Subscribe to stock and option live bars
+    ws.send(JSON.stringify({
+      action: "subscribe",
+      bars: ["SPY", "AAPL"]
+    }));
+  }
+};`}
+      </pre>
+
+      <h3 style={{ fontSize: 18, margin: "24px 0 8px" }}>4. Python SDK quickstart</h3>
+      <pre className="code" style={{ marginBottom: 28 }}>
+{`import requests
+from datetime import datetime, timezone, timedelta
+
+TOKEN = "YOUR_TOKEN"
+HEADERS = {"Authorization": f"Bearer {TOKEN}"}
+
+# 1. Fetch recent 1-minute bars (within 31-day window)
+end_date = datetime.now(timezone.utc)
+start_date = end_date - timedelta(days=5)
+
+resp = requests.get(
+    "https://api.leandata.uk/v2/stocks/bars",
+    params={
+        "symbols": "SPY,QQQ",
+        "timeframe": "1Min",
+        "start": start_date.strftime("%Y-%m-%d"),
+        "end": end_date.strftime("%Y-%m-%d")
+    },
+    headers=HEADERS
+)
+print("Bars status:", resp.status_code, resp.json().keys())
+
+# 2. Fetch nearest option contracts
+resp_opt = requests.get(
+    "https://api.leandata.uk/v1/options/contracts",
+    params={"underlying_symbols": "SPY"},
+    headers=HEADERS
+)
+print("Option contracts:", resp_opt.status_code)`}
+      </pre>
+
+      <h3 style={{ fontSize: 18, margin: "24px 0 8px" }}>5. Error codes &amp; upgrade paths / 常见拦截错误与升级指引</h3>
+      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 32 }}>
+        <thead>
+          <tr><th style={{ width: 220 }}>Error Code</th><th style={{ width: 120 }}>HTTP Status</th><th>Description &amp; Resolution / 说明与解决方式</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>free_historical_window_exceeded</code></td>
+            <td><code>403 Forbidden</code></td>
+            <td>Requested dates exceed the 31-day window. Adjust start/end or upgrade to Standard/Premium at <a href="/account.html" style={{ color: "var(--accent-ink)" }}>account.html</a>.</td>
+          </tr>
+          <tr>
+            <td><code>free_historical_date_range_required</code></td>
+            <td><code>403 Forbidden</code></td>
+            <td>Missing explicit start/end dates. Free requests require bounded date parameters.</td>
+          </tr>
+          <tr>
+            <td><code>free_option_chain_window_exceeded</code></td>
+            <td><code>403 Forbidden</code></td>
+            <td>Requested expiration is beyond the nearest 2 upcoming cycles. Upgrade for full multi-year option chains.</td>
+          </tr>
+          <tr>
+            <td><code>fmp_premium_required</code></td>
+            <td><code>403 Forbidden</code></td>
+            <td>Financial statements (Income, Balance Sheet, Cash Flow) require a Premium subscription.</td>
+          </tr>
+        </tbody>
+      </table>
 
       {/* ── Token API ── */}
       <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>Token API</div>

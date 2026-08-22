@@ -492,7 +492,7 @@ function DocsTopbar({ active = "proxy", onNav }) {
       <div className="divider"></div>
       <div className="nav">
         <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>代理 API</a>
-        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>FMP 数据</a>
+        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>财务数据</a>
         <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>批量下载</a>
         <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>WS 用法</a>
         <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>状态</a>
@@ -596,7 +596,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
         {/* Tab strip */}
         <div className="docs-tabs" style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
           <Tab id="proxy" tab={visibleTab} setTab={setTab} label="Proxy API" count="45+ endpoints" />
-          <Tab id="fmp" tab={visibleTab} setTab={setTab} label="FMP data" count="overview" />
+          <Tab id="fmp" tab={visibleTab} setTab={setTab} label="Financial data" count="overview" />
           <Tab id="bulk" tab={visibleTab} setTab={setTab} label="Bulk Download" count="¥50 / 50GB" />
           <Tab id="ws" tab={visibleTab} setTab={setTab} label="WS usage" count="6 channels" />
           <Tab id="status" tab={visibleTab} setTab={setTab} label="Status" count="live" />
@@ -675,7 +675,7 @@ function SideNav({ tab }) {
   const toggle = (title) => setExpanded(prev => ({ ...prev, [title]: !prev[title] }));
 
   const sections = tab === "proxy" ? [
-    { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions"] },
+    { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions", "Free plan usage"] },
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news", "stock trade+quote"] },
     { title: "Index Data", items: ["index history"] },
@@ -693,7 +693,7 @@ function SideNav({ tab }) {
     { title: "Admin endpoints", items: ["login", "pending", "approve", "reject"] },
     { title: "Reference", items: ["Error codes", "Rate limits"] },
   ] : tab === "fmp-fundamentals" ? [
-    { title: "FMP Fundamentals", items: ["FMP fundamentals overview", "Request contract", "Response metadata"] },
+    { title: "Financial data API", items: ["Financial data overview", "Request contract", "Response metadata"] },
     { title: "Market history", items: ["historical-price-eod/full"] },
     { title: "Market snapshots", items: ["quote", "quote-short", "aftermarket-quote", "aftermarket-trade", "stock-price-change", "market-capitalization", "historical-market-capitalization", "batch-quote", "batch-quote-short", "batch-aftermarket-quote", "batch-aftermarket-trade", "market-capitalization-batch"] },
     { title: "Company reference", items: ["profile", "stock-peers", "key-executives", "company-notes", "financial-reports-dates", "employee-count", "historical-employee-count", "shares-float", "shares-float-all", "dividends", "splits"] },
@@ -734,7 +734,7 @@ function SideNav({ tab }) {
 
     // Map sidebar labels to actual document IDs
     const FMP_ID_MAP = {
-      "FMP fundamentals overview": "fmp-fundamentals-overview",
+      "Financial data overview": "fmp-fundamentals-overview",
       "Request contract": "fmp-request-contract",
       "Response metadata": "fmp-response-metadata",
       "historical-price-eod/full": "fmp-historical-price-eod",
@@ -753,7 +753,7 @@ function SideNav({ tab }) {
       "enterprise-values": "fmp-enterprise-values",
       "financial-scores": "fmp-financial-scores",
     };
-    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'FMP fundamentals overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families'};
+    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families'};
     const getId = (label) => tab === "fmp-fundamentals"
       ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
       : ID_MAP[label] || slugify(label);
@@ -845,7 +845,7 @@ function OnThisPage({ tab }) {
     ? ["Request", "Response", "Validation", "Examples", "Errors"]
     : tab === "fmp-fundamentals"
     ? [
-      ["FMP overview", "fmp-fundamentals-overview"],
+      ["Financial data overview", "fmp-fundamentals-overview"],
       ["Request examples", "fmp-request-examples"],
       ["Endpoint sections", "fmp-endpoint-subsections"],
       ["Request contract", "fmp-request-contract"],
@@ -964,7 +964,16 @@ function TokenCard() {
 const REST_BASE  = "https://api.leandata.uk";
 const RT_BASE    = "https://rt-api.leandata.uk";
 const TOKEN_BASE = "https://leandata.uk";
-const WS_BASE    = "wss://leandata.uk/stream";
+const WS_BASE = "wss://leandata.uk";
+
+function Bilingual({ en, zh }) {
+  return <>{en} / {zh}</>;
+}
+
+const API_CATEGORIES = {
+  market: { en: "Market data", zh: "行情数据" },
+  financial: { en: "Financial data", zh: "财务数据" },
+};
 
 function ParamRow({ name, type, required, desc }) {
   return (
@@ -1580,11 +1589,11 @@ function FmpDataOverview({ openFundamentals }) {
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
       <div className="eyebrow" style={{ marginBottom: 10 }}>Financial fundamentals data · Premium</div>
-      <h2 id="fmp-data-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>Financial Data / 财务数据</h2>
+      <h2 id="fmp-data-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}><Bilingual {...API_CATEGORIES.financial} /></h2>
       <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
         通过 Leandata 获取美股财务数据，包括财报、财务指标、公司资料等。使用您的 Leandata token 即可访问，无需额外的 API 密钥。
         <br/>Access US stock financial data including statements, metrics, and company profiles. Use your Leandata token—no additional API keys needed.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 14 }}>详细接口文档请查看左侧 <strong style={{ color: "var(--ink-strong)" }}>FMP Fundamentals</strong> 部分。</span>
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 14 }}>详细接口文档请查看左侧 <strong style={{ color: "var(--ink-strong)" }}>Financial data API</strong> 部分。</span>
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 22 }}>
         <div style={panel}>
@@ -1605,7 +1614,7 @@ function FmpDataOverview({ openFundamentals }) {
       </div>
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 22 }}>
         <strong style={{ color: "var(--accent-ink)" }}>查看完整接口文档</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> 左侧 FMP Fundamentals 部分包含所有接口的详细参数、返回示例和使用说明。<br/>See the FMP Fundamentals section for complete API documentation with parameters and examples.</span>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> 左侧 Financial data API 部分包含所有接口的详细参数、返回示例和使用说明。<br/>See the Financial data API section for complete documentation with parameters and examples.</span>
         <button onClick={openFundamentals} className="btn" style={{ marginLeft: 12, padding: "7px 11px", fontSize: 12 }}>打开文档 / Open Docs →</button>
       </div>
       <h3 id="fmp-snapshot-boundary" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>数据更新说明 / Data Updates</h3>
@@ -1701,15 +1710,15 @@ function FmpFundamentalsBody() {
       <div className="eyebrow" style={{ marginBottom: 10 }}>美股财务数据 · Premium</div>
       <h2 id="fmp-fundamentals-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>财务数据 API / Financial Data API</h2>
       <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
-        使用您的 Leandata token 获取美股财务数据（财报、财务指标、公司资料等）。Beta 版本目前向 Premium 账户开放。
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Access US stock financial data (statements, metrics, company profiles) with your Leandata token. Beta version available to Premium accounts.</span>
+        Premium 账户可访问公司财报、财务比率、关键指标、公司资料及参考数据。
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Premium access includes company statements, ratios, metrics, profiles, and reference data.</span>
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 28 }}>
         <div style={panel}>
           <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>身份认证 / Authentication</div>
           <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 6 }}>使用 Leandata Token</div>
-          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>在请求头中添加 <code>Authorization: Bearer TOKEN</code>。无需 FMP 的 <code>apikey</code>。<br/>Send <code>Authorization: Bearer TOKEN</code> header. No FMP <code>apikey</code> needed.</div>
+          <div style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}>在请求头中添加 <code>Authorization: Bearer TOKEN</code>，无需额外的数据供应商密钥。<br/>Send the <code>Authorization: Bearer TOKEN</code> header; no additional data-vendor key is required.</div>
         </div>
         <div style={panel}>
           <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>数据覆盖 / Coverage</div>
@@ -1765,8 +1774,8 @@ function FmpFundamentalsBody() {
 
       <h3 id="fmp-endpoint-subsections" className="display-title" style={{ fontSize: 28, margin: "32px 0 4px" }}>接口详细说明 / Endpoint Details</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 4px" }}>
-        以下是所有可用接口的详细说明。每个接口返回 JSON 数组格式的数据。
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Detailed documentation for all available endpoints. Each endpoint returns data in JSON array format.</span>
+        每个端点均定义自己的字段、时间周期、限制与可用范围。
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Each endpoint defines its own fields, timeframes, limits, and availability.</span>
       </p>
       <FmpEndpointSection id="fmp-historical-price-eod" route="/stable/historical-price-eod/full" title="历史收盘价 / Historical EOD Price" params={<><code>symbol</code>, <code>from</code>, <code>to</code></>} note="获取股票的历史每日收盘价数据。Get historical end-of-day price data." />
       <FmpEndpointSection id="fmp-income-statement" route="/stable/income-statement" title="利润表 / Income Statement" params={<><code>symbol</code>, 可选 <code>period=annual|quarter</code>, <code>limit</code></>} note="获取公司利润表数据。可查询年报或季报。Get company income statement data. Query annual or quarterly reports." />
@@ -1946,7 +1955,7 @@ Content-Type: application/json
 
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 8 }}>
         <strong style={{ color: "var(--accent-ink)" }}>使用提示 / Usage Tip</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> 只需使用您的 Leandata token，无需 FMP 的 <code>apikey</code>。如需查询特定历史版本，保存对应的 <code>as_of</code> 时间和 <code>package_sha256</code> 标识符。<br/>Use your Leandata token only—no FMP <code>apikey</code> needed. To reproduce a specific version, save its <code>as_of</code> timestamp and <code>package_sha256</code> identifier.</span>
+        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> 只需使用您的 Leandata token，无需额外的数据供应商密钥。如需查询特定历史版本，保存对应的 <code>as_of</code> 时间和 <code>package_sha256</code> 标识符。<br/>Use your Leandata token only; no additional data-vendor key is required. To reproduce a specific version, save its <code>as_of</code> timestamp and <code>package_sha256</code> identifier.</span>
       </div>
     </div>
   );
@@ -1958,7 +1967,7 @@ function ProxyApiBody() {
 
       {/* ── Getting started ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Getting started</div>
-      <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>Overview</h2>
+      <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}><Bilingual {...API_CATEGORIES.market} /></h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 16px", maxWidth: 640 }}>
         Leandata provides two core surfaces: a <strong style={{ color: "var(--ink-strong)" }}>token portal</strong> for registration and token issuance,
         and a high-performance <strong style={{ color: "var(--ink-strong)" }}>market data proxy</strong> for historical REST, realtime REST, and secure WebSocket streaming.
@@ -1971,7 +1980,7 @@ function ProxyApiBody() {
           <tr><td>Token portal</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TOKEN_BASE}</td><td style={{ fontSize: 12 }}>username + phone</td></tr>
           <tr><td>REST data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{REST_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
           <tr><td>REST real-time proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{RT_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
-          <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{WS_BASE}/*</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
+          <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{WS_BASE}/stream/*</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
         </tbody>
       </table>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13 }}>
@@ -2023,6 +2032,15 @@ Authorization: Bearer <TOKEN>
           <tr><th style={{ width: 120 }}>Plan</th><th>Price</th><th>WS channels</th><th>WS subjects</th><th>WS account connection cap</th><th>REST historical parallel</th><th>REST endpoints</th></tr>
         </thead>
         <tbody>
+          <tr>
+            <td><span className="tier free">Free</span></td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Free (30 days)</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
+            <td style={{ fontSize: 12 }}>Recent 31 days REST history · Nearest 2 option expiries · Instant activation</td>
+          </tr>
           <tr>
             <td><span className="tier trial">Trial</span></td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥50/3 days</td>
@@ -2082,6 +2100,139 @@ Authorization: Bearer <TOKEN>
         Basic has access to the full available historical range. There is no Basic-specific date-span, symbol-count, or page-count budget. Requests remain subject to provider limits and shared proxy runtime controls such as historical concurrency, QPS, timeouts, and overload backpressure. Bulk Download is a separate one-off delivery product, not a requirement for older dates.
         <br/>Basic 可以访问全部可用历史数据，不设 Basic 专属的日期跨度、symbol 数或页数预算。请求仍受上游限制和 proxy 运行时控制影响，包括历史并发、QPS、超时和过载背压。Bulk Download 是单独的一次性交付产品，不是解锁旧日期的必要条件。
       </p>
+
+      {/* ── Free Plan Usage & Quickstart ── */}
+      <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>Free Plan Guide</div>
+      <h2 id="free-plan-usage" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>Free plan usage &amp; code examples</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 16px" }}>
+        The Free plan activates automatically on signup and provides access to market endpoints for evaluation and algorithm prototyping.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Free 计划在注册后自动开通，为策略原型设计与算法回测验证提供市场数据接口访问。</span>
+      </p>
+
+      <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "16px", margin: "0 0 24px", fontSize: 13, lineHeight: 1.6 }}>
+        <h4 style={{ margin: "0 0 8px", fontSize: 14, color: "var(--ink-strong)" }}>Free Plan Quota &amp; Access Boundaries / 权益与限制边界</h4>
+        <ul style={{ margin: "0 0 10px 18px", padding: 0 }}>
+          <li><strong>REST Historical Date Window:</strong> Queries must specify explicit <code>start</code> and <code>end</code> bounds within the most recent <strong>31 calendar days</strong>. Older dates return <code>403 free_historical_window_exceeded</code>.</li>
+          <li><strong>Option Chains &amp; Snapshots:</strong> Access is limited to the <strong>nearest 2 upcoming expiration cycles</strong> (e.g. 0DTE, nearest weekly or monthly expiries). Expiries further out return <code>403 free_option_chain_window_exceeded</code>.</li>
+          <li><strong>Real-time WebSocket:</strong> Full channel access (stocks, options, crypto, news, overnight) with standard connection limits.</li>
+          <li><strong>Financial Statements:</strong> Fundamental balance sheet, income, and cash flow archives require an active <strong>Premium</strong> plan (returns <code>403 fmp_premium_required</code>).</li>
+        </ul>
+        <span style={{ color: "var(--ink-soft)", fontSize: 12 }}>
+          中文说明：REST 历史数据必须携带最近 31 个日历日内的明确 <code>start</code> / <code>end</code> 时间范围；期权链与 Greeks 快照支持最近 2 轮到期日；实时 WebSocket 通道全部开放；基本面财务数据需升级至 Premium。
+        </span>
+      </div>
+
+      <h3 style={{ fontSize: 18, margin: "24px 0 8px" }}>1. Querying historical stock bars (Bounded 31-day range)</h3>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 8px" }}>
+        Always provide <code>start</code> and <code>end</code> within the 31-day rolling window:
+      </p>
+      <pre className="code" style={{ marginBottom: 16 }}>
+{`# cURL Example (Recent 5 days of 1-minute bars)
+curl -X GET "https://api.leandata.uk/v2/stocks/bars?symbols=SPY&timeframe=1Min&start=2026-08-17&end=2026-08-21" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`}
+      </pre>
+
+      <h3 style={{ fontSize: 18, margin: "24px 0 8px" }}>2. Option contracts &amp; Greeks snapshots (Nearest 2 expiries)</h3>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 8px" }}>
+        Fetch option chain contracts or snapshot Greeks for the nearest 2 expiration cycles:
+      </p>
+      <pre className="code" style={{ marginBottom: 16 }}>
+{`# Fetch contracts for the nearest upcoming expiries
+curl -X GET "https://api.leandata.uk/v1/options/contracts?underlying_symbols=SPY" \\
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Query Greeks and snapshot quotes for a specific near-term expiry
+curl -X GET "https://api.leandata.uk/v1/options/snapshots/expiry?underlying=SPY&expiry=2026-08-25" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`}
+      </pre>
+
+      <h3 style={{ fontSize: 18, margin: "24px 0 8px" }}>3. Real-time WebSocket streaming</h3>
+      <pre className="code" style={{ marginBottom: 16 }}>
+{`// Connect to wss://leandata.uk/stream
+const ws = new WebSocket("wss://leandata.uk/stream");
+
+ws.onopen = () => {
+  // Authenticate
+  ws.send(JSON.stringify({
+    action: "auth",
+    key: "YOUR_TOKEN",
+    secret: "YOUR_TOKEN"
+  }));
+};
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  if (Array.isArray(msg) && msg[0]?.T === "success") {
+    // Subscribe to stock and option live bars
+    ws.send(JSON.stringify({
+      action: "subscribe",
+      bars: ["SPY", "AAPL"]
+    }));
+  }
+};`}
+      </pre>
+
+      <h3 style={{ fontSize: 18, margin: "24px 0 8px" }}>4. Python SDK quickstart</h3>
+      <pre className="code" style={{ marginBottom: 28 }}>
+{`import requests
+from datetime import datetime, timezone, timedelta
+
+TOKEN = "YOUR_TOKEN"
+HEADERS = {"Authorization": f"Bearer {TOKEN}"}
+
+# 1. Fetch recent 1-minute bars (within 31-day window)
+end_date = datetime.now(timezone.utc)
+start_date = end_date - timedelta(days=5)
+
+resp = requests.get(
+    "https://api.leandata.uk/v2/stocks/bars",
+    params={
+        "symbols": "SPY,QQQ",
+        "timeframe": "1Min",
+        "start": start_date.strftime("%Y-%m-%d"),
+        "end": end_date.strftime("%Y-%m-%d")
+    },
+    headers=HEADERS
+)
+print("Bars status:", resp.status_code, resp.json().keys())
+
+# 2. Fetch nearest option contracts
+resp_opt = requests.get(
+    "https://api.leandata.uk/v1/options/contracts",
+    params={"underlying_symbols": "SPY"},
+    headers=HEADERS
+)
+print("Option contracts:", resp_opt.status_code)`}
+      </pre>
+
+      <h3 style={{ fontSize: 18, margin: "24px 0 8px" }}>5. Error codes &amp; upgrade paths / 常见拦截错误与升级指引</h3>
+      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 32 }}>
+        <thead>
+          <tr><th style={{ width: 220 }}>Error Code</th><th style={{ width: 120 }}>HTTP Status</th><th>Description &amp; Resolution / 说明与解决方式</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>free_historical_window_exceeded</code></td>
+            <td><code>403 Forbidden</code></td>
+            <td>Requested dates exceed the 31-day window. Adjust start/end or upgrade to Standard/Premium at <a href="/account.html" style={{ color: "var(--accent-ink)" }}>account.html</a>.</td>
+          </tr>
+          <tr>
+            <td><code>free_historical_date_range_required</code></td>
+            <td><code>403 Forbidden</code></td>
+            <td>Missing explicit start/end dates. Free requests require bounded date parameters.</td>
+          </tr>
+          <tr>
+            <td><code>free_option_chain_window_exceeded</code></td>
+            <td><code>403 Forbidden</code></td>
+            <td>Requested expiration is beyond the nearest 2 upcoming cycles. Upgrade for full multi-year option chains.</td>
+          </tr>
+          <tr>
+            <td><code>fmp_premium_required</code></td>
+            <td><code>403 Forbidden</code></td>
+            <td>Financial statements (Income, Balance Sheet, Cash Flow) require a Premium subscription.</td>
+          </tr>
+        </tbody>
+      </table>
 
       {/* ── Token API ── */}
       <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>Token API</div>
@@ -2374,7 +2525,7 @@ Authorization: Bearer <TOKEN>
         Successful REST responses are cached server-side.
         Cache keys strip proxy credentials, return <code>X-Cache: DISK_HIT</code> on repeat, and use tiered TTLs: historical 7 days, intraday/latest 60 seconds, snapshots 5 minutes, contracts/lists 1 hour.
       </p>
-      <h3 id="alpaca-native-examples" style={{ fontSize: 16, fontWeight: 500, margin: "0 0 8px", color: "var(--ink-strong)" }}>Standard REST examples</h3>
+      <h3 id="standard-rest-examples" style={{ fontSize: 16, fontWeight: 500, margin: "0 0 8px", color: "var(--ink-strong)" }}>Standard REST examples</h3>
       <pre className="code" style={{ marginBottom: 40 }}>
 {`# Latest stock quote (Standard REST)
 curl -H "Authorization: Bearer <TOKEN>" \\
@@ -3169,10 +3320,14 @@ function WsUsageBody() {
 
       {/* ── Connecting ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Connecting</div>
-      <h2 id="auth-message" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Auth message</h2>
+      <h2 id="auth-message" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Connect, authenticate, subscribe / 连接、认证、订阅</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         After opening the WebSocket, send an <code>auth</code> action. Authentication happens in the message body — no HTTP headers are needed.
       </p>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`{"action": "auth", "token": "<TOKEN>"}
+{"action": "subscribe", "trades": ["AAPL"], "quotes": ["AAPL"]}`}
+      </pre>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`import asyncio, websockets, json, msgpack
 
@@ -3327,6 +3482,7 @@ await ws.send(json.dumps({
 
       <h2 id="reconnect" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Reconnect</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Handle reconnects with backoff.
         The server may close the connection on overload (<code>code 1013</code>) or policy violation (<code>code 1008</code>).
         Implement exponential backoff. Subscriptions are not persisted — re-auth and re-subscribe after every reconnect.
       </p>
