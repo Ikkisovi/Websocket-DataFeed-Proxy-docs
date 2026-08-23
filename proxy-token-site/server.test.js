@@ -238,8 +238,8 @@ describe('GET /api/admin/archive-pipeline', () => {
       JSON.stringify({ event: 'terminal', run_id: 'eod-spy-20250103', outcome: 'direct_receipt', recorded_at: '2026-08-23T00:01:00Z' }),
       ''
     ].join('\n'));
-    fs.mkdirSync(path.join(TEST_GAPFILL_CONTROL_DIR, 'audits', 'coverage-current-universe'), { recursive: true });
-    fs.writeFileSync(path.join(TEST_GAPFILL_CONTROL_DIR, 'audits', 'coverage-current-universe', 'report.json'), JSON.stringify({
+    fs.mkdirSync(path.join(TEST_GAPFILL_CONTROL_DIR, 'audits', 'coverage-current-universe-20260823T094000Z'), { recursive: true });
+    fs.writeFileSync(path.join(TEST_GAPFILL_CONTROL_DIR, 'audits', 'coverage-current-universe-20260823T094000Z', 'report.json'), JSON.stringify({
       kind: 'leandata_canonical_coverage_audit',
       read_only: true,
       report_sha256: 'c'.repeat(64),
@@ -292,7 +292,7 @@ describe('GET /api/admin/archive-pipeline', () => {
       },
       coverageAudit: {
         state: 'available',
-        auditId: 'coverage-current-universe',
+        auditId: 'coverage-current-universe-20260823T094000Z',
         reportSha256: 'c'.repeat(64),
         scope: { start: '2026-08-05', end: '2026-08-21', sessions: 2 },
         summary: { expectedSymbols: 545, expectedSessions: 2, eodMissing: 1090, oiMissing: 1090 },

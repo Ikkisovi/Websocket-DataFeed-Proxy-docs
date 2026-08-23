@@ -6679,7 +6679,7 @@ function archiveCoverageAuditSnapshot(root) {
     const auditsRoot = path.join(root, 'audits');
     if (!fs.existsSync(auditsRoot)) return { ...result, detail: 'No coverage audit evidence is mounted.' };
     const candidates = fs.readdirSync(auditsRoot, { withFileTypes: true })
-      .filter(entry => entry.isDirectory() && /^[a-z0-9][a-z0-9._-]{2,95}$/.test(entry.name))
+      .filter(entry => entry.isDirectory() && /^[A-Za-z0-9][A-Za-z0-9._-]{2,95}$/.test(entry.name))
       .map(entry => ({ id: entry.name, report: path.join(auditsRoot, entry.name, 'report.json') }))
       .filter(entry => fs.existsSync(entry.report))
       .slice(0, ARCHIVE_PIPELINE_MAX_ENTRIES);
