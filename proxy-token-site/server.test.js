@@ -25,6 +25,7 @@ process.env.PROXY_WS_HOST = '127.0.0.1';         // fast-fail WS probe (ECONNREF
 process.env.PROXY_WS_PORT = '1';
 process.env.ARCHIVE_INGEST_SPOOL_PATH = TEST_ARCHIVE_SPOOL_DIR;
 process.env.ARCHIVE_WRITER_URL = 'http://127.0.0.1:1';
+process.env.ARCHIVE_RECONCILIATION_TOKEN = 'test-reconciliation-token';
 process.env.ACCESS_LOG_DIR = TEST_ACCESS_LOG_DIR;
 process.env.EMAIL_VERIFY_SECRET = 'test-email-verification-secret';
 process.env.EMAIL_TEST_MODE = 'memory';

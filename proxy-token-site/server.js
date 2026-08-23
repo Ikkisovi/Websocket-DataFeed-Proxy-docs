@@ -6592,6 +6592,7 @@ const PROXY_WS_PORT  = process.env.PROXY_WS_PORT || 8767;
 const STATUS_PROBE_TIMEOUT_MS = Math.max(100, Math.min(Number(process.env.STATUS_PROBE_TIMEOUT_MS) || 3000, 10000));
 const ARCHIVE_INGEST_SPOOL_PATH = process.env.ARCHIVE_INGEST_SPOOL_PATH || '/var/spool/leandata-archive';
 const ARCHIVE_WRITER_URL = String(process.env.ARCHIVE_WRITER_URL || '').replace(/\/+$/, '');
+const ARCHIVE_RECONCILIATION_TOKEN = String(process.env.ARCHIVE_RECONCILIATION_TOKEN || '').trim();
 const ARCHIVE_PIPELINE_TIMEOUT_MS = Math.max(100, Math.min(Number(process.env.ARCHIVE_PIPELINE_TIMEOUT_MS) || 3000, 10000));
 const ARCHIVE_PIPELINE_MAX_ENTRIES = Math.max(128, Math.min(Number(process.env.ARCHIVE_PIPELINE_MAX_ENTRIES) || 4096, 16384));
 
@@ -6681,10 +6682,29 @@ async function fetchPipelineHealth(url) {
   }
 }
 
+async function fetchArchiveReconciliation(url) {
+  if (!url || !ARCHIVE_RECONCILIATION_TOKEN) return null;
+  let timer;
+  try {
+    const controller = new AbortController();
+    timer = setTimeout(() => controller.abort(), ARCHIVE_PIPELINE_TIMEOUT_MS);
+    const response = await fetch(`${url}/v1/reconciliation`, {
+      headers: { 'X-Leandata-Reconciliation-Token': ARCHIVE_RECONCILIATION_TOKEN },
+      signal: controller.signal
+    });
+    return response.ok ? await response.json() : null;
+  } catch (_) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function archivePipelineSnapshot() {
-  const [restHealth, archiveWriter] = await Promise.all([
+  const [restHealth, archiveWriter, reconciliation] = await Promise.all([
     fetchPipelineHealth(PROXY_REST_URL),
-    fetchPipelineHealth(ARCHIVE_WRITER_URL)
+    fetchPipelineHealth(ARCHIVE_WRITER_URL),
+    fetchArchiveReconciliation(ARCHIVE_WRITER_URL)
   ]);
   const theta = restHealth?.theta && typeof restHealth.theta === 'object' ? restHealth.theta : null;
   return {
@@ -6713,8 +6733,11 @@ async function archivePipelineSnapshot() {
       detail: 'This view observes released planner inputs only; it does not execute ThetaData gapfill or write coverage.'
     },
     clickhouseReconciliation: {
-      state: 'unavailable',
-      detail: 'Receipts and archive-writer health do not independently reconcile historical payloads against ThinkCentre ClickHouse fact tables.'
+      state: reconciliation ? 'available' : (ARCHIVE_WRITER_URL && ARCHIVE_RECONCILIATION_TOKEN ? 'unavailable' : 'not_observed'),
+      facts: reconciliation,
+      detail: reconciliation ? null : (ARCHIVE_RECONCILIATION_TOKEN
+        ? 'ThinkCentre reconciliation facts are unavailable.'
+        : 'Archive reconciliation token is not configured.')
     }
   };
 }

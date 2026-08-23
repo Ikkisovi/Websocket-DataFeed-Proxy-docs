@@ -1618,13 +1618,24 @@
       const writer = data.archiveWriter || {};
       const ingest = writer.health?.ingest || {};
       const gapfill = data.gapfill || {};
+      const reconciliation = data.clickhouseReconciliation || {};
+      const factTables = reconciliation.facts?.tables || {};
+      const factCard = (label, key, includeDigests = true) => {
+        const fact = factTables[key];
+        if (!fact) return [label, archiveStateLabel(reconciliation.state), reconciliation.detail || '未观测到保留事实表。'];
+        const range = fact.rows === 0 ? '无保留行' : `${fmtTime(fact.first_at)} → ${fmtTime(fact.last_at)}`;
+        const digests = includeDigests ? ` · ${fact.distinct_sha256 ?? '—'} SHA` : '';
+        return [label, `${fact.rows ?? '—'} rows${digests}`, range];
+      };
       const cardData = [
+        ['AWS archive transport', archiveStateLabel(writer.state), `ClickHouse: ${writer.health?.clickhouse || '—'} · route ${data.rest?.archive?.automatic_route || '—'}`],
+        factCard('Retained responses', 'response_cache'),
+        factCard('Ingest file facts', 'ingest_files'),
+        factCard('Coverage facts', 'coverage_segments', false),
+        ['Writer since restart', `received ${ingest.received ?? '—'}`, `committed ${ingest.clickhouse_committed ?? '—'} · persisted not committed ${ingest.payload_persisted_not_committed ?? '—'}`],
         ['AWS spool', archiveStateLabel(spool.state), `${spool.pendingPairs ?? '—'} pending · ${fmtBytes(spool.pendingPayloadBytes)}`],
         ['Durable receipts', `${spool.directReceipts ?? '—'} direct`, `${spool.replayReceipts ?? '—'} replay`],
-        ['Spool integrity', `${spool.orphanPayloads ?? '—'} orphan payload`, `${spool.orphanMetadata ?? '—'} orphan metadata · ${spool.partialFiles ?? '—'} partial · ${spool.invalidMetadata ?? '—'} invalid`],
-        ['Archive writer', archiveStateLabel(writer.state), `ClickHouse: ${writer.health?.clickhouse || '—'} · persisted not committed: ${ingest.payload_persisted_not_committed ?? '—'}`],
-        ['Theta / gapfill', archiveStateLabel(gapfill.planner), `QPS ${gapfill.thetaQpsLimit ?? '—'} · C ${gapfill.thetaConcurrencyLimit ?? '—'} · executor ${archiveStateLabel(gapfill.executor)}`],
-        ['ClickHouse 对账', archiveStateLabel(data.clickhouseReconciliation?.state), '未提供独立 archive 事实表对账']
+        ['Theta / gapfill', archiveStateLabel(gapfill.planner), `QPS ${gapfill.thetaQpsLimit ?? '—'} · C ${gapfill.thetaConcurrencyLimit ?? '—'} · executor ${archiveStateLabel(gapfill.executor)}`]
       ];
       cards.innerHTML = cardData.map(([key, value, summary]) => `
         <div class="usage-card">
@@ -1639,10 +1650,11 @@
         spool.detail || null,
         writer.detail || null,
         gapfill.detail || null,
-        data.clickhouseReconciliation?.detail || null
+        reconciliation.detail || null,
+        reconciliation.state === 'available' ? 'ClickHouse retained facts are independent of writer process-lifetime counters.' : null
       ].filter(Boolean).join(' · ');
       document.getElementById('tab-count-archive').textContent =
-        spool.state === 'available' ? String(spool.pendingPairs ?? 0) : '!';
+        reconciliation.state === 'available' ? '✓' : (spool.state === 'available' ? String(spool.pendingPairs ?? 0) : '!');
     } catch (error) {
       cards.innerHTML = `<div class="empty">加载失败: ${escHtml(error.message)}</div>`;
       detail.textContent = 'archive 观察接口不可用。';
