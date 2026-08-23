@@ -10,6 +10,10 @@ const bundles = [
   "updates-page",
   "docs-page",
 ];
+const languageScript = fs.readFileSync(
+  new URL("../public/language.js", import.meta.url),
+  "utf8",
+);
 
 for (const name of bundles) {
   const dom = new JSDOM('<!doctype html><div id="root"></div>', {
@@ -17,23 +21,31 @@ for (const name of bundles) {
     runScripts: "outside-only",
     pretendToBeVisual: true,
   });
-  dom.window.LanguageToggle = () => null;
-  dom.window.LeandataI18n = {
-    translate: value => value,
-    getLanguage: () => "zh",
+  dom.window.IntersectionObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
   };
   dom.window.fetch = async () => ({
     ok: false,
     status: 401,
     json: async () => ({ success: false, message: "test response", components: [] }),
   });
+  dom.window.eval(languageScript);
   dom.window.eval(fs.readFileSync(new URL(`../public/assets/${name}.js`, import.meta.url), "utf8"));
   await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(
+    typeof dom.window.React?.createElement,
+    "function",
+    `${name} bundle did not expose React for the language toggle`,
+  );
   assert.notEqual(
     dom.window.document.getElementById("root").innerHTML,
     "",
     `${name} bundle did not render`,
   );
+  dom.window.LeandataI18n.destroy();
+  await new Promise(resolve => setTimeout(resolve, 0));
   dom.window.close();
 }
 
