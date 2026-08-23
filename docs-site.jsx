@@ -485,6 +485,7 @@ const { useState } = React;
 function DocsTopbar({ active = "proxy", onNav }) {
   const lang = useCurrentLanguage();
   const isZh = lang === "zh";
+  const Toggle = window.LanguageToggle;
   return (
     <div className="topbar">
       <div className="brand">
@@ -503,7 +504,7 @@ function DocsTopbar({ active = "proxy", onNav }) {
       </div>
       <div className="spacer"></div>
       <div className="meta">
-        <LanguageToggle />
+        {Toggle ? <Toggle /> : null}
         <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>{isZh ? "Token 账户管理 →" : "Token Portal →"}</a>
       </div>
     </div>
@@ -2187,6 +2188,8 @@ Content-Type: application/json
 }
 
 function ProxyApiBody() {
+  const lang = useCurrentLanguage();
+  const isZh = lang === "zh";
   return (
     <div style={{ maxWidth: 760 }}>
 
@@ -3599,8 +3602,8 @@ await ws.send(json.dumps({
 
       <h2 id="stocks" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "美股实时行情流 (stocks)" : "stocks"}</h2>
       <DocDesc
-        zh="美股实时行情流：支持全市场 SIP 官方聚合行情的 Trades 逐笔成交、Quotes 逐笔买卖盘与分钟 K 线。通过 trades、quotes 或 bars 列表订阅，支持 "*" 订阅全市场标的。"
-        en="Live US equities: trades, quotes, and minute bars from the consolidated SIP feed. Subscribe to trades, quotes, and/or bars lists. Use "*" to subscribe to all symbols."
+        zh="美股实时行情流：支持全市场 SIP 官方聚合行情的 Trades 逐笔成交、Quotes 逐笔买卖盘与分钟 K 线。通过 trades、quotes 或 bars 列表订阅，支持 * 订阅全市场标的。"
+        en="Live US equities: trades, quotes, and minute bars from the consolidated SIP feed. Subscribe to trades, quotes, and/or bars lists. Use * to subscribe to all symbols."
       />
       <H3>Subject limit</H3>
       <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>Each connection supports up to 500 subjects. A ticker subscribed under both <code>trades</code> and <code>quotes</code> consumes two subjects.</p>
@@ -3626,8 +3629,8 @@ await ws.send(json.dumps({
 
       <h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "实时新闻快讯流 (news)" : "news"}</h2>
       <DocDesc
-        zh="实时金融新闻与快讯流：传入目标 ticker 列表或 "*" 订阅全量新闻。消息为标准 JSON 格式。历史新闻亦可通过 REST /v1/history/news 获取。"
-        en="Realtime market news events. Subscribe with a news list of tickers or "*" for all. Messages are plain JSON. All tiers except Basic. Historical news is also available via REST /v1/history/news."
+        zh="实时金融新闻与快讯流：传入目标 ticker 列表或 * 订阅全量新闻。消息为标准 JSON 格式。历史新闻亦可通过 REST /v1/history/news 获取。"
+        en="Realtime market news events. Subscribe with a news list of tickers or * for all. Messages are plain JSON. All tiers except Basic. Historical news is also available via REST /v1/history/news."
       />
 
       <h2 id="overnight" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "美股夜盘交易流 (overnight)" : "overnight"}</h2>
