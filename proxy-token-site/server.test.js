@@ -11,9 +11,11 @@ const TEST_PROXY_FILE = path.join(TEST_DIR, 'proxy-users.json');
 const TEST_ACCESS_LOG_DIR = path.join(TEST_DIR, 'access');
 const TEST_ATTRIBUTION_USAGE_LOG = path.join(TEST_DIR, 'attribution-usage.jsonl');
 const TEST_ARCHIVE_SPOOL_DIR = path.join(TEST_DIR, 'archive-spool');
+const TEST_GAPFILL_CONTROL_DIR = path.join(TEST_DIR, 'gapfill-control');
 fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
 fs.mkdirSync(TEST_ACCESS_LOG_DIR, { recursive: true });
 fs.mkdirSync(TEST_ARCHIVE_SPOOL_DIR, { recursive: true });
+fs.mkdirSync(TEST_GAPFILL_CONTROL_DIR, { recursive: true });
 
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.PROXY_USERS_FILE = TEST_PROXY_FILE;
@@ -26,6 +28,8 @@ process.env.PROXY_WS_PORT = '1';
 process.env.ARCHIVE_INGEST_SPOOL_PATH = TEST_ARCHIVE_SPOOL_DIR;
 process.env.ARCHIVE_WRITER_URL = 'http://127.0.0.1:1';
 process.env.ARCHIVE_RECONCILIATION_TOKEN = 'test-reconciliation-token';
+process.env.ARCHIVE_GAPFILL_CONTROL_ROOT = TEST_GAPFILL_CONTROL_DIR;
+process.env.ARCHIVE_GAPFILL_EXECUTOR_MODE = 'installed';
 process.env.ACCESS_LOG_DIR = TEST_ACCESS_LOG_DIR;
 process.env.EMAIL_VERIFY_SECRET = 'test-email-verification-secret';
 process.env.EMAIL_TEST_MODE = 'memory';
@@ -227,6 +231,13 @@ describe('GET /api/admin/archive-pipeline', () => {
     }));
     fs.writeFileSync(path.join(TEST_ARCHIVE_SPOOL_DIR, 'direct-receipts', 'direct.receipt.json'), '{}');
     fs.writeFileSync(path.join(TEST_ARCHIVE_SPOOL_DIR, 'receipts', 'replay.receipt.json'), '{}');
+    fs.mkdirSync(path.join(TEST_GAPFILL_CONTROL_DIR, 'manifests', 'eod-spy-20250103'), { recursive: true });
+    fs.writeFileSync(path.join(TEST_GAPFILL_CONTROL_DIR, 'manifests', 'eod-spy-20250103', 'manifest.json'), '{}');
+    fs.writeFileSync(path.join(TEST_GAPFILL_CONTROL_DIR, 'admission-ledger.jsonl'), [
+      JSON.stringify({ event: 'admitted', run_id: 'eod-spy-20250103', recorded_at: '2026-08-23T00:00:00Z' }),
+      JSON.stringify({ event: 'terminal', run_id: 'eod-spy-20250103', outcome: 'direct_receipt', recorded_at: '2026-08-23T00:01:00Z' }),
+      ''
+    ].join('\n'));
 
     const unauthorized = await request(app).get('/api/admin/archive-pipeline');
     expect(unauthorized.statusCode).toBe(401);
@@ -248,6 +259,15 @@ describe('GET /api/admin/archive-pipeline', () => {
       gapfill: {
         planner: 'planner_only',
         executor: 'not_observed'
+      },
+      gapfillControl: {
+        state: 'available',
+        executorMode: 'installed',
+        manifests: 1,
+        admitted: 1,
+        terminal: 1,
+        activeRuns: 0,
+        outcomes: { direct_receipt: 1 }
       },
       clickhouseReconciliation: {
         state: 'unavailable'

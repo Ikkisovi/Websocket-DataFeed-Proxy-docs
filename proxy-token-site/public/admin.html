@@ -1618,6 +1618,7 @@
       const writer = data.archiveWriter || {};
       const ingest = writer.health?.ingest || {};
       const gapfill = data.gapfill || {};
+      const gapfillControl = data.gapfillControl || {};
       const reconciliation = data.clickhouseReconciliation || {};
       const factTables = reconciliation.facts?.tables || {};
       const factCard = (label, key, includeDigests = true) => {
@@ -1635,7 +1636,12 @@
       const archiveMode = archive.enabled && archive.shadow_enabled ? 'shadow enabled' : 'disabled';
       const writerProcess = writer.health?.service || 'writer service';
       const plannerState = gapfill.planner === 'planner_only' ? 'CLI only' : archiveStateLabel(gapfill.planner);
-      const executorState = gapfill.executor === 'not_observed' ? 'blocked: not deployed' : archiveStateLabel(gapfill.executor);
+      const executorState = gapfillControl.executorMode === 'installed'
+        ? (gapfillControl.activeRuns > 0 ? `running ${gapfillControl.activeRuns}` : 'ready: no active run')
+        : 'blocked: not installed';
+      const terminalSummary = gapfillControl.terminal
+        ? Object.entries(gapfillControl.outcomes || {}).map(([name, count]) => `${name} ${count}`).join(' · ')
+        : 'no terminal canary receipt';
       const cardData = [
         ['AWS archive transport', archiveStateLabel(writer.state), `ClickHouse: ${writer.health?.clickhouse || '—'} · route ${archive.automatic_route || '—'}`],
         ['Archive ingest (REST)', data.rest?.state === 'available' ? 'running' : 'unavailable', `${archiveMode} · ${restUptime} · concurrency ${hotCache.archive_ingest_concurrent_max ?? '—'}`],
@@ -1647,7 +1653,8 @@
         ['AWS spool', archiveStateLabel(spool.state), `${spool.pendingPairs ?? '—'} pending · ${fmtBytes(spool.pendingPayloadBytes)} · ${spool.partialFiles ?? '—'} partial`],
         ['Durable receipts', `${spool.directReceipts ?? '—'} direct`, `${spool.replayReceipts ?? '—'} replay · orphan payload ${spool.orphanPayloads ?? '—'} · metadata ${spool.orphanMetadata ?? '—'}`],
         ['Coverage planner', plannerState, 'Immutable manifest planning only; no coverage write is authorized from this page.'],
-        ['Gapfill executor', executorState, `No canary run exists. QPS ${gapfill.thetaQpsLimit ?? '—'} · native concurrency ${gapfill.thetaConcurrencyLimit ?? '—'}`]
+        ['Canary admission ledger', archiveStateLabel(gapfillControl.state), `manifests ${gapfillControl.manifests ?? '—'} · admitted ${gapfillControl.admitted ?? '—'} · terminal ${gapfillControl.terminal ?? '—'} · active ${gapfillControl.activeRuns ?? '—'}`],
+        ['Gapfill executor', executorState, `${terminalSummary} · idempotent reruns ${gapfillControl.idempotentReplays ?? '—'} · QPS ${gapfill.thetaQpsLimit ?? '—'} · native concurrency ${gapfill.thetaConcurrencyLimit ?? '—'}`]
       ];
       cards.innerHTML = cardData.map(([key, value, summary]) => `
         <div class="usage-card">
@@ -1662,7 +1669,10 @@
         spool.detail || null,
         writer.detail || null,
         gapfill.detail || null,
-        executorState === 'blocked: not deployed' ? 'No automatic or manual upstream gapfill process is installed. A real canary remains blocked until immutable-manifest executor and durable admission ledger controls exist.' : null,
+        gapfillControl.detail || null,
+        gapfillControl.lastEventAt ? `Ledger last event: ${fmtTime(gapfillControl.lastEventAt)}` : null,
+        gapfillControl.latestRun ? `Latest terminal run: ${gapfillControl.latestRun.runId} (${gapfillControl.latestRun.outcome})` : null,
+        executorState === 'blocked: not installed' ? 'No automatic or manual upstream gapfill process is installed. A real canary remains blocked until the controlled systemd executor is installed with a reviewed AWS-owned runner.' : null,
         reconciliation.detail || null,
         reconciliation.state === 'available' ? 'ClickHouse retained facts are independent of writer process-lifetime counters.' : null
       ].filter(Boolean).join(' · ');

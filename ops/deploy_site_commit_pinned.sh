@@ -40,7 +40,15 @@ set +a
 
 : "${LEANDATA_ENV_FILE:?set LEANDATA_ENV_FILE in the runtime deployment config}"
 : "${LEANDATA_ARCHIVE_ENV_FILE:?set LEANDATA_ARCHIVE_ENV_FILE in the runtime deployment config}"
+: "${LEANDATA_RECONCILIATION_ENV_FILE:?set LEANDATA_RECONCILIATION_ENV_FILE in the runtime deployment config}"
 : "${LEANDATA_DATA_ROOT:?set LEANDATA_DATA_ROOT in the runtime deployment config}"
+
+for env_path in "$LEANDATA_ENV_FILE" "$LEANDATA_ARCHIVE_ENV_FILE" "$LEANDATA_RECONCILIATION_ENV_FILE"; do
+  if [[ ! -r "$env_path" ]]; then
+    printf 'runtime environment file is not readable: %s\n' "$env_path" >&2
+    exit 2
+  fi
+done
 
 if [[ "$LEANDATA_SITE_DIR" != "$site_dir_from_site_config" ]]; then
   printf 'site directory mismatch between site and runtime configs\n' >&2
@@ -132,6 +140,7 @@ done
 
 export LEANDATA_ENV_FILE
 export LEANDATA_ARCHIVE_ENV_FILE
+export LEANDATA_RECONCILIATION_ENV_FILE
 export LEANDATA_SITE_DIR
 export LEANDATA_DATA_ROOT
 "${compose_args[@]}" config --quiet

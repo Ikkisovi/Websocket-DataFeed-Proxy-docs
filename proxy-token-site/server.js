@@ -6595,6 +6595,8 @@ const ARCHIVE_WRITER_URL = String(process.env.ARCHIVE_WRITER_URL || '').replace(
 const ARCHIVE_RECONCILIATION_TOKEN = String(process.env.ARCHIVE_RECONCILIATION_TOKEN || '').trim();
 const ARCHIVE_PIPELINE_TIMEOUT_MS = Math.max(100, Math.min(Number(process.env.ARCHIVE_PIPELINE_TIMEOUT_MS) || 3000, 10000));
 const ARCHIVE_PIPELINE_MAX_ENTRIES = Math.max(128, Math.min(Number(process.env.ARCHIVE_PIPELINE_MAX_ENTRIES) || 4096, 16384));
+const ARCHIVE_GAPFILL_CONTROL_ROOT = process.env.ARCHIVE_GAPFILL_CONTROL_ROOT || '/var/lib/leandata-gapfill';
+const ARCHIVE_GAPFILL_EXECUTOR_MODE = String(process.env.ARCHIVE_GAPFILL_EXECUTOR_MODE || 'not_installed');
 
 function archivePipelineSpoolSnapshot(root) {
   const result = {
@@ -6667,6 +6669,50 @@ function archivePipelineSpoolSnapshot(root) {
   }
 }
 
+function archiveGapfillControlSnapshot(root) {
+  const result = {
+    state: 'not_observed', executorMode: ARCHIVE_GAPFILL_EXECUTOR_MODE,
+    manifests: 0, admitted: 0, terminal: 0, idempotentReplays: 0,
+    activeRuns: 0, outcomes: {}, lastEventAt: null, latestRun: null, detail: null
+  };
+  try {
+    if (!fs.existsSync(root)) return { ...result, detail: 'Gapfill control root is not mounted.' };
+    result.state = 'available';
+    const ledgerPath = path.join(root, 'admission-ledger.jsonl');
+    const active = new Set();
+    if (fs.existsSync(ledgerPath)) {
+      const stat = fs.statSync(ledgerPath);
+      if (stat.size > 4 * 1024 * 1024) return { ...result, state: 'unavailable', detail: 'Gapfill ledger exceeds bounded Admin read size.' };
+      const lines = fs.readFileSync(ledgerPath, 'utf8').trim().split('\n').filter(Boolean);
+      if (lines.length > ARCHIVE_PIPELINE_MAX_ENTRIES) return { ...result, state: 'unavailable', detail: 'Gapfill ledger exceeds bounded Admin event count.' };
+      for (const line of lines) {
+        const event = JSON.parse(line);
+        if (!event || typeof event !== 'object' || typeof event.event !== 'string' || typeof event.run_id !== 'string') {
+          return { ...result, state: 'unavailable', detail: 'Gapfill ledger event is invalid.' };
+        }
+        result.lastEventAt = typeof event.recorded_at === 'string' ? event.recorded_at : result.lastEventAt;
+        if (event.event === 'admitted') { result.admitted += 1; active.add(event.run_id); }
+        if (event.event === 'terminal') {
+          result.terminal += 1;
+          active.delete(event.run_id);
+          if (typeof event.outcome === 'string') result.outcomes[event.outcome] = (result.outcomes[event.outcome] || 0) + 1;
+          result.latestRun = { runId: event.run_id, outcome: event.outcome || 'unknown' };
+        }
+        if (event.event === 'idempotent_replay') result.idempotentReplays += 1;
+      }
+    }
+    result.activeRuns = active.size;
+    const manifestsRoot = path.join(root, 'manifests');
+    if (fs.existsSync(manifestsRoot)) {
+      result.manifests = fs.readdirSync(manifestsRoot, { withFileTypes: true })
+        .slice(0, ARCHIVE_PIPELINE_MAX_ENTRIES).filter(entry => entry.isDirectory() && fs.existsSync(path.join(manifestsRoot, entry.name, 'manifest.json'))).length;
+    }
+    return result;
+  } catch (_) {
+    return { ...result, state: 'unavailable', detail: 'Gapfill control evidence inventory failed.' };
+  }
+}
+
 async function fetchPipelineHealth(url) {
   if (!url) return null;
   let timer;
@@ -6724,6 +6770,7 @@ async function archivePipelineSnapshot() {
       detail: archiveWriter ? null : (ARCHIVE_WRITER_URL ? 'Archive writer health is unavailable.' : 'Archive writer URL is not configured.')
     },
     spool: archivePipelineSpoolSnapshot(ARCHIVE_INGEST_SPOOL_PATH),
+    gapfillControl: archiveGapfillControlSnapshot(ARCHIVE_GAPFILL_CONTROL_ROOT),
     gapfill: {
       planner: 'planner_only',
       coverageSource: 'market_archive.coverage_segments',
