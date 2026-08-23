@@ -10,8 +10,10 @@ const TEST_DATA_DIR = path.join(TEST_DIR, 'data');
 const TEST_PROXY_FILE = path.join(TEST_DIR, 'proxy-users.json');
 const TEST_ACCESS_LOG_DIR = path.join(TEST_DIR, 'access');
 const TEST_ATTRIBUTION_USAGE_LOG = path.join(TEST_DIR, 'attribution-usage.jsonl');
+const TEST_ARCHIVE_SPOOL_DIR = path.join(TEST_DIR, 'archive-spool');
 fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
 fs.mkdirSync(TEST_ACCESS_LOG_DIR, { recursive: true });
+fs.mkdirSync(TEST_ARCHIVE_SPOOL_DIR, { recursive: true });
 
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.PROXY_USERS_FILE = TEST_PROXY_FILE;
@@ -21,6 +23,8 @@ process.env.PROXY_RT_URL = 'http://127.0.0.1:1'; // prevent real rt-api probe in
 process.env.PROXY_REST_URL = 'http://127.0.0.1:1'; // prevent real REST proxy calls in tests
 process.env.PROXY_WS_HOST = '127.0.0.1';         // fast-fail WS probe (ECONNREFUSED)
 process.env.PROXY_WS_PORT = '1';
+process.env.ARCHIVE_INGEST_SPOOL_PATH = TEST_ARCHIVE_SPOOL_DIR;
+process.env.ARCHIVE_WRITER_URL = 'http://127.0.0.1:1';
 process.env.ACCESS_LOG_DIR = TEST_ACCESS_LOG_DIR;
 process.env.EMAIL_VERIFY_SECRET = 'test-email-verification-secret';
 process.env.EMAIL_TEST_MODE = 'memory';
@@ -84,6 +88,8 @@ function resetTestData() {
   if (fs.existsSync(ZPAY_PAYMENT_ENV_FILE)) fs.unlinkSync(ZPAY_PAYMENT_ENV_FILE);
   if (fs.existsSync(EMAIL_VERIFICATION_FILE)) fs.unlinkSync(EMAIL_VERIFICATION_FILE);
   if (fs.existsSync(EMAIL_TEMPLATE_FILE)) fs.unlinkSync(EMAIL_TEMPLATE_FILE);
+  fs.rmSync(TEST_ARCHIVE_SPOOL_DIR, { recursive: true, force: true });
+  fs.mkdirSync(TEST_ARCHIVE_SPOOL_DIR, { recursive: true });
   clearTestVerificationEmails();
   // Clean status data so status/uptime/latency tests start fresh
   const statusFile = path.join(TEST_DATA_DIR, 'status.json');
@@ -197,6 +203,57 @@ describe('Tier definitions', () => {
     for (const [, tier] of Object.entries(TIERS)) {
       expect(tier.permissions.rest.admin_token_lookup).toBe(false);
     }
+  });
+});
+
+describe('GET /api/admin/archive-pipeline', () => {
+  let adminToken;
+
+  beforeEach(async () => {
+    const login = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    adminToken = login.body.token;
+  });
+
+  it('requires admin auth and reports bounded receipt/spool evidence without claiming reconciliation', async () => {
+    fs.mkdirSync(path.join(TEST_ARCHIVE_SPOOL_DIR, 'direct-receipts'));
+    fs.mkdirSync(path.join(TEST_ARCHIVE_SPOOL_DIR, 'receipts'));
+    fs.writeFileSync(path.join(TEST_ARCHIVE_SPOOL_DIR, 'job-1.payload'), 'payload');
+    fs.writeFileSync(path.join(TEST_ARCHIVE_SPOOL_DIR, 'job-1.meta.json'), JSON.stringify({
+      schema_version: 1,
+      payload_bytes: 7,
+      payload_sha256: 'a'.repeat(64),
+      queued_at: '2026-08-23T00:00:00Z'
+    }));
+    fs.writeFileSync(path.join(TEST_ARCHIVE_SPOOL_DIR, 'direct-receipts', 'direct.receipt.json'), '{}');
+    fs.writeFileSync(path.join(TEST_ARCHIVE_SPOOL_DIR, 'receipts', 'replay.receipt.json'), '{}');
+
+    const unauthorized = await request(app).get('/api/admin/archive-pipeline');
+    expect(unauthorized.statusCode).toBe(401);
+
+    const response = await request(app)
+      .get('/api/admin/archive-pipeline')
+      .set('x-admin-token', adminToken);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toMatchObject({
+      schemaVersion: 'archive_refill_pipeline_v1',
+      spool: {
+        state: 'available',
+        pendingPairs: 1,
+        pendingPayloadBytes: 7,
+        directReceipts: 1,
+        replayReceipts: 1
+      },
+      gapfill: {
+        planner: 'planner_only',
+        executor: 'not_observed'
+      },
+      clickhouseReconciliation: {
+        state: 'unavailable'
+      }
+    });
+    expect(JSON.stringify(response.body)).not.toContain('job-1');
+    expect(JSON.stringify(response.body)).not.toContain('a'.repeat(64));
   });
 });
 
@@ -3901,4 +3958,3 @@ describe('Admin usage monitoring API', () => {
     expect(res.body.error_diagnostics).toBeDefined();
   });
 });
-

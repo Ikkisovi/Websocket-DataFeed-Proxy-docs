@@ -1028,6 +1028,9 @@
     <div class="tab" data-tab="usage" onclick="switchTab(this)">
       用量监控 <span class="count" id="tab-count-usage">—</span>
     </div>
+    <div class="tab" data-tab="archive" onclick="switchTab(this)">
+      Archive / 回填 <span class="count" id="tab-count-archive">—</span>
+    </div>
     <div class="tab" data-tab="payments" onclick="switchTab(this)">
       付费与转化 <span class="count" id="tab-count-payments">0</span>
     </div>
@@ -1119,6 +1122,22 @@
         </div>
         <div id="usage-table-wrap"><div class="empty">正在加载…</div></div>
         <div id="usage-detail" class="usage-detail hidden"></div>
+      </div>
+    </div>
+
+    <div id="panel-archive" class="hidden">
+      <div class="usage-section">
+        <div class="usage-section-head">
+          <div>
+            <div class="usage-section-title">Archive ingest 与回填观察</div>
+            <div class="log-note">只读状态：不会执行上游 gapfill、写 coverage、重放 spool 或重启服务。</div>
+          </div>
+          <button class="btn ghost" type="button" onclick="loadArchivePipeline()">刷新</button>
+        </div>
+        <div class="usage-cards" id="archive-pipeline-cards">
+          <div class="empty">正在加载 archive 状态…</div>
+        </div>
+        <div id="archive-pipeline-detail" class="log-note">spool/receipt 是投递证据，不等于 archive ClickHouse 历史事实表对账。</div>
       </div>
     </div>
 
@@ -1417,6 +1436,7 @@
     document.getElementById('panel-pending').classList.toggle('hidden', tab !== 'pending');
     document.getElementById('panel-all').classList.toggle('hidden', tab !== 'all');
     document.getElementById('panel-usage').classList.toggle('hidden', tab !== 'usage');
+    document.getElementById('panel-archive').classList.toggle('hidden', tab !== 'archive');
     document.getElementById('panel-payments').classList.toggle('hidden', tab !== 'payments');
     document.getElementById('panel-bulk').classList.toggle('hidden', tab !== 'bulk');
     document.getElementById('panel-announce').classList.toggle('hidden', tab !== 'announce');
@@ -1427,6 +1447,7 @@
       tab === 'payments' ? '付费与转化 (CRM)'
         : tab === 'user360' ? '用户全景画像 (User 360)'
         : tab === 'usage' ? '用户用量监控'
+        : tab === 'archive' ? 'Archive / 回填观察'
         : tab === 'announce' ? '公告后台'
         : tab === 'template' ? '注册邮件模板'
         : tab === 'bulk' ? 'Bulk 订单后台'
@@ -1450,6 +1471,7 @@
       clearInterval(usageTimer);
       usageTimer = null;
     }
+    if (tab === 'archive') loadArchivePipeline();
     if (tab === 'announce') loadAnnouncements();
     if (tab === 'bulk') loadData();
     if (tab === 'template') loadEmailTemplate();
@@ -1573,6 +1595,59 @@
     if (!iso) return '—';
     const d = new Date(iso);
     return isNaN(d) ? '—' : d.toLocaleString('zh-CN', { dateStyle: 'short', timeStyle: 'short' });
+  }
+
+  function archiveStateLabel(state) {
+    if (state === 'available') return '可用';
+    if (state === 'planner_only') return '仅规划';
+    if (state === 'not_observed') return '未观测';
+    return '不可用';
+  }
+
+  async function loadArchivePipeline() {
+    const cards = document.getElementById('archive-pipeline-cards');
+    const detail = document.getElementById('archive-pipeline-detail');
+    try {
+      const response = await fetch('/api/admin/archive-pipeline', {
+        headers: { 'X-Admin-Token': adminToken }
+      });
+      if (response.status === 401) { location.reload(); return; }
+      if (!response.ok) throw new Error('archive 状态接口不可用');
+      const data = await response.json();
+      const spool = data.spool || {};
+      const writer = data.archiveWriter || {};
+      const ingest = writer.health?.ingest || {};
+      const gapfill = data.gapfill || {};
+      const cardData = [
+        ['AWS spool', archiveStateLabel(spool.state), `${spool.pendingPairs ?? '—'} pending · ${fmtBytes(spool.pendingPayloadBytes)}`],
+        ['Durable receipts', `${spool.directReceipts ?? '—'} direct`, `${spool.replayReceipts ?? '—'} replay`],
+        ['Spool integrity', `${spool.orphanPayloads ?? '—'} orphan payload`, `${spool.orphanMetadata ?? '—'} orphan metadata · ${spool.partialFiles ?? '—'} partial · ${spool.invalidMetadata ?? '—'} invalid`],
+        ['Archive writer', archiveStateLabel(writer.state), `ClickHouse: ${writer.health?.clickhouse || '—'} · persisted not committed: ${ingest.payload_persisted_not_committed ?? '—'}`],
+        ['Theta / gapfill', archiveStateLabel(gapfill.planner), `QPS ${gapfill.thetaQpsLimit ?? '—'} · C ${gapfill.thetaConcurrencyLimit ?? '—'} · executor ${archiveStateLabel(gapfill.executor)}`],
+        ['ClickHouse 对账', archiveStateLabel(data.clickhouseReconciliation?.state), '未提供独立 archive 事实表对账']
+      ];
+      cards.innerHTML = cardData.map(([key, value, summary]) => `
+        <div class="usage-card">
+          <div class="k">${escHtml(key)}</div>
+          <div class="v">${escHtml(String(value))}</div>
+          <div class="s">${escHtml(String(summary))}</div>
+        </div>`).join('');
+      detail.textContent = [
+        `更新：${fmtTime(data.fetchedAt)}`,
+        spool.oldestQueuedAt ? `最早 pending：${fmtTime(spool.oldestQueuedAt)}` : null,
+        spool.truncated ? '目录计数已截断' : null,
+        spool.detail || null,
+        writer.detail || null,
+        gapfill.detail || null,
+        data.clickhouseReconciliation?.detail || null
+      ].filter(Boolean).join(' · ');
+      document.getElementById('tab-count-archive').textContent =
+        spool.state === 'available' ? String(spool.pendingPairs ?? 0) : '!';
+    } catch (error) {
+      cards.innerHTML = `<div class="empty">加载失败: ${escHtml(error.message)}</div>`;
+      detail.textContent = 'archive 观察接口不可用。';
+      document.getElementById('tab-count-archive').textContent = '!';
+    }
   }
 
   function roleBadge(role, expiresAt) {

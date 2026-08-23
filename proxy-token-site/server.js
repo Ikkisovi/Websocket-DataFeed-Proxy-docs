@@ -4030,6 +4030,18 @@ app.post('/api/admin/login', (req, res) => {
 });
 
 // ============================================================
+// ADMIN: Archive refill observability (read-only)
+// ============================================================
+app.get('/api/admin/archive-pipeline', requireAdmin, async (_req, res) => {
+  try {
+    res.json(await archivePipelineSnapshot());
+  } catch (error) {
+    console.error('Archive pipeline observation failed:', error);
+    res.status(500).json({ error: 'Archive pipeline observation failed.' });
+  }
+});
+
+// ============================================================
 // ADMIN: Registration email template
 // ============================================================
 app.get('/api/admin/email-template', requireAdmin, (_req, res) => {
@@ -6578,6 +6590,134 @@ const PROXY_RT_URL   = process.env.PROXY_RT_URL   || 'https://rt-api.leandata.uk
 const PROXY_WS_HOST  = process.env.PROXY_WS_HOST || '127.0.0.1';
 const PROXY_WS_PORT  = process.env.PROXY_WS_PORT || 8767;
 const STATUS_PROBE_TIMEOUT_MS = Math.max(100, Math.min(Number(process.env.STATUS_PROBE_TIMEOUT_MS) || 3000, 10000));
+const ARCHIVE_INGEST_SPOOL_PATH = process.env.ARCHIVE_INGEST_SPOOL_PATH || '/var/spool/leandata-archive';
+const ARCHIVE_WRITER_URL = String(process.env.ARCHIVE_WRITER_URL || '').replace(/\/+$/, '');
+const ARCHIVE_PIPELINE_TIMEOUT_MS = Math.max(100, Math.min(Number(process.env.ARCHIVE_PIPELINE_TIMEOUT_MS) || 3000, 10000));
+const ARCHIVE_PIPELINE_MAX_ENTRIES = Math.max(128, Math.min(Number(process.env.ARCHIVE_PIPELINE_MAX_ENTRIES) || 4096, 16384));
+
+function archivePipelineSpoolSnapshot(root) {
+  const result = {
+    state: 'unavailable', truncated: false, totalBytes: null, pendingPairs: null,
+    pendingPayloadBytes: null, orphanPayloads: null, orphanMetadata: null,
+    partialFiles: null, invalidMetadata: null, legacyMetadata: null,
+    directReceipts: null, replayReceipts: null, oldestQueuedAt: null, detail: null
+  };
+  try {
+    if (!fs.existsSync(root)) return { ...result, detail: 'Archive ingest spool directory is not mounted.' };
+    const payloads = new Map();
+    const metadata = new Map();
+    let totalBytes = 0;
+    let partialFiles = 0;
+    let invalidMetadata = 0;
+    let legacyMetadata = 0;
+    let oldestQueuedAt = null;
+    const entries = fs.readdirSync(root, { withFileTypes: true });
+    if (entries.length > ARCHIVE_PIPELINE_MAX_ENTRIES) result.truncated = true;
+    for (const entry of entries.slice(0, ARCHIVE_PIPELINE_MAX_ENTRIES)) {
+      if (!entry.isFile()) continue;
+      const filePath = path.join(root, entry.name);
+      const stat = fs.statSync(filePath);
+      totalBytes += stat.size;
+      if (entry.name.endsWith('.partial')) { partialFiles += 1; continue; }
+      if (entry.name.endsWith('.payload')) {
+        payloads.set(entry.name.slice(0, -'.payload'.length), stat.size);
+        continue;
+      }
+      if (!entry.name.endsWith('.meta.json')) continue;
+      const id = entry.name.slice(0, -'.meta.json'.length);
+      metadata.set(id, true);
+      try {
+        const value = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        const valid = value
+          && value.schema_version === 1
+          && Number.isInteger(value.payload_bytes)
+          && value.payload_bytes >= 0
+          && typeof value.payload_sha256 === 'string'
+          && /^[a-f0-9]{64}$/i.test(value.payload_sha256);
+        if (!valid) invalidMetadata += 1;
+        if (value && value.schema_version !== 1) legacyMetadata += 1;
+        if (typeof value?.queued_at === 'string' && (!oldestQueuedAt || value.queued_at < oldestQueuedAt)) {
+          oldestQueuedAt = value.queued_at;
+        }
+      } catch (_) {
+        invalidMetadata += 1;
+      }
+    }
+    const countReceipts = (directory) => {
+      const receiptRoot = path.join(root, directory);
+      if (!fs.existsSync(receiptRoot)) return 0;
+      const receiptEntries = fs.readdirSync(receiptRoot, { withFileTypes: true });
+      if (receiptEntries.length > ARCHIVE_PIPELINE_MAX_ENTRIES) result.truncated = true;
+      return receiptEntries.slice(0, ARCHIVE_PIPELINE_MAX_ENTRIES)
+        .filter(entry => entry.isFile() && entry.name.endsWith('.receipt.json')).length;
+    };
+    const paired = [...payloads.keys()].filter(id => metadata.has(id));
+    return {
+      ...result, state: 'available', totalBytes, pendingPairs: paired.length,
+      pendingPayloadBytes: paired.reduce((sum, id) => sum + (payloads.get(id) || 0), 0),
+      orphanPayloads: [...payloads.keys()].filter(id => !metadata.has(id)).length,
+      orphanMetadata: [...metadata.keys()].filter(id => !payloads.has(id)).length,
+      partialFiles, invalidMetadata, legacyMetadata,
+      directReceipts: countReceipts('direct-receipts'),
+      replayReceipts: countReceipts('receipts'), oldestQueuedAt
+    };
+  } catch (_) {
+    return { ...result, detail: 'Archive ingest spool inventory failed.' };
+  }
+}
+
+async function fetchPipelineHealth(url) {
+  if (!url) return null;
+  let timer;
+  try {
+    const controller = new AbortController();
+    timer = setTimeout(() => controller.abort(), ARCHIVE_PIPELINE_TIMEOUT_MS);
+    const response = await fetch(`${url}/health`, { signal: controller.signal });
+    return response.ok ? await response.json() : null;
+  } catch (_) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function archivePipelineSnapshot() {
+  const [restHealth, archiveWriter] = await Promise.all([
+    fetchPipelineHealth(PROXY_REST_URL),
+    fetchPipelineHealth(ARCHIVE_WRITER_URL)
+  ]);
+  const theta = restHealth?.theta && typeof restHealth.theta === 'object' ? restHealth.theta : null;
+  return {
+    schemaVersion: 'archive_refill_pipeline_v1',
+    fetchedAt: new Date().toISOString(),
+    rest: {
+      state: restHealth ? 'available' : 'unavailable',
+      hotCache: restHealth?.hot_cache || null,
+      archive: restHealth?.archive || null,
+      theta,
+      detail: restHealth ? null : 'Running REST health is unavailable.'
+    },
+    archiveWriter: {
+      state: archiveWriter ? 'available' : (ARCHIVE_WRITER_URL ? 'unavailable' : 'not_observed'),
+      health: archiveWriter,
+      detail: archiveWriter ? null : (ARCHIVE_WRITER_URL ? 'Archive writer health is unavailable.' : 'Archive writer URL is not configured.')
+    },
+    spool: archivePipelineSpoolSnapshot(ARCHIVE_INGEST_SPOOL_PATH),
+    gapfill: {
+      planner: 'planner_only',
+      coverageSource: 'market_archive.coverage_segments',
+      responseCacheRole: 'auxiliary_only_not_used_for_coverage',
+      thetaQpsLimit: theta?.qps_limit ?? null,
+      thetaConcurrencyLimit: theta?.native_concurrent_max ?? null,
+      executor: 'not_observed',
+      detail: 'This view observes released planner inputs only; it does not execute ThetaData gapfill or write coverage.'
+    },
+    clickhouseReconciliation: {
+      state: 'unavailable',
+      detail: 'Receipts and archive-writer health do not independently reconcile historical payloads against ThinkCentre ClickHouse fact tables.'
+    }
+  };
+}
 
 function readStatusData() {
   try {
