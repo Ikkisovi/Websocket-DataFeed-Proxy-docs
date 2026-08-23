@@ -1689,10 +1689,10 @@
         ['Durable receipts', `${spool.directReceipts ?? '—'} direct`, `${spool.replayReceipts ?? '—'} replay · orphan payload ${spool.orphanPayloads ?? '—'} · metadata ${spool.orphanMetadata ?? '—'}`],
         ['Daily archive catch-up', progressState, archiveProgress.state === 'available'
           ? `${progress.start || '—'} to ${progress.end || '—'} · ${progressAccounted ?? '—'} / ${progressTotal ?? '—'} (${progressPercent}) · completed ${progress.completed ?? '—'} · failed ${progress.failed ?? '—'}`
-          : (archiveProgress.detail || 'No bounded ThinkCentre progress receipt.')],
+          : (archiveProgress.detail || 'No bounded archive progress receipt.')],
         ['Archive capacity', archiveProgress.state === 'available' ? fmtBytes(archiveProgress.capacity?.freeBytes) : '—', archiveProgress.state === 'available'
           ? `observed ${fmtTime(archiveProgress.observedAt)} · universe ${archiveProgress.universe?.effective_session || '—'}`
-          : 'Capacity is reported only by the bounded ThinkCentre receipt.'],
+          : 'Capacity is reported only by the bounded archive receipt.'],
         ['Coverage planner', plannerState, 'Immutable manifest planning only; no coverage write is authorized from this page.'],
         ['Coverage audit', archiveStateLabel(coverageAudit.state), coverageAudit.state === 'available'
           ? `${coverageAudit.scope?.start || '—'} to ${coverageAudit.scope?.end || '—'} · EOD missing ${coverageAudit.summary?.eodMissing ?? '—'} · OI missing ${coverageAudit.summary?.oiMissing ?? '—'}`
@@ -1703,11 +1703,11 @@
       const processRows = [
         ['Daily archive catch-up', progressState, archiveProgress.state === 'available'
           ? `range ${progress.start || '—'} to ${progress.end || '—'} · ${progressAccounted ?? '—'} / ${progressTotal ?? '—'} (${progressPercent}) · remaining ${progressRemaining ?? '—'} · completed ${progress.completed ?? '—'} · skipped ${progress.skippedExisting ?? '—'} existing / ${progress.skippedNoData ?? '—'} no-data · failed ${progress.failed ?? '—'} · deferred ${progress.deferred ?? '—'} · ${progress.archiveMode || 'mode unknown'}`
-          : (archiveProgress.detail || 'No bounded ThinkCentre progress receipt.'),
+          : (archiveProgress.detail || 'No bounded archive progress receipt.'),
           fmtTime(archiveProgress.observedAt), true],
         ['Archive capacity', archiveProgress.state === 'available' ? fmtBytes(archiveProgress.capacity?.freeBytes) : '—', archiveProgress.state === 'available'
           ? `approved universe ${archiveProgress.universe?.snapshot_id || '—'} · effective ${archiveProgress.universe?.effective_session || '—'}`
-          : 'Capacity is reported only by the bounded ThinkCentre receipt.', fmtTime(archiveProgress.observedAt), false],
+          : 'Capacity is reported only by the bounded archive receipt.', fmtTime(archiveProgress.observedAt), false],
         ...cardData
           .filter(([key]) => key !== 'Daily archive catch-up' && key !== 'Archive capacity')
           .map(([key, value, summary]) => [key, value, summary, fmtTime(data.fetchedAt), false])

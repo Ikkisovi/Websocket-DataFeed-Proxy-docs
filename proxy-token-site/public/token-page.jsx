@@ -104,8 +104,8 @@ function TokenPage() {
         fontSize: 13,
       }}>
         <span>
-          <strong>最近更新 · 股票 WebSocket 现可定位错误 symbol</strong>
-          　订阅会逐项确认：合法股票继续接收行情，错误股票单独返回 code/msg，并附带 channel 与 symbol。请查看文档中的正确请求、错误示例与处理方式。
+          <strong>最近更新 · 财务历史与 Free 计划说明已更新</strong>
+          　文档现在更容易理解，并明确说明 Free 的可用范围；长期财务历史已恢复，股票日线查不到时也会自动尝试历史归档。
         </span>
         <span style={{ fontFamily: "var(--f-mono)", whiteSpace: "nowrap" }}>查看更新 / View updates →</span>
       </a>

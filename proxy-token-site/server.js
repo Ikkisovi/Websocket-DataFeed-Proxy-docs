@@ -562,6 +562,15 @@ function writeProxyUsersFile(data) {
 
 const PRODUCT_UPDATES = [
   {
+    id: 'financial-history-free-plan-2026-08',
+    date: '2026-08-23',
+    title: '财务历史与 Free 计划说明已更新',
+    title_en: 'Financial history and Free plan guidance updated',
+    body: '我们重新整理了文档，让常用接口和套餐范围更容易理解。Free 计划可查询最近 31 天的历史行情和最近两个期权到期周期；主动指定 FMP 或使用财务数据接口仍需 Premium。我们也修复了部分财报和基本面只能看到近一年数据的问题。股票日线默认使用持续更新的 Alpaca 数据，查不到时会自动尝试 FMP 历史归档，调用方式不变。',
+    body_en: 'We reorganized the docs to make common endpoints and plan limits easier to understand. Free includes the most recent 31 days of market history and the nearest two option expiration cycles; explicitly requesting FMP or financial-data endpoints still requires Premium. We also fixed an issue that limited some statements and fundamentals to about one year. Daily stock history uses regularly updated Alpaca data first and automatically tries the FMP historical archive when no data is available, with no client changes required.',
+    tag: 'Docs · Data coverage'
+  },
+  {
     id: 'auth-abuse-protection-2026-08',
     date: '2026-08-18',
     title: '认证滥用防护已启用：5 分钟临时封禁与 7/30 天隐私保留',

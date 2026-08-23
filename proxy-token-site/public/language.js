@@ -692,8 +692,8 @@
     "单只股票最新成交记录。": "Retrieve the latest trade for one stock.",
 
     // Token, registration, account, and product-update pages.
-    "最近更新 · 股票 WebSocket 现可定位错误 symbol": "Latest update · Stock WebSocket now identifies invalid symbols",
-    "订阅会逐项确认：合法股票继续接收行情，错误股票单独返回 code/msg，并附带 channel 与 symbol。请查看文档中的正确请求、错误示例与处理方式。": "Subscriptions are acknowledged per symbol: valid stocks continue streaming, while invalid symbols return their own code and message with channel and symbol context. See the documentation for valid requests, error examples, and handling guidance.",
+    "最近更新 · 财务历史与 Free 计划说明已更新": "Latest update · Financial history and Free plan guidance updated",
+    "文档现在更容易理解，并明确说明 Free 的可用范围；长期财务历史已恢复，股票日线查不到时也会自动尝试历史归档。": "The docs are now easier to follow and clearly explain Free plan coverage. Long-term financial history is restored, and daily stock requests automatically try the historical archive when needed.",
     "仅限已审核账户。输入注册时的用户名和手机号，即可恢复现有 Token；只有缺失时才会生成新的 UUID 并完成账户访问更新。": "Approved accounts only. Enter the username and phone number used at registration to recover the existing token. A new UUID is issued only when no token exists.",
     "下载公开 skill，让 AI agent 按正确字段拉取数据，并分析 400–504 错误。内容不包含服务内部实现。": "Download the public skill so an AI agent can request data with the correct fields and analyze HTTP 400–504 errors. It contains no internal service implementation details.",
     "Token ready · 请复制并安全保存": "Token ready · Copy and store it securely",

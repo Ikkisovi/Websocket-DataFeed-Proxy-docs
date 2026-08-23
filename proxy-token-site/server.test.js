@@ -1103,7 +1103,8 @@ describe('Registration and bulk product UI contract', () => {
   it('adds a bilingual updates banner and updates page entry point', () => {
     const updatesHtml = fs.readFileSync(path.join(__dirname, 'public', 'updates.html'), 'utf8');
     const updatesSource = fs.readFileSync(path.join(__dirname, 'public', 'updates-page.jsx'), 'utf8');
-    expect(tokenPageSource).toContain('股票 WebSocket 现可定位错误 symbol');
+    expect(tokenPageSource).toContain('财务历史与 Free 计划说明已更新');
+    expect(tokenPageSource).toContain('股票日线查不到时也会自动尝试历史归档');
     expect(tokenPageSource).toContain('href="/updates"');
     expect(tokenPageSource).toContain('查看更新 / View updates →');
     expect(updatesHtml).toContain('src="/assets/updates-page.js"');
@@ -1153,6 +1154,12 @@ describe('Product updates and account-scoped feedback', () => {
     const updates = await request(app).get('/api/product-updates');
     expect(updates.statusCode).toBe(200);
     expect(updates.body.updates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'financial-history-free-plan-2026-08',
+        date: '2026-08-23',
+        title: expect.stringContaining('财务历史'),
+        body: expect.stringContaining('最近 31 天')
+      }),
       expect.objectContaining({
         id: 'ws-symbol-error-isolation-2026-08',
         date: '2026-08-06',
