@@ -7,6 +7,15 @@ description: Fetch market data from the public Leandata REST API and diagnose HT
 
 Use only the public API contract. Do not infer or explain private infrastructure, vendors, routing, caches, or implementation details.
 
+## Free plan quota and boundaries
+
+When operating under a Free plan token (`role: free`):
+
+1. **REST Historical Window:** Historical REST requests (`/v2/stocks/bars`, `/v1/history/bars`, `/v1/indices/history`, `/v1/options/eod`) **must include explicit `start` and `end` bounds within the most recent 31 calendar days**. Dates older than 31 days or requests with missing bounds fail with `403 free_historical_window_exceeded` or `403 free_historical_date_range_required`.
+2. **Option Chains and Snapshots:** Contract discovery (`/v1/options/contracts`) and option Greeks snapshots (`/v1/options/snapshots/expiry`, `/v1/options/snapshots/{underlying}`) are limited to the **nearest 2 upcoming expiration cycles** (e.g. 0DTE and nearest weekly/monthly expiries). Requesting further-out expirations fails with `403 free_option_chain_window_exceeded`.
+3. **Financial Fundamentals:** Corporate financial statements (Income Statement, Balance Sheet, Cash Flow) require an active **Premium** subscription and fail with `403 fmp_premium_required`.
+4. **Upgrade Guidance:** When encountering `403 free_*_exceeded`, guide the user to upgrade their plan at `https://leandata.uk/account.html`.
+
 ## Request workflow
 
 1. Use `https://api.leandata.uk` for historical REST requests.
@@ -55,7 +64,7 @@ Capture the HTTP status, response JSON, request ID header/body field, endpoint, 
 |---|---|---|
 | `400` | Invalid request | Read `error`/`message`; check required fields, date order/format, timeframe, JSON, and symbol format. Do not retry unchanged. |
 | `401` | Missing or invalid authentication | Confirm the Bearer header is present and the token has no extra quotes or whitespace. Do not expose it. |
-| `403` | Permission or request-policy rejection | Read the error body and account usage endpoint. Reduce the request or use an authorized endpoint; do not retry unchanged. |
+| `403` | Permission or request-policy rejection | Check error code: `free_historical_window_exceeded` (needs <=31 days bounds), `free_option_chain_window_exceeded` (needs nearest 2 expiries), `fmp_premium_required` (needs Premium plan). Read the error body and account usage endpoint; guide user to upgrade at `https://leandata.uk/account.html`. |
 | `404` | Route or resource not found | Verify the exact documented path. A missing result is not proof that the symbol never existed. |
 | `408` | Request timeout | Retry a smaller date window with exponential backoff. |
 | `429` | Invalid-token abuse protection, concurrency, or rate limit | If `error` is `invalid_token_rate_limited` or `invalid_token_temporarily_blocked`, stop retrying the unchanged credential, honor `Retry-After`, and obtain/verify a token first. For other `429` responses, stop parallel calls and retry with exponential backoff and jitter. |

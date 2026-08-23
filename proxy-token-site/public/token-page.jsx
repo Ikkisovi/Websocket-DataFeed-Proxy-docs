@@ -125,7 +125,7 @@ function TokenPage() {
           <div className="card" style={{ padding: 14, marginBottom: 24 }}>
             <div className="eyebrow" style={{ marginBottom: 6 }}>AI agent skill</div>
             <p style={{ color: "var(--ink-muted)", fontSize: 12.5, lineHeight: 1.55, margin: "0 0 10px" }}>
-              下载公开 skill，让 AI agent 按正确字段拉取数据，并分析 400–504 错误。内容不包含服务内部实现。
+              下载公开 skill，让 AI agent（如 Claude Code / Cursor / Codex）按正确规范拉取数据，包含 Free 计划范围约束与 400–504 错误分析。
             </p>
             <a
               className="btn"
