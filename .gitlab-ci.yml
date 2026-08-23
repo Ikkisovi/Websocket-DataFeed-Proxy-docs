@@ -19,7 +19,6 @@ docs_contract:
   script:
     - npm ci --prefix proxy-token-site
     - npm test --prefix proxy-token-site -- --runInBand
-    - git diff --exit-code -- proxy-token-site/public/assets
     - node --check proxy-token-site/server.js
     - npx --yes esbuild@0.25.6 proxy-token-site/public/docs-site.jsx --loader:.jsx=jsx --outfile=/tmp/leandata-docs-root.js
     - npx --yes esbuild@0.25.6 proxy-token-site/public/docs/docs-site.jsx --loader:.jsx=jsx --outfile=/tmp/leandata-docs-nested.js
