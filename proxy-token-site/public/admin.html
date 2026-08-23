@@ -1665,9 +1665,18 @@
       const progressPercent = progressTotal && progressAccounted !== null
         ? `${((progressAccounted / progressTotal) * 100).toFixed(1)}%`
         : '—';
-      const progressState = archiveProgress.state === 'available'
-        ? `${archiveProgress.unit?.active_state || 'unknown'} / ${archiveProgress.container?.state || 'unknown'}`
-        : archiveStateLabel(archiveProgress.state);
+      const progressRemaining = progressTotal !== null && progressAccounted !== null
+        ? progressTotal - progressAccounted
+        : null;
+      const progressState = archiveProgress.state !== 'available'
+        ? archiveStateLabel(archiveProgress.state)
+        : archiveProgress.unit?.active_state === 'active' && archiveProgress.container?.state === 'running'
+          ? 'active / running'
+          : progressRemaining === 0
+            ? 'complete'
+            : progressRemaining !== null && progressRemaining > 0
+              ? `stopped: ${progressRemaining} unaccounted`
+              : `${archiveProgress.unit?.active_state || 'unknown'} / ${archiveProgress.container?.state || 'unknown'}`;
       const cardData = [
         ['AWS archive transport', archiveStateLabel(writer.state), `ClickHouse: ${writer.health?.clickhouse || '—'} · route ${archive.automatic_route || '—'}`],
         ['Archive ingest (REST)', data.rest?.state === 'available' ? 'running' : 'unavailable', `${archiveMode} · ${restUptime} · concurrency ${hotCache.archive_ingest_concurrent_max ?? '—'}`],
@@ -1693,7 +1702,7 @@
       ];
       const processRows = [
         ['Daily archive catch-up', progressState, archiveProgress.state === 'available'
-          ? `range ${progress.start || '—'} to ${progress.end || '—'} · ${progressAccounted ?? '—'} / ${progressTotal ?? '—'} (${progressPercent}) · completed ${progress.completed ?? '—'} · skipped ${progress.skippedExisting ?? '—'} existing / ${progress.skippedNoData ?? '—'} no-data · failed ${progress.failed ?? '—'} · deferred ${progress.deferred ?? '—'} · ${progress.archiveMode || 'mode unknown'}`
+          ? `range ${progress.start || '—'} to ${progress.end || '—'} · ${progressAccounted ?? '—'} / ${progressTotal ?? '—'} (${progressPercent}) · remaining ${progressRemaining ?? '—'} · completed ${progress.completed ?? '—'} · skipped ${progress.skippedExisting ?? '—'} existing / ${progress.skippedNoData ?? '—'} no-data · failed ${progress.failed ?? '—'} · deferred ${progress.deferred ?? '—'} · ${progress.archiveMode || 'mode unknown'}`
           : (archiveProgress.detail || 'No bounded ThinkCentre progress receipt.'),
           fmtTime(archiveProgress.observedAt), true],
         ['Archive capacity', archiveProgress.state === 'available' ? fmtBytes(archiveProgress.capacity?.freeBytes) : '—', archiveProgress.state === 'available'
