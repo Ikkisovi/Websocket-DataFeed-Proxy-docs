@@ -6714,6 +6714,7 @@ async function archivePipelineSnapshot() {
       state: restHealth ? 'available' : 'unavailable',
       hotCache: restHealth?.hot_cache || null,
       archive: restHealth?.archive || null,
+      uptimeSeconds: Number.isFinite(restHealth?.uptime_seconds) ? restHealth.uptime_seconds : null,
       theta,
       detail: restHealth ? null : 'Running REST health is unavailable.'
     },

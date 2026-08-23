@@ -1627,15 +1627,27 @@
         const digests = includeDigests ? ` · ${fact.distinct_sha256 ?? '—'} SHA` : '';
         return [label, `${fact.rows ?? '—'} rows${digests}`, range];
       };
+      const hotCache = data.rest?.hotCache || {};
+      const archive = data.rest?.archive || {};
+      const restUptime = Number.isFinite(data.rest?.uptimeSeconds)
+        ? `${Math.floor(data.rest.uptimeSeconds / 60)} min uptime`
+        : 'uptime unavailable';
+      const archiveMode = archive.enabled && archive.shadow_enabled ? 'shadow enabled' : 'disabled';
+      const writerProcess = writer.health?.service || 'writer service';
+      const plannerState = gapfill.planner === 'planner_only' ? 'CLI only' : archiveStateLabel(gapfill.planner);
+      const executorState = gapfill.executor === 'not_observed' ? 'blocked: not deployed' : archiveStateLabel(gapfill.executor);
       const cardData = [
-        ['AWS archive transport', archiveStateLabel(writer.state), `ClickHouse: ${writer.health?.clickhouse || '—'} · route ${data.rest?.archive?.automatic_route || '—'}`],
+        ['AWS archive transport', archiveStateLabel(writer.state), `ClickHouse: ${writer.health?.clickhouse || '—'} · route ${archive.automatic_route || '—'}`],
+        ['Archive ingest (REST)', data.rest?.state === 'available' ? 'running' : 'unavailable', `${archiveMode} · ${restUptime} · concurrency ${hotCache.archive_ingest_concurrent_max ?? '—'}`],
+        ['Ingest activity since REST start', `queued ${hotCache.ingest_spool_queued ?? '—'} · replayed ${hotCache.ingest_spool_replayed ?? '—'}`, `direct receipt failed ${hotCache.ingest_direct_receipt_failed ?? '—'} · spool receipt failed ${hotCache.ingest_spool_receipt_failed ?? '—'}`],
+        ['Archive writer process', archiveStateLabel(writer.state), `${writerProcess} · received ${ingest.received ?? '—'} · committed ${ingest.clickhouse_committed ?? '—'}`],
         factCard('Retained responses', 'response_cache'),
         factCard('Ingest file facts', 'ingest_files'),
         factCard('Coverage facts', 'coverage_segments', false),
-        ['Writer since restart', `received ${ingest.received ?? '—'}`, `committed ${ingest.clickhouse_committed ?? '—'} · persisted not committed ${ingest.payload_persisted_not_committed ?? '—'}`],
-        ['AWS spool', archiveStateLabel(spool.state), `${spool.pendingPairs ?? '—'} pending · ${fmtBytes(spool.pendingPayloadBytes)}`],
-        ['Durable receipts', `${spool.directReceipts ?? '—'} direct`, `${spool.replayReceipts ?? '—'} replay`],
-        ['Theta / gapfill', archiveStateLabel(gapfill.planner), `QPS ${gapfill.thetaQpsLimit ?? '—'} · C ${gapfill.thetaConcurrencyLimit ?? '—'} · executor ${archiveStateLabel(gapfill.executor)}`]
+        ['AWS spool', archiveStateLabel(spool.state), `${spool.pendingPairs ?? '—'} pending · ${fmtBytes(spool.pendingPayloadBytes)} · ${spool.partialFiles ?? '—'} partial`],
+        ['Durable receipts', `${spool.directReceipts ?? '—'} direct`, `${spool.replayReceipts ?? '—'} replay · orphan payload ${spool.orphanPayloads ?? '—'} · metadata ${spool.orphanMetadata ?? '—'}`],
+        ['Coverage planner', plannerState, 'Immutable manifest planning only; no coverage write is authorized from this page.'],
+        ['Gapfill executor', executorState, `No canary run exists. QPS ${gapfill.thetaQpsLimit ?? '—'} · native concurrency ${gapfill.thetaConcurrencyLimit ?? '—'}`]
       ];
       cards.innerHTML = cardData.map(([key, value, summary]) => `
         <div class="usage-card">
@@ -1650,6 +1662,7 @@
         spool.detail || null,
         writer.detail || null,
         gapfill.detail || null,
+        executorState === 'blocked: not deployed' ? 'No automatic or manual upstream gapfill process is installed. A real canary remains blocked until immutable-manifest executor and durable admission ledger controls exist.' : null,
         reconciliation.detail || null,
         reconciliation.state === 'available' ? 'ClickHouse retained facts are independent of writer process-lifetime counters.' : null
       ].filter(Boolean).join(' · ');

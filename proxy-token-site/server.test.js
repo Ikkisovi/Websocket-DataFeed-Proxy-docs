@@ -215,7 +215,7 @@ describe('GET /api/admin/archive-pipeline', () => {
     adminToken = login.body.token;
   });
 
-  it('requires admin auth and reports bounded receipt/spool evidence without claiming reconciliation', async () => {
+  it('requires admin auth and reports bounded receipt, spool, and reconciliation evidence', async () => {
     fs.mkdirSync(path.join(TEST_ARCHIVE_SPOOL_DIR, 'direct-receipts'));
     fs.mkdirSync(path.join(TEST_ARCHIVE_SPOOL_DIR, 'receipts'));
     fs.writeFileSync(path.join(TEST_ARCHIVE_SPOOL_DIR, 'job-1.payload'), 'payload');
