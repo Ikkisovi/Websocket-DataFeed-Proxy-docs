@@ -6597,6 +6597,7 @@ const ARCHIVE_PIPELINE_TIMEOUT_MS = Math.max(100, Math.min(Number(process.env.AR
 const ARCHIVE_PIPELINE_MAX_ENTRIES = Math.max(128, Math.min(Number(process.env.ARCHIVE_PIPELINE_MAX_ENTRIES) || 4096, 16384));
 const ARCHIVE_GAPFILL_CONTROL_ROOT = process.env.ARCHIVE_GAPFILL_CONTROL_ROOT || '/var/lib/leandata-gapfill';
 const ARCHIVE_GAPFILL_EXECUTOR_MODE = String(process.env.ARCHIVE_GAPFILL_EXECUTOR_MODE || 'not_installed');
+const ARCHIVE_GAPFILL_AUDIT_MAX_BYTES = 1024 * 1024;
 
 function archivePipelineSpoolSnapshot(root) {
   const result = {
@@ -6666,6 +6667,63 @@ function archivePipelineSpoolSnapshot(root) {
     };
   } catch (_) {
     return { ...result, detail: 'Archive ingest spool inventory failed.' };
+  }
+}
+
+function archiveCoverageAuditSnapshot(root) {
+  const result = {
+    state: 'not_observed', auditId: null, reportSha256: null, fileSha256: null,
+    scope: null, inputHashes: null, summary: null, gapIntervals: null, detail: null
+  };
+  try {
+    const auditsRoot = path.join(root, 'audits');
+    if (!fs.existsSync(auditsRoot)) return { ...result, detail: 'No coverage audit evidence is mounted.' };
+    const candidates = fs.readdirSync(auditsRoot, { withFileTypes: true })
+      .filter(entry => entry.isDirectory() && /^[a-z0-9][a-z0-9._-]{2,95}$/.test(entry.name))
+      .map(entry => ({ id: entry.name, report: path.join(auditsRoot, entry.name, 'report.json') }))
+      .filter(entry => fs.existsSync(entry.report))
+      .slice(0, ARCHIVE_PIPELINE_MAX_ENTRIES);
+    if (!candidates.length) return { ...result, detail: 'No coverage audit report is available.' };
+    const latest = candidates.map(entry => ({ ...entry, mtime: fs.statSync(entry.report).mtimeMs }))
+      .sort((left, right) => right.mtime - left.mtime || right.id.localeCompare(left.id))[0];
+    const stat = fs.statSync(latest.report);
+    if (stat.size > ARCHIVE_GAPFILL_AUDIT_MAX_BYTES) {
+      return { ...result, state: 'unavailable', detail: 'Coverage audit report exceeds bounded Admin read size.' };
+    }
+    const payload = JSON.parse(fs.readFileSync(latest.report, 'utf8'));
+    if (!payload || typeof payload !== 'object' || payload.kind !== 'leandata_canonical_coverage_audit'
+      || payload.read_only !== true || !payload.summary || typeof payload.summary !== 'object') {
+      return { ...result, state: 'unavailable', detail: 'Coverage audit report has an invalid contract.' };
+    }
+    const schemas = payload.summary.schemas;
+    const eod = schemas?.eod;
+    const oi = schemas?.oi;
+    if (!eod || !oi || !Number.isSafeInteger(eod.missing_cells) || !Number.isSafeInteger(oi.missing_cells)
+      || !Array.isArray(payload.scope?.sessions) || !payload.inputs || typeof payload.report_sha256 !== 'string') {
+      return { ...result, state: 'unavailable', detail: 'Coverage audit report is incomplete.' };
+    }
+    return {
+      state: 'available', auditId: latest.id, reportSha256: payload.report_sha256,
+      fileSha256: crypto.createHash('sha256').update(fs.readFileSync(latest.report)).digest('hex'),
+      scope: { start: payload.scope.start, end: payload.scope.end, sessions: payload.scope.sessions.length },
+      inputHashes: {
+        coverageSnapshot: payload.inputs.coverage_snapshot_sha256,
+        universe: payload.inputs.universe_manifest_sha256,
+        marketHours: payload.inputs.market_hours_sha256
+      },
+      summary: {
+        expectedSymbols: payload.summary.expected_symbols,
+        expectedSessions: payload.summary.expected_sessions,
+        eodMissing: eod.missing_cells,
+        oiMissing: oi.missing_cells,
+        eodKnownEmpty: eod.known_empty_cells,
+        oiKnownEmpty: oi.known_empty_cells
+      },
+      gapIntervals: Array.isArray(payload.gap_intervals) ? payload.gap_intervals.length : null,
+      detail: null
+    };
+  } catch (_) {
+    return { ...result, state: 'unavailable', detail: 'Coverage audit evidence inventory failed.' };
   }
 }
 
@@ -6771,6 +6829,7 @@ async function archivePipelineSnapshot() {
     },
     spool: archivePipelineSpoolSnapshot(ARCHIVE_INGEST_SPOOL_PATH),
     gapfillControl: archiveGapfillControlSnapshot(ARCHIVE_GAPFILL_CONTROL_ROOT),
+    coverageAudit: archiveCoverageAuditSnapshot(ARCHIVE_GAPFILL_CONTROL_ROOT),
     gapfill: {
       planner: 'planner_only',
       coverageSource: 'market_archive.coverage_segments',

@@ -1619,6 +1619,7 @@
       const ingest = writer.health?.ingest || {};
       const gapfill = data.gapfill || {};
       const gapfillControl = data.gapfillControl || {};
+      const coverageAudit = data.coverageAudit || {};
       const reconciliation = data.clickhouseReconciliation || {};
       const factTables = reconciliation.facts?.tables || {};
       const factCard = (label, key, includeDigests = true) => {
@@ -1653,6 +1654,9 @@
         ['AWS spool', archiveStateLabel(spool.state), `${spool.pendingPairs ?? '—'} pending · ${fmtBytes(spool.pendingPayloadBytes)} · ${spool.partialFiles ?? '—'} partial`],
         ['Durable receipts', `${spool.directReceipts ?? '—'} direct`, `${spool.replayReceipts ?? '—'} replay · orphan payload ${spool.orphanPayloads ?? '—'} · metadata ${spool.orphanMetadata ?? '—'}`],
         ['Coverage planner', plannerState, 'Immutable manifest planning only; no coverage write is authorized from this page.'],
+        ['Coverage audit', archiveStateLabel(coverageAudit.state), coverageAudit.state === 'available'
+          ? `${coverageAudit.scope?.start || '—'} to ${coverageAudit.scope?.end || '—'} · EOD missing ${coverageAudit.summary?.eodMissing ?? '—'} · OI missing ${coverageAudit.summary?.oiMissing ?? '—'}`
+          : (coverageAudit.detail || 'No immutable coverage audit report.')],
         ['Canary admission ledger', archiveStateLabel(gapfillControl.state), `manifests ${gapfillControl.manifests ?? '—'} · admitted ${gapfillControl.admitted ?? '—'} · terminal ${gapfillControl.terminal ?? '—'} · active ${gapfillControl.activeRuns ?? '—'}`],
         ['Gapfill executor', executorState, `${terminalSummary} · idempotent reruns ${gapfillControl.idempotentReplays ?? '—'} · QPS ${gapfill.thetaQpsLimit ?? '—'} · native concurrency ${gapfill.thetaConcurrencyLimit ?? '—'}`]
       ];
@@ -1669,6 +1673,8 @@
         spool.detail || null,
         writer.detail || null,
         gapfill.detail || null,
+        coverageAudit.detail || null,
+        coverageAudit.state === 'available' ? `Coverage audit ${coverageAudit.auditId}: ${coverageAudit.scope?.sessions ?? '—'} NYSE sessions · ${coverageAudit.gapIntervals ?? '—'} gap intervals · report ${coverageAudit.reportSha256 || '—'}` : null,
         gapfillControl.detail || null,
         gapfillControl.lastEventAt ? `Ledger last event: ${fmtTime(gapfillControl.lastEventAt)}` : null,
         gapfillControl.latestRun ? `Latest terminal run: ${gapfillControl.latestRun.runId} (${gapfillControl.latestRun.outcome})` : null,
