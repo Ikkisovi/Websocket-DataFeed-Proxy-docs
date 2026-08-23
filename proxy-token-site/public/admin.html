@@ -1620,6 +1620,7 @@
       const gapfill = data.gapfill || {};
       const gapfillControl = data.gapfillControl || {};
       const coverageAudit = data.coverageAudit || {};
+      const archiveProgress = data.archiveProgress || {};
       const reconciliation = data.clickhouseReconciliation || {};
       const factTables = reconciliation.facts?.tables || {};
       const factCard = (label, key, includeDigests = true) => {
@@ -1643,6 +1644,15 @@
       const terminalSummary = gapfillControl.terminal
         ? Object.entries(gapfillControl.outcomes || {}).map(([name, count]) => `${name} ${count}`).join(' · ')
         : 'no terminal canary receipt';
+      const progress = archiveProgress.progress || {};
+      const progressTotal = Number.isFinite(progress.total) ? progress.total : null;
+      const progressAccounted = Number.isFinite(progress.accounted) ? progress.accounted : null;
+      const progressPercent = progressTotal && progressAccounted !== null
+        ? `${((progressAccounted / progressTotal) * 100).toFixed(1)}%`
+        : '—';
+      const progressState = archiveProgress.state === 'available'
+        ? `${archiveProgress.unit?.active_state || 'unknown'} / ${archiveProgress.container?.state || 'unknown'}`
+        : archiveStateLabel(archiveProgress.state);
       const cardData = [
         ['AWS archive transport', archiveStateLabel(writer.state), `ClickHouse: ${writer.health?.clickhouse || '—'} · route ${archive.automatic_route || '—'}`],
         ['Archive ingest (REST)', data.rest?.state === 'available' ? 'running' : 'unavailable', `${archiveMode} · ${restUptime} · concurrency ${hotCache.archive_ingest_concurrent_max ?? '—'}`],
@@ -1653,6 +1663,12 @@
         factCard('Coverage facts', 'coverage_segments', false),
         ['AWS spool', archiveStateLabel(spool.state), `${spool.pendingPairs ?? '—'} pending · ${fmtBytes(spool.pendingPayloadBytes)} · ${spool.partialFiles ?? '—'} partial`],
         ['Durable receipts', `${spool.directReceipts ?? '—'} direct`, `${spool.replayReceipts ?? '—'} replay · orphan payload ${spool.orphanPayloads ?? '—'} · metadata ${spool.orphanMetadata ?? '—'}`],
+        ['Daily archive catch-up', progressState, archiveProgress.state === 'available'
+          ? `${progress.start || '—'} to ${progress.end || '—'} · ${progressAccounted ?? '—'} / ${progressTotal ?? '—'} (${progressPercent}) · completed ${progress.completed ?? '—'} · failed ${progress.failed ?? '—'}`
+          : (archiveProgress.detail || 'No bounded ThinkCentre progress receipt.')],
+        ['Archive capacity', archiveProgress.state === 'available' ? fmtBytes(archiveProgress.capacity?.freeBytes) : '—', archiveProgress.state === 'available'
+          ? `observed ${fmtTime(archiveProgress.observedAt)} · universe ${archiveProgress.universe?.effective_session || '—'}`
+          : 'Capacity is reported only by the bounded ThinkCentre receipt.'],
         ['Coverage planner', plannerState, 'Immutable manifest planning only; no coverage write is authorized from this page.'],
         ['Coverage audit', archiveStateLabel(coverageAudit.state), coverageAudit.state === 'available'
           ? `${coverageAudit.scope?.start || '—'} to ${coverageAudit.scope?.end || '—'} · EOD missing ${coverageAudit.summary?.eodMissing ?? '—'} · OI missing ${coverageAudit.summary?.oiMissing ?? '—'}`

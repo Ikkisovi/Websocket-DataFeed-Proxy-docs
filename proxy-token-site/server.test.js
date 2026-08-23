@@ -27,6 +27,7 @@ process.env.PROXY_WS_HOST = '127.0.0.1';         // fast-fail WS probe (ECONNREF
 process.env.PROXY_WS_PORT = '1';
 process.env.ARCHIVE_INGEST_SPOOL_PATH = TEST_ARCHIVE_SPOOL_DIR;
 process.env.ARCHIVE_WRITER_URL = 'http://127.0.0.1:1';
+process.env.ARCHIVE_READER_URL = 'http://127.0.0.1:1';
 process.env.ARCHIVE_RECONCILIATION_TOKEN = 'test-reconciliation-token';
 process.env.ARCHIVE_GAPFILL_CONTROL_ROOT = TEST_GAPFILL_CONTROL_DIR;
 process.env.ARCHIVE_GAPFILL_EXECUTOR_MODE = 'installed';
@@ -299,6 +300,9 @@ describe('GET /api/admin/archive-pipeline', () => {
         gapIntervals: 1
       },
       clickhouseReconciliation: {
+        state: 'unavailable'
+      },
+      archiveProgress: {
         state: 'unavailable'
       }
     });

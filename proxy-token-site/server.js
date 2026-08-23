@@ -6592,6 +6592,7 @@ const PROXY_WS_PORT  = process.env.PROXY_WS_PORT || 8767;
 const STATUS_PROBE_TIMEOUT_MS = Math.max(100, Math.min(Number(process.env.STATUS_PROBE_TIMEOUT_MS) || 3000, 10000));
 const ARCHIVE_INGEST_SPOOL_PATH = process.env.ARCHIVE_INGEST_SPOOL_PATH || '/var/spool/leandata-archive';
 const ARCHIVE_WRITER_URL = String(process.env.ARCHIVE_WRITER_URL || '').replace(/\/+$/, '');
+const ARCHIVE_READER_URL = String(process.env.ARCHIVE_READER_URL || '').replace(/\/+$/, '');
 const ARCHIVE_RECONCILIATION_TOKEN = String(process.env.ARCHIVE_RECONCILIATION_TOKEN || '').trim();
 const ARCHIVE_PIPELINE_TIMEOUT_MS = Math.max(100, Math.min(Number(process.env.ARCHIVE_PIPELINE_TIMEOUT_MS) || 3000, 10000));
 const ARCHIVE_PIPELINE_MAX_ENTRIES = Math.max(128, Math.min(Number(process.env.ARCHIVE_PIPELINE_MAX_ENTRIES) || 4096, 16384));
@@ -6804,11 +6805,49 @@ async function fetchArchiveReconciliation(url) {
   }
 }
 
+async function fetchArchiveProgress(url) {
+  if (!url || !ARCHIVE_RECONCILIATION_TOKEN) return null;
+  let timer;
+  try {
+    const controller = new AbortController();
+    timer = setTimeout(() => controller.abort(), ARCHIVE_PIPELINE_TIMEOUT_MS);
+    const response = await fetch(`${url}/v1/archive-progress`, {
+      headers: { 'X-Leandata-Reconciliation-Token': ARCHIVE_RECONCILIATION_TOKEN },
+      signal: controller.signal
+    });
+    if (!response.ok) return null;
+    const value = await response.json();
+    const progress = value?.progress;
+    const allowed = ['total', 'accounted', 'completed', 'skipped_existing', 'skipped_no_data', 'failed', 'deferred'];
+    if (value?.schema !== 'leandata_archive_progress_v1' || !progress
+      || !allowed.every(key => Number.isSafeInteger(progress[key]) && progress[key] >= 0)
+      || progress.accounted > progress.total || !Number.isSafeInteger(value?.capacity?.free_bytes)) return null;
+    return {
+      observedAt: value.observed_at_utc,
+      unit: value.unit,
+      container: value.container,
+      progress: {
+        start: progress.start, end: progress.end, total: progress.total, accounted: progress.accounted,
+        completed: progress.completed, skippedExisting: progress.skipped_existing,
+        skippedNoData: progress.skipped_no_data, failed: progress.failed, deferred: progress.deferred,
+        archiveMode: progress.archive_mode, coverageMode: progress.coverage_mode
+      },
+      capacity: { freeBytes: value.capacity.free_bytes },
+      universe: value.universe
+    };
+  } catch (_) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function archivePipelineSnapshot() {
-  const [restHealth, archiveWriter, reconciliation] = await Promise.all([
+  const [restHealth, archiveWriter, reconciliation, archiveProgress] = await Promise.all([
     fetchPipelineHealth(PROXY_REST_URL),
     fetchPipelineHealth(ARCHIVE_WRITER_URL),
-    fetchArchiveReconciliation(ARCHIVE_WRITER_URL)
+    fetchArchiveReconciliation(ARCHIVE_WRITER_URL),
+    fetchArchiveProgress(ARCHIVE_READER_URL)
   ]);
   const theta = restHealth?.theta && typeof restHealth.theta === 'object' ? restHealth.theta : null;
   return {
@@ -6838,6 +6877,11 @@ async function archivePipelineSnapshot() {
       thetaConcurrencyLimit: theta?.native_concurrent_max ?? null,
       executor: 'not_observed',
       detail: 'This view observes released planner inputs only; it does not execute ThetaData gapfill or write coverage.'
+    },
+    archiveProgress: {
+      state: archiveProgress ? 'available' : (ARCHIVE_READER_URL && ARCHIVE_RECONCILIATION_TOKEN ? 'unavailable' : 'not_observed'),
+      ...archiveProgress,
+      detail: archiveProgress ? null : (ARCHIVE_READER_URL ? 'ThinkCentre daily archive progress is unavailable.' : 'Archive reader URL is not configured.')
     },
     clickhouseReconciliation: {
       state: reconciliation ? 'available' : (ARCHIVE_WRITER_URL && ARCHIVE_RECONCILIATION_TOKEN ? 'unavailable' : 'not_observed'),
