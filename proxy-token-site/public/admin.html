@@ -640,6 +640,21 @@
 
     /* ── Usage monitoring ── */
     .usage-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .archive-process-board { grid-column: 1 / -1; border: 1px solid var(--rule-strong); border-radius: var(--radius-lg); overflow: hidden; background: var(--bg-paper); }
+    .archive-process-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--rule-strong); }
+    .archive-process-head strong { font-family: var(--f-display); font-size: 20px; color: var(--ink-strong); }
+    .archive-process-head span { font-family: var(--f-mono); font-size: 11px; color: var(--ink-muted); }
+    .archive-process-wrap { overflow-x: auto; }
+    .archive-process-table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 13px; }
+    .archive-process-table th { padding: 9px 16px; text-align: left; font-family: var(--f-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); background: var(--bg); border-bottom: 1px solid var(--rule); }
+    .archive-process-table td { padding: 11px 16px; vertical-align: top; border-bottom: 1px solid var(--rule); }
+    .archive-process-table tr:last-child td { border-bottom: 0; }
+    .archive-process-name { min-width: 175px; font-weight: 700; color: var(--ink-strong); }
+    .archive-process-state { min-width: 150px; font-family: var(--f-mono); color: var(--ink-strong); }
+    .archive-process-evidence { color: var(--ink-muted); line-height: 1.45; }
+    .archive-process-observed { min-width: 130px; color: var(--ink-muted); font-size: 11px; }
+    .archive-process-row-primary td { background: color-mix(in srgb, var(--accent) 7%, var(--bg-paper)); }
+    @media (max-width: 700px) { .archive-process-head { align-items: flex-start; flex-direction: column; gap: 3px; } }
     .usage-card { background: var(--bg-paper); border: 1px solid var(--rule); border-radius: var(--radius-lg); padding: 14px 16px; }
     .usage-card .k { font-family: var(--f-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); }
     .usage-card .v { font-family: var(--f-display); font-size: 26px; color: var(--ink-strong); margin-top: 2px; }
@@ -1134,7 +1149,7 @@
           </div>
           <button class="btn ghost" type="button" onclick="loadArchivePipeline()">刷新</button>
         </div>
-        <div class="usage-cards" id="archive-pipeline-cards">
+        <div id="archive-pipeline-cards">
           <div class="empty">正在加载 archive 状态…</div>
         </div>
         <div id="archive-pipeline-detail" class="log-note">spool/receipt 是投递证据，不等于 archive ClickHouse 历史事实表对账。</div>
@@ -1676,12 +1691,35 @@
         ['Canary admission ledger', archiveStateLabel(gapfillControl.state), `manifests ${gapfillControl.manifests ?? '—'} · admitted ${gapfillControl.admitted ?? '—'} · terminal ${gapfillControl.terminal ?? '—'} · active ${gapfillControl.activeRuns ?? '—'}`],
         ['Gapfill executor', executorState, `${terminalSummary} · idempotent reruns ${gapfillControl.idempotentReplays ?? '—'} · QPS ${gapfill.thetaQpsLimit ?? '—'} · native concurrency ${gapfill.thetaConcurrencyLimit ?? '—'}`]
       ];
-      cards.innerHTML = cardData.map(([key, value, summary]) => `
-        <div class="usage-card">
-          <div class="k">${escHtml(key)}</div>
-          <div class="v">${escHtml(String(value))}</div>
-          <div class="s">${escHtml(String(summary))}</div>
-        </div>`).join('');
+      const processRows = [
+        ['Daily archive catch-up', progressState, archiveProgress.state === 'available'
+          ? `range ${progress.start || '—'} to ${progress.end || '—'} · ${progressAccounted ?? '—'} / ${progressTotal ?? '—'} (${progressPercent}) · completed ${progress.completed ?? '—'} · skipped ${progress.skippedExisting ?? '—'} existing / ${progress.skippedNoData ?? '—'} no-data · failed ${progress.failed ?? '—'} · deferred ${progress.deferred ?? '—'} · ${progress.archiveMode || 'mode unknown'}`
+          : (archiveProgress.detail || 'No bounded ThinkCentre progress receipt.'),
+          fmtTime(archiveProgress.observedAt), true],
+        ['Archive capacity', archiveProgress.state === 'available' ? fmtBytes(archiveProgress.capacity?.freeBytes) : '—', archiveProgress.state === 'available'
+          ? `approved universe ${archiveProgress.universe?.snapshot_id || '—'} · effective ${archiveProgress.universe?.effective_session || '—'}`
+          : 'Capacity is reported only by the bounded ThinkCentre receipt.', fmtTime(archiveProgress.observedAt), false],
+        ...cardData
+          .filter(([key]) => key !== 'Daily archive catch-up' && key !== 'Archive capacity')
+          .map(([key, value, summary]) => [key, value, summary, fmtTime(data.fetchedAt), false])
+      ];
+      cards.innerHTML = `<div class="archive-process-board">
+        <div class="archive-process-head">
+          <strong>Archive process board</strong>
+          <span>read-only receipt and retained-fact observation</span>
+        </div>
+        <div class="archive-process-wrap">
+          <table class="archive-process-table">
+            <thead><tr><th>Process / evidence</th><th>Status / progress</th><th>Range, counters, and evidence</th><th>Observed</th></tr></thead>
+            <tbody>${processRows.map(([key, value, summary, observed, primary]) => `<tr class="${primary ? 'archive-process-row-primary' : ''}">
+              <td class="archive-process-name">${escHtml(String(key))}</td>
+              <td class="archive-process-state">${escHtml(String(value))}</td>
+              <td class="archive-process-evidence">${escHtml(String(summary))}</td>
+              <td class="archive-process-observed">${escHtml(String(observed))}</td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>
+      </div>`;
       detail.textContent = [
         `更新：${fmtTime(data.fetchedAt)}`,
         spool.oldestQueuedAt ? `最早 pending：${fmtTime(spool.oldestQueuedAt)}` : null,
