@@ -31,6 +31,7 @@ done
 ln -s "$tmp_dir/runtime-release" "$tmp_dir/current"
 : >"$tmp_dir/runtime.env"
 : >"$tmp_dir/archive.env"
+: >"$tmp_dir/reconciliation.env"
 
 git -C "$source_repo" init -q
 git -C "$source_repo" config user.name "CI Contract"
@@ -55,6 +56,7 @@ EOF
 cat >"$tmp_dir/runtime-deploy.env" <<EOF
 LEANDATA_ENV_FILE=$tmp_dir/runtime.env
 LEANDATA_ARCHIVE_ENV_FILE=$tmp_dir/archive.env
+LEANDATA_RECONCILIATION_ENV_FILE=$tmp_dir/reconciliation.env
 LEANDATA_SITE_DIR=$site_dir
 LEANDATA_DATA_ROOT=$tmp_dir/data
 LEANDATA_CURRENT_LINK=$tmp_dir/current
