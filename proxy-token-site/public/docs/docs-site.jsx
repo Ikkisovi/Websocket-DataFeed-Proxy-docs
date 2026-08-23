@@ -1,8 +1,14 @@
+import React, {
+  useCallback as useStatusCallback,
+  useEffect as useStatusEffect,
+  useRef as useStatusRef,
+  useState as useStatusState,
+} from "react";
+import { UsagePage } from "./usage-page.jsx";
+
 // ── StatusBody component ──
 // Fetches live data from /api/status, /api/uptime, /api/latency, /api/incidents.
 // Auto-refreshes every 30 s.
-
-const { useState: useStatusState, useEffect: useStatusEffect, useCallback: useStatusCallback, useRef: useStatusRef } = React;
 
 function pctUp(arr) {
   if (!arr || arr.length === 0) return "—";
@@ -705,7 +711,7 @@ const SECTION_ZH_LABELS = {
   "open interest": "未平仓量快照",
   "expiry": "按到期日快照",
   "snapshot ohlc": "快照 OHLC",
-  "History": "期权历史",
+  "Options history": "期权历史",
   "bars": "历史分钟 K 线",
   "eod": "日终结算数据",
   "history open interest": "历史未平仓量",
@@ -823,7 +829,7 @@ const SECTION_ZH_LABELS = {
   "System": "系统架构",
   "Components": "核心组件",
   "Latency": "延迟时延",
-  "History": "历史指标",
+  "Metrics history": "历史指标",
   "Uptime": "90 天在线率",
   "Incidents": "故障与维护记录",
   "Methodology": "统计方法论"
@@ -863,7 +869,7 @@ function SideNav({ tab }) {
     ]},
     { title: "Options Data", items: ["routing model", "contracts"], children: [
       { title: "Snapshots", items: ["snapshots", "quote", "snapshot trade", "open interest", "expiry", "snapshot ohlc"] },
-      { title: "History", items: ["bars", "eod", "history open interest", "trades", "history ohlc"] },
+      { title: "Options history", items: ["bars", "eod", "history open interest", "trades", "history ohlc"] },
       { title: "Direct API", items: ["direct endpoints"] },
     ]},
     { title: "Crypto Data", items: ["orderbooks"] },
@@ -887,7 +893,7 @@ function SideNav({ tab }) {
     { title: "Operations", items: ["Reconnect", "Backpressure"] },
   ] : [
     { title: "System", items: ["Overview", "Components", "Latency"] },
-    { title: "History", items: ["Uptime", "Incidents", "Methodology"] },
+    { title: "Metrics history", items: ["Uptime", "Incidents", "Methodology"] },
   ];
 
   function Chevron({ open }) {
@@ -3818,3 +3824,4 @@ const agent = new Agent({ keepAliveTimeout: 30000 })`}
 }
 
 window.DocsSite = DocsSite;
+export { DocsSite };

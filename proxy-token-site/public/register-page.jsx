@@ -2,7 +2,7 @@
 // Keeps the Chinese-language UI (target audience) but restyles into the
 // warm-paper + Instrument Serif + IBM Plex Mono system. Drops the dark theme.
 
-const { useState: useRegState, useEffect: useRegEffect } = React;
+import React, { useState as useRegState, useEffect as useRegEffect } from "react";
 
 function RegisterTopbar() {
   return (
@@ -771,3 +771,4 @@ function RegisterPage() {
 }
 
 window.RegisterPage = RegisterPage;
+export { RegisterPage };

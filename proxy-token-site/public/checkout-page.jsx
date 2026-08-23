@@ -1,8 +1,8 @@
-const {
-  useEffect: useCheckoutEffect,
-  useMemo: useCheckoutMemo,
-  useState: useCheckoutState,
-} = React;
+import React, {
+  useEffect as useCheckoutEffect,
+  useMemo as useCheckoutMemo,
+  useState as useCheckoutState,
+} from "react";
 
 function ComplianceFooter() {
   return (
@@ -527,3 +527,4 @@ function CheckoutPage() {
 }
 
 window.CheckoutPage = CheckoutPage;
+export { CheckoutPage };

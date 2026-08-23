@@ -1014,12 +1014,15 @@ describe('Registration and bulk product UI contract', () => {
   });
 
   it('uses the canonical embedded docs entry', () => {
+    const tokenEntry = fs.readFileSync(path.join(__dirname, 'client-entries', 'token-page.jsx'), 'utf8');
     expect(tokenPageSource).toContain('<DocsSite hideTopbar={true} />');
     expect(tokenPageSource).not.toContain('portal · production');
     expect(tokenPageSource).not.toContain('>Account</a>');
-    expect(rootIndexSource).toContain('src="/docs/docs-site.jsx?v=public-docs-v2"');
-    expect(rootIndexSource).not.toContain('src="docs-site.jsx"');
-    expect(docsIndexSource).toContain('src="docs-site.jsx?v=public-docs-v2"');
+    expect(tokenEntry).toContain('from "../public/token-page.jsx"');
+    expect(rootIndexSource).toContain('src="/assets/token-page.js"');
+    expect(docsIndexSource).toContain('src="/assets/docs-page.js"');
+    expect(rootIndexSource).not.toContain('type="text/babel"');
+    expect(docsIndexSource).not.toContain('type="text/babel"');
     expect(docsSource.match(/Index options are supported/g)).toHaveLength(1);
   });
 
@@ -1048,7 +1051,8 @@ describe('Registration and bulk product UI contract', () => {
     expect(tokenPageSource).toContain('股票 WebSocket 现可定位错误 symbol');
     expect(tokenPageSource).toContain('href="/updates"');
     expect(tokenPageSource).toContain('查看更新 / View updates →');
-    expect(updatesHtml).toContain('updates-page.jsx');
+    expect(updatesHtml).toContain('src="/assets/updates-page.js"');
+    expect(updatesHtml).not.toContain('type="text/babel"');
     expect(updatesSource).toContain('近期改动');
     expect(updatesSource).toContain('数据更新与历史版本');
     expect(updatesSource).toContain('我的留言');

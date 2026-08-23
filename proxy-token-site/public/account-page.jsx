@@ -1,4 +1,4 @@
-const { useEffect: useAccountEffect, useState: useAccountState } = React;
+import React, { useEffect as useAccountEffect, useState as useAccountState } from "react";
 
 function ComplianceFooter() {
   return (
@@ -419,3 +419,4 @@ function AccountPage() {
 }
 
 window.AccountPage = AccountPage;
+export { AccountPage };

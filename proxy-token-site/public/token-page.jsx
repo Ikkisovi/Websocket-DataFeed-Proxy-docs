@@ -1,7 +1,8 @@
 // TokenPage.jsx — Redesigned token-generation page (replaces public/index.html)
 // Same shell + topbar as docs site; left = form, right = docs iframe
 
-const { useState } = React;
+import React, { useState } from "react";
+import { DocsSite } from "./docs/docs-site.jsx";
 
 function TokenTopbar({ portalOpen, setPortalOpen }) {
   return (
@@ -223,3 +224,4 @@ function TokenPage() {
 }
 
 window.TokenPage = TokenPage;
+export { TokenPage };

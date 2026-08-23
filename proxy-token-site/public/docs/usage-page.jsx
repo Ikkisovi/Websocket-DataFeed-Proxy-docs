@@ -15,3 +15,4 @@ function UsagePage() {
 }
 
 window.UsagePage = UsagePage;
+export { UsagePage };
