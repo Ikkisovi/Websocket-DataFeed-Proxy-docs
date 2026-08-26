@@ -2873,16 +2873,20 @@ bars_5m = (frame.set_index("t").resample("5min")
 
       <h2 id="post-v1-options-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/options/open_interest</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Historical open interest by date range with optional strike, expiration, and right filters.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>按日期范围和行权价/到期日筛选期权历史未平仓合约数（Open Interest）。</span>
+        Historical open interest for an exact option contract over a bounded date range.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>按日期范围查询指定期权合约的历史未平仓合约数（Open Interest）。必须提供具体到期日与行权价。</span>
       </p>
+      <div style={{ background: "var(--surface-subtle)", padding: "10px 14px", borderRadius: 6, marginBottom: 14, fontSize: 13, borderLeft: "3px solid var(--accent-ink)" }}>
+        <strong>Exact Contract Required / 必须指定确切合约:</strong> To prevent server memory pressure, wildcard (<code>*</code>) queries across entire option chains are rejected with HTTP <code>422 native_request_budget_exceeded</code>. Date span is capped at 31 days. Please query specific contracts individually and schedule bulk history queries outside regular trading hours.
+        <br/><span style={{ color: "var(--ink-muted)" }}>为保障服务端内存安全，全链通配符（<code>*</code>）请求将被拒绝（返回 HTTP <code>422</code>）。单次日期跨度上限为 31 天。批量全链历史回补请逐个合约发起，并建议安排在美股常规交易时段外。</span>
+      </div>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/options/open_interest`} />
       <ParamTable rows={[
         { name: "symbol",       type: "string",  required: true,  desc: "Root ticker (e.g. AAPL)" },
-        { name: "start",        type: "string",  required: true,  desc: "ISO 8601 date" },
+        { name: "start",        type: "string",  required: true,  desc: "ISO 8601 date (max 31 days span)" },
         { name: "end",          type: "string",  required: true,  desc: "ISO 8601 date" },
-        { name: "expiration",   type: "string",  required: false, desc: "Specific expiry date or * for all (default: *)" },
-        { name: "strike",       type: "number",  required: false, desc: "Specific strike or * for all (default: *)" },
+        { name: "expiration",   type: "string",  required: true,  desc: "Exact expiry date (e.g. 2025-04-17). Wildcard * is rejected." },
+        { name: "strike",       type: "number",  required: true,  desc: "Exact strike price (e.g. 170.0). Wildcard * is rejected." },
         { name: "right",        type: "string",  required: false, desc: "call | put | both (default: both)" },
         { name: "max_dte",      type: "integer", required: false, desc: "Max days-to-expiry filter" },
         { name: "strike_range", type: "integer", required: false, desc: "ATM ± N strikes filter" },
@@ -2891,7 +2895,7 @@ bars_5m = (frame.set_index("t").resample("5min")
 {`curl -X POST ${REST_BASE}/v1/options/open_interest \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
-  -d '{"symbol":"AAPL","start":"2025-01-02","end":"2025-01-05"}'`}
+  -d '{"symbol":"AAPL","start":"2025-01-02","end":"2025-01-05","expiration":"2025-04-17","strike":170.0,"right":"call"}'`}
       </pre>
       <pre className="code" style={{ marginBottom: 40 }}>
 {`// Response
@@ -2912,16 +2916,20 @@ bars_5m = (frame.set_index("t").resample("5min")
 
       <h2 id="post-v1-history-options-eod" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/history/options/eod</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        End-of-day OHLC summary for option contracts: open/high/low/close, volume, bid/ask spread, and trade count per contract per day. Supports <code>GET</code> (query parameters) and <code>POST</code> (JSON body).
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约日终（EOD）行情汇总，包含开高低收、成交量、买卖盘报价及成交笔数。支持 GET 与 POST。</span>
+        End-of-day OHLC summary for exact option contracts: open/high/low/close, volume, bid/ask spread, and trade count per contract per day. Supports <code>GET</code> (query parameters) and <code>POST</code> (JSON body).
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约日终（EOD）行情汇总，包含开高低收、成交量、买卖盘报价及成交笔数。必须指定具体到期日与行权价。</span>
       </p>
+      <div style={{ background: "var(--surface-subtle)", padding: "10px 14px", borderRadius: 6, marginBottom: 14, fontSize: 13, borderLeft: "3px solid var(--accent-ink)" }}>
+        <strong>Exact Contract Required / 必须指定确切合约:</strong> Wildcard (<code>*</code>) queries across entire option chains are rejected with HTTP <code>422 native_request_budget_exceeded</code>. Date span is capped at 31 days. Please query specific contracts individually and schedule bulk history queries outside regular trading hours.
+        <br/><span style={{ color: "var(--ink-muted)" }}>为保障服务端内存安全，全链通配符（<code>*</code>）请求将被拒绝（返回 HTTP <code>422</code>）。单次日期跨度上限为 31 天。批量全链历史回补请逐个合约发起，并建议安排在美股常规交易时段外。</span>
+      </div>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/history/options/eod`} />
       <ParamTable rows={[
         { name: "symbol",       type: "string",  required: true,  desc: "Root ticker (e.g. AAPL)" },
-        { name: "start",        type: "string",  required: true,  desc: "ISO 8601 date" },
+        { name: "start",        type: "string",  required: true,  desc: "ISO 8601 date (max 31 days span)" },
         { name: "end",          type: "string",  required: true,  desc: "ISO 8601 date" },
-        { name: "expiration",   type: "string",  required: false, desc: "Specific expiry or * for all (default: *)" },
-        { name: "strike",       type: "number",  required: false, desc: "Specific strike or * for all (default: *)" },
+        { name: "expiration",   type: "string",  required: true,  desc: "Exact expiry (e.g. 2025-04-17). Wildcard * is rejected." },
+        { name: "strike",       type: "number",  required: true,  desc: "Exact strike (e.g. 170.0). Wildcard * is rejected." },
         { name: "right",        type: "string",  required: false, desc: "call | put | both (default: both)" },
         { name: "max_dte",      type: "integer", required: false, desc: "Max days-to-expiry filter" },
         { name: "strike_range", type: "integer", required: false, desc: "ATM ± N strikes filter" },
@@ -2931,11 +2939,11 @@ bars_5m = (frame.set_index("t").resample("5min")
 curl -X POST ${REST_BASE}/v1/history/options/eod \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
-  -d '{"symbol":"AAPL","start":"2025-01-02","end":"2025-01-03","right":"call","max_dte":30}'
+  -d '{"symbol":"AAPL","start":"2025-01-02","end":"2025-01-03","expiration":"2025-04-17","strike":170.0,"right":"call"}'
 
 # GET
 curl -H "Authorization: Bearer <TOKEN>" \\
-  "${REST_BASE}/v1/history/options/eod?symbol=AAPL&start=2025-01-02&end=2025-01-03&right=call"`}
+  "${REST_BASE}/v1/history/options/eod?symbol=AAPL&start=2025-01-02&end=2025-01-03&expiration=2025-04-17&strike=170.0&right=call"`}
       </pre>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`// Response — each record is one contract on one trading day

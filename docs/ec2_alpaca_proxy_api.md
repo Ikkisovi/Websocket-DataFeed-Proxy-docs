@@ -470,12 +470,19 @@ POST /v1/options/snapshots/expiry
 GET/POST /v1/options/open_interest
 ```
 
+> **⚠️ 合约参数限制 (Exact Contract Required)**：
+> 为保护代理服务器 cgroup 内存预算，**必须指定确切合约**（具体 `expiration` 与 `strike`），单次日期跨度上限为 31 天。
+> 禁止使用通配符（`*`）请求整条期权链；通配符或超限请求将返回 HTTP `422 native_request_budget_exceeded`。
+> 批量历史回补请按单个合约遍历请求，并建议安排在常规交易时段（RTH）外进行。
+
 ```json
 {
   "token": "你的token",
   "symbol": "AAPL",
   "start": "2026-05-01",
   "end": "2026-05-15",
+  "expiration": "2026-06-19",
+  "strike": 190.0,
   "right": "both"
 }
 ```
@@ -488,12 +495,18 @@ GET/POST /v1/options/open_interest
 POST /v1/options/eod
 ```
 
+> **⚠️ 合约参数限制 (Exact Contract Required)**：
+> **必须指定确切合约**（具体 `expiration` 与 `strike`），单次日期跨度上限为 31 天。
+> 禁止使用通配符（`*`）请求整条期权链；通配符或超限请求将返回 HTTP `422 native_request_budget_exceeded`。
+
 ```json
 {
   "token": "你的token",
   "symbol": "AAPL",
   "start": "2026-05-01",
   "end": "2026-05-15",
+  "expiration": "2026-06-19",
+  "strike": 190.0,
   "right": "call",
   "max_dte": 30
 }
