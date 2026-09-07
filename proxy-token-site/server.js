@@ -371,11 +371,19 @@ function writeJSON(filepath, data) {
   fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
 }
 
-function writeJSONAtomic(filepath, data) {
+function writeJSONAtomic(filepath, data, metadata = null) {
   fs.mkdirSync(path.dirname(filepath), { recursive: true });
   const temporaryPath = `${filepath}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
   try {
-    fs.writeFileSync(temporaryPath, JSON.stringify(data, null, 2), { mode: 0o600 });
+    const descriptor = fs.openSync(temporaryPath, 'wx', 0o600);
+    try {
+      if (metadata?.gid !== undefined) fs.fchownSync(descriptor, -1, metadata.gid);
+      if (metadata?.mode !== undefined) fs.fchmodSync(descriptor, metadata.mode);
+      fs.writeFileSync(descriptor, JSON.stringify(data, null, 2));
+      fs.fsyncSync(descriptor);
+    } finally {
+      fs.closeSync(descriptor);
+    }
     fs.renameSync(temporaryPath, filepath);
   } catch (error) {
     try {
@@ -539,8 +547,21 @@ function isSingleFileBindMountReplaceError(error) {
 }
 
 function writeProxyUsersFile(data) {
+  // Consumers mount the dedicated registry directory so atomic replacement is
+  // visible. Set the reader group before publication, never after rename.
+  const configuredGroup = process.env.PROXY_USERS_FILE_GID;
+  let metadata = null;
+  if (configuredGroup !== undefined && configuredGroup !== '') {
+    if (!/^\d+$/.test(configuredGroup) || !Number.isSafeInteger(Number(configuredGroup))) {
+      throw new Error('PROXY_USERS_FILE_GID must be a non-negative integer');
+    }
+    metadata = { gid: Number(configuredGroup), mode: 0o640 };
+  } else if (fs.existsSync(PROXY_USERS_FILE)) {
+    const stat = fs.statSync(PROXY_USERS_FILE);
+    metadata = { gid: stat.gid, mode: stat.mode & 0o640 };
+  }
   try {
-    writeJSONAtomic(PROXY_USERS_FILE, data);
+    writeJSONAtomic(PROXY_USERS_FILE, data, metadata);
     return;
   } catch (error) {
     if (!isSingleFileBindMountReplaceError(error)) throw error;
@@ -551,6 +572,8 @@ function writeProxyUsersFile(data) {
     const serialized = JSON.stringify(data, null, 2);
     const descriptor = fs.openSync(PROXY_USERS_FILE, 'r+');
     try {
+      if (metadata?.gid !== undefined) fs.fchownSync(descriptor, -1, metadata.gid);
+      if (metadata?.mode !== undefined) fs.fchmodSync(descriptor, metadata.mode);
       fs.ftruncateSync(descriptor, 0);
       fs.writeFileSync(descriptor, serialized, 'utf8');
       fs.fsyncSync(descriptor);

@@ -523,6 +523,49 @@ describe('POST /api/register', () => {
     expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users).toEqual([]);
   });
 
+  it('publishes a replacement registry with reader permissions already applied', async () => {
+    const group = String(process.getgid());
+    process.env.PROXY_USERS_FILE_GID = group;
+    fs.chmodSync(TEST_PROXY_FILE, 0o600);
+    const oldInode = fs.statSync(TEST_PROXY_FILE).ino;
+    const rename = fs.renameSync;
+    jest.spyOn(fs, 'renameSync').mockImplementation((source, destination) => {
+      if (destination === TEST_PROXY_FILE) {
+        const staged = fs.statSync(source);
+        expect(staged.mode & 0o777).toBe(0o640);
+        expect(staged.gid).toBe(Number(group));
+        expect(JSON.parse(fs.readFileSync(source, 'utf8')).users).toHaveLength(1);
+      }
+      return rename(source, destination);
+    });
+    try {
+      const response = await registerRequest({
+        username: 'directory-registry', phone: '123',
+        email: 'directory-registry@example.com', tier: 'free'
+      });
+      expect(response.statusCode).toBe(201);
+      expect(fs.statSync(TEST_PROXY_FILE).ino).not.toBe(oldInode);
+      expect(fs.statSync(TEST_PROXY_FILE).mode & 0o777).toBe(0o640);
+    } finally {
+      delete process.env.PROXY_USERS_FILE_GID;
+    }
+  });
+
+  it('preserves registry reader permissions across later publications', async () => {
+    fs.chmodSync(TEST_PROXY_FILE, 0o640);
+    const group = fs.statSync(TEST_PROXY_FILE).gid;
+    for (const username of ['registry-first', 'registry-second']) {
+      const response = await registerRequest({
+        username, phone: '123', email: `${username}@example.com`, tier: 'free'
+      });
+      expect(response.statusCode).toBe(201);
+      const stat = fs.statSync(TEST_PROXY_FILE);
+      expect(stat.mode & 0o777).toBe(0o640);
+      expect(stat.gid).toBe(group);
+    }
+    expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users).toHaveLength(2);
+  });
+
   it('supports the production single-file registry bind mount', async () => {
     const rename = fs.renameSync;
     jest.spyOn(fs, 'renameSync').mockImplementation((source, destination) => {
