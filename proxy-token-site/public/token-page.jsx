@@ -17,6 +17,7 @@ function TokenTopbar({ portalOpen, setPortalOpen }) {
         <a href="/docs/#status" style={{ cursor: "pointer" }}>状态</a>
         <a href="/docs/#usage" style={{ cursor: "pointer" }}>用量</a>
         <a href="/updates" style={{ cursor: "pointer" }}>更新 / Updates</a>
+        <a href="/alternative-data/" style={{ cursor: "pointer" }}>另类数据</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
