@@ -9,6 +9,7 @@ const bundles = [
   "account-page",
   "updates-page",
   "docs-page",
+  "gpu-index-page",
 ];
 const languageScript = fs.readFileSync(
   new URL("../public/language.js", import.meta.url),

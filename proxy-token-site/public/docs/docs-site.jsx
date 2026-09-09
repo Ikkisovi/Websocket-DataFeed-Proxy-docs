@@ -506,6 +506,7 @@ function DocsTopbar({ active = "proxy", onNav }) {
         <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>{isZh ? "WS 实时流" : "WS Stream"}</a>
         <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>{isZh ? "服务状态" : "Status"}</a>
         <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>{isZh ? "用量统计" : "Usage"}</a>
+        <a href="/alternative-data/" style={{ cursor: "pointer" }}>{isZh ? "另类数据" : "Alternative data"}</a>
         <a href="/updates" style={{ cursor: "pointer" }}>{isZh ? "产品更新" : "Updates"}</a>
       </div>
       <div className="spacer"></div>

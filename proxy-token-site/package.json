@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build:public": "node scripts/build-public.mjs",
-    "test": "npm run build:public && NODE_OPTIONS=--experimental-vm-modules jest && node scripts/verify-public-docs.mjs && node scripts/verify-public-bundles.mjs",
+    "test": "npm run build:public && NODE_OPTIONS=--experimental-vm-modules jest && node scripts/verify-public-docs.mjs && node scripts/verify-public-bundles.mjs && node scripts/test-gpu-dashboard.mjs",
     "test:docs": "node scripts/verify-public-docs.mjs"
   },
   "dependencies": {

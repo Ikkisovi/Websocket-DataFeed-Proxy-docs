@@ -1,0 +1,15 @@
+[Unit]
+Description=Publish validated GPU price aggregates to Leandata
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/ikkipipi/openalice/.venv/bin/python /home/ikkipipi/.local/share/leandata-gpu-publisher/current/ops/publish_gpu_index.py
+TimeoutStartSec=300
+Nice=15
+IOSchedulingClass=idle
+MemoryMax=512M
+CPUQuota=50%
+NoNewPrivileges=true
+UMask=0077

@@ -595,6 +595,7 @@
   const exactTranslations = new Map(Object.entries({
     // Topbar navigation and buttons
     "文档": "Docs",
+    "另类数据": "Alternative data",
     "状态": "Status",
     "用量": "Usage",
     "打开入口": "Open Portal",

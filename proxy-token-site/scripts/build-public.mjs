@@ -11,6 +11,7 @@ const entries = [
   "account-page",
   "updates-page",
   "docs-page",
+  "gpu-index-page",
 ];
 const assetsDir = resolve(siteRoot, "public/assets");
 

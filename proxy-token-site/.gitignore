@@ -43,3 +43,6 @@ data/announce-log.jsonl
 data/announce-smtp.env
 data/admin-password.env
 data/bulk-orders.json
+
+# Generated aggregate publication (source captures stay on the workstation)
+public/alternative-data/gpu-index.json
