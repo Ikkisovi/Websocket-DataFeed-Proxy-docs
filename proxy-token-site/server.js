@@ -361,6 +361,14 @@ const ACCOUNT_LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const ACCOUNT_LOGIN_MAX_ATTEMPTS = 8;
 
 // --- Helpers ---
+// Serialize admin user mutations without letting one failure poison the queue.
+let usersMutationQueue = Promise.resolve();
+function withUsersLock(action) {
+  const result = usersMutationQueue.then(action);
+  usersMutationQueue = result.catch(() => {});
+  return result;
+}
+
 function readJSON(filepath, fallback = []) {
   try {
     return JSON.parse(fs.readFileSync(filepath, 'utf8'));
@@ -371,11 +379,19 @@ function writeJSON(filepath, data) {
   fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
 }
 
-function writeJSONAtomic(filepath, data) {
+function writeJSONAtomic(filepath, data, metadata = null) {
   fs.mkdirSync(path.dirname(filepath), { recursive: true });
   const temporaryPath = `${filepath}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
   try {
-    fs.writeFileSync(temporaryPath, JSON.stringify(data, null, 2), { mode: 0o600 });
+    const descriptor = fs.openSync(temporaryPath, 'wx', 0o600);
+    try {
+      if (metadata?.gid !== undefined) fs.fchownSync(descriptor, -1, metadata.gid);
+      if (metadata?.mode !== undefined) fs.fchmodSync(descriptor, metadata.mode);
+      fs.writeFileSync(descriptor, JSON.stringify(data, null, 2));
+      fs.fsyncSync(descriptor);
+    } finally {
+      fs.closeSync(descriptor);
+    }
     fs.renameSync(temporaryPath, filepath);
   } catch (error) {
     try {
@@ -539,8 +555,21 @@ function isSingleFileBindMountReplaceError(error) {
 }
 
 function writeProxyUsersFile(data) {
+  // Consumers mount the dedicated registry directory so atomic replacement is
+  // visible. Set the reader group before publication, never after rename.
+  const configuredGroup = process.env.PROXY_USERS_FILE_GID;
+  let metadata = null;
+  if (configuredGroup !== undefined && configuredGroup !== '') {
+    if (!/^\d+$/.test(configuredGroup) || !Number.isSafeInteger(Number(configuredGroup))) {
+      throw new Error('PROXY_USERS_FILE_GID must be a non-negative integer');
+    }
+    metadata = { gid: Number(configuredGroup), mode: 0o640 };
+  } else if (fs.existsSync(PROXY_USERS_FILE)) {
+    const stat = fs.statSync(PROXY_USERS_FILE);
+    metadata = { gid: stat.gid, mode: stat.mode & 0o640 };
+  }
   try {
-    writeJSONAtomic(PROXY_USERS_FILE, data);
+    writeJSONAtomic(PROXY_USERS_FILE, data, metadata);
     return;
   } catch (error) {
     if (!isSingleFileBindMountReplaceError(error)) throw error;
@@ -551,6 +580,8 @@ function writeProxyUsersFile(data) {
     const serialized = JSON.stringify(data, null, 2);
     const descriptor = fs.openSync(PROXY_USERS_FILE, 'r+');
     try {
+      if (metadata?.gid !== undefined) fs.fchownSync(descriptor, -1, metadata.gid);
+      if (metadata?.mode !== undefined) fs.fchmodSync(descriptor, metadata.mode);
       fs.ftruncateSync(descriptor, 0);
       fs.writeFileSync(descriptor, serialized, 'utf8');
       fs.fsyncSync(descriptor);
@@ -6151,63 +6182,82 @@ app.post('/api/admin/users/extend-expiry', requireAdmin, async (req, res) => {
   }
 
   let updatedExpiry = null;
-  await withUsersLock(async () => {
-    const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
-    const user = (proxyData.users || []).find(u => u.user_id === user_id);
-    if (!user) {
-      throw new Error(`User "${user_id}" not found in proxy registry.`);
-    }
+  try {
+    await withUsersLock(() => {
+      const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+      const user = (proxyData.users || []).find(u => u.user_id === user_id);
+      if (!user) {
+        const error = new Error('User not found in proxy registry.');
+        error.status = 404;
+        throw error;
+      }
 
-    const currentExp = user.expires_at ? Date.parse(user.expires_at) : NaN;
-    const baseMs = Number.isFinite(currentExp) && currentExp > Date.now() ? currentExp : Date.now();
-    const newExpMs = baseMs + daysToAdd * 86400000;
-    user.expires_at = new Date(newExpMs).toISOString();
-    updatedExpiry = user.expires_at;
+      const currentExp = user.expires_at ? Date.parse(user.expires_at) : NaN;
+      const baseMs = Number.isFinite(currentExp) && currentExp > Date.now() ? currentExp : Date.now();
+      const newExpMs = baseMs + daysToAdd * 86400000;
+      user.expires_at = new Date(newExpMs).toISOString();
+      updatedExpiry = user.expires_at;
 
-    writeProxyUsersFile(proxyData);
+      writeProxyUsersFile(proxyData);
 
-    // Also update portal users if present
-    const portalUsers = readJSON(USERS_FILE, []);
-    const pUser = portalUsers.find(u => (u.account_id || u.username) === user_id);
-    if (pUser) {
-      pUser.expires_at = updatedExpiry;
-      writeJSON(USERS_FILE, portalUsers);
-    }
-  });
+      // Also update portal users if present
+      const portalUsers = readJSON(USERS_FILE, []);
+      const pUser = portalUsers.find(u => (u.account_id || u.username) === user_id);
+      if (pUser) {
+        pUser.expires_at = updatedExpiry;
+        writeJSON(USERS_FILE, portalUsers);
+      }
+    });
+  } catch (error) {
+    return res.status(error.status === 404 ? 404 : 500).json({
+      success: false,
+      message: error.status === 404 ? 'User not found in proxy registry.' : 'Unable to update user.'
+    });
+  }
 
   return res.json({ success: true, user_id, expires_at: updatedExpiry, message: `已成功为 ${user_id} 延期 ${daysToAdd} 天。` });
 });
 
 app.post('/api/admin/users/set-role', requireAdmin, async (req, res) => {
   const { user_id, role } = req.body;
-  if (!user_id || !role || !TIERS[role]) {
+  if (typeof user_id !== 'string' || !user_id || typeof role !== 'string' || !Object.hasOwn(TIERS, role)) {
     return res.status(400).json({ success: false, message: 'Invalid user_id or role.' });
   }
 
   const tierDef = TIERS[role];
   let updatedRole = null;
-  await withUsersLock(async () => {
-    const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
-    const user = (proxyData.users || []).find(u => u.user_id === user_id);
-    if (!user) {
-      throw new Error(`User "${user_id}" not found in proxy registry.`);
-    }
+  try {
+    await withUsersLock(() => {
+      const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+      const user = (proxyData.users || []).find(u => u.user_id === user_id);
+      if (!user) {
+        const error = new Error('User not found in proxy registry.');
+        error.status = 404;
+        throw error;
+      }
 
-    user.role = tierDef.role;
-    user.permissions = tierDef.permissions;
-    updatedRole = user.role;
+      user.role = tierDef.role;
+      user.permissions = structuredClone(tierDef.permissions);
+      updatedRole = user.role;
 
-    writeProxyUsersFile(proxyData);
+      writeProxyUsersFile(proxyData);
 
-    // Also update portal users
-    const portalUsers = readJSON(USERS_FILE, []);
-    const pUser = portalUsers.find(u => (u.account_id || u.username) === user_id);
-    if (pUser) {
-      pUser.tier = role;
-      pUser.role = tierDef.role;
-      writeJSON(USERS_FILE, portalUsers);
-    }
-  });
+      // Also update portal users
+      const portalUsers = readJSON(USERS_FILE, []);
+      const pUser = portalUsers.find(u => (u.account_id || u.username) === user_id);
+      if (pUser) {
+        pUser.tier = role;
+        pUser.role = tierDef.role;
+        pUser.permissions = structuredClone(tierDef.permissions);
+        writeJSON(USERS_FILE, portalUsers);
+      }
+    });
+  } catch (error) {
+    return res.status(error.status === 404 ? 404 : 500).json({
+      success: false,
+      message: error.status === 404 ? 'User not found in proxy registry.' : 'Unable to update user.'
+    });
+  }
 
   return res.json({ success: true, user_id, role: updatedRole, message: `已成功将 ${user_id} 的权限调整为 ${role}。` });
 });

@@ -4023,4 +4023,145 @@ describe('Admin usage monitoring API', () => {
     expect(res.body.payments.paid_orders_count).toBe(1);
     expect(res.body.error_diagnostics).toBeDefined();
   });
+  test('POST /api/admin/users/set-role adjusts user role and permissions in registry and portal', async () => {
+    // Seed user in both files
+    const userId = 'role-test-user';
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{
+      username: userId,
+      phone: '13800000001',
+      role: 'free',
+      tier: 'free',
+      permissions: TIERS.free.permissions
+    }], null, 2));
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({
+      users: [{
+        user_id: userId,
+        token: 'test-token-role-12345',
+        role: 'free',
+        expires_at: new Date(Date.now() + 30 * 86400000).toISOString(),
+        permissions: TIERS.free.permissions
+      }]
+    }, null, 2));
+
+    const loginRes = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    const adminToken = loginRes.body.token;
+
+    // Test unauthorized
+    const unauth = await request(app)
+      .post('/api/admin/users/set-role')
+      .send({ user_id: userId, role: 'basic' });
+    expect(unauth.status).toBe(401);
+
+    // Test invalid role
+    const invalid = await request(app)
+      .post('/api/admin/users/set-role')
+      .set('X-Admin-Token', adminToken)
+      .send({ user_id: userId, role: 'nonexistent' });
+    expect(invalid.status).toBe(400);
+
+    // Adjust to basic
+    const res = await request(app)
+      .post('/api/admin/users/set-role')
+      .set('X-Admin-Token', adminToken)
+      .send({ user_id: userId, role: 'basic' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.role).toBe('basic');
+
+    // Verify proxy users file
+    const proxyData = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    const proxyUser = proxyData.users.find(u => u.user_id === userId);
+    expect(proxyUser.role).toBe('basic');
+    expect(proxyUser.permissions).toEqual(TIERS.basic.permissions);
+
+    // Verify portal users file
+    const portalUsers = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    const portalUser = portalUsers.find(u => u.username === userId);
+    expect(portalUser.role).toBe('basic');
+    expect(portalUser.tier).toBe('basic');
+    expect(portalUser.permissions).toEqual(TIERS.basic.permissions);
+  });
+
+  test('admin user mutations recover after missing users and storage failures', async () => {
+    const userId = 'mutation-recovery-user';
+    const expiresAt = '2030-01-01T00:00:00.000Z';
+    const registry = { users: [{ user_id: userId, token: 'isolated-test-token', role: 'free', expires_at: expiresAt }] };
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify(registry));
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{ username: userId, role: 'free' }]));
+    const login = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    const post = (route, body) => request(app).post(`/api/admin/users/${route}`)
+      .set('X-Admin-Token', login.body.token).send(body);
+
+    for (const [route, field] of [['set-role', { role: 'basic' }], ['extend-expiry', { days: 1 }]]) {
+      expect((await post(route, { user_id: 'missing', ...field })).status).toBe(404);
+      const rename = jest.spyOn(fs, 'renameSync').mockImplementationOnce(() => {
+        throw new Error('private storage failure detail');
+      });
+      try {
+        const failed = await post(route, { user_id: userId, ...field });
+        expect(failed.status).toBe(500);
+        expect(failed.body.message).toBe('Unable to update user.');
+      } finally {
+        rename.mockRestore();
+      }
+      expect((await post(route, { user_id: userId, ...field })).status).toBe(200);
+    }
+    expect((await post('set-role', { user_id: userId, role: 'constructor' })).status).toBe(400);
+    fs.chmodSync(TEST_PROXY_FILE, 0o640);
+    const originalGid = fs.statSync(TEST_PROXY_FILE).gid;
+    const before = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users[0];
+    const responses = await Promise.all([
+      post('extend-expiry', { user_id: userId, days: 2 }),
+      post('extend-expiry', { user_id: userId, days: 3 }),
+      post('set-role', { user_id: userId, role: 'basic' })
+    ]);
+    expect(responses.map(r => r.status)).toEqual([200, 200, 200]);
+    const after = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users[0];
+    expect(Date.parse(after.expires_at) - Date.parse(before.expires_at)).toBe(5 * 86400000);
+    expect(after.token).toBe(registry.users[0].token);
+    expect(fs.statSync(TEST_PROXY_FILE).mode & 0o777).toBe(0o640);
+    expect(fs.statSync(TEST_PROXY_FILE).gid).toBe(originalGid);
+    expect(after.permissions).toEqual(TIERS.basic.permissions);
+    const portal = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0];
+    expect(portal.expires_at).toBe(after.expires_at);
+    expect(portal.permissions).toEqual(after.permissions);
+  });
+
+  test('POST /api/admin/users/extend-expiry extends user expires_at in registry and portal', async () => {
+    const userId = 'extend-test-user';
+    const initialExpiry = new Date(Date.now() + 10 * 86400000).toISOString();
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{
+      username: userId,
+      phone: '13800000002',
+      role: 'standard',
+      tier: 'standard',
+      expires_at: initialExpiry
+    }], null, 2));
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({
+      users: [{
+        user_id: userId,
+        token: 'test-token-extend-12345',
+        role: 'standard',
+        expires_at: initialExpiry
+      }]
+    }, null, 2));
+
+    const loginRes = await request(app).post('/api/admin/login').send({ password: 'admin123' });
+    const adminToken = loginRes.body.token;
+
+    const res = await request(app)
+      .post('/api/admin/users/extend-expiry')
+      .set('X-Admin-Token', adminToken)
+      .send({ user_id: userId, days: 30 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    const proxyData = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    const proxyUser = proxyData.users.find(u => u.user_id === userId);
+    const newExp = Date.parse(proxyUser.expires_at);
+    const oldExp = Date.parse(initialExpiry);
+    expect(newExp - oldExp).toBeCloseTo(30 * 86400000, -3);
+  });
 });
