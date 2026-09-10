@@ -192,6 +192,38 @@ function CheckoutSuccess({ info, result, issuedToken }) {
   );
 }
 
+function ChinaPlanPreview() {
+  return (
+    <section aria-label="CN Data private beta" style={{ marginTop: 28 }}>
+      <div className="summary-card" style={{ borderStyle: "dashed" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <h2 className="summary-title" style={{ margin: 0 }}>CN Data 中国数据</h2>
+          <span style={{ padding: "2px 8px", borderRadius: 999, background: "var(--accent-soft, #eef)", border: "1px solid var(--rule, #ddd)", fontSize: 11, color: "var(--ink-muted)" }}>内测已上线 Private beta · live</span>
+        </div>
+        <div className="summary-kicker">中国市场历史数据 · private beta · live</div>
+        <ul className="summary-features">
+          <li className="summary-feature"><CheckoutIcon name="layers" /><span>日线 / 分钟线 / 估值 / 成分与会话 Daily, minute, valuation, membership</span></li>
+          <li className="summary-feature"><CheckoutIcon name="link" /><span>参考 / 财报 / ETF / 股东与基金持仓 Reference, statements, ETF, holders</span></li>
+          <li className="summary-feature"><CheckoutIcon name="shield" /><span>中国期权行情、合约与风险指标 CN options, contracts &amp; risk indicators</span></li>
+        </ul>
+        <div className="summary-divider"></div>
+        <div className="price-row">
+          <span>价格 Price</span>
+          <span>待定 TBD</span>
+        </div>
+        <div className="price-row">
+          <span>开通状态 Availability</span>
+          <span>需单独授权 · 不可购买 Explicit authorization required · no purchase</span>
+        </div>
+        <p className="checkout-terms" style={{ marginBottom: 0 }}>
+          该计划为已上线的内测，不设购买按钮、不触发任何支付或开通流程。归档接口（<code>/v1/cn/*</code>）仅限明确授权的账号本人使用；现有套餐（含 Premium）不会自动获得访问权限。详见 <a href="/docs#cn-data-overview">CN Data 接口说明</a>。
+          <br />This plan is a live private beta: no purchase button, no payment flow. Live <code>/v1/cn/*</code> endpoints are not included in ordinary plans and require explicit allowlist access for your own account only. See the <a href="/docs#cn-data-overview">CN Data docs</a>.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function CheckoutPage() {
   const query = useCheckoutMemo(() => new URLSearchParams(window.location.search), []);
   const checkoutToken = query.get("checkout_token") || "";
@@ -521,6 +553,7 @@ function CheckoutPage() {
           </aside>
         </div>
       )}
+      <ChinaPlanPreview />
       <ComplianceFooter />
     </main>
   );

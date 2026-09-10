@@ -501,6 +501,7 @@ function DocsTopbar({ active = "proxy", onNav }) {
       <div className="divider"></div>
       <div className="nav">
         <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>{isZh ? "行情 API" : "Proxy API"}</a>
+        <a onClick={() => { onNav && onNav("proxy"); window.location.hash = "cn-data-overview"; }} style={{ cursor: "pointer" }}>{isZh ? "中国数据 · 内测" : "CN Data · Private beta"}</a>
         <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>{isZh ? "财务数据" : "Financial Data"}</a>
         <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>{isZh ? "批量下载" : "Bulk Download"}</a>
         <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>{isZh ? "WS 实时流" : "WS Stream"}</a>
@@ -833,13 +834,30 @@ const SECTION_ZH_LABELS = {
   "Metrics history": "历史指标",
   "Uptime": "90 天在线率",
   "Incidents": "故障与维护记录",
-  "Methodology": "统计方法论"
+  "Methodology": "统计方法论",
+  "CN Data overview": "CN Data 总览",
+  "Daily bars": "日线",
+  "Minute bars": "分钟线",
+  "Valuation": "估值",
+  "Membership": "成分与会话",
+  "Fundamentals": "财务报表",
+  "ETF data": "ETF 数据",
+  "ETF minutes": "ETF 分钟线",
+  "Options": "期权",
+  "Funds": "基金",
+  "Reserved routes": "预留路由",
+  "Catalog": "目录",
+  "Shareholders": "股东持仓",
+  "Money flow": "资金流",
+  "Billboard": "龙虎榜",
+  "Access & scope": "权限与范围"
 };
 
 function SideNav({ tab }) {
   const [activeId, setActiveId] = React.useState("");
   const [expanded, setExpanded] = React.useState({
     "Stock Data": true,
+    "CN Data 中国数据": true,
     "Multi-symbol": true,
     "Metadata": true,
     "Single symbol": true,
@@ -860,6 +878,7 @@ function SideNav({ tab }) {
 
   const sections = tab === "proxy" ? [
     { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions", "Free plan usage"] },
+    { title: "CN Data 中国数据", items: ["CN Data overview", "Daily bars", "Minute bars", "Valuation", "Membership", "Reference", "Fundamentals", "ETF data", "ETF minutes", "Options", "Funds", "Shareholders", "Reserved routes", "Catalog", "Access & scope"] },
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news", "stock trade+quote"] },
     { title: "Index Data", items: ["index history"] },
@@ -939,7 +958,7 @@ function SideNav({ tab }) {
       "enterprise-values": "fmp-enterprise-values",
       "financial-scores": "fmp-financial-scores",
     };
-    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families'};
+    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
     const getId = (label) => tab === "fmp-fundamentals"
       ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
       : ID_MAP[label] || slugify(label);
@@ -2194,6 +2213,324 @@ Content-Type: application/json
   );
 }
 
+// ── CN Data 中国数据 (private beta · live) ────────────────────────────
+// Bilingual surface for the live /v1/cn archive endpoints.
+// Private beta: explicit per-account allowlist, own account only; no vendor names appear here.
+function CnSourceChip({ source }) {
+  const map = {
+    available: { bg: "var(--ok-soft)", fg: "var(--ok)", en: "available · live", zh: "可用·已上线" },
+    unavailable: { bg: "var(--danger-soft)", fg: "var(--danger)", en: "reserved · unavailable", zh: "预留·不可用" },
+  };
+  const m = map[source] || map.available;
+  const isZh = useCurrentLanguage() === "zh";
+  return (
+    <span style={{ padding: "2px 7px", background: m.bg, color: m.fg, fontFamily: "var(--f-mono)", fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", borderRadius: 3, fontWeight: 600 }}>
+      {isZh ? m.zh : m.en}
+    </span>
+  );
+}
+
+function CnPrivateBetaBadge() {
+  const isZh = useCurrentLanguage() === "zh";
+  return (
+    <span style={{ padding: "2px 7px", background: "var(--bg-canvas)", border: "1px solid var(--rule-strong)", color: "var(--ink-muted)", fontFamily: "var(--f-mono)", fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", borderRadius: 3, fontWeight: 600 }}>
+      {isZh ? "内测已上线" : "private beta · live"}
+    </span>
+  );
+}
+
+function CnEndpoint({ id, title, method, path, source, params, example, en, zh }) {
+  return (
+    <div style={{ marginBottom: 36 }}>
+      <h3 id={id} className="display-title" style={{ fontSize: 22, margin: "0 0 8px" }}>{title}</h3>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+        <CnPrivateBetaBadge />
+        <CnSourceChip source={source} />
+      </div>
+      <EndpointBadge method={method} path={path} />
+      <DocDesc en={en} zh={zh} />
+      <ParamTable rows={params} />
+      <pre className="code" style={{ marginBottom: 8 }}>{example}</pre>
+      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: 0 }}>
+        Accounts without CN Data access receive <code>403</code> for <code>/v1/cn/*</code>; CN Data requires explicit account authorization.
+        <br/>未获得中国数据授权的账号请求 <code>/v1/cn/*</code> 返回 <code>403</code>；需要单独开通账号权限，普通套餐不自动包含。
+      </p>
+    </div>
+  );
+}
+
+function CnDataSections() {
+  const isZh = useCurrentLanguage() === "zh";
+  const families = [
+    ["cn-daily-bars", "Daily 日线"],
+    ["cn-minute-bars", "Minute 分钟线"],
+    ["cn-valuation", "Valuation 估值"],
+    ["cn-membership", "Membership 成分"],
+    ["cn-reference", "Reference 参考"],
+    ["cn-fundamentals", "Fundamentals 财报"],
+    ["cn-etf", "ETF"],
+    ["cn-etf-minute", "ETF 分钟线"],
+    ["cn-options", "Options 期权"],
+    ["cn-funds", "Funds 基金"],
+    ["cn-shareholders", "Shareholders 股东"],
+    ["cn-unavailable", "Reserved 预留"],
+    ["cn-catalog", "Catalog 目录"],
+    ["cn-access", "Access 权限"],
+  ];
+  return (
+    <div>
+      <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>CN Data · private beta · live</div>
+      <h2 id="cn-data-overview" className="display-title" style={{ fontSize: 32, margin: "0 0 8px" }}>{isZh ? "CN Data 中国数据（内测已上线）" : "CN Data (private beta · live)"}</h2>
+      <div style={{ border: "1px solid var(--accent-rule)", background: "var(--accent-soft)", borderRadius: 8, padding: "12px 16px", margin: "0 0 20px", fontSize: 13, lineHeight: 1.65 }}>
+        <strong style={{ color: "var(--accent-ink)" }}>{isZh ? "内测已上线 · 单独授权 · 暂不销售" : "Private beta live · explicit account access · not for sale"}</strong>
+        <br/>归档接口以 <code style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>/v1/cn/*</code> 为前缀，仅限明确授权的账号本人使用（exact allowlist，own account only）。价格待定（TBD），结账页不提供购买按钮，普通套餐默认不包含。
+        <br/><span style={{ color: "var(--ink-muted)" }}>Live archive endpoints under <code style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>/v1/cn/*</code> for explicitly allowlisted accounts only (own account). Price TBD, no purchase button on checkout, not included in ordinary plans; explicit account authorization required.</span>
+      </div>
+      <DocDesc
+        zh="CN Data 提供中国 A 股归档切片：25 个可用数据路由（含 ETF 分钟线 /v1/cn/etf/minute/bars）加目录接口 /v1/cn/catalog。响应携带 coverage=archived_slice：行数为已归档记录数，不是全市场完整覆盖；原始发布时间不代表已验证的时点可用性。日期边界均为包含式；fq 仅支持 archived（原样返回归档价格，不做复权转换），没有 frequency 参数。GET 与 POST 均可调用。"
+        en="CN Data serves archived China A-share slices: 25 available data routes (including ETF minute bars at /v1/cn/etf/minute/bars) plus the /v1/cn/catalog directory. Responses carry coverage=archived_slice: row counts describe archived records, not complete market coverage, and raw publication timestamps do not imply validated point-in-time availability. Date bounds are inclusive; fq accepts only archived (prices as stored, no conversion) and there is no frequency parameter. GET and POST are both accepted."
+      />
+      <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13, lineHeight: 1.65 }}>
+        <strong style={{ color: "var(--ink-strong)" }}>请求契约 / Request contract</strong>
+        <br/><code>symbols</code>（逗号分隔或 JSON 数组，最多 20 个）· <code>date</code> 或 <code>start</code>/<code>end</code>（包含式）· <code>table</code>（目录中的精确表名，可选，用于筛选表）· <code>limit</code>（1–1000，默认 100）· <code>page_token</code>（翻页至 null 为止）· <code>fq=archived</code>（可省略）。单次调用最多扫描 64 个文件 / 100,000 行；多表路由的每行携带 <code>source_table</code>。未授权账号返回 <code>403</code>。
+        <br/><span style={{ color: "var(--ink-soft)" }}>symbols (comma-separated or JSON array, max 20) · date or start/end (inclusive) · table (exact catalog selector) · limit (1–1000, default 100) · page_token (follow until null) · fq=archived (or omit). Each call scans at most 64 files / 100,000 rows; multi-table routes tag rows with source_table. Unauthorized accounts receive 403.</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 32 }}>
+        {families.map(([anchor, label]) => (
+          <a key={anchor} href={"#" + anchor} style={{ textDecoration: "none", border: "1px solid var(--rule)", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "var(--ink-strong)", background: "var(--bg-paper)" }}>{label} →</a>
+        ))}
+      </div>
+
+      <CnEndpoint
+        id="cn-daily-bars" title={isZh ? "日线 / Daily bars" : "Daily bars"} method="GET/POST" path="/v1/cn/daily/bars" source="available"
+        en="Daily OHLCV bars for China A-share symbols, returned as archived. Live companions in the same archive: /v1/cn/options/daily for option daily prices. Dates are inclusive; fq accepts only archived."
+        zh="中国 A 股日线 OHLCV，原样返回归档价格。同归档中已上线的配套路由：/v1/cn/options/daily（期权日行情）。日期包含起止当天；fq 仅支持 archived。"
+        params={[
+          { name: "symbols", type: "string", required: true, desc: "Comma-separated CN symbols (max 20), e.g. 600519.XSHG,000001.XSHE", zh: "逗号分隔的 A 股代码（最多 20 个），例如 600519.XSHG,000001.XSHE" },
+          { name: "start", type: "string", required: false, desc: "Inclusive start date YYYY-MM-DD (or use date)", zh: "起始日期（包含），YYYY-MM-DD（或用 date）" },
+          { name: "end", type: "string", required: false, desc: "Inclusive end date YYYY-MM-DD", zh: "截止日期（包含），YYYY-MM-DD" },
+          { name: "fq", type: "string", required: false, desc: "archived only (or omit); no conversion", zh: "仅支持 archived（可省略），不做复权转换" },
+          { name: "limit", type: "integer", required: false, desc: "1-1000, default 100; follow page_token until null", zh: "1–1000，默认 100；跟随 page_token 翻页至 null" },
+        ]}
+        example={`curl -X POST https://api.leandata.uk/v1/cn/daily/bars \
+  -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  -d '{"symbols": "600519.XSHG,000001.XSHE", "start": "2024-01-01", "end": "2024-03-31", "fq": "archived"}'`}
+      />
+      <CnEndpoint
+        id="cn-minute-bars" title={isZh ? "分钟线 / Minute bars" : "Minute bars"} method="GET/POST" path="/v1/cn/minute/bars" source="available"
+        en="Intraday minute bars for covered A-share symbols. Use date for one session or start/end (inclusive) for a range; fq accepts only archived and there is no frequency parameter."
+        zh="覆盖范围内 A 股的分钟线。单日用 date，区间用 start/end（包含起止）；fq 仅支持 archived，无 frequency 参数。"
+        params={[
+          { name: "symbols", type: "string", required: true, desc: "Comma-separated CN symbols (max 20)", zh: "逗号分隔的 A 股代码（最多 20 个）" },
+          { name: "date", type: "string", required: false, desc: "Trading date YYYY-MM-DD (or use start/end)", zh: "交易日期 YYYY-MM-DD（或用 start/end）" },
+          { name: "start", type: "string", required: false, desc: "Inclusive start date YYYY-MM-DD", zh: "起始日期（包含）" },
+          { name: "end", type: "string", required: false, desc: "Inclusive end date YYYY-MM-DD", zh: "截止日期（包含）" },
+          { name: "fq", type: "string", required: false, desc: "archived only (or omit)", zh: "仅支持 archived（可省略）" },
+          { name: "limit", type: "integer", required: false, desc: "1-1000, default 100; follow page_token until null", zh: "1–1000，默认 100；跟随 page_token 翻页至 null" },
+        ]}
+        example={`curl -X POST https://api.leandata.uk/v1/cn/minute/bars \
+  -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  -d '{"symbols": "600519.XSHG", "date": "2024-03-12"}'`}
+      />
+      <CnEndpoint
+        id="cn-valuation" title={isZh ? "估值 / Valuation" : "Valuation"} method="GET/POST" path="/v1/cn/valuation" source="available"
+        en="Per-symbol daily valuation snapshot: P/E (TTM), P/B, P/S, market cap, circulating cap and turnover, as archived."
+        zh="逐只证券的每日估值快照：市盈率（TTM）、市净率、市销率、总市值、流通市值与换手率，原样返回归档值。"
+        params={[
+          { name: "symbols", type: "string", required: true, desc: "Comma-separated CN symbols (max 20)", zh: "逗号分隔的 A 股代码（最多 20 个）" },
+          { name: "date", type: "string", required: false, desc: "Trading date YYYY-MM-DD (or use start/end, inclusive)", zh: "交易日期 YYYY-MM-DD（或用 start/end，包含起止）" },
+          { name: "fq", type: "string", required: false, desc: "archived only (or omit)", zh: "仅支持 archived（可省略）" },
+          { name: "limit", type: "integer", required: false, desc: "1-1000, default 100; follow page_token until null", zh: "1–1000，默认 100；跟随 page_token 翻页至 null" },
+        ]}
+        example={`curl -X POST https://api.leandata.uk/v1/cn/valuation \
+  -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  -d '{"symbols": "600519.XSHG", "date": "2024-03-12"}'`}
+      />
+      <CnEndpoint
+        id="cn-membership" title={isZh ? "成分与证券主数据 / Membership" : "Membership & securities"} method="GET/POST" path="/v1/cn/securities" source="available"
+        en="Security master: query archived securities by code and date bounds. The /v1/cn/membership/sessions path is reserved and unavailable in this snapshot (see Reserved routes)."
+        zh="证券主数据：按代码与日期边界查询已归档证券。/v1/cn/membership/sessions 为预留路径，本快照不可用（见预留路由）。"
+        params={[
+          { name: "symbols", type: "string", required: false, desc: "Comma-separated CN symbols (max 20)", zh: "逗号分隔的 A 股代码（最多 20 个）" },
+          { name: "date", type: "string", required: false, desc: "As-of date YYYY-MM-DD (or use start/end, inclusive)", zh: "截至日期 YYYY-MM-DD（或用 start/end，包含起止）" },
+          { name: "start", type: "string", required: false, desc: "Inclusive start date YYYY-MM-DD", zh: "起始日期（包含）" },
+          { name: "end", type: "string", required: false, desc: "Inclusive end date YYYY-MM-DD", zh: "截止日期（包含）" },
+          { name: "limit", type: "integer", required: false, desc: "1-1000, default 100; follow page_token until null", zh: "1–1000，默认 100；跟随 page_token 翻页至 null" },
+        ]}
+        example={`curl "https://api.leandata.uk/v1/cn/securities?symbols=600519.XSHG&date=2024-03-12" \
+  -H "Authorization: Bearer <TOKEN>"`}
+      />
+      <CnEndpoint
+        id="cn-reference" title={isZh ? "参考数据 / Reference" : "Reference"} method="GET/POST" path="/v1/cn/reference/corporate-actions" source="available"
+        en="Corporate actions and market reference: XR/XD schedules, capital changes, name history, listing status, northbound holdings and margin/quota snapshots. Live companions: /v1/cn/reference/northbound, /v1/cn/reference/margin. Multi-table route: pass the exact table selector from /v1/cn/catalog; rows carry source_table."
+        zh="公司行为与市场参考：分红送转、股本变动、曾用名、上市状态、北向持仓与融资融券/额度快照。已上线的配套路由：/v1/cn/reference/northbound、/v1/cn/reference/margin。多表路由：table 须传目录中的精确表名；返回行携带 source_table。"
+        params={[
+          { name: "symbols", type: "string", required: false, desc: "Comma-separated CN symbols (max 20); omit for market-wide", zh: "逗号分隔的 A 股代码（最多 20 个）；省略则返回全市场" },
+          { name: "start", type: "string", required: false, desc: "Inclusive start date YYYY-MM-DD", zh: "起始日期（包含）" },
+          { name: "end", type: "string", required: false, desc: "Inclusive end date YYYY-MM-DD", zh: "截止日期（包含）" },
+          { name: "table", type: "string", required: false, desc: "Exact table selector from the catalog for this route", zh: "本路由目录中的精确表名" },
+          { name: "limit", type: "integer", required: false, desc: "1-1000, default 100; follow page_token until null", zh: "1–1000，默认 100；跟随 page_token 翻页至 null" },
+        ]}
+        example={`curl "https://api.leandata.uk/v1/cn/reference/corporate-actions?symbols=600519.XSHG&start=2024-01-01" \
+  -H "Authorization: Bearer <TOKEN>"`}
+      />
+      <CnEndpoint
+        id="cn-fundamentals" title={isZh ? "财务报表 / Fundamentals" : "Fundamentals"} method="GET/POST" path="/v1/cn/fundamentals/statements" source="available"
+        en="Quarterly/annual statements, forecasts, performance letters and audit opinions, as archived. Multi-table route: table must be one exact catalog selector (STK_BALANCE_SHEET, STK_BALANCE_SHEET_PARENT, STK_INCOME_STATEMENT, STK_INCOME_STATEMENT_PARENT, STK_CASHFLOW_STATEMENT, STK_CASHFLOW_STATEMENT_PARENT, STK_FIN_FORCAST, STK_PERFORMANCE_LETTERS, STK_REPORT_DISCLOSURE, STK_AUDIT_OPINION); rows carry source_table. No period or frequency parameter."
+        zh="季度/年报财务三表、业绩预告、业绩快报与审计意见，原样返回归档值。多表路由：table 须为目录中的精确表名（STK_BALANCE_SHEET、STK_BALANCE_SHEET_PARENT、STK_INCOME_STATEMENT、STK_INCOME_STATEMENT_PARENT、STK_CASHFLOW_STATEMENT、STK_CASHFLOW_STATEMENT_PARENT、STK_FIN_FORCAST、STK_PERFORMANCE_LETTERS、STK_REPORT_DISCLOSURE、STK_AUDIT_OPINION）；返回行携带 source_table。无 period / frequency 参数。"
+        params={[
+          { name: "symbols", type: "string", required: true, desc: "Comma-separated CN symbols (max 20)", zh: "逗号分隔的 A 股代码（最多 20 个）" },
+          { name: "table", type: "string", required: true, desc: "Exact catalog table name (see description)", zh: "目录中的精确表名（见说明）" },
+          { name: "date", type: "string", required: false, desc: "Report date YYYY-MM-DD (or use start/end, inclusive)", zh: "报告期日期 YYYY-MM-DD（或用 start/end，包含起止）" },
+          { name: "fq", type: "string", required: false, desc: "archived only (or omit)", zh: "仅支持 archived（可省略）" },
+          { name: "limit", type: "integer", required: false, desc: "1-1000, default 100; follow page_token until null", zh: "1–1000，默认 100；跟随 page_token 翻页至 null" },
+        ]}
+        example={`curl -X POST https://api.leandata.uk/v1/cn/fundamentals/statements \
+  -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  -d '{"symbols": "600519.XSHG", "table": "STK_INCOME_STATEMENT"}'`}
+      />
+      <CnEndpoint
+        id="cn-etf" title={isZh ? "ETF 数据 / ETF" : "ETF"} method="GET/POST" path="/v1/cn/etf/bars" source="available"
+        en="ETF daily bars, as archived. Live companions in the same archive: /v1/cn/etf/minute/bars (intraday), /v1/cn/etf/nav (daily NAV) and /v1/cn/etf/shares (daily shares). Dates are inclusive; fq accepts only archived."
+        zh="ETF 日线，原样返回归档值。同归档中已上线的配套路由：/v1/cn/etf/minute/bars（分钟线）、/v1/cn/etf/nav（每日净值）、/v1/cn/etf/shares（每日份额）。日期包含起止；fq 仅支持 archived。"
+        params={[
+          { name: "symbols", type: "string", required: true, desc: "Comma-separated ETF symbols (max 20)", zh: "逗号分隔的 ETF 代码（最多 20 个）" },
+          { name: "start", type: "string", required: false, desc: "Inclusive start date YYYY-MM-DD (or use date)", zh: "起始日期（包含）（或用 date）" },
+          { name: "end", type: "string", required: false, desc: "Inclusive end date YYYY-MM-DD", zh: "截止日期（包含）" },
+          { name: "fq", type: "string", required: false, desc: "archived only (or omit)", zh: "仅支持 archived（可省略）" },
+          { name: "limit", type: "integer", required: false, desc: "1-1000, default 100; follow page_token until null", zh: "1–1000，默认 100；跟随 page_token 翻页至 null" },
+        ]}
+        example={`curl -X POST https://api.leandata.uk/v1/cn/etf/bars \
+  -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  -d '{"symbols": "510300.XSHG", "start": "2024-01-01", "end": "2024-03-31"}'`}
+      />
+      <CnEndpoint
+        id="cn-etf-minute" title={isZh ? "ETF 分钟线 / ETF minute bars" : "ETF minute bars"} method="GET/POST" path="/v1/cn/etf/minute/bars" source="available"
+        en="Intraday ETF minute bars, as archived. Use date for one session or start/end (inclusive) for a range; fq accepts only archived and there is no frequency parameter."
+        zh="ETF 分钟线，原样返回归档值。单日用 date，区间用 start/end（包含起止）；fq 仅支持 archived，无 frequency 参数。"
+        params={[
+          { name: "symbols", type: "string", required: true, desc: "Comma-separated ETF symbols (max 20)", zh: "逗号分隔的 ETF 代码（最多 20 个）" },
+          { name: "date", type: "string", required: false, desc: "Trading date YYYY-MM-DD (or use start/end)", zh: "交易日期 YYYY-MM-DD（或用 start/end）" },
+          { name: "start", type: "string", required: false, desc: "Inclusive start date YYYY-MM-DD", zh: "起始日期（包含）" },
+          { name: "end", type: "string", required: false, desc: "Inclusive end date YYYY-MM-DD", zh: "截止日期（包含）" },
+          { name: "fq", type: "string", required: false, desc: "archived only (or omit)", zh: "仅支持 archived（可省略）" },
+          { name: "limit", type: "integer", required: false, desc: "1-1000, default 100; follow page_token until null", zh: "1–1000，默认 100；跟随 page_token 翻页至 null" },
+        ]}
+        example={`curl -X POST https://api.leandata.uk/v1/cn/etf/minute/bars \
+  -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  -d '{"symbols": "510300.XSHG", "date": "2024-03-12"}'`}
+      />
+      <CnEndpoint
+        id="cn-options" title={isZh ? "期权 / Options" : "Options"} method="GET/POST" path="/v1/cn/options/daily" source="available"
+        en="Live option archive routes: /v1/cn/options/daily, /v1/cn/options/contracts, /v1/cn/options/risk-indicators, /v1/cn/options/trade-ranks, /v1/cn/options/preopen, /v1/cn/options/adjustments, /v1/cn/options/exercises. Multi-table routes require the exact table selector from /v1/cn/catalog; rows carry source_table. There is no /v1/cn/options/greeks route."
+        zh="已上线的期权归档路由：/v1/cn/options/daily、/v1/cn/options/contracts、/v1/cn/options/risk-indicators、/v1/cn/options/trade-ranks、/v1/cn/options/preopen、/v1/cn/options/adjustments、/v1/cn/options/exercises。多表路由须传目录中的精确表名，返回行携带 source_table。不存在 /v1/cn/options/greeks 路由。"
+        params={[
+          { name: "symbols", type: "string", required: false, desc: "Comma-separated symbols (max 20)", zh: "逗号分隔的代码（最多 20 个）" },
+          { name: "date", type: "string", required: false, desc: "Trading date YYYY-MM-DD (or use start/end, inclusive)", zh: "交易日期 YYYY-MM-DD（或用 start/end，包含起止）" },
+          { name: "table", type: "string", required: false, desc: "Exact table selector from the catalog for multi-table routes", zh: "多表路由须传目录中的精确表名" },
+          { name: "limit", type: "integer", required: false, desc: "1-1000, default 100; follow page_token until null", zh: "1–1000，默认 100；跟随 page_token 翻页至 null" },
+        ]}
+        example={`curl -X POST https://api.leandata.uk/v1/cn/options/daily \
+  -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  -d '{"symbols": "510300.XSHG", "date": "2024-03-12"}'`}
+      />
+      <CnEndpoint
+        id="cn-funds" title={isZh ? "基金 / Funds" : "Funds"} method="GET/POST" path="/v1/cn/funds/nav" source="available"
+        en="Live fund archive routes: /v1/cn/funds/nav, /v1/cn/funds/holdings, /v1/cn/funds/dividends, /v1/cn/funds/financial-indicators, /v1/cn/funds/investment-targets. Multi-table routes require the exact table selector from /v1/cn/catalog; rows carry source_table."
+        zh="已上线的基金归档路由：/v1/cn/funds/nav、/v1/cn/funds/holdings、/v1/cn/funds/dividends、/v1/cn/funds/financial-indicators、/v1/cn/funds/investment-targets。多表路由须传目录中的精确表名，返回行携带 source_table。"
+        params={[
+          { name: "symbols", type: "string", required: false, desc: "Comma-separated symbols (max 20)", zh: "逗号分隔的代码（最多 20 个）" },
+          { name: "date", type: "string", required: false, desc: "Date YYYY-MM-DD (or use start/end, inclusive)", zh: "日期 YYYY-MM-DD（或用 start/end，包含起止）" },
+          { name: "table", type: "string", required: false, desc: "Exact table selector from the catalog for multi-table routes", zh: "多表路由须传目录中的精确表名" },
+          { name: "limit", type: "integer", required: false, desc: "1-1000, default 100; follow page_token until null", zh: "1–1000，默认 100；跟随 page_token 翻页至 null" },
+        ]}
+        example={`curl -X POST https://api.leandata.uk/v1/cn/funds/nav \
+  -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  -d '{"symbols": "510300.XSHG", "date": "2024-03-12"}'`}
+      />
+      <CnEndpoint
+        id="cn-shareholders" title={isZh ? "股东与基金持仓 / Holders" : "Shareholders & fund holdings"} method="GET/POST" path="/v1/cn/shareholders/top" source="available"
+        en="Top holders, float holders, holder counts, pledges and freezes, as archived. Multi-table route: pass the exact table selector from /v1/cn/catalog; rows carry source_table. Live fund companions: /v1/cn/funds/holdings for fund portfolios and /v1/cn/funds/nav for fund net values."
+        zh="前十大股东、流通股东、股东户数、质押与冻结，原样返回归档值。多表路由：table 须传目录中的精确表名，返回行携带 source_table。已上线的基金配套路由：/v1/cn/funds/holdings（基金持仓）、/v1/cn/funds/nav（基金净值）。"
+        params={[
+          { name: "symbols", type: "string", required: true, desc: "Comma-separated CN symbols (max 20)", zh: "逗号分隔的 A 股代码（最多 20 个）" },
+          { name: "date", type: "string", required: false, desc: "Report date YYYY-MM-DD (or use start/end, inclusive)", zh: "报告期日期 YYYY-MM-DD（或用 start/end，包含起止）" },
+          { name: "table", type: "string", required: false, desc: "Exact table selector from the catalog for this route", zh: "本路由目录中的精确表名" },
+          { name: "limit", type: "integer", required: false, desc: "1-1000, default 100; follow page_token until null", zh: "1–1000，默认 100；跟随 page_token 翻页至 null" },
+        ]}
+        example={`curl -X POST https://api.leandata.uk/v1/cn/shareholders/top \
+  -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  -d '{"symbols": "600519.XSHG", "date": "2024-03-31"}'`}
+      />
+      <div style={{ marginBottom: 36 }}>
+        <h3 id="cn-unavailable" className="display-title" style={{ fontSize: 22, margin: "0 0 8px" }}>{isZh ? "预留路由 / Reserved routes" : "Reserved routes"}</h3>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+          <CnPrivateBetaBadge />
+          <CnSourceChip source="unavailable" />
+        </div>
+        <DocDesc
+          en="/v1/cn/money-flow, /v1/cn/billboard and /v1/cn/membership/sessions are reserved and unavailable in this snapshot: the catalog lists them under unavailable_routes and the service answers 503 route_unavailable. Do not call them; use the 25 available routes plus /v1/cn/catalog."
+          zh="/v1/cn/money-flow、/v1/cn/billboard 与 /v1/cn/membership/sessions 为预留路由，本快照不可用：目录将其列于 unavailable_routes，服务端返回 503 route_unavailable。请勿调用；请使用 25 个可用路由加 /v1/cn/catalog。"
+        />
+        <h3 id="cn-money-flow" className="display-title" style={{ fontSize: 16, margin: "16px 0 4px", color: "var(--ink-muted)" }}><code style={{ fontFamily: "var(--f-mono)", fontSize: 14 }}>/v1/cn/money-flow</code> — {isZh ? "预留·不可用" : "reserved · unavailable"}</h3>
+        <h3 id="cn-billboard" className="display-title" style={{ fontSize: 16, margin: "8px 0 4px", color: "var(--ink-muted)" }}><code style={{ fontFamily: "var(--f-mono)", fontSize: 14 }}>/v1/cn/billboard</code> — {isZh ? "预留·不可用" : "reserved · unavailable"}</h3>
+        <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: 0 }}>
+          Accounts without CN Data access receive <code>403</code> for <code>/v1/cn/*</code>; CN Data requires explicit account authorization.
+          <br/>未获得中国数据授权的账号请求 <code>/v1/cn/*</code> 返回 <code>403</code>；需要单独开通账号权限，普通套餐不自动包含。
+        </p>
+      </div>
+      <CnEndpoint
+        id="cn-catalog" title={isZh ? "目录 / Catalog" : "Catalog"} method="GET/POST" path="/v1/cn/catalog" source="available"
+        en="Snapshot directory: available routes, exact table selectors and archived row counts, plus unavailable_routes. Counts describe archived records, not complete market coverage. No parameters required."
+        zh="快照目录：可用路由、精确表名与已归档行数，以及 unavailable_routes。行数为已归档记录数，不是全市场完整覆盖。无需参数。"
+        params={[]}
+        example={`curl "https://api.leandata.uk/v1/cn/catalog" \
+  -H "Authorization: Bearer <TOKEN>"`}
+      />
+
+      <h2 id="cn-access" className="display-title" style={{ fontSize: 28, margin: "40px 0 12px" }}>{isZh ? "权限与范围（内测已上线）" : "Access & scope (live private beta)"}</h2>
+      <DocDesc
+        zh="内测已上线：普通套餐默认不包含（含 Premium），需明确授权账号本人（单独授权）。结账页不提供购买，价格待定（TBD）。"
+        en="Live private beta: not included in ordinary plans (including Premium) by default; access requires explicit account authorization (own account only). Checkout offers no purchase; price TBD."
+      />
+      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
+        <thead><tr><th>Method</th><th>Endpoint</th><th>Family</th><th>Source</th><th>Status</th></tr></thead>
+        <tbody>
+          {["GET/POST /v1/cn/catalog|catalog|available", "GET/POST /v1/cn/daily/bars|daily|available", "GET/POST /v1/cn/minute/bars|minute|available", "GET/POST /v1/cn/valuation|valuation|available", "GET/POST /v1/cn/securities|membership|available", "GET/POST /v1/cn/reference/corporate-actions|reference|available", "GET/POST /v1/cn/reference/northbound|reference|available", "GET/POST /v1/cn/reference/margin|reference|available", "GET/POST /v1/cn/fundamentals/statements|fundamentals|available", "GET/POST /v1/cn/etf/bars|etf|available", "GET/POST /v1/cn/etf/minute/bars|etf|available", "GET/POST /v1/cn/etf/nav|etf|available", "GET/POST /v1/cn/etf/shares|etf|available", "GET/POST /v1/cn/shareholders/top|shareholders|available", "GET/POST /v1/cn/funds/holdings|funds|available", "GET/POST /v1/cn/funds/nav|funds|available", "GET/POST /v1/cn/funds/dividends|funds|available", "GET/POST /v1/cn/funds/financial-indicators|funds|available", "GET/POST /v1/cn/funds/investment-targets|funds|available", "GET/POST /v1/cn/options/daily|options|available", "GET/POST /v1/cn/options/contracts|options|available", "GET/POST /v1/cn/options/risk-indicators|options|available", "GET/POST /v1/cn/options/trade-ranks|options|available", "GET/POST /v1/cn/options/preopen|options|available", "GET/POST /v1/cn/options/adjustments|options|available", "GET/POST /v1/cn/options/exercises|options|available", "— /v1/cn/money-flow|money-flow|unavailable", "— /v1/cn/billboard|billboard|unavailable", "— /v1/cn/membership/sessions|membership|unavailable"].map((row) => {
+            const [route, family, source] = row.split("|");
+            const [method, path] = route.split(" ");
+            return (
+              <tr key={path}>
+                <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{method}</td>
+                <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{path}</td>
+                <td style={{ fontSize: 12 }}>{family}</td>
+                <td style={{ fontSize: 12 }}><CnSourceChip source={source} /></td>
+                <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>private beta · live</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
+        <thead><tr><th>Plan</th><th>CN Data entitlement</th><th>/v1/cn/* access</th></tr></thead>
+        <tbody>
+          {["Free", "Trial", "Basic", "Value", "Standard", "Premium"].map((plan) => (
+            <tr key={plan}>
+              <td style={{ fontSize: 12 }}>{plan}</td>
+              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>not included</td>
+              <td style={{ fontSize: 12 }}>403 unless explicitly authorized</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
+        CN Data uses your existing unified token with explicit account authorization (own account only). It is not included in ordinary plans; price TBD and checkout offers no purchase.
+        <br/>中国数据沿用现有 Token，须明确授权账号本人使用；普通套餐默认不包含；价格待定，结账页不提供购买。
+      </p>
+    </div>
+  );
+}
+
 function ProxyApiBody() {
   const lang = useCurrentLanguage();
   const isZh = lang === "zh";
@@ -2222,6 +2559,15 @@ function ProxyApiBody() {
         All data surfaces accept the same token. Origin hosts and cache tiers may move during failover, so clients should never pin a raw server IP.
         <br/><span style={{ color: "var(--ink-soft)" }}>历史 REST、实时 REST 与 WebSocket 均使用稳定域名和同一 Token。故障切换时源站与缓存层可能调整，客户端不应绑定裸 IP。</span>
       </div>
+      <a href="#cn-data-overview" style={{ textDecoration: "none" }}>
+        <div style={{ border: "1px solid var(--accent-rule)", background: "var(--accent-soft)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13, display: "flex", gap: 12, alignItems: "center" }}>
+          <span style={{ padding: "2px 8px", borderRadius: 999, background: "var(--accent-ink)", color: "var(--ink-inverse)", fontFamily: "var(--f-mono)", fontSize: 10, fontWeight: 700, letterSpacing: ".08em", whiteSpace: "nowrap" }}>PRIVATE BETA · LIVE · 内测已上线</span>
+          <span style={{ color: "var(--ink-base)" }}>
+            <strong>CN Data 中国数据</strong> — China A-share archive endpoints (daily, minute, valuation, reference, ETF minute bars, options, funds). Private beta live · explicit allowlist (own account only) · not for sale.
+            <br/><span style={{ color: "var(--ink-muted)" }}>中国 A 股归档接口，仅限明确授权的账号本人使用，不可购买。点击查看已上线的接口、参数与权限说明。</span>
+          </span>
+        </div>
+      </a>
 
       <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>{isZh ? "身份鉴权 (Authentication)" : "Authentication"}</h2>
       <DocDesc
@@ -2318,6 +2664,15 @@ Authorization: Bearer <TOKEN>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
             <td style={{ fontSize: 12 }}>All REST endpoints including crypto orderbooks</td>
           </tr>
+          <tr>
+            <td><span className="tier china">China · 内测</span></td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>TBD · 待定</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>private beta · live</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
+            <td style={{ fontSize: 12 }}><a href="#cn-data-overview">CN Data 中国数据</a> · live /v1/cn/* · private beta · no purchase; explicit account authorization required</td>
+          </tr>
         </tbody>
       </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 8px" }}>
@@ -2332,6 +2687,8 @@ Authorization: Bearer <TOKEN>
         Basic has access to the full available historical range. There is no Basic-specific date-span, symbol-count, or page-count budget. Requests remain subject to provider limits and shared proxy runtime controls such as historical concurrency, QPS, timeouts, and overload backpressure. Bulk Download is a separate one-off delivery product, not a requirement for older dates.
         <br/>Basic 可以访问全部可用历史数据，不设 Basic 专属的日期跨度、symbol 数或页数预算。请求仍受上游限制和 proxy 运行时控制影响，包括历史并发、QPS、超时和过载背压。Bulk Download 是单独的一次性交付产品，不是解锁旧日期的必要条件。
       </p>
+
+      <CnDataSections />
 
       {/* ── Free Plan Usage & Quickstart ── */}
       <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>Free Plan Guide</div>
