@@ -5619,6 +5619,71 @@ function registryRoleCounts(registryUsers) {
   return { counts, expired };
 }
 
+// BEGIN_EDGE_USAGE_HELPERS
+// Kept in the account server so the existing single-server-file deploy contract applies.
+const edgeUsage = (() => {
+  const fs = require('node:fs/promises');
+  const counters = ['completed', 'http_errors', 'interrupted', 'unknown', 'bytes_written', 'pending'];
+  function validateUsage(data, days) {
+    if (!data || data.schema_version !== 1 || data.available !== true || data.days !== days ||
+        data.byte_semantics !== 'gateway_write_accepted_not_client_receipt' || data.retention_days !== 90 ||
+        typeof data.full_window_covered !== 'boolean' || !Array.isArray(data.users) || data.users.length > 1000) throw new Error('Invalid usage schema');
+    for (const key of ['recording_since_utc', 'observed_at_utc', 'window_start_utc']) {
+      if (typeof data[key] !== 'string' || data[key].length > 40 || !Number.isFinite(Date.parse(data[key]))) throw new Error('Invalid usage time');
+    }
+    const seen = new Set();
+    const users = data.users.map(row => {
+      if (!row || typeof row.user_id !== 'string' || !row.user_id.length || row.user_id.length > 256 || seen.has(row.user_id)) throw new Error('Invalid usage identity');
+      seen.add(row.user_id);
+      const out = { user_id: row.user_id };
+      for (const key of counters) {
+        if (!Number.isSafeInteger(row[key]) || row[key] < 0) throw new Error('Invalid usage count');
+        out[key] = row[key];
+      }
+      return out;
+    });
+    return { schema_version: 1, available: true, days, users, byte_semantics: data.byte_semantics,
+      retention_days: 90, full_window_covered: data.full_window_covered,
+      recording_since_utc: data.recording_since_utc, observed_at_utc: data.observed_at_utc, window_start_utc: data.window_start_utc };
+  }
+  function createReader(env = process.env, fetcher = globalThis.fetch) {
+    return async function readUsage(days) {
+      if (![1, 7, 30, 90].includes(days)) throw new Error('Invalid usage window');
+      if (!env.EDGE_USAGE_BASE_URL || !env.EDGE_USAGE_TOKEN_FILE) throw new Error('Usage not configured');
+      const base = new URL(env.EDGE_USAGE_BASE_URL);
+      if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.pathname !== '/' || base.search || base.hash) throw new Error('Invalid usage origin');
+      const stat = await fs.stat(env.EDGE_USAGE_TOKEN_FILE);
+      if (!stat.isFile() || stat.size > 4096) throw new Error('Invalid usage credential file');
+      const token = (await fs.readFile(env.EDGE_USAGE_TOKEN_FILE, 'utf8')).trim();
+      if (token.length < 32 || token.length > 256 || !/^[A-Za-z0-9_-]+$/.test(token)) throw new Error('Invalid usage credential');
+      const url = new URL('/v1/edge/usage', base); url.searchParams.set('days', String(days));
+      const response = await fetcher(url, { headers: { Authorization: `Bearer ${token}` }, redirect: 'error', signal: AbortSignal.timeout(5000) });
+      if (response.status !== 200 || !response.headers.get('content-type')?.includes('application/json')) {
+        await response.body?.cancel(); throw new Error('Usage upstream unavailable');
+      }
+      const chunks = []; let size = 0;
+      for await (const chunk of response.body) {
+        size += chunk.length; if (size > 1024 * 1024) throw new Error('Usage response bound exceeded');
+        chunks.push(Buffer.from(chunk));
+      }
+      return validateUsage(JSON.parse(Buffer.concat(chunks).toString('utf8')), days);
+    };
+  }
+  function registerEdgeUsage(app, requireAdmin, reader = createReader()) {
+    app.get('/api/admin/usage/edge', (_req, res, next) => { res.set('Cache-Control', 'private, no-store'); next(); }, requireAdmin, async (req, res) => {
+      const raw = req.query.days === undefined ? '7' : req.query.days;
+      if (typeof raw !== 'string' || !['1','7','30','90'].includes(raw) || Object.keys(req.query).some(k => k !== 'days')) {
+        return res.status(400).json({ success: false, available: false, message: 'Invalid UTC day window' });
+      }
+      try { return res.json({ success: true, ...await reader(Number(raw)) }); }
+      catch { return res.status(503).json({ success: false, available: false, message: 'Edge usage unavailable; no zero-usage conclusion' }); }
+    });
+  }
+  return { createReader, validateUsage, registerEdgeUsage };
+})();
+// END_EDGE_USAGE_HELPERS
+edgeUsage.registerEdgeUsage(app, requireAdmin);
+
 app.get('/api/admin/usage/overview', requireAdmin, async (_req, res) => {
   await usageAggregator.ensureFresh();
   const registryUsers = readRegistryUsersSafe();

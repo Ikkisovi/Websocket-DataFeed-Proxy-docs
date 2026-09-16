@@ -2523,6 +2523,38 @@ describe('Account portal UI', () => {
 });
 
 // ============================================================
+// Edge usage — existing administrator authorization and real private HTTP hop.
+// ============================================================
+describe('GET /api/admin/usage/edge', () => {
+  test('ordinary callers cannot read usage and missing service is not zero', async () => {
+    expect((await request(app).get('/api/admin/usage/edge')).status).toBe(401);
+    expect((await request(app).get('/api/admin/usage/edge').set('X-Admin-Token','ordinary-user-token')).status).toBe(401);
+    const login = await request(app).post('/api/admin/login').send({password:'admin123'});
+    const response = await request(app).get('/api/admin/usage/edge').set('X-Admin-Token',login.body.token);
+    expect(response.status).toBe(503); expect(response.body.available).toBe(false);
+  });
+  test('authenticated dashboard receives actual private HTTP accounting with separate credential', async () => {
+    const keyFile=path.join(TEST_DIR,'edge-usage-key');fs.writeFileSync(keyFile,'u'.repeat(64));
+    const received=[];
+    const upstream=require('http').createServer((req,res)=>{
+      received.push({auth:req.headers.authorization,admin:req.headers['x-admin-token'],url:req.url});
+      res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({schema_version:1,available:true,days:7,retention_days:90,full_window_covered:false,
+        byte_semantics:'gateway_write_accepted_not_client_receipt',recording_since_utc:'2026-09-16T00:00:00Z',observed_at_utc:'2026-09-16T01:00:00Z',window_start_utc:'2026-09-10T00:00:00Z',
+        users:[{user_id:'alice',completed:2,http_errors:0,interrupted:0,unknown:0,bytes_written:246,pending:0}]}));
+    });
+    await new Promise(resolve=>upstream.listen(0,'127.0.0.1',resolve));
+    process.env.EDGE_USAGE_BASE_URL=`http://127.0.0.1:${upstream.address().port}`;process.env.EDGE_USAGE_TOKEN_FILE=keyFile;
+    try {
+      const login=await request(app).post('/api/admin/login').send({password:'admin123'});
+      const response=await request(app).get('/api/admin/usage/edge?days=7').set('X-Admin-Token',login.body.token);
+      expect(response.status).toBe(200);expect(response.body.users[0].bytes_written).toBe(246);
+      expect(received).toEqual([{auth:'Bearer '+'u'.repeat(64),admin:undefined,url:'/v1/edge/usage?days=7'}]);
+      expect(response.text).not.toContain('u'.repeat(64));
+    } finally { delete process.env.EDGE_USAGE_BASE_URL;delete process.env.EDGE_USAGE_TOKEN_FILE;upstream.closeAllConnections();await new Promise(resolve=>upstream.close(resolve)); }
+  });
+});
+
+// ============================================================
 // Admin approve — writes to isolated proxy file
 // ============================================================
 describe('POST /api/admin/approve', () => {

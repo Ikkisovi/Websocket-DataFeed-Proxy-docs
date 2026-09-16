@@ -978,6 +978,7 @@
 </head>
 <body>
   <script src="/language.js"></script>
+  <script src="/edge-usage-panel.js"></script>
 
 <!-- ── Login overlay ── -->
 <div id="login-overlay" class="login-overlay">
@@ -1137,6 +1138,16 @@
         </div>
         <div id="usage-table-wrap"><div class="empty">正在加载…</div></div>
         <div id="usage-detail" class="usage-detail hidden"></div>
+      </div>
+
+      <div class="usage-section" id="edge-usage-section">
+        <div class="usage-section-head">
+          <div class="usage-section-title">Edge 下载 · 按用户统计</div>
+          <div><select id="edge-usage-days" class="input" onchange="loadEdgeUsage()"><option value="1">今天 UTC</option><option value="7" selected>近 7 天 UTC</option><option value="30">近 30 天 UTC</option><option value="90">近 90 天 UTC</option></select>
+          <button class="btn ghost" type="button" onclick="loadEdgeUsage()">刷新下载量</button></div>
+        </div>
+        <p class="log-note">独立于上方 OCI 请求统计：签发票据不计下载，重放不重复计数。按传输开始的 UTC 日期归属，保留 90 天。流量为网关向下游接受写入的对象正文，不含协议开销；不证明用户终端已完整收妥。中断／未知／待核实存在时，已记录流量只是下限。</p>
+        <div id="edge-usage-table"><div class="empty">正在加载…</div></div>
       </div>
     </div>
 
@@ -1761,7 +1772,12 @@
     return `<span class="role-badge ${escHtml(role)}">${escHtml(tierLabel(role))}</span>`;
   }
 
+  function loadEdgeUsage() {
+    return window.EdgeUsagePanel.load(adminToken, document.getElementById('edge-usage-days').value);
+  }
+
   async function loadUsageOverview() {
+    void loadEdgeUsage();
     try {
       const h = { 'X-Admin-Token': adminToken };
       const resp = await fetch('/api/admin/usage/overview', { headers: h });
