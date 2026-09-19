@@ -654,16 +654,18 @@ function IndexOptionsBanner() {
 }
 
 function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
-  const validTabs = ["proxy", "fmp", "fmp-fundamentals", "bulk", "ws", "status", "usage"];
-  const fmpOverviewIds = ["fmp-data-overview", "fmp-snapshot-boundary", "fmp-future-data-families"];
+  const validTabs = ["proxy", "fmp", "fmp-fundamentals", "morningstar", "bulk", "ws", "status", "usage"];
+  const fmpOverviewIds = ["financial-source-selector", "fmp-data-overview", "fmp-snapshot-boundary", "fmp-future-data-families"];
   const hashTab = typeof window !== "undefined" && window.location.hash ? window.location.hash.slice(1) : "";
   const resolveTab = (id) => validTabs.includes(id)
     ? id
     : fmpOverviewIds.includes(id)
       ? "fmp"
-      : id.startsWith("fmp-")
-        ? "fmp-fundamentals"
-        : ["endpoint", "auth-message", "heartbeat", "stocks", "options", "crypto", "news", "overnight", "subscribe", "unsubscribe", "trade", "quote", "bar", "reconnect", "backpressure"].includes(id)
+      : id.startsWith("morningstar-")
+        ? "morningstar"
+        : id.startsWith("fmp-")
+          ? "fmp-fundamentals"
+          : ["endpoint", "auth-message", "heartbeat", "stocks", "options", "crypto", "news", "overnight", "subscribe", "unsubscribe", "trade", "quote", "bar", "reconnect", "backpressure"].includes(id)
           ? "ws"
           : id ? "proxy" : initialTab;
   const [tab, setTab] = useState(resolveTab(hashTab));

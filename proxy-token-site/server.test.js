@@ -1109,6 +1109,8 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).toContain('not certified strict point-in-time');
     expect(docsSource).toContain('source daily fill-forward is preserved; API performs no filling');
     expect(docsSource).toContain('morningstar_premium_required');
+    expect(docsSource).toContain('["proxy", "fmp", "fmp-fundamentals", "morningstar"');
+    expect(docsSource).toContain('id.startsWith("morningstar-")');
   });
 
   it('adds a bilingual updates banner and updates page entry point', () => {
