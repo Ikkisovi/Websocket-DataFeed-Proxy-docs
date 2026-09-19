@@ -1074,8 +1074,8 @@ describe('Registration and bulk product UI contract', () => {
     expect(tokenPageSource).not.toContain('portal · production');
     expect(tokenPageSource).not.toContain('>Account</a>');
     expect(tokenEntry).toContain('from "../public/token-page.jsx"');
-    expect(rootIndexSource).toContain('src="/assets/token-page.js"');
-    expect(docsIndexSource).toContain('src="/assets/docs-page.js"');
+    expect(rootIndexSource).toMatch(/src="\/assets\/token-page\.js(?:\?[^"]*)?"/);
+    expect(docsIndexSource).toMatch(/src="\/assets\/docs-page\.js(?:\?[^"]*)?"/);
     expect(rootIndexSource).not.toContain('type="text/babel"');
     expect(docsIndexSource).not.toContain('type="text/babel"');
     expect(docsSource.match(/Index options are supported/g)).toHaveLength(1);

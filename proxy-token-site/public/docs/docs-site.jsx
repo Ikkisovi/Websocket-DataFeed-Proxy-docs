@@ -488,38 +488,136 @@ function UptimeBlock({ label, data }) {
 
 const { useState } = React;
 
+const NAV_GROUPS = [
+  {
+    key: "market",
+    label: "行情数据", en: "Market data",
+    match: ["proxy"],
+    mainTab: "proxy",
+    items: [
+      { label: "总览与认证", en: "Overview & authentication", desc: "Overview · Auth · Tiers", tab: "proxy", hash: "authentication" },
+      { label: "股票行情", en: "Stock data", desc: "Bars · Quotes · Trades", tab: "proxy", hash: "stock-data-availability" },
+      { label: "期权行情", en: "Options data", desc: "Contracts · Snapshots · OI", tab: "proxy", hash: "post-v1-options-contracts" },
+      { label: "指数行情", en: "Index data", desc: "SPX · VIX · DJX · XSP", tab: "proxy", hash: "get-post-v1-indices-history" },
+      { label: "加密与新闻", en: "Crypto & news", desc: "Orderbooks · News", tab: "proxy", hash: "post-v1-crypto-us-latest-orderbooks" },
+      { label: "中国数据·内测", en: "CN Data · Private beta", desc: "CN archive · /v1/cn/*", tab: "proxy", hash: "cn-data-overview" },
+    ],
+  },
+  {
+    key: "financial",
+    label: "财务数据", en: "Financial data",
+    match: ["fmp", "fmp-fundamentals"],
+    mainTab: "fmp",
+    items: [
+      { label: "数据说明", en: "Coverage", desc: "Coverage · Snapshot", tab: "fmp" },
+      { label: "全部 50+ 接口", en: "All 50+ endpoints", desc: "Endpoint reference", tab: "fmp-fundamentals", hash: "fmp-fundamentals-overview" },
+      { label: "财务三表", en: "Financial statements", desc: "Income · Balance · Cashflow", tab: "fmp-fundamentals", hash: "fmp-income-statement" },
+      { label: "比率与增长", en: "Ratios & growth", desc: "Ratios · Growth", tab: "fmp-fundamentals", hash: "fmp-ratios" },
+    ],
+  },
+  {
+    key: "batch",
+    label: "批量与实时", en: "Bulk & realtime",
+    match: ["bulk", "ws"],
+    mainTab: "bulk",
+    items: [
+      { label: "批量下载", en: "Bulk download", desc: "¥50 / 50GB snapshot", tab: "bulk" },
+      { label: "WS 使用指南", en: "WS guide", desc: "6 channels", tab: "ws" },
+      { label: "订阅与消息", en: "Subscriptions & messages", desc: "Subscribe · Shapes", tab: "ws", hash: "subscribe" },
+    ],
+  },
+  {
+    key: "ops",
+    label: "状态与用量", en: "Status & usage",
+    match: ["status", "usage"],
+    mainTab: "status",
+    items: [
+      { label: "服务状态", en: "Service status", desc: "Live · Latency · Uptime", tab: "status" },
+      { label: "用量统计", en: "Usage", desc: "30d · Token stats", tab: "usage" },
+      { label: "产品更新", en: "Product updates", desc: "Changelog", href: "/updates" },
+    ],
+  },
+];
+
 function DocsTopbar({ active = "proxy", onNav }) {
-  const lang = useCurrentLanguage();
-  const isZh = lang === "zh";
+  const isZh = useCurrentLanguage() === "zh";
   const Toggle = window.LanguageToggle;
+  const [openMenu, setOpenMenu] = React.useState(null);
+  const goNavItem = (item) => {
+    setOpenMenu(null);
+    if (item.href) { window.location.href = item.href; return; }
+    if (onNav) onNav(item.tab);
+    if (item.hash) {
+      if (window.location.hash === "#" + item.hash) {
+        const el = document.getElementById(item.hash);
+        if (el) el.scrollIntoView({ block: "start" });
+      } else {
+        window.location.hash = item.hash;
+      }
+    } else {
+      window.location.hash = item.tab;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
   return (
-    <div className="topbar">
+    <div className="topbar docs-topbar" onMouseLeave={() => setOpenMenu(null)}>
       <div className="brand">
         <span className="dot"></span>
         <span><strong>{isZh ? "数据接口文档" : "Proxy Docs"}</strong></span>
       </div>
       <div className="divider"></div>
       <div className="nav">
-        <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>{isZh ? "行情 API" : "Proxy API"}</a>
-        <a onClick={() => { onNav && onNav("proxy"); window.location.hash = "cn-data-overview"; }} style={{ cursor: "pointer" }}>{isZh ? "中国数据 · 内测" : "CN Data · Private beta"}</a>
-        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>{isZh ? "财务数据" : "Financial Data"}</a>
-        <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>{isZh ? "批量下载" : "Bulk Download"}</a>
-        <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>{isZh ? "WS 实时流" : "WS Stream"}</a>
-        <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>{isZh ? "服务状态" : "Status"}</a>
-        <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>{isZh ? "用量统计" : "Usage"}</a>
-        <a href="/alternative-data/" style={{ cursor: "pointer" }}>{isZh ? "另类数据" : "Alternative data"}</a>
-        <a href="/updates" style={{ cursor: "pointer" }}>{isZh ? "产品更新" : "Updates"}</a>
+        {NAV_GROUPS.map((g) => {
+          const isActive = g.match.includes(active);
+          const isOpen = openMenu === g.key;
+          return (
+            <div key={g.key} className="nav-group" style={{ position: "relative" }} onMouseEnter={() => setOpenMenu(g.key)}>
+              <button
+                type="button" aria-expanded={isOpen}
+                onKeyDown={(event) => { if (event.key === "Escape") setOpenMenu(null); }}
+                className={isActive ? "active" : ""}
+                style={{ cursor: "pointer", border: 0, background: "transparent", font: "inherit", color: "inherit", padding: "8px 10px" }}
+                onClick={() => {
+                  setOpenMenu(g.key);
+                }}
+              >
+                {isZh ? g.label : g.en}
+                <span style={{ display: "inline-block", marginLeft: 5, fontSize: 10, color: "var(--ink-soft)", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>&#9662;</span>
+              </button>
+              {isOpen && (
+                <div className="nav-group-panel" style={{
+                  position: "absolute", top: "calc(100% + 6px)", left: 0, minWidth: 248,
+                  background: "var(--bg-paper)", border: "1px solid var(--rule)", borderRadius: 10,
+                  boxShadow: "0 12px 32px rgba(26,24,21,.14)", padding: 6, zIndex: 50,
+                }}>
+                  {g.items.map((it, idx) => (
+                    <a
+                      key={idx}
+                      href={it.href || "#" + (it.hash || it.tab)}
+                      style={{ display: "flex", flexDirection: "column", gap: 1, padding: "8px 10px", borderRadius: 6, cursor: "pointer" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-sunken)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      onClick={(e) => { e.preventDefault(); goNavItem(it); }}
+                    >
+                      <span style={{ fontSize: 13, color: "var(--ink-strong)", fontWeight: 500 }}>{isZh ? it.label : it.en}</span>
+                      <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{it.desc}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <a href="/alternative-data/">{isZh ? "另类数据" : "Alternative data"}</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
         {Toggle ? <Toggle /> : null}
-        <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>{isZh ? "Token 账户管理 →" : "Token Portal →"}</a>
+        <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>Token portal →</a>
       </div>
     </div>
   );
 }
-
-
 
 function IndexOptionsBanner() {
   const lang = useCurrentLanguage();
@@ -557,14 +655,21 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
   const validTabs = ["proxy", "fmp", "fmp-fundamentals", "bulk", "ws", "status", "usage"];
   const fmpOverviewIds = ["fmp-data-overview", "fmp-snapshot-boundary", "fmp-future-data-families"];
   const hashTab = typeof window !== "undefined" && window.location.hash ? window.location.hash.slice(1) : "";
-  const startTab = validTabs.includes(hashTab)
-    ? hashTab
-    : fmpOverviewIds.includes(hashTab)
+  const resolveTab = (id) => validTabs.includes(id)
+    ? id
+    : fmpOverviewIds.includes(id)
       ? "fmp"
-      : hashTab.startsWith("fmp-")
+      : id.startsWith("fmp-")
         ? "fmp-fundamentals"
-        : initialTab;
-  const [tab, setTab] = useState(startTab);
+        : ["endpoint", "auth-message", "heartbeat", "stocks", "options", "crypto", "news", "overnight", "subscribe", "unsubscribe", "trade", "quote", "bar", "reconnect", "backpressure"].includes(id)
+          ? "ws"
+          : id ? "proxy" : initialTab;
+  const [tab, setTab] = useState(resolveTab(hashTab));
+  React.useEffect(() => {
+    const syncTab = () => setTab(resolveTab(window.location.hash.slice(1)));
+    window.addEventListener("hashchange", syncTab);
+    return () => window.removeEventListener("hashchange", syncTab);
+  }, []);
 
   React.useEffect(() => {
     const scrollToHash = () => {
@@ -622,9 +727,9 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
       </div>
 
       {/* Content */}
-      <div className="docs-content-grid" style={{ display: "grid", gridTemplateColumns: threeColumnTab ? "220px 1fr 220px" : "1fr", flex: 1 }}>
+      <div className={"docs-content-grid" + (threeColumnTab ? " has-3col" : "")} style={{ display: "grid", gridTemplateColumns: threeColumnTab ? "228px minmax(0,1fr) 200px" : "1fr", flex: 1 }}>
         {threeColumnTab && <SideNav tab={tab} />}
-        <main className={tab === "bulk" ? "bulk-main" : ""} style={{ padding: threeColumnTab ? "40px 56px" : "36px 32px", background: "var(--bg-canvas)" }}>
+        <main className={tab === "bulk" ? "bulk-main" : ""} style={{ padding: threeColumnTab ? "40px 44px" : "36px 32px", background: "var(--bg-canvas)", minWidth: 0 }}>
           {tab === "proxy" ? <ProxyApiBody /> : tab === "fmp" ? <FmpDataOverview openFundamentals={() => setTab("fmp-fundamentals")} /> : tab === "fmp-fundamentals" ? <FmpFundamentalsBody /> : tab === "bulk" ? <BulkOrderBody /> : tab === "ws" ? <WsUsageBody /> : tab === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…")) : (React.createElement(StatusBody))}
         </main>
         {threeColumnTab && <OnThisPage tab={tab} />}
@@ -666,6 +771,9 @@ function Tab({ id, tab, setTab, label, count }) {
 }
 
 const SECTION_ZH_LABELS = {
+  "Market · US / World": "市场 · 美国 / 世界",
+  "US market": "美国市场",
+  "World · CN 中国数据": "世界 · 中国数据",
   "Getting started": "入门指南",
   "Overview": "概览与架构",
   "Authentication": "身份鉴权",
@@ -855,15 +963,9 @@ const SECTION_ZH_LABELS = {
 
 function SideNav({ tab }) {
   const [activeId, setActiveId] = React.useState("");
-  const [expanded, setExpanded] = React.useState({
-    "Stock Data": true,
-    "CN Data 中国数据": true,
-    "Multi-symbol": true,
-    "Metadata": true,
-    "Single symbol": true,
-    "Options Data": true,
-    "Snapshots": true,
-  });
+  const [query, setQuery] = React.useState("");
+  const [expanded, setExpanded] = React.useState({});
+  React.useEffect(() => { setQuery(""); setExpanded({}); }, [tab]);
   React.useEffect(() => {
     const onHashChange = () => setActiveId(window.location.hash.slice(1));
     window.addEventListener('hashchange', onHashChange);
@@ -874,18 +976,33 @@ function SideNav({ tab }) {
     return () => { window.removeEventListener('hashchange', onHashChange); observer.disconnect(); };
   }, [tab]);
 
-  const toggle = (title) => setExpanded(prev => ({ ...prev, [title]: !prev[title] }));
+  const toggle = (title, open) => setExpanded(prev => ({ ...prev, [title]: !open }));
+
+  // Filter groups/items by search query. A group survives when its title,
+  // one of its items, or one of its children matches; matching forces expand.
+  const q = query.trim().toLowerCase();
+  const filterSection = (sec) => {
+    if (!q) return sec;
+    const items = (sec.items || []).filter((it) => (it + " " + (SECTION_ZH_LABELS[it] || "")).toLowerCase().includes(q));
+    const children = (sec.children || []).map(filterSection).filter((c) => c);
+    if ((sec.title + " " + (SECTION_ZH_LABELS[sec.title] || "")).toLowerCase().includes(q)) return sec;
+    if (items.length === 0 && children.length === 0) return null;
+    return { ...sec, items, children: children.length > 0 ? children : undefined };
+  };
+  const visibleSections = (tabSections) => tabSections.map(filterSection).filter((sec) => sec);
 
   const sections = tab === "proxy" ? [
     { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions", "Free plan usage"] },
-    { title: "CN Data 中国数据", items: ["CN Data overview", "Daily bars", "Minute bars", "Valuation", "Membership", "Reference", "Fundamentals", "ETF data", "ETF minutes", "Options", "Funds", "Shareholders", "Reserved routes", "Catalog", "Access & scope"] },
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news", "stock trade+quote"] },
     { title: "Index Data", items: ["index history"] },
-    { title: "Stock Data", items: ["overview"], children: [
-      { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
-      { title: "Metadata", items: ["condition codes", "exchange codes"] },
-      { title: "Single symbol", items: ["single bars", "single latest bar", "single quotes", "single latest quote", "single snapshot", "single trades", "single latest trade"] },
+    { title: "Stock Data", items: ["Market · US / World"], children: [
+      { title: "US market", items: ["overview"], children: [
+        { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
+        { title: "Metadata", items: ["condition codes", "exchange codes"] },
+        { title: "Single symbol", items: ["single bars", "single latest bar", "single quotes", "single latest quote", "single snapshot", "single trades", "single latest trade"] },
+      ]},
+      { title: "World · CN 中国数据", items: ["CN Data overview", "Daily bars", "Minute bars", "Valuation", "Membership", "Reference", "Fundamentals", "ETF data", "ETF minutes", "Options", "Funds", "Shareholders", "Reserved routes", "Catalog", "Access & scope"] },
     ]},
     { title: "Options Data", items: ["routing model", "contracts"], children: [
       { title: "Snapshots", items: ["snapshots", "quote", "snapshot trade", "open interest", "expiry", "snapshot ohlc"] },
@@ -924,13 +1041,13 @@ function SideNav({ tab }) {
     );
   }
 
-  function Section({ s, depth = 0 }) {
+  function Section({ s, depth = 0, defaultOpen = false, forceOpen = false }) {
     const lang = useCurrentLanguage();
     const isZh = lang === "zh";
     const hasChildren = s.children && s.children.length > 0;
     const hasItems    = s.items && s.items.length > 0;
     const isParent    = hasChildren || hasItems;
-    const isOpen      = expanded[s.title] !== false;
+    const isOpen      = forceOpen || (expanded[s.title] ?? defaultOpen);
     const isMono      = s.title.includes("endpoints") || s.title === "Messages";
 
     const BASE_PAD    = 10;
@@ -958,7 +1075,7 @@ function SideNav({ tab }) {
       "enterprise-values": "fmp-enterprise-values",
       "financial-scores": "fmp-financial-scores",
     };
-    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
+    const ID_MAP = {'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
     const getId = (label) => tab === "fmp-fundamentals"
       ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
       : ID_MAP[label] || slugify(label);
@@ -967,7 +1084,7 @@ function SideNav({ tab }) {
       <div style={{ marginBottom: hasChildren ? 0 : 8 }}>
         {/* ── header row (chevron right-aligned like the reference) ── */}
         <div
-          onClick={() => isParent && toggle(s.title)}
+          onClick={() => isParent && toggle(s.title, isOpen)}
           style={{
             display: "flex", alignItems: "center",
             padding: "5px 10px 5px " + indent,
@@ -1015,7 +1132,7 @@ function SideNav({ tab }) {
 
                 {/* nested sub-sections */}
                 {hasChildren && s.children.map((child, k) => (
-                  <Section key={k} s={child} depth={depth + 1} />
+                  <Section key={k} s={child} depth={depth + 1} defaultOpen={k === 0} forceOpen={forceOpen} />
                 ))}
               </div>
             )}
@@ -1026,13 +1143,34 @@ function SideNav({ tab }) {
   }
 
   return (
-    <nav style={{
-      padding: "32px 0 32px 32px",
+    <nav className="docs-sidenav" style={{
+      padding: "8px 0 32px 24px",
       borderRight: "1px solid var(--rule)",
       background: "var(--bg-canvas)",
       fontSize: 13, position: "sticky", top: 0, height: "100vh", overflow: "auto"
     }}>
-      {sections.map((s, i) => <Section key={i} s={s} />)}
+      <div style={{ padding: "12px 16px 12px 8px", position: "sticky", top: 0, background: "var(--bg-canvas)", zIndex: 2 }}>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="搜索接口… / filter"
+          style={{
+            width: "100%", fontFamily: "var(--f-mono)", fontSize: 12,
+            padding: "7px 10px", borderRadius: 6, boxSizing: "border-box",
+            border: "1px solid var(--rule-strong)", background: "var(--bg-paper)",
+            color: "var(--ink-strong)", outline: "none",
+          }}
+        />
+        {q && (
+          <div style={{ marginTop: 6, fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>
+            {visibleSections(sections).length} groups match
+          </div>
+        )}
+      </div>
+      {visibleSections(sections).length === 0 && (
+        <div style={{ padding: "8px 16px 8px 8px", fontSize: 12, color: "var(--ink-soft)" }}>无匹配 · no match</div>
+      )}
+      {visibleSections(sections).map((s, i) => <Section key={i} s={s} defaultOpen={i === 0} forceOpen={!!q} />)}
     </nav>
   );
 }
@@ -1060,8 +1198,8 @@ function OnThisPage({ tab }) {
     ? ["Connect", "Authenticate", "Subscribe", "Message shapes", "Reconnect"]
     : ["Overview", "Components", "Latency", "Uptime", "Incidents"];
   return (
-    <aside style={{
-      padding: "40px 24px",
+    <aside className="on-this-page" style={{
+      padding: "40px 20px",
       borderLeft: "1px solid var(--rule)",
       background: "var(--bg-canvas)", fontSize: 12.5, position: "sticky", top: 0, height: "100vh", overflow: "auto"
     }}>
@@ -3057,6 +3195,25 @@ print("Option contracts:", resp_opt.status_code)`}
   "quote_count": 312
 }`}
       </pre>
+
+            {/* ── Market selector: US / World ── */}
+      <div className="eyebrow" style={{ marginBottom: 10 }}>Market · 市场选择</div>
+      <h2 id="market-us-world" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Choose your market · 选择市场</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 16px" }}>
+        US stock routes are available subject to plan permissions and feed coverage. World coverage starts with CN archive
+        slices under <code>/v1/cn/*</code> (private beta · explicit account authorization, ordinary plans excluded).
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>美股接口受套餐权限和行情覆盖范围约束；世界覆盖从中国 A 股归档（内测、单独授权）开始。</span>
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 40 }}>
+        <a href="#stock-data-availability" style={{ textDecoration: "none", border: "1px solid var(--rule)", borderRadius: 10, padding: "14px 16px", background: "var(--bg-paper)" }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-strong)", marginBottom: 4 }}>美股 US market</div>
+          <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>/v2/stocks/* · US market data →</div>
+        </a>
+        <a href="#cn-data-overview" style={{ textDecoration: "none", border: "1px solid var(--accent-rule)", borderRadius: 10, padding: "14px 16px", background: "var(--accent-soft)" }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--accent-ink)", marginBottom: 4 }}>世界/中国 World · CN <span style={{ fontFamily: "var(--f-mono)", fontSize: 10, border: "1px solid var(--rule-strong)", borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>内测 beta</span></div>
+          <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>/v1/cn/* · archive slice · explicit auth →</div>
+        </a>
+      </div>
 
       {/* ── Stock Data ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Stock Data</div>
