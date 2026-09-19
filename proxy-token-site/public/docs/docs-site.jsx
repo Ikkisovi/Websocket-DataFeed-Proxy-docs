@@ -3132,8 +3132,8 @@ print("Option contracts:", resp_opt.status_code)`}
         { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000", zh: "默认 5,000，最大 10,000" },
       ]} />
       <DocDesc
-        zh="必须提供 symbol/sid，或把无筛选横截面限制在最多 7 个包含首尾的日历日。truncated=true 表示应缩短日期窗口或按 SID 拆分。Free 计划仍受最近 31 天历史窗口限制。NULL 和 sparse dates 按源端原样返回，不填零、不插值。"
-        en="Provide symbol/sid, or keep an unfiltered cross-section to at most seven inclusive calendar days. If truncated=true, narrow the date window or split by SID. Free-plan requests remain limited to the most recent 31 calendar days. Source NULLs and sparse dates are preserved without filling or interpolation."
+        zh="必须提供 symbol/sid，或把无筛选横截面限制在最多 7 个包含首尾的日历日。truncated=true 表示应缩短日期窗口或按 SID 拆分。两条 Spectral endpoint 仅对认证付费计划开放；Free 计划返回 403。NULL 和 sparse dates 按源端原样返回，不填零、不插值。"
+        en="Provide symbol/sid, or keep an unfiltered cross-section to at most seven inclusive calendar days. If truncated=true, narrow the date window or split by SID. Both Spectral endpoints require an authenticated paid plan; Free returns 403. Source NULLs and sparse dates are preserved without filling or interpolation."
       />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
