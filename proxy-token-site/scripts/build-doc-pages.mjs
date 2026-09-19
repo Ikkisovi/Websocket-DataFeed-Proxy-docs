@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const siteRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const docsRoot = resolve(siteRoot, "public/docs");
-const assetVersion = "20260919-independent-pages";
+const assetVersion = "20260919-provider-guides";
 
 const pages = {
   "": "Leandata API Documentation",
@@ -37,7 +37,7 @@ function html(title) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/docs/tokens.css?v=20260919-nav">
+<link rel="stylesheet" href="/docs/tokens.css?v=20260919-provider-guides">
 <style>
   html, body { margin: 0; padding: 0; height: 100%; background: #f0eee9; }
   body { font-family: "IBM Plex Sans", system-ui, sans-serif; }

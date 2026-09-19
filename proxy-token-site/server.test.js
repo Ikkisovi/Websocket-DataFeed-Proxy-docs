@@ -1009,6 +1009,10 @@ describe('Registration and bulk product UI contract', () => {
     path.join(__dirname, 'public', 'docs-site.jsx'),
     'utf8'
   );
+  const docsCss = fs.readFileSync(
+    path.join(__dirname, 'public', 'docs', 'tokens.css'),
+    'utf8'
+  );
   const tokenPageSource = fs.readFileSync(
     path.join(__dirname, 'public', 'token-page.jsx'),
     'utf8'
@@ -1091,8 +1095,8 @@ describe('Registration and bulk product UI contract', () => {
   });
 
   it('uses neutral bilingual financial-data language', () => {
-    expect(docsSource).toContain('Premium access includes company statements, ratios, metrics, profiles, and reference data.');
-    expect(docsSource).toContain('Premium 账户可访问公司财报、财务比率、关键指标、公司资料及参考数据。');
+    expect(docsSource).toContain('Premium access includes company statements, ratios, growth metrics, profiles, market reference data');
+    expect(docsSource).toContain('Premium 账户可通过一个 Leandata Token 访问公司财报、财务比率、增长指标');
     expect(docsSource).toContain('function Bilingual');
     expect(docsSource).not.toMatch(/Alpaca|ThetaData/);
     expect(docsSource).not.toContain('FMP 数据');
@@ -1125,12 +1129,33 @@ describe('Registration and bulk product UI contract', () => {
     ];
     for (const page of pages) {
       const html = fs.readFileSync(path.join(__dirname, 'public', 'docs', page, 'index.html'), 'utf8');
-      expect(html).toContain('/assets/docs-page.js?v=20260919-independent-pages');
-      expect(html).toContain('/docs/tokens.css?v=20260919-nav');
+      expect(html).toContain('/assets/docs-page.js?v=20260919-provider-guides');
+      expect(html).toContain('/docs/tokens.css?v=20260919-provider-guides');
     }
     expect(docsSource).toContain('href: DOC_PATHS.marketStocks');
     expect(docsSource).toContain('href: DOC_PATHS.financialMorningstar');
     expect(docsSource).not.toContain('href={it.href || "#"');
+  });
+
+  it('uses supplied provider logos and publishes complete bilingual provider guides', () => {
+    const providerAssets = [
+      'fmp-data.png', 'morningstar.png', 'quantconnect.png',
+    ];
+    for (const asset of providerAssets) {
+      expect(fs.statSync(path.join(__dirname, 'public', 'assets', 'providers', asset)).size).toBeGreaterThan(10000);
+    }
+    expect(docsSource).toContain('/assets/providers/fmp-data.png');
+    expect(docsSource).toContain('/assets/providers/morningstar.png');
+    expect(docsSource).toContain('/assets/providers/quantconnect.png');
+    expect(docsSource).toContain('ProviderHero');
+    expect(docsSource).toContain('字段字典 / Field dictionary');
+    expect(docsSource).toContain('Spectral Tick-Flow 频谱订单流信号');
+    expect(docsSource).toContain('executionperiodseconds');
+    expect(docsSource).toContain('volumevarianceexplained');
+    expect(docsSource).toContain('oa_underlying_sid');
+    expect(docsSource).toContain('Provider attribution / 数据来源');
+    expect(docsCss).toContain('.provider-hero');
+    expect(docsCss).toContain('.proxy-app [hidden] { display: none !important; }');
   });
 
   it('adds a bilingual updates banner and updates page entry point', () => {

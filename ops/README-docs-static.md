@@ -18,8 +18,8 @@ It does not add SSH keys, broaden sudo rules, or enable CI runners.
 3. Validate the live Compose file list with the host deployment environment.
    Record container identity, mounts, runtime release and public directory inode.
 4. Materialize only the public files allowlisted in `deploy_docs_static.py`—the
-   compiled bundles, shared styles/source, root entries, and independent docs-page
-   `index.html` files—plus that reviewed script from the committed Git archive into
+   compiled bundles, provider logo assets, shared styles/source, root entries, and
+   independent docs-page `index.html` files—plus that reviewed script from the committed Git archive into
    `/srv/leandata/site-releases/docs-nav/<full-commit>`.
 5. Write a private deployment manifest with `commit`, a `files` mapping of each
    allowlisted relative path to its `before` and `after` SHA-256, and `dependencies`

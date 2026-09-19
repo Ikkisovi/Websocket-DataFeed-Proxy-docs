@@ -837,8 +837,12 @@ const SECTION_ZH_LABELS = {
   "Index Data": "指数数据",
   "index history": "指数日线历史",
   "Research Signals": "研究信号",
+  "Spectral overview": "Spectral 概览",
+  "Spectral methodology": "Spectral 方法解读",
+  "Spectral fields": "Spectral 字段字典",
   "Spectral history": "Spectral 历史信号",
   "Spectral coverage": "Spectral 覆盖范围",
+  "Spectral workflows": "Spectral 研究工作流",
   "Stock Data": "股票数据",
   "overview": "数据概览",
   "Multi-symbol": "多股票批量",
@@ -892,6 +896,7 @@ const SECTION_ZH_LABELS = {
   "Financial data API": "财务数据 API",
   "Morningstar fundamentals": "Morningstar 财务数据",
   "Morningstar overview": "Morningstar 概览",
+  "Morningstar fields": "Morningstar 字段字典",
   "Morningstar history": "Morningstar 历史快照",
   "Morningstar coverage": "Morningstar 覆盖范围",
   "Financial data overview": "财务数据概览",
@@ -1050,7 +1055,7 @@ function SideNav({ tab, page }) {
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news", "stock trade+quote"] },
     { title: "Index Data", items: ["index history"] },
-    { title: "Research Signals", items: ["Spectral history", "Spectral coverage"] },
+    { title: "Research Signals", items: ["Spectral overview", "Spectral methodology", "Spectral fields", "Spectral history", "Spectral coverage", "Spectral workflows"] },
     { title: "Stock Data", items: ["Market · US / World"], children: [
       { title: "US market", items: ["overview"], children: [
         { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
@@ -1068,7 +1073,7 @@ function SideNav({ tab, page }) {
     { title: "Admin endpoints", items: ["login", "pending", "approve", "reject"] },
     { title: "Reference", items: ["Error codes", "Rate limits"] },
   ] : tab === "morningstar" ? [
-    { title: "Morningstar fundamentals", items: ["Morningstar overview", "Morningstar history", "Morningstar coverage"] },
+    { title: "Morningstar fundamentals", items: ["Morningstar overview", "Morningstar fields", "Morningstar history", "Morningstar coverage"] },
   ] : tab === "fmp-fundamentals" ? [
     { title: "Financial data API", items: ["Financial data overview", "Request contract", "Response metadata"] },
     { title: "Market history", items: ["historical-price-eod/full"] },
@@ -1153,7 +1158,7 @@ function SideNav({ tab, page }) {
       "enterprise-values": "fmp-enterprise-values",
       "financial-scores": "fmp-financial-scores",
     };
-    const ID_MAP = {'Morningstar overview': 'morningstar-overview', 'Morningstar history': 'morningstar-history', 'Morningstar coverage': 'morningstar-coverage', 'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'Spectral history': 'get-post-v1-spectral-tick-flow', 'Spectral coverage': 'get-v1-spectral-tick-flow-coverage', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
+    const ID_MAP = {'Morningstar overview': 'morningstar-overview', 'Morningstar fields': 'morningstar-fields', 'Morningstar history': 'morningstar-history', 'Morningstar coverage': 'morningstar-coverage', 'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'Spectral overview': 'spectral-overview', 'Spectral methodology': 'spectral-methodology', 'Spectral fields': 'spectral-fields', 'Spectral history': 'get-post-v1-spectral-tick-flow', 'Spectral coverage': 'get-v1-spectral-tick-flow-coverage', 'Spectral workflows': 'spectral-workflows', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
     const getId = (label) => tab === "fmp-fundamentals"
       ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
       : ID_MAP[label] || slugify(label);
@@ -1267,7 +1272,7 @@ function OnThisPage({ tab, page }) {
     "market-stocks": [["History bars", "post-v1-history-bars"], ["Trade + quote", "post-v1-stock-history-trade-quote"], ["US equities", "stock-data-availability"]],
     "market-options": [["Routing", "provider-fallback-cache"], ["Contracts", "post-v1-options-contracts"], ["Snapshots", "post-v1-options-snapshots"], ["Direct API", "post-v3-option-direct-value"]],
     "market-indices": [["Index history", "get-post-v1-indices-history"]],
-    "market-research": [["Spectral history", "get-post-v1-spectral-tick-flow"], ["Coverage", "get-v1-spectral-tick-flow-coverage"]],
+    "market-research": [["Overview", "spectral-overview"], ["Methodology", "spectral-methodology"], ["Fields", "spectral-fields"], ["History API", "get-post-v1-spectral-tick-flow"], ["Coverage API", "get-v1-spectral-tick-flow-coverage"], ["Workflows", "spectral-workflows"]],
     "market-crypto-news": [["News history", "post-v1-history-news"], ["Orderbooks", "post-v1-crypto-us-latest-orderbooks"]],
     "market-cn": [["CN overview", "cn-data-overview"], ["Catalog", "cn-catalog"], ["Access", "cn-access"]],
     "financial-statements": [["Income statement", "fmp-income-statement"], ["Balance sheet", "fmp-balance-sheet-statement"], ["Cash flow", "fmp-cash-flow-statement"], ["PIT statements", "fmp-pit-statements"]],
@@ -1279,6 +1284,7 @@ function OnThisPage({ tab, page }) {
     : tab === "morningstar"
     ? [
       ["Morningstar overview", "morningstar-overview"],
+      ["Field dictionary", "morningstar-fields"],
       ["History endpoint", "morningstar-history"],
       ["Coverage endpoint", "morningstar-coverage"],
     ]
@@ -1439,6 +1445,88 @@ function DocDesc({ en, zh, style }) {
       {isZh && en && zh && <><br/><span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{en}</span></>}
       {!isZh && zh && en && <><br/><span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{zh}</span></>}
     </p>
+  );
+}
+
+const PROVIDER_LOGOS = {
+  fmp: "/assets/providers/fmp-data.png",
+  morningstar: "/assets/providers/morningstar.png",
+  quantconnect: "/assets/providers/quantconnect.png",
+};
+
+function ProviderHero({ id, provider, eyebrow, title, zhTitle, en, zh, chips = [], alt }) {
+  const isZh = useCurrentLanguage() === "zh";
+  return (
+    <section id={id} className={`provider-hero ${provider}`}>
+      <div className="provider-hero-copy">
+        <div className="eyebrow">{eyebrow}</div>
+        <h2 className="provider-hero-title">{isZh ? zhTitle : title}</h2>
+        <p className="provider-hero-subtitle">
+          {isZh ? zh : en}
+          <br/><span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{isZh ? en : zh}</span>
+        </p>
+        <div className="provider-chip-row">
+          {chips.map((chip) => <span className="provider-chip" key={chip}>{chip}</span>)}
+        </div>
+      </div>
+      <div className="provider-logo-frame">
+        <img src={PROVIDER_LOGOS[provider]} alt={alt || `${title} logo`} loading="eager" />
+      </div>
+    </section>
+  );
+}
+
+function ProviderStats({ items }) {
+  return (
+    <div className="provider-stat-grid">
+      {items.map(([value, en, zh]) => (
+        <div className="provider-stat" key={`${value}-${en}`}>
+          <strong>{value}</strong>
+          <span><Bilingual en={en} zh={zh} /></span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProviderFeatures({ items }) {
+  return (
+    <div className="provider-feature-grid">
+      {items.map(([title, en, zh]) => (
+        <div className="provider-feature" key={title}>
+          <h4>{title}</h4>
+          <p><Bilingual en={en} zh={zh} /></p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProviderFlow({ items }) {
+  return (
+    <div className="provider-flow">
+      {items.map(([title, en, zh]) => (
+        <div className="provider-flow-step" key={title}>
+          <strong>{title}</strong>
+          <span><Bilingual en={en} zh={zh} /></span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BilingualDataTable({ columns, rows, style }) {
+  const isZh = useCurrentLanguage() === "zh";
+  return (
+    <table className="tbl card" style={{ overflow: "hidden", width: "100%", marginBottom: 22, ...style }}>
+      <thead><tr>{columns.map(([en, zh]) => <th key={en}>{isZh ? `${zh} / ${en}` : en}</th>)}</tr></thead>
+      <tbody>{rows.map((row, rowIndex) => (
+        <tr key={rowIndex}>{row.map((cell, cellIndex) => {
+          const value = Array.isArray(cell) ? (isZh ? cell[1] : cell[0]) : cell;
+          return <td key={cellIndex} style={cellIndex === 0 ? { fontFamily: "var(--f-mono)", fontSize: 11.5, color: "var(--ink-strong)" } : { fontSize: 12.5 }}>{value}</td>;
+        })}</tr>
+      ))}</tbody>
+    </table>
   );
 }
 
@@ -2067,8 +2155,8 @@ function BulkOrderBody() {
 
 function FinancialSourceSelector({ active }) {
   const sources = [
-    { id: "regular", title: "Regular / FMP", zh: "标准财务数据", meta: "50+ endpoints · statements · ratios · profiles", href: DOC_PATHS.financialRegular },
-    { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "28 metrics · 550 symbols · 2020–present", href: DOC_PATHS.financialMorningstar },
+    { id: "regular", title: "Regular / FMP", zh: "标准财务数据", meta: "50+ endpoints · statements · ratios · profiles", href: DOC_PATHS.financialRegular, logo: PROVIDER_LOGOS.fmp, alt: "FMP Data logo" },
+    { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "28 metrics · 550 symbols · 2020–present", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo" },
   ];
   return (
     <section id="financial-source-selector" style={{ marginBottom: 26 }}>
@@ -2082,13 +2170,14 @@ function FinancialSourceSelector({ active }) {
         {sources.map((source) => {
           const selected = active === source.id;
           return (
-            <a key={source.id} href={source.href} aria-current={selected ? "page" : undefined} style={{ textAlign: "left", cursor: "pointer", textDecoration: "none", padding: "16px 18px", borderRadius: 10, border: selected ? "2px solid var(--accent-ink)" : "1px solid var(--rule)", background: selected ? "var(--accent-soft)" : "var(--bg-paper)", color: "var(--ink-strong)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 6 }}>
-                <strong style={{ fontSize: 17 }}>{source.title}</strong>
-                <span style={{ fontSize: 11, color: selected ? "var(--accent-ink)" : "var(--ink-soft)" }}>{selected ? "SELECTED" : "OPEN →"}</span>
+            <a key={source.id} href={source.href} aria-current={selected ? "page" : undefined} className="provider-source-card" style={{ color: "var(--ink-strong)", textDecoration: "none" }}>
+              <img className="provider-source-logo" src={source.logo} alt={source.alt} loading="lazy" />
+              <div>
+                <strong style={{ display: "block", fontSize: 17, marginBottom: 3 }}>{source.title}</strong>
+                <div style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 5 }}>{source.zh}</div>
+                <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{source.meta}</div>
               </div>
-              <div style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 5 }}>{source.zh}</div>
-              <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{source.meta}</div>
+              <span style={{ fontSize: 11, color: selected ? "var(--accent-ink)" : "var(--ink-soft)", whiteSpace: "nowrap" }}>{selected ? "SELECTED" : "OPEN →"}</span>
             </a>
           );
         })}
@@ -2107,13 +2196,17 @@ function FmpDataOverview() {
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
       <FinancialSourceSelector active="" />
-      <div className="eyebrow" style={{ marginBottom: 10 }}>Regular / FMP financial data · Premium</div>
-      <h2 id="fmp-data-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}><Bilingual {...API_CATEGORIES.financial} /></h2>
-      <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
-        通过 Leandata 获取美股财务数据，包括财报、财务指标、公司资料等。使用您的 Leandata token 即可访问，无需额外的 API 密钥。
-        <br/>Access US stock financial data including statements, metrics, and company profiles. Use your Leandata token—no additional API keys needed.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 14 }}>详细接口文档请查看左侧 <strong style={{ color: "var(--ink-strong)" }}>Financial data API</strong> 部分。</span>
-      </p>
+      <ProviderHero
+        id="fmp-data-overview"
+        provider="fmp"
+        eyebrow="Regular financial provider · Premium"
+        title="FMP financial data"
+        zhTitle="FMP 标准财务数据"
+        en="A broad endpoint catalog for US company statements, ratios, growth, profiles, market reference data, and historical prices. Authenticate with the same Leandata token—no separate upstream API key is required."
+        zh="覆盖美股财务三表、比率、增长、公司资料、市场参考数据和历史价格的标准接口目录。统一使用 Leandata Token，无需另行配置上游 API Key。"
+        chips={["50+ endpoints", "statements", "ratios & growth", "company profiles", "Premium"]}
+        alt="FMP Data provider logo"
+      />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 22 }}>
         <div style={panel}>
           <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>访问权限 / Access</div>
@@ -2234,12 +2327,17 @@ function FmpFundamentalsBody({ focus }) {
   return (
     <div ref={focusRef} style={{ maxWidth: 860, margin: "0 auto" }}>
       <FinancialSourceSelector active="regular" />
-      <div className="eyebrow" style={{ marginBottom: 10 }}>Regular / FMP · Premium</div>
-      <h2 id="fmp-fundamentals-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>财务数据 API / Financial Data API</h2>
-      <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
-        Premium 账户可访问公司财报、财务比率、关键指标、公司资料及参考数据。
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Premium access includes company statements, ratios, metrics, profiles, and reference data.</span>
-      </p>
+      <ProviderHero
+        id="fmp-fundamentals-overview"
+        provider="fmp"
+        eyebrow="Regular / FMP provider · Premium"
+        title="Regular / FMP Financial API"
+        zhTitle="Regular / FMP 财务数据 API"
+        en="Premium access includes company statements, ratios, growth metrics, profiles, market reference data, analyst research, and valuation endpoints through one Leandata token."
+        zh="Premium 账户可通过一个 Leandata Token 访问公司财报、财务比率、增长指标、公司资料、市场参考、分析师研究与估值接口。"
+        chips={["50+ endpoints", "GET + POST", "statements", "ratios & growth", "Premium"]}
+        alt="FMP Data provider logo"
+      />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 28 }}>
         <div style={panel}>
@@ -2502,24 +2600,45 @@ function MorningstarFundamentalsBody() {
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
       <FinancialSourceSelector active="morningstar" />
 
-      <div className="eyebrow" style={{ marginBottom: 10 }}>Morningstar US Fundamentals · Premium</div>
-      <h2 id="morningstar-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>Morningstar 财务数据 / Fundamentals</h2>
-      <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.68, margin: "0 0 18px" }}>
-        认证 Premium 账户可查询独立的 Morningstar 日度宽表归档。API 只读取去重后的 latest view；不会把 Morningstar 与 Regular/FMP schema 合并，也不会填补源端 NULL。
-        <br/>Authenticated Premium accounts can query a separate Morningstar daily-wide archive. The API reads only the deduplicated latest view, never merges it into the Regular/FMP schema, and never fills source NULLs.
-      </p>
+      <ProviderHero
+        id="morningstar-overview"
+        provider="morningstar"
+        eyebrow="Independent fundamentals provider · Premium"
+        title="Morningstar Fundamentals"
+        zhTitle="Morningstar 财务基本面"
+        en="A revision-aware daily archive of selected Morningstar US fundamentals collected through QuantConnect/LEAN. Leandata exposes a bounded, read-only latest view while preserving source NULLs, daily fill-forward behavior, and provider-specific semantics."
+        zh="通过 QuantConnect/LEAN 采集的 Morningstar 美股基本面日度归档，保留修订语义、源端 NULL 与日度前填行为。Leandata 仅通过有界、只读的 latest view 对外提供，并与 Regular/FMP schema 完全隔离。"
+        chips={["daily snapshots", "28 nullable metrics", "SPY + QQQ capture", "latest-view dedup", "Premium"]}
+        alt="Morningstar provider logo"
+      />
 
-      <div className="callout warn" style={{ marginBottom: 22 }}>
+      <ProviderStats items={[
+        ["847,954", "logical latest rows", "去重后的逻辑行"],
+        ["550", "captured symbols", "抓取标的数"],
+        ["1,682", "distinct availability dates", "不同可用日期"],
+        ["2020 → 2026", "current archive window", "当前归档区间"],
+      ]} />
+
+      <h3 className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>数据如何进入 API / How the data reaches the API</h3>
+      <ProviderFlow items={[
+        ["Morningstar", "Provider fundamentals and ratios", "供应商基本面与比率"],
+        ["QuantConnect / LEAN", "Fundamental.Time daily observations", "按 Fundamental.Time 形成日度观测"],
+        ["Leandata archive", "Validated overlap captures and revisions", "校验重叠窗口与修订版本"],
+        ["Latest API view", "One logical symbol/date observation", "每个 symbol/date 一个逻辑观测"],
+      ]} />
+
+      <div className="provider-note">
         <strong>覆盖与时间边界 / Coverage and timing boundary</strong><br/>
         当前归档覆盖抓取时点的 SPY + QQQ 成分，存在 current-constituent survivorship bias；不是历史 PIT 成分全集。<code>date</code> 是 LEAN <code>Fundamental.Time</code> availability/file date，不是 <code>EndTime</code> 或 fiscal period end。源端日度 fill-forward 原样保留，因此连续多日相同财务值不代表新的公司披露。
         <br/>The archive reflects captured SPY + QQQ constituents and therefore has current-constituent survivorship bias; it is not a historical PIT membership universe. <code>date</code> is the LEAN <code>Fundamental.Time</code> availability/file date, not <code>EndTime</code> or fiscal period end. Source daily fill-forward is preserved, so repeated values across dates do not imply a new filing.
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12, marginBottom: 24 }}>
-        <div className="card" style={{ padding: 16 }}><div className="eyebrow">Logical latest rows</div><strong style={{ fontSize: 21 }}>847,954</strong><div style={{ color: "var(--ink-soft)", fontSize: 12 }}>852,106 physical rows</div></div>
-        <div className="card" style={{ padding: 16 }}><div className="eyebrow">Coverage</div><strong style={{ fontSize: 21 }}>550 symbols</strong><div style={{ color: "var(--ink-soft)", fontSize: 12 }}>2020-01-02 — 2026-09-17</div></div>
-        <div className="card" style={{ padding: 16 }}><div className="eyebrow">Schema</div><strong style={{ fontSize: 21 }}>28 metrics</strong><div style={{ color: "var(--ink-soft)", fontSize: 12 }}>Nullable · sparse source preserved</div></div>
-      </div>
+      <ProviderFeatures items={[
+        ["Availability-date semantics", "Rows are keyed by when LEAN makes the observation available, not by fiscal period end.", "行键表示 LEAN 中数据可用的日期，不是财报期末日期。"],
+        ["Revision-safe latest view", "Overlap captures may create physical revisions; the API returns only the deduplicated logical latest view.", "重叠采集可产生物理修订；API 只返回去重后的逻辑最新视图。"],
+        ["NULL is unavailable", "NULL remains NULL. The service never converts a missing metric to zero.", "NULL 表示不可用，服务不会把缺失指标转换为 0。"],
+        ["Separate provider contract", "Morningstar fields, scope, entitlements, and revision policy remain separate from Regular/FMP.", "Morningstar 的字段、范围、权限与修订策略均与 Regular/FMP 独立。"],
+      ]} />
 
       <h3 className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>字段 / Metrics</h3>
       <div style={{ display: "grid", gap: 8, marginBottom: 28 }}>
@@ -2530,6 +2649,41 @@ function MorningstarFundamentalsBody() {
           </div>
         ))}
       </div>
+
+      <h3 id="morningstar-fields" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>字段字典 / Field dictionary</h3>
+      <BilingualDataTable
+        columns={[["Field", "字段"], ["Meaning", "含义"], ["Boundary", "使用边界"]]}
+        rows={[
+          ["market_cap", ["Equity market capitalization", "股票总市值"], ["Nullable provider observation", "供应商观测值，可为空"]],
+          ["pe_ratio", ["Price-to-earnings ratio", "市盈率"], ["Do not impute missing earnings", "盈利缺失时不得插补"]],
+          ["pb_ratio", ["Price-to-book ratio", "市净率"], ["Provider methodology preserved", "保留供应商口径"]],
+          ["ps_ratio", ["Price-to-sales ratio", "市销率"], ["Provider methodology preserved", "保留供应商口径"]],
+          ["ev_to_ebitda", ["Enterprise value to EBITDA", "企业价值 / EBITDA"], ["May be unavailable for some capital structures", "部分资本结构可能不可用"]],
+          ["dividend_yield", ["Dividend yield", "股息率"], ["Currently source-NULL across this archive", "当前归档中源端均为空"]],
+          ["earning_yield", ["Earnings yield", "盈利收益率"], ["Nullable; not a trading return", "可为空；并非投资回报率"]],
+          ["roe", ["Return on equity", "净资产收益率"], ["Daily snapshot of provider ratio", "供应商比率的日度快照"]],
+          ["roa", ["Return on assets", "总资产收益率"], ["Daily snapshot of provider ratio", "供应商比率的日度快照"]],
+          ["gross_margin", ["Gross profit margin", "毛利率"], ["Ratio units follow source", "比例单位遵循源端"]],
+          ["operating_margin", ["Operating margin", "营业利润率"], ["Ratio units follow source", "比例单位遵循源端"]],
+          ["net_margin", ["Net profit margin", "净利率"], ["Ratio units follow source", "比例单位遵循源端"]],
+          ["current_ratio", ["Current assets / current liabilities", "流动比率"], ["Nullable for non-comparable issuers", "不可比发行人可能为空"]],
+          ["debt_to_equity", ["Debt-to-equity ratio", "债务权益比"], ["Provider methodology preserved", "保留供应商口径"]],
+          ["total_revenue", ["Total reported revenue", "营业总收入"], ["Snapshot value, not a filing event timestamp", "快照值，不是披露事件时间"]],
+          ["operating_income", ["Operating income", "营业利润"], ["Currency and scale follow source", "币种与量级遵循源端"]],
+          ["net_income", ["Net income", "净利润"], ["Currency and scale follow source", "币种与量级遵循源端"]],
+          ["ebitda", ["Earnings before interest, taxes, depreciation and amortization", "息税折旧摊销前利润"], ["Provider-computed where available", "按供应商可用口径"]],
+          ["operating_cash_flow", ["Cash flow from operations", "经营活动现金流"], ["Snapshot value", "快照值"]],
+          ["free_cash_flow", ["Free cash flow", "自由现金流"], ["Provider calculation preserved", "保留供应商计算口径"]],
+          ["capital_expenditure", ["Capital expenditure", "资本开支"], ["Sign convention follows source", "正负号遵循源端"]],
+          ["total_assets", ["Total assets", "总资产"], ["Snapshot value", "快照值"]],
+          ["total_liabilities", ["Total liabilities", "总负债"], ["Snapshot value", "快照值"]],
+          ["cash_and_equivalents", ["Cash and cash equivalents", "现金及现金等价物"], ["Snapshot value", "快照值"]],
+          ["stockholders_equity", ["Stockholders' equity", "股东权益"], ["Snapshot value", "快照值"]],
+          ["adjusted_price", ["Reference adjusted equity price", "辅助复权价格"], ["Not the authoritative market-price API", "不是权威行情接口"]],
+          ["dollar_volume", ["Reference dollar volume", "辅助成交额"], ["For context only", "仅作上下文参考"]],
+          ["volume", ["Reference share volume", "辅助成交量"], ["For context only", "仅作上下文参考"]],
+        ]}
+      />
       <p className="callout" style={{ marginBottom: 30 }}>
         <code>dividend_yield</code> 当前所有 logical rows 均为源端 NULL；保留该字段用于 schema 稳定性，客户端不得将其解释为 0。
         <br/><code>dividend_yield</code> is currently source-NULL for every logical row. It remains in the stable schema and must not be interpreted as zero.
@@ -2615,6 +2769,12 @@ function MorningstarFundamentalsBody() {
 X-Cache-Tier: archive_clickhouse
 X-Data-Source: morningstar_fundamentals_archive
 X-Request-Id: <uuid>`}</pre>
+
+      <div className="provider-attribution">
+        <strong>Provider attribution / 数据来源：</strong> Morningstar US Fundamentals, collected through QuantConnect/LEAN and served from Leandata's independent archive. Morningstar and its marks are the property of their respective owner. Leandata is not presenting this archive as the complete Morningstar universe or as certified strict point-in-time data.
+        <br/>数据源为经 QuantConnect/LEAN 获取的 Morningstar US Fundamentals，并由 Leandata 独立归档提供。Morningstar 名称及标识归其权利人所有。Leandata 不将本归档表述为 Morningstar 完整股票池或经认证的严格 PIT 数据。
+        <br/><a href="https://www.quantconnect.com/data/morning-star-us-fundamentals" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>Official dataset disclosure / 官方数据披露 ↗</a>
+      </div>
     </div>
   );
 }
@@ -2959,6 +3119,7 @@ const PROXY_FOCUS_BOUNDARIES = [
   ["free-plan-usage", "overview"],
   ["post-v1-history-bars", "stocks"],
   ["get-post-v1-indices-history", "indices"],
+  ["spectral-overview", "research"],
   ["get-post-v1-spectral-tick-flow", "research"],
   ["post-v1-history-news", "crypto-news"],
   ["post-v1-stock-history-trade-quote", "stocks"],
@@ -3411,12 +3572,70 @@ print("Option contracts:", resp_opt.status_code)`}
       </pre>
 
       {/* ── Research Signals ── */}
-      <div className="eyebrow" style={{ marginBottom: 10, marginTop: 8 }}>Research Signals · 研究信号</div>
+      <ProviderHero
+        id="spectral-overview"
+        provider="quantconnect"
+        eyebrow="QuantConnect research signal · Paid plans"
+        title="Spectral Tick-Flow Signal"
+        zhTitle="Spectral Tick-Flow 频谱订单流信号"
+        en="A daily research signal designed to detect persistent periodic structure in equity trading flow. Leandata archives observations for historically observed SPY constituents and exposes the deduplicated latest capture through bounded, authenticated APIs."
+        zh="用于识别股票成交订单流中持续周期结构的日频研究信号。Leandata 按历史观测到的 SPY 成分归档，并通过有界、认证 API 提供去重后的最新 capture。"
+        chips={["daily signal", "historical SPY membership", "stable Equity SID", "10 source fields", "paid plans"]}
+        alt="QuantConnect provider logo"
+      />
+
+      <ProviderStats items={[
+        ["1,436,047", "logical signal rows", "逻辑信号行"],
+        ["898", "underlying Equity SIDs", "底层 Equity SID"],
+        ["2,839", "distinct signal dates", "不同信号日期"],
+        ["2009 → 2026", "observed archive window", "已观测归档区间"],
+      ]} />
+
+      <h3 id="spectral-methodology" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>信号解读 / Interpreting the signal</h3>
+      <ProviderFeatures items={[
+        ["Periodic execution", "Execution fields describe periodic structure detected in trade flow; they are research features, not orders or guaranteed forecasts.", "Execution 字段描述成交订单流中的周期结构；它们是研究特征，不是订单或收益保证。"],
+        ["Volume spectrum", "Volume fields summarize dominant periodicity and the share of observed volume variation explained by that component.", "Volume 字段概括主导周期及该周期对观测成交量变化的解释比例。"],
+        ["Cross-sectional ranking", "ExecutionScore can support daily ranking, confirmation, or position-sizing research across a universe.", "ExecutionScore 可用于股票池日度排序、信号确认或仓位研究。"],
+        ["Sparse by design", "Missing dates and NULL fields remain missing. Leandata performs no interpolation, forward fill, or zero substitution.", "缺失日期和 NULL 原样保留；Leandata 不插值、不前填、也不替换为零。"],
+      ]} />
+
+      <ProviderFlow items={[
+        ["SPY membership", "Historically observed constituent SIDs", "历史观测成分 SID"],
+        ["QC signal", "Per-security SpectralTickFlowSignal history", "逐证券 Spectral 信号历史"],
+        ["Capture lineage", "Raw files retain source and capture identity", "原始文件保留来源与采集身份"],
+        ["Latest API", "Newest capture per SID/date, preserving distinct rows", "按 SID/date 选择最新采集并保留不同记录"],
+      ]} />
+
+      <div className="provider-note">
+        <strong>历史身份与覆盖边界 / Historical identity and coverage boundary</strong><br/>
+        <code>oa_underlying_sid</code> 是稳定身份；<code>oa_requested_ticker</code> 只是采集时使用的历史别名。20 个 ticker alias 映射到多个 SID，因此长期研究不得只按 ticker 拼接。该归档不是官方 universe-file 全量，2009–2014 高度稀疏，显式订阅 SPY 本体目前仍为 0 行。
+        <br/><code>oa_underlying_sid</code> is the stable identity; <code>oa_requested_ticker</code> is only the historical alias used for collection. Twenty ticker aliases map to multiple SIDs, so long-history research must not join by ticker alone. This is not the official universe-file lineage, 2009–2014 are highly sparse, and explicit SPY subscriptions currently yield zero rows.
+      </div>
+
+      <h3 id="spectral-fields" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>字段字典 / Field dictionary</h3>
+      <BilingualDataTable
+        columns={[["Field", "字段"], ["Interpretation", "解释"], ["API behavior", "API 行为"]]}
+        rows={[
+          ["executionperiodseconds", ["Detected execution periodicity in seconds", "检测到的执行周期（秒）"], ["Nullable source value", "源端可为空"]],
+          ["executionrayleigh", ["Rayleigh-style periodicity statistic for execution flow", "执行订单流的 Rayleigh 型周期统计量"], ["Returned without rescaling", "不重新缩放，原样返回"]],
+          ["executionscore", ["Composite execution-flow signal score", "综合执行订单流信号分数"], ["Useful for ranking; not a probability", "可用于排序；并非概率"]],
+          ["executionsigned", ["Source-inferred signed execution indication", "源端推断的有向执行指示"], ["NULL is preserved", "NULL 原样保留"]],
+          ["executionsize", ["Source estimate associated with detected execution flow", "与检测到的执行流相关的源端规模估计"], ["Do not infer missing values", "不得推断缺失值"]],
+          ["signaturecount", ["Count of detected execution signatures", "检测到的执行特征数量"], ["A positive value indicates detected signatures", "正值表示检测到特征"]],
+          ["tradecount", ["Trade count used by the source observation", "源端观测使用的成交笔数"], ["Daily observation field", "日度观测字段"]],
+          ["value", ["Source signal value associated with the observation", "该观测对应的源端信号值"], ["Provider semantics preserved", "保留供应商语义"]],
+          ["volumedominantperiodseconds", ["Dominant periodicity in the volume spectrum, in seconds", "成交量频谱的主导周期（秒）"], ["Nullable source value", "源端可为空"]],
+          ["volumevarianceexplained", ["Share of observed volume variation explained by the dominant component", "主导成分解释的成交量变化比例"], ["NULL is preserved", "NULL 原样保留"]],
+          ["oa_underlying_sid", ["Stable historical Equity security identifier", "稳定的历史 Equity 证券标识"], ["Preferred query and join key", "推荐查询与关联键"]],
+          ["oa_requested_ticker", ["Ticker alias used when collecting the signal", "采集信号时使用的 ticker 别名"], ["Not a stable historical key", "不是稳定历史键"]],
+          ["source_file / captured_at / row_hash", ["Capture provenance and distinct-row identity", "采集来源、时间与不同记录身份"], ["Latest-view provenance remains visible", "latest view 仍显示来源信息"]],
+        ]}
+      />
 
       <h2 id="get-post-v1-spectral-tick-flow" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/signals/spectral-tick-flow</h2>
       <DocDesc
-        zh="查询 QuantConnect Spectral Tick-Flow Signal 的历史 SPY 成分归档。数据按历史 SPY membership 收集，默认读取 ClickHouse latest view；底层 Equity SID 是稳定身份，requested ticker 仅为历史别名。该数据集不是官方 universe-file 全量，早期年份高度稀疏，SPY 本体当前为 0 行。"
-        en="Query the QuantConnect Spectral Tick-Flow Signal archive collected from historically observed SPY membership. The endpoint reads the deduplicated ClickHouse latest view. Underlying Equity SID is the stable identity; requested ticker is only a historical alias. This is not the official universe-file lineage, early years are very sparse, and SPY itself currently has zero rows."
+        zh="查询 historical-membership latest view。支持 ticker alias 或底层 Equity SID；建议历史研究优先使用 SID。API 只暴露最新逻辑视图，不提供原始旧 capture 或采集凭据。"
+        en="Query the historical-membership latest view by ticker alias or underlying Equity SID; SID is preferred for historical research. The API exposes only the latest logical view, not superseded raw captures or collection credentials."
       />
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/signals/spectral-tick-flow`} />
       <ParamTable rows={[
@@ -3443,11 +3662,25 @@ print("Option contracts:", resp_opt.status_code)`}
   "truncated": false,
   "rows": [
     {
+      "symbol": "ARNC.SpectralTickFlowSignal",
       "time": "2020-04-01",
+      "executionperiodseconds": 170.7,
+      "executionrayleigh": 3.63,
+      "executionscore": 7.8,
+      "executionsigned": false,
+      "executionsize": 5,
+      "signaturecount": 0,
+      "tradecount": 32162,
+      "value": 7.8,
+      "volumedominantperiodseconds": 300,
+      "volumevarianceexplained": 0.00098,
+      "oa_signal_sid": "ARNC.SpectralTickFlowSignal WF6J1S513QZO",
       "oa_underlying_sid": "ARNC WF6J1S513QZP",
       "oa_requested_ticker": "HWM",
+      "oa_membership_tickers": "ARNC|HWM",
       "source_file": "spectral_tick_flow_spy_historical_membership_2020.csv",
-      "row_hash": "..."
+      "captured_at": "2026-09-19 19:16:43.130",
+      "row_hash": "2050873149935201807"
     }
   ]
 }`}
@@ -3481,6 +3714,24 @@ print("Option contracts:", resp_opt.status_code)`}
   "years": [ ... ]
 }`}
       </pre>
+
+      <h3 id="spectral-workflows" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>研究工作流 / Research workflows</h3>
+      <ProviderFeatures items={[
+        ["Daily cross-sectional rank", "Rank eligible SIDs by ExecutionScore after applying a common finite-data mask.", "在共同有限值样本上按 ExecutionScore 对符合条件的 SID 做日度横截面排序。"],
+        ["Confirmation filter", "Require SignatureCount > 0 or combine the signal with independent liquidity and risk controls.", "要求 SignatureCount > 0，或与独立流动性及风险约束共同使用。"],
+        ["Market-neutral research", "Compare top and bottom cohorts with lagged execution, transaction costs, and survivorship-safe membership.", "使用滞后执行、交易成本和无幸存者偏差的成分关系比较顶部与底部组。"],
+        ["Revision audit", "Retain source_file, captured_at, and row_hash in downstream research artifacts.", "在下游研究产物中保留 source_file、captured_at 与 row_hash。"],
+      ]} />
+      <div className="provider-note">
+        <strong>研究而非交易指令 / Research signal, not an order instruction</strong><br/>
+        信号不提供收益保证、成交方向认证或可直接执行的订单。回测必须独立处理可交易价格、下单时钟、缺失值、交易成本、公司行动与成分时点。<br/>
+        The signal does not guarantee returns, certify trade direction, or provide executable orders. Backtests must independently model investable prices, decision timing, missingness, costs, corporate actions, and membership timing.
+      </div>
+      <div className="provider-attribution">
+        <strong>Provider attribution / 数据来源：</strong> QuantConnect Spectral Tick-Flow Signal. QuantConnect and its marks are the property of their respective owner. Leandata's historical-membership archive is an independent capture lineage and must not be represented as the official universe-file dataset.
+        <br/>数据源为 QuantConnect Spectral Tick-Flow Signal。QuantConnect 名称及标识归其权利人所有。Leandata historical-membership 归档是独立采集 lineage，不得表述为官方 universe-file 全量数据。
+        <br/><a href="https://www.quantconnect.com/docs/v2/writing-algorithms/datasets/quantconnect/spectral-tick-flow-signal" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>Official dataset documentation / 官方数据文档 ↗</a>
+      </div>
 
       <h2 id="post-v1-history-news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/news</h2>
       <DocDesc

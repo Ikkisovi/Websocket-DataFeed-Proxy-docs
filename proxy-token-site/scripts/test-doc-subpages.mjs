@@ -12,12 +12,13 @@ function isVisible(element) {
   return true;
 }
 
-async function render(pathname) {
+async function render(pathname, language = "zh") {
   const dom = new JSDOM('<!doctype html><div id="root"></div>', {
     url: `https://leandata.uk${pathname}`,
     runScripts: "outside-only",
     pretendToBeVisual: true,
   });
+  dom.window.localStorage.setItem("leandata.language", language);
   dom.window.IntersectionObserver = class {
     observe() {}
     unobserve() {}
@@ -78,8 +79,42 @@ subscriptions.window.close();
 
 const morningstar = await render("/docs/financial/morningstar/");
 assert(isVisible(morningstar.window.document.getElementById("morningstar-overview")));
+assert(isVisible(morningstar.window.document.getElementById("morningstar-fields")));
+assert.equal(morningstar.window.document.querySelector('#morningstar-overview img').getAttribute('src'), "/assets/providers/morningstar.png");
+assert.match(morningstar.window.document.body.textContent, /Morningstar 财务基本面|Morningstar Fundamentals/);
+assert.match(morningstar.window.document.body.textContent, /dividend_yield/);
 assert.equal(morningstar.window.document.getElementById("fmp-fundamentals-overview"), null);
 morningstar.window.LeandataI18n.destroy();
 morningstar.window.close();
 
-process.stdout.write("independent docs subpages render and isolate content\n");
+const research = await render("/docs/market/research-signals/");
+assert(isVisible(research.window.document.getElementById("spectral-overview")));
+assert(isVisible(research.window.document.getElementById("spectral-methodology")));
+assert(isVisible(research.window.document.getElementById("spectral-fields")));
+assert(isVisible(research.window.document.getElementById("get-post-v1-spectral-tick-flow")));
+assert.equal(research.window.document.querySelector('#spectral-overview img').getAttribute('src'), "/assets/providers/quantconnect.png");
+assert.match(research.window.document.body.textContent, /executionperiodseconds/);
+assert.match(research.window.document.body.textContent, /oa_underlying_sid/);
+assert(!isVisible(research.window.document.getElementById("get-post-v1-indices-history")));
+research.window.LeandataI18n.destroy();
+research.window.close();
+
+const researchEn = await render("/docs/market/research-signals/", "en");
+assert.match(researchEn.window.document.querySelector("#spectral-overview h2").textContent, /Spectral Tick-Flow Signal/);
+assert.match(researchEn.window.document.body.textContent, /Composite execution-flow signal score/);
+researchEn.window.LeandataI18n.destroy();
+researchEn.window.close();
+
+const morningstarEn = await render("/docs/financial/morningstar/", "en");
+assert.match(morningstarEn.window.document.querySelector("#morningstar-overview h2").textContent, /Morningstar Fundamentals/);
+assert.match(morningstarEn.window.document.body.textContent, /Availability-date semantics/);
+morningstarEn.window.LeandataI18n.destroy();
+morningstarEn.window.close();
+
+const financial = await render("/docs/financial/");
+assert(financial.window.document.querySelector('img[src="/assets/providers/fmp-data.png"]'));
+assert(financial.window.document.querySelector('img[src="/assets/providers/morningstar.png"]'));
+financial.window.LeandataI18n.destroy();
+financial.window.close();
+
+process.stdout.write("independent docs subpages render, isolate content, and show provider branding\n");
