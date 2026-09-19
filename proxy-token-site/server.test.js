@@ -1100,6 +1100,17 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).not.toContain('No FMP');
   });
 
+  it('puts the Regular or Morningstar source choice first and documents Morningstar boundaries', () => {
+    expect(docsSource).toContain('id="financial-source-selector"');
+    expect(docsSource).toContain('选择财务数据源 / Choose a financial data source');
+    expect(docsSource).toContain('Regular / FMP');
+    expect(docsSource).toContain('/v1/fundamentals/morningstar');
+    expect(docsSource).toContain('/v1/fundamentals/morningstar/coverage');
+    expect(docsSource).toContain('not certified strict point-in-time');
+    expect(docsSource).toContain('source daily fill-forward is preserved; API performs no filling');
+    expect(docsSource).toContain('morningstar_premium_required');
+  });
+
   it('adds a bilingual updates banner and updates page entry point', () => {
     const updatesHtml = fs.readFileSync(path.join(__dirname, 'public', 'updates.html'), 'utf8');
     const updatesSource = fs.readFileSync(path.join(__dirname, 'public', 'updates-page.jsx'), 'utf8');
