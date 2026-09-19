@@ -499,6 +499,7 @@ const NAV_GROUPS = [
       { label: "股票行情", en: "Stock data", desc: "Bars · Quotes · Trades", tab: "proxy", hash: "stock-data-availability" },
       { label: "期权行情", en: "Options data", desc: "Contracts · Snapshots · OI", tab: "proxy", hash: "post-v1-options-contracts" },
       { label: "指数行情", en: "Index data", desc: "SPX · VIX · DJX · XSP", tab: "proxy", hash: "get-post-v1-indices-history" },
+      { label: "研究信号", en: "Research signals", desc: "Spectral Tick-Flow · SID", tab: "proxy", hash: "get-post-v1-spectral-tick-flow" },
       { label: "加密与新闻", en: "Crypto & news", desc: "Orderbooks · News", tab: "proxy", hash: "post-v1-crypto-us-latest-orderbooks" },
       { label: "中国数据·内测", en: "CN Data · Private beta", desc: "CN archive · /v1/cn/*", tab: "proxy", hash: "cn-data-overview" },
     ],
@@ -713,7 +714,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
 
         {/* Tab strip */}
         <div className="docs-tabs" style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
-          <Tab id="proxy" tab={visibleTab} setTab={setTab} label="Proxy API" count="45+ endpoints" />
+          <Tab id="proxy" tab={visibleTab} setTab={setTab} label="Proxy API" count="47+ endpoints" />
           <Tab id="fmp" tab={visibleTab} setTab={setTab} label="Financial data" count="overview" />
           <Tab id="bulk" tab={visibleTab} setTab={setTab} label="Bulk Download" count="¥50 / 50GB" />
           <Tab id="ws" tab={visibleTab} setTab={setTab} label="WS usage" count="6 channels" />
@@ -721,7 +722,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
           <Tab id="usage" tab={visibleTab} setTab={setTab} label="Usage" count="my stats" />
           <div style={{ flex: 1 }}></div>
           <div className="docs-last-sync" style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
-            last sync · 2026-07-29 · public REST / RT / WSS
+            last sync · 2026-09-19 · public REST / RT / WSS
           </div>
         </div>
       </div>
@@ -789,6 +790,9 @@ const SECTION_ZH_LABELS = {
   "stock trade+quote": "逐笔成交与报价",
   "Index Data": "指数数据",
   "index history": "指数日线历史",
+  "Research Signals": "研究信号",
+  "Spectral history": "Spectral 历史信号",
+  "Spectral coverage": "Spectral 覆盖范围",
   "Stock Data": "股票数据",
   "overview": "数据概览",
   "Multi-symbol": "多股票批量",
@@ -996,6 +1000,7 @@ function SideNav({ tab }) {
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news", "stock trade+quote"] },
     { title: "Index Data", items: ["index history"] },
+    { title: "Research Signals", items: ["Spectral history", "Spectral coverage"] },
     { title: "Stock Data", items: ["Market · US / World"], children: [
       { title: "US market", items: ["overview"], children: [
         { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
@@ -1075,7 +1080,7 @@ function SideNav({ tab }) {
       "enterprise-values": "fmp-enterprise-values",
       "financial-scores": "fmp-financial-scores",
     };
-    const ID_MAP = {'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
+    const ID_MAP = {'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'Spectral history': 'get-post-v1-spectral-tick-flow', 'Spectral coverage': 'get-v1-spectral-tick-flow-coverage', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
     const getId = (label) => tab === "fmp-fundamentals"
       ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
       : ID_MAP[label] || slugify(label);
@@ -3107,6 +3112,78 @@ print("Option contracts:", resp_opt.status_code)`}
     { "date": "2024-01-02", "open": 13.22, "high": 14.23, "low": 13.10, "close": 13.20 }
   ],
   "request_id": "..."
+}`}
+      </pre>
+
+      {/* ── Research Signals ── */}
+      <div className="eyebrow" style={{ marginBottom: 10, marginTop: 8 }}>Research Signals · 研究信号</div>
+
+      <h2 id="get-post-v1-spectral-tick-flow" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/signals/spectral-tick-flow</h2>
+      <DocDesc
+        zh="查询 QuantConnect Spectral Tick-Flow Signal 的历史 SPY 成分归档。数据按历史 SPY membership 收集，默认读取 ClickHouse latest view；底层 Equity SID 是稳定身份，requested ticker 仅为历史别名。该数据集不是官方 universe-file 全量，早期年份高度稀疏，SPY 本体当前为 0 行。"
+        en="Query the QuantConnect Spectral Tick-Flow Signal archive collected from historically observed SPY membership. The endpoint reads the deduplicated ClickHouse latest view. Underlying Equity SID is the stable identity; requested ticker is only a historical alias. This is not the official universe-file lineage, early years are very sparse, and SPY itself currently has zero rows."
+      />
+      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/signals/spectral-tick-flow`} />
+      <ParamTable rows={[
+        { name: "symbol / symbols", type: "string", required: false, desc: "Requested ticker aliases, comma-separated, maximum 100", zh: "requested ticker 历史别名，逗号分隔，最多 100 个" },
+        { name: "sid / sids", type: "string", required: false, desc: "Underlying Equity SIDs, comma-separated, maximum 100; preferred historical identity", zh: "底层 Equity SID，逗号分隔，最多 100 个；推荐作为历史身份" },
+        { name: "start", type: "date", required: false, desc: "Inclusive YYYY-MM-DD; defaults to end minus 30 days", zh: "起始日（包含），YYYY-MM-DD；默认 end 前 30 天" },
+        { name: "end", type: "date", required: false, desc: "Inclusive YYYY-MM-DD; defaults to today", zh: "结束日（包含），YYYY-MM-DD；默认今天" },
+        { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000", zh: "默认 5,000，最大 10,000" },
+      ]} />
+      <DocDesc
+        zh="必须提供 symbol/sid，或把无筛选横截面限制在最多 7 个包含首尾的日历日。truncated=true 表示应缩短日期窗口或按 SID 拆分。Free 计划仍受最近 31 天历史窗口限制。NULL 和 sparse dates 按源端原样返回，不填零、不插值。"
+        en="Provide symbol/sid, or keep an unfiltered cross-section to at most seven inclusive calendar days. If truncated=true, narrow the date window or split by SID. Free-plan requests remain limited to the most recent 31 calendar days. Source NULLs and sparse dates are preserved without filling or interpolation."
+      />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1/signals/spectral-tick-flow?sid=ARNC%20WF6J1S513QZP&start=2020-04-01&end=2020-04-01&limit=10"`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`// Response — both valid HWM seam rows are retained
+{
+  "schema": "spectral_tick_flow_history_v1",
+  "scope": "spy_historical_membership",
+  "row_count": 2,
+  "truncated": false,
+  "rows": [
+    {
+      "time": "2020-04-01",
+      "oa_underlying_sid": "ARNC WF6J1S513QZP",
+      "oa_requested_ticker": "HWM",
+      "source_file": "spectral_tick_flow_spy_historical_membership_2020.csv",
+      "row_hash": "..."
+    }
+  ]
+}`}
+      </pre>
+
+      <h2 id="get-v1-spectral-tick-flow-coverage" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET /v1/signals/spectral-tick-flow/coverage</h2>
+      <DocDesc
+        zh="返回归档总行数、起止日期、distinct dates、SID/ticker 数、SPY 行数、executionsigned NULL 计数和逐年覆盖。2026-09-19 已验证 latest view 为 1,436,047 行、898 个底层 SID、2009-07-30 至 2026-09-18。"
+        en="Return total and annual coverage: rows, date bounds, distinct dates, SID/ticker counts, SPY rows, and preserved executionsigned NULLs. As verified on 2026-09-19, the latest view contains 1,436,047 rows across 898 underlying SIDs from 2009-07-30 through 2026-09-18."
+      />
+      <EndpointBadge method="GET" path={`${REST_BASE}/v1/signals/spectral-tick-flow/coverage`} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1/signals/spectral-tick-flow/coverage"`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`// Response excerpt
+{
+  "schema": "spectral_tick_flow_coverage_v1",
+  "scope": "spy_historical_membership",
+  "totals": {
+    "rows": "1436047",
+    "distinct_dates": "2839",
+    "underlying_sids": "898",
+    "requested_tickers": "878",
+    "spy_rows": "0",
+    "execution_signed_nulls": "724",
+    "min_date": "2009-07-30",
+    "max_date": "2026-09-18"
+  },
+  "years": [ ... ]
 }`}
       </pre>
 
