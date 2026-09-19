@@ -340,3 +340,25 @@ code.inline, .ic {
   border-bottom: 1px solid var(--rule);
 }
 .tbl tr:last-child td { border-bottom: none; }
+
+/* --- Grouped docs nav (desktop flyout, responsive rails) ---
+   Mirrors proxy-token-site/public/docs/tokens.css: the "/" portal page embeds
+   DocsSite (hideTopbar) but loads this stylesheet, so the rail rules must
+   exist here as well. */
+.topbar .nav-group > a {
+  display: inline-flex;
+  align-items: center;
+}
+@media (max-width: 1180px) {
+  .docs-content-grid.has-3col {
+    grid-template-columns: 228px minmax(0, 1fr) !important;
+  }
+  .docs-content-grid.has-3col > aside.on-this-page {
+    display: none !important;
+  }
+}
+@media (max-width: 720px) {
+  .topbar .nav-group-panel {
+    display: none !important;
+  }
+}
