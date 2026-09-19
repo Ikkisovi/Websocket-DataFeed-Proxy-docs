@@ -1109,8 +1109,28 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).toContain('not certified strict point-in-time');
     expect(docsSource).toContain('source daily fill-forward is preserved; API performs no filling');
     expect(docsSource).toContain('morningstar_premium_required');
-    expect(docsSource).toContain('["proxy", "fmp", "fmp-fundamentals", "morningstar"');
-    expect(docsSource).toContain('id.startsWith("morningstar-")');
+    expect(docsSource).toContain('financialMorningstar: "/docs/financial/morningstar/"');
+    expect(docsSource).toContain('financialRegular: "/docs/financial/regular/"');
+    expect(docsSource).toContain('marketStocks: "/docs/market/stocks/"');
+    expect(docsSource).toContain('Every topic now has its own URL and focused page');
+  });
+
+  it('builds independent physical pages for every docs navigation subsection', () => {
+    const pages = [
+      'market/overview', 'market/stocks', 'market/options', 'market/indices',
+      'market/research-signals', 'market/crypto-news', 'market/cn',
+      'financial', 'financial/regular', 'financial/morningstar',
+      'financial/statements', 'financial/ratios-growth', 'bulk/download',
+      'realtime/websocket', 'realtime/subscriptions', 'status', 'usage',
+    ];
+    for (const page of pages) {
+      const html = fs.readFileSync(path.join(__dirname, 'public', 'docs', page, 'index.html'), 'utf8');
+      expect(html).toContain('/assets/docs-page.js?v=20260919-independent-pages');
+      expect(html).toContain('/docs/tokens.css?v=20260919-nav');
+    }
+    expect(docsSource).toContain('href: DOC_PATHS.marketStocks');
+    expect(docsSource).toContain('href: DOC_PATHS.financialMorningstar');
+    expect(docsSource).not.toContain('href={it.href || "#"');
   });
 
   it('adds a bilingual updates banner and updates page entry point', () => {

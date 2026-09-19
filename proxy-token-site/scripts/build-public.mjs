@@ -28,3 +28,5 @@ await Promise.all(entries.map(name => build({
   minify: true,
   legalComments: "none",
 })));
+
+await import("./build-doc-pages.mjs");

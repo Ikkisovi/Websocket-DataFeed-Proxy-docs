@@ -488,6 +488,27 @@ function UptimeBlock({ label, data }) {
 
 const { useState } = React;
 
+const DOC_PATHS = {
+  home: "/docs/",
+  marketOverview: "/docs/market/overview/",
+  marketStocks: "/docs/market/stocks/",
+  marketOptions: "/docs/market/options/",
+  marketIndices: "/docs/market/indices/",
+  marketResearch: "/docs/market/research-signals/",
+  marketCryptoNews: "/docs/market/crypto-news/",
+  marketCn: "/docs/market/cn/",
+  financial: "/docs/financial/",
+  financialRegular: "/docs/financial/regular/",
+  financialMorningstar: "/docs/financial/morningstar/",
+  financialStatements: "/docs/financial/statements/",
+  financialRatios: "/docs/financial/ratios-growth/",
+  bulk: "/docs/bulk/download/",
+  websocket: "/docs/realtime/websocket/",
+  subscriptions: "/docs/realtime/subscriptions/",
+  status: "/docs/status/",
+  usage: "/docs/usage/",
+};
+
 const NAV_GROUPS = [
   {
     key: "market",
@@ -495,13 +516,13 @@ const NAV_GROUPS = [
     match: ["proxy"],
     mainTab: "proxy",
     items: [
-      { label: "总览与认证", en: "Overview & authentication", desc: "Overview · Auth · Tiers", tab: "proxy", hash: "authentication" },
-      { label: "股票行情", en: "Stock data", desc: "Bars · Quotes · Trades", tab: "proxy", hash: "stock-data-availability" },
-      { label: "期权行情", en: "Options data", desc: "Contracts · Snapshots · OI", tab: "proxy", hash: "post-v1-options-contracts" },
-      { label: "指数行情", en: "Index data", desc: "SPX · VIX · DJX · XSP", tab: "proxy", hash: "get-post-v1-indices-history" },
-      { label: "研究信号", en: "Research signals", desc: "Spectral Tick-Flow · SID", tab: "proxy", hash: "get-post-v1-spectral-tick-flow" },
-      { label: "加密与新闻", en: "Crypto & news", desc: "Orderbooks · News", tab: "proxy", hash: "post-v1-crypto-us-latest-orderbooks" },
-      { label: "中国数据·内测", en: "CN Data · Private beta", desc: "CN archive · /v1/cn/*", tab: "proxy", hash: "cn-data-overview" },
+      { label: "总览与认证", en: "Overview & authentication", desc: "Overview · Auth · Tiers", href: DOC_PATHS.marketOverview },
+      { label: "股票行情", en: "Stock data", desc: "Bars · Quotes · Trades", href: DOC_PATHS.marketStocks },
+      { label: "期权行情", en: "Options data", desc: "Contracts · Snapshots · OI", href: DOC_PATHS.marketOptions },
+      { label: "指数行情", en: "Index data", desc: "SPX · VIX · DJX · XSP", href: DOC_PATHS.marketIndices },
+      { label: "研究信号", en: "Research signals", desc: "Spectral Tick-Flow · SID", href: DOC_PATHS.marketResearch },
+      { label: "加密与新闻", en: "Crypto & news", desc: "Orderbooks · News", href: DOC_PATHS.marketCryptoNews },
+      { label: "中国数据·内测", en: "CN Data · Private beta", desc: "CN archive · /v1/cn/*", href: DOC_PATHS.marketCn },
     ],
   },
   {
@@ -510,11 +531,11 @@ const NAV_GROUPS = [
     match: ["fmp", "fmp-fundamentals", "morningstar"],
     mainTab: "fmp",
     items: [
-      { label: "选择数据源", en: "Choose source", desc: "Regular / FMP · Morningstar", tab: "fmp", hash: "financial-source-selector" },
-      { label: "Regular / FMP", en: "Regular / FMP", desc: "50+ standard endpoints", tab: "fmp-fundamentals", hash: "fmp-fundamentals-overview" },
-      { label: "Morningstar", en: "Morningstar", desc: "Daily wide fundamentals", tab: "morningstar", hash: "morningstar-overview" },
-      { label: "财务三表", en: "Financial statements", desc: "Income · Balance · Cashflow", tab: "fmp-fundamentals", hash: "fmp-income-statement" },
-      { label: "比率与增长", en: "Ratios & growth", desc: "Ratios · Growth", tab: "fmp-fundamentals", hash: "fmp-ratios" },
+      { label: "选择数据源", en: "Choose source", desc: "Regular / FMP · Morningstar", href: DOC_PATHS.financial },
+      { label: "Regular / FMP", en: "Regular / FMP", desc: "50+ standard endpoints", href: DOC_PATHS.financialRegular },
+      { label: "Morningstar", en: "Morningstar", desc: "Daily wide fundamentals", href: DOC_PATHS.financialMorningstar },
+      { label: "财务三表", en: "Financial statements", desc: "Income · Balance · Cashflow", href: DOC_PATHS.financialStatements },
+      { label: "比率与增长", en: "Ratios & growth", desc: "Ratios · Growth", href: DOC_PATHS.financialRatios },
     ],
   },
   {
@@ -523,9 +544,9 @@ const NAV_GROUPS = [
     match: ["bulk", "ws"],
     mainTab: "bulk",
     items: [
-      { label: "批量下载", en: "Bulk download", desc: "¥50 / 50GB snapshot", tab: "bulk" },
-      { label: "WS 使用指南", en: "WS guide", desc: "6 channels", tab: "ws" },
-      { label: "订阅与消息", en: "Subscriptions & messages", desc: "Subscribe · Shapes", tab: "ws", hash: "subscribe" },
+      { label: "批量下载", en: "Bulk download", desc: "¥50 / 50GB snapshot", href: DOC_PATHS.bulk },
+      { label: "WS 使用指南", en: "WS guide", desc: "6 channels", href: DOC_PATHS.websocket },
+      { label: "订阅与消息", en: "Subscriptions & messages", desc: "Subscribe · Shapes", href: DOC_PATHS.subscriptions },
     ],
   },
   {
@@ -534,39 +555,23 @@ const NAV_GROUPS = [
     match: ["status", "usage"],
     mainTab: "status",
     items: [
-      { label: "服务状态", en: "Service status", desc: "Live · Latency · Uptime", tab: "status" },
-      { label: "用量统计", en: "Usage", desc: "30d · Token stats", tab: "usage" },
+      { label: "服务状态", en: "Service status", desc: "Live · Latency · Uptime", href: DOC_PATHS.status },
+      { label: "用量统计", en: "Usage", desc: "30d · Token stats", href: DOC_PATHS.usage },
       { label: "产品更新", en: "Product updates", desc: "Changelog", href: "/updates" },
     ],
   },
 ];
 
-function DocsTopbar({ active = "proxy", onNav }) {
+function DocsTopbar({ active = "proxy" }) {
   const isZh = useCurrentLanguage() === "zh";
   const Toggle = window.LanguageToggle;
   const [openMenu, setOpenMenu] = React.useState(null);
-  const goNavItem = (item) => {
-    setOpenMenu(null);
-    if (item.href) { window.location.href = item.href; return; }
-    if (onNav) onNav(item.tab);
-    if (item.hash) {
-      if (window.location.hash === "#" + item.hash) {
-        const el = document.getElementById(item.hash);
-        if (el) el.scrollIntoView({ block: "start" });
-      } else {
-        window.location.hash = item.hash;
-      }
-    } else {
-      window.location.hash = item.tab;
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  };
   return (
     <div className="topbar docs-topbar" onMouseLeave={() => setOpenMenu(null)}>
-      <div className="brand">
+      <a className="brand" href={DOC_PATHS.home} style={{ textDecoration: "none", color: "inherit" }}>
         <span className="dot"></span>
         <span><strong>{isZh ? "数据接口文档" : "Proxy Docs"}</strong></span>
-      </div>
+      </a>
       <div className="divider"></div>
       <div className="nav">
         {NAV_GROUPS.map((g) => {
@@ -595,11 +600,11 @@ function DocsTopbar({ active = "proxy", onNav }) {
                   {g.items.map((it, idx) => (
                     <a
                       key={idx}
-                      href={it.href || "#" + (it.hash || it.tab)}
+                      href={it.href}
                       style={{ display: "flex", flexDirection: "column", gap: 1, padding: "8px 10px", borderRadius: 6, cursor: "pointer" }}
                       onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-sunken)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                      onClick={(e) => { e.preventDefault(); goNavItem(it); }}
+                      onClick={() => setOpenMenu(null)}
                     >
                       <span style={{ fontSize: 13, color: "var(--ink-strong)", fontWeight: 500 }}>{isZh ? it.label : it.en}</span>
                       <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{it.desc}</span>
@@ -653,90 +658,147 @@ function IndexOptionsBanner() {
   );
 }
 
+const DOC_PAGE_CONFIG = {
+  home: { path: DOC_PATHS.home, tab: "home" },
+  "market-overview": { path: DOC_PATHS.marketOverview, tab: "proxy", focus: "overview" },
+  "market-stocks": { path: DOC_PATHS.marketStocks, tab: "proxy", focus: "stocks" },
+  "market-options": { path: DOC_PATHS.marketOptions, tab: "proxy", focus: "options" },
+  "market-indices": { path: DOC_PATHS.marketIndices, tab: "proxy", focus: "indices" },
+  "market-research": { path: DOC_PATHS.marketResearch, tab: "proxy", focus: "research" },
+  "market-crypto-news": { path: DOC_PATHS.marketCryptoNews, tab: "proxy", focus: "crypto-news" },
+  "market-cn": { path: DOC_PATHS.marketCn, tab: "proxy", focus: "cn" },
+  financial: { path: DOC_PATHS.financial, tab: "fmp" },
+  "financial-regular": { path: DOC_PATHS.financialRegular, tab: "fmp-fundamentals" },
+  "financial-morningstar": { path: DOC_PATHS.financialMorningstar, tab: "morningstar" },
+  "financial-statements": { path: DOC_PATHS.financialStatements, tab: "fmp-fundamentals", focus: "statements" },
+  "financial-ratios": { path: DOC_PATHS.financialRatios, tab: "fmp-fundamentals", focus: "ratios" },
+  bulk: { path: DOC_PATHS.bulk, tab: "bulk" },
+  websocket: { path: DOC_PATHS.websocket, tab: "ws" },
+  subscriptions: { path: DOC_PATHS.subscriptions, tab: "ws", focus: "subscriptions" },
+  status: { path: DOC_PATHS.status, tab: "status" },
+  usage: { path: DOC_PATHS.usage, tab: "usage" },
+};
+
+const DOC_PAGE_BY_PATH = Object.fromEntries(
+  Object.entries(DOC_PAGE_CONFIG).map(([page, config]) => [config.path, page])
+);
+
+function normalizeDocsPath(pathname) {
+  if (pathname === "/docs" || pathname === "/docs/index.html") return DOC_PATHS.home;
+  if (pathname.endsWith("/index.html")) return pathname.slice(0, -"index.html".length);
+  return pathname.endsWith("/") ? pathname : pathname + "/";
+}
+
+function legacyDocsPath(hash) {
+  if (!hash) return null;
+  if (hash === "fmp" || hash === "financial-source-selector" || hash.startsWith("fmp-data-")) return DOC_PATHS.financial;
+  if (hash === "morningstar" || hash.startsWith("morningstar-")) return DOC_PATHS.financialMorningstar;
+  if (["fmp-income-statement", "fmp-balance-sheet-statement", "fmp-cash-flow-statement", "fmp-pit-statements"].includes(hash)) return DOC_PATHS.financialStatements;
+  if (hash.startsWith("fmp-ratio") || hash.startsWith("fmp-key-metric") || hash.includes("growth") || hash === "fmp-enterprise-values" || hash === "fmp-financial-scores") return DOC_PATHS.financialRatios;
+  if (hash.startsWith("fmp-")) return DOC_PATHS.financialRegular;
+  if (hash.startsWith("cn-")) return DOC_PATHS.marketCn;
+  if (hash.includes("spectral")) return DOC_PATHS.marketResearch;
+  if (hash.includes("indices-history")) return DOC_PATHS.marketIndices;
+  if (hash.includes("options") || hash.startsWith("post-v3-option") || hash === "provider-fallback-cache") return DOC_PATHS.marketOptions;
+  if (hash.includes("crypto") || hash.includes("history-news")) return DOC_PATHS.marketCryptoNews;
+  if (["endpoint", "auth-message", "heartbeat", "stocks", "options", "crypto", "news", "overnight", "reconnect", "backpressure", "ws"].includes(hash)) return DOC_PATHS.websocket;
+  if (["subscribe", "unsubscribe", "trade", "quote", "bar"].includes(hash)) return DOC_PATHS.subscriptions;
+  if (hash.startsWith("stock-") || hash.includes("history-bars") || hash.includes("trade-quote")) return DOC_PATHS.marketStocks;
+  if (["proxy", "authentication", "overview", "tiers-permissions", "free-plan-usage", "post-register", "post-check-status", "post-generate-token", "error-codes", "rate-limits"].includes(hash)) return DOC_PATHS.marketOverview;
+  if (hash === "bulk") return DOC_PATHS.bulk;
+  if (hash === "status") return DOC_PATHS.status;
+  if (hash === "usage") return DOC_PATHS.usage;
+  return null;
+}
+
+function DocsHome() {
+  const isZh = useCurrentLanguage() === "zh";
+  return (
+    <div style={{ maxWidth: 980, margin: "0 auto" }}>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>{isZh ? "独立文档页面" : "Independent documentation pages"}</div>
+      <h2 className="display-title" style={{ fontSize: 44, margin: "0 0 12px" }}>{isZh ? "选择文档主题" : "Choose a documentation topic"}</h2>
+      <p style={{ color: "var(--ink-muted)", fontSize: 15, lineHeight: 1.7, margin: "0 0 26px" }}>
+        {isZh ? "每个主题现在都有独立 URL 和独立内容页，不再跳转到单一长文档中的软锚点。" : "Every topic now has its own URL and focused page instead of a soft anchor into one long document."}
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 16 }}>
+        {NAV_GROUPS.map((group) => (
+          <section key={group.key} className="card" style={{ padding: 18 }}>
+            <h3 style={{ margin: "0 0 12px", fontSize: 19 }}>{isZh ? group.label : group.en}</h3>
+            <div style={{ display: "grid", gap: 8 }}>
+              {group.items.map((item) => (
+                <a key={item.href} href={item.href} style={{ textDecoration: "none", padding: "9px 10px", borderRadius: 7, border: "1px solid var(--rule)", background: "var(--bg-paper)" }}>
+                  <strong style={{ display: "block", color: "var(--ink-strong)", fontSize: 13 }}>{isZh ? item.label : item.en}</strong>
+                  <span style={{ color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>{item.desc}</span>
+                </a>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
-  const validTabs = ["proxy", "fmp", "fmp-fundamentals", "morningstar", "bulk", "ws", "status", "usage"];
-  const fmpOverviewIds = ["financial-source-selector", "fmp-data-overview", "fmp-snapshot-boundary", "fmp-future-data-families"];
-  const hashTab = typeof window !== "undefined" && window.location.hash ? window.location.hash.slice(1) : "";
-  const resolveTab = (id) => validTabs.includes(id)
-    ? id
-    : fmpOverviewIds.includes(id)
-      ? "fmp"
-      : id.startsWith("morningstar-")
-        ? "morningstar"
-        : id.startsWith("fmp-")
-          ? "fmp-fundamentals"
-          : ["endpoint", "auth-message", "heartbeat", "stocks", "options", "crypto", "news", "overnight", "subscribe", "unsubscribe", "trade", "quote", "bar", "reconnect", "backpressure"].includes(id)
-          ? "ws"
-          : id ? "proxy" : initialTab;
-  const [tab, setTab] = useState(resolveTab(hashTab));
+  const pathname = typeof window === "undefined" ? DOC_PATHS.home : normalizeDocsPath(window.location.pathname);
+  const fallbackPage = initialTab === "fmp" ? "financial" : initialTab === "ws" ? "websocket" : "home";
+  const page = DOC_PAGE_BY_PATH[pathname] || (hideTopbar ? fallbackPage : "home");
+  const config = DOC_PAGE_CONFIG[page];
+  const tab = config.tab;
+  const visibleTab = tab === "fmp-fundamentals" || tab === "morningstar" ? "fmp" : tab;
+  const threeColumnPage = ["proxy", "ws", "fmp-fundamentals", "morningstar"].includes(tab);
+
   React.useEffect(() => {
-    const syncTab = () => setTab(resolveTab(window.location.hash.slice(1)));
-    window.addEventListener("hashchange", syncTab);
-    return () => window.removeEventListener("hashchange", syncTab);
+    if (normalizeDocsPath(window.location.pathname) !== DOC_PATHS.home) return;
+    const hash = decodeURIComponent(window.location.hash.slice(1));
+    const target = legacyDocsPath(hash);
+    if (target) window.location.replace(target + (hash ? `#${hash}` : ""));
   }, []);
 
   React.useEffect(() => {
     const scrollToHash = () => {
       const id = decodeURIComponent(window.location.hash.slice(1));
-      if (!id || validTabs.includes(id)) return;
-      window.requestAnimationFrame(() => {
-        document.getElementById(id)?.scrollIntoView({ block: "start" });
-      });
+      if (!id) return;
+      window.requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: "start" }));
     };
     scrollToHash();
     window.addEventListener("hashchange", scrollToHash);
     return () => window.removeEventListener("hashchange", scrollToHash);
-  }, [tab]);
+  }, [page]);
 
-  const showTopbar = !hideTopbar;
-  const visibleTab = tab === "fmp-fundamentals" || tab === "morningstar" ? "fmp" : tab;
-  const threeColumnTab = tab === "proxy" || tab === "ws" || tab === "fmp-fundamentals" || tab === "morningstar";
+  const content = page === "home" ? <DocsHome />
+    : config.tab === "proxy" ? <ProxyApiBody focus={config.focus} />
+    : page === "financial" ? <FmpDataOverview />
+    : config.tab === "fmp-fundamentals" ? <FmpFundamentalsBody focus={config.focus} />
+    : config.tab === "morningstar" ? <MorningstarFundamentalsBody />
+    : page === "bulk" ? <BulkOrderBody />
+    : config.tab === "ws" ? <WsUsageBody focus={config.focus} />
+    : page === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…"))
+    : React.createElement(StatusBody);
 
   return (
     <div className="proxy-app" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      {showTopbar && <DocsTopbar active={visibleTab} onNav={setTab} />}
+      {!hideTopbar && <DocsTopbar active={visibleTab} />}
       <IndexOptionsBanner />
-
-      {/* Hero */}
-      <div className="docs-hero" style={{
-        padding: "44px 64px 28px",
-        borderBottom: "1px solid var(--rule)",
-        background: "var(--bg-paper)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
+      <div className="docs-hero" style={{ padding: "44px 64px 28px", borderBottom: "1px solid var(--rule)", background: "var(--bg-paper)", position: "relative", overflow: "hidden" }}>
         <div className="eyebrow" style={{ marginBottom: 14 }}>Reference · live docs</div>
-        <h1 className="display-title" style={{ fontSize: 64, margin: "0 0 14px" }}>
-          Stock Options Proxy <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>API</span>
-        </h1>
-        <p style={{ color: "var(--ink-muted)", maxWidth: 640, fontSize: 15, margin: 0 }}>
-          Real-time US equities, options, crypto and news — one unified token, zero provider configuration.
-          The <strong style={{ color: "var(--ink-strong)" }}>Proxy API</strong> covers REST endpoints and tier management;
-          <strong style={{ color: "var(--ink-strong)" }}>WS usage</strong> covers the 6 realtime streaming channels.
-        </p>
-
-        {/* Tab strip */}
+        <h1 className="display-title" style={{ fontSize: 64, margin: "0 0 14px" }}>Stock Options Proxy <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>API</span></h1>
+        <p style={{ color: "var(--ink-muted)", maxWidth: 640, fontSize: 15, margin: 0 }}>Real-time US equities, options, crypto and news — one unified token, zero provider configuration. Each documentation topic is published as an independent page.</p>
         <div className="docs-tabs" style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
-          <Tab id="proxy" tab={visibleTab} setTab={setTab} label="Proxy API" count="47+ endpoints" />
-          <Tab id="fmp" tab={visibleTab} setTab={setTab} label="Financial data" count="2 sources" />
-          <Tab id="bulk" tab={visibleTab} setTab={setTab} label="Bulk Download" count="¥50 / 50GB" />
-          <Tab id="ws" tab={visibleTab} setTab={setTab} label="WS usage" count="6 channels" />
-          <Tab id="status" tab={visibleTab} setTab={setTab} label="Status" count="live" />
-          <Tab id="usage" tab={visibleTab} setTab={setTab} label="Usage" count="my stats" />
+          <Tab id="proxy" tab={visibleTab} href={DOC_PATHS.marketOverview} label="Proxy API" count="47+ endpoints" />
+          <Tab id="fmp" tab={visibleTab} href={DOC_PATHS.financial} label="Financial data" count="2 sources" />
+          <Tab id="bulk" tab={visibleTab} href={DOC_PATHS.bulk} label="Bulk Download" count="¥50 / 50GB" />
+          <Tab id="ws" tab={visibleTab} href={DOC_PATHS.websocket} label="WS usage" count="6 channels" />
+          <Tab id="status" tab={visibleTab} href={DOC_PATHS.status} label="Status" count="live" />
+          <Tab id="usage" tab={visibleTab} href={DOC_PATHS.usage} label="Usage" count="my stats" />
           <div style={{ flex: 1 }}></div>
-          <div className="docs-last-sync" style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
-            last sync · 2026-09-19 · public REST / RT / WSS
-          </div>
+          <div className="docs-last-sync" style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>last sync · 2026-09-19 · public REST / RT / WSS</div>
         </div>
       </div>
-
-      {/* Content */}
-      <div className={"docs-content-grid" + (threeColumnTab ? " has-3col" : "")} style={{ display: "grid", gridTemplateColumns: threeColumnTab ? "228px minmax(0,1fr) 200px" : "1fr", flex: 1 }}>
-        {threeColumnTab && <SideNav tab={tab} />}
-        <main className={tab === "bulk" ? "bulk-main" : ""} style={{ padding: threeColumnTab ? "40px 44px" : "36px 32px", background: "var(--bg-canvas)", minWidth: 0 }}>
-          {tab === "proxy" ? <ProxyApiBody /> : tab === "fmp" ? <FmpDataOverview openFundamentals={() => setTab("fmp-fundamentals")} openMorningstar={() => setTab("morningstar")} /> : tab === "fmp-fundamentals" ? <FmpFundamentalsBody openMorningstar={() => setTab("morningstar")} /> : tab === "morningstar" ? <MorningstarFundamentalsBody openRegular={() => setTab("fmp-fundamentals")} /> : tab === "bulk" ? <BulkOrderBody /> : tab === "ws" ? <WsUsageBody /> : tab === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…")) : (React.createElement(StatusBody))}
-        </main>
-        {threeColumnTab && <OnThisPage tab={tab} />}
+      <div className={"docs-content-grid" + (threeColumnPage ? " has-3col" : "")} style={{ display: "grid", gridTemplateColumns: threeColumnPage ? "228px minmax(0,1fr) 200px" : "1fr", flex: 1 }}>
+        {threeColumnPage && <SideNav tab={tab} page={page} />}
+        <main className={tab === "bulk" ? "bulk-main" : ""} style={{ padding: threeColumnPage ? "40px 44px" : "36px 32px", background: "var(--bg-canvas)", minWidth: 0 }}>{content}</main>
+        {threeColumnPage && <OnThisPage tab={tab} page={page} />}
       </div>
     </div>
   );
@@ -746,31 +808,12 @@ function slugify(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-function Tab({ id, tab, setTab, label, count }) {
+function Tab({ id, tab, href, label, count }) {
   const active = tab === id;
   return (
-    <button
-      onClick={() => setTab(id)}
-      style={{
-        background: "transparent",
-        border: "none",
-        padding: "12px 0",
-        marginRight: 28,
-        cursor: "pointer",
-        fontFamily: "var(--f-sans)",
-        fontSize: 14,
-        fontWeight: 500,
-        color: active ? "var(--ink-strong)" : "var(--ink-muted)",
-        borderBottom: `2px solid ${active ? "var(--ink-strong)" : "transparent"}`,
-        marginBottom: -1,
-        display: "flex",
-        alignItems: "baseline",
-        gap: 8,
-      }}
-    >
-      {label}
-      <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)", fontWeight: 400 }}>{count}</span>
-    </button>
+    <a href={href} style={{ background: "transparent", border: "none", padding: "12px 0", marginRight: 28, cursor: "pointer", textDecoration: "none", fontFamily: "var(--f-sans)", fontSize: 14, fontWeight: 500, color: active ? "var(--ink-strong)" : "var(--ink-muted)", borderBottom: `2px solid ${active ? "var(--ink-strong)" : "transparent"}`, marginBottom: -1, display: "flex", alignItems: "baseline", gap: 8 }}>
+      {label}<span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)", fontWeight: 400 }}>{count}</span>
+    </a>
   );
 }
 
@@ -972,7 +1015,7 @@ const SECTION_ZH_LABELS = {
   "Access & scope": "权限与范围"
 };
 
-function SideNav({ tab }) {
+function SideNav({ tab, page }) {
   const [activeId, setActiveId] = React.useState("");
   const [query, setQuery] = React.useState("");
   const [expanded, setExpanded] = React.useState({});
@@ -1046,6 +1089,27 @@ function SideNav({ tab }) {
     { title: "System", items: ["Overview", "Components", "Latency"] },
     { title: "Metrics history", items: ["Uptime", "Incidents", "Methodology"] },
   ];
+
+  const pageSections = {
+    "market-overview": sections.filter((section) => ["Getting started", "Token API", "Admin endpoints", "Reference"].includes(section.title)),
+    "market-stocks": [
+      { title: "REST History", items: ["history/bars", "stock trade+quote"] },
+      { title: "Stock Data", items: ["Market · US / World"], children: [{ title: "US market", items: ["overview"], children: [
+        { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
+        { title: "Metadata", items: ["condition codes", "exchange codes"] },
+        { title: "Single symbol", items: ["single bars", "single latest bar", "single quotes", "single latest quote", "single snapshot", "single trades", "single latest trade"] },
+      ]}]},
+    ],
+    "market-options": sections.filter((section) => section.title === "Options Data"),
+    "market-indices": sections.filter((section) => section.title === "Index Data"),
+    "market-research": sections.filter((section) => section.title === "Research Signals"),
+    "market-crypto-news": [{ title: "REST History", items: ["history/news"] }, ...sections.filter((section) => section.title === "Crypto Data")],
+    "market-cn": [{ title: "World · CN 中国数据", items: ["CN Data overview", "Daily bars", "Minute bars", "Valuation", "Membership", "Reference", "Fundamentals", "ETF data", "ETF minutes", "Options", "Funds", "Shareholders", "Reserved routes", "Catalog", "Access & scope"] }],
+    "financial-statements": sections.filter((section) => section.title === "Financial statements"),
+    "financial-ratios": sections.filter((section) => ["Ratios & metrics", "Growth & valuation"].includes(section.title)),
+    subscriptions: sections.filter((section) => section.title === "Messages"),
+  };
+  const scopedSections = pageSections[page] || sections;
 
   function Chevron({ open }) {
     return (
@@ -1177,19 +1241,19 @@ function SideNav({ tab }) {
         />
         {q && (
           <div style={{ marginTop: 6, fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>
-            {visibleSections(sections).length} groups match
+            {visibleSections(scopedSections).length} groups match
           </div>
         )}
       </div>
-      {visibleSections(sections).length === 0 && (
+      {visibleSections(scopedSections).length === 0 && (
         <div style={{ padding: "8px 16px 8px 8px", fontSize: 12, color: "var(--ink-soft)" }}>无匹配 · no match</div>
       )}
-      {visibleSections(sections).map((s, i) => <Section key={i} s={s} defaultOpen={i === 0} forceOpen={!!q} />)}
+      {visibleSections(scopedSections).map((s, i) => <Section key={i} s={s} defaultOpen={i === 0} forceOpen={!!q} />)}
     </nav>
   );
 }
 
-function OnThisPage({ tab }) {
+function OnThisPage({ tab, page }) {
   const [activeId, setActiveId] = React.useState("");
   React.useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
@@ -1197,9 +1261,21 @@ function OnThisPage({ tab }) {
     }, { rootMargin: '-20% 0px -80% 0px' });
     setTimeout(() => document.querySelectorAll('h2[id], h3[id]').forEach(h => observer.observe(h)), 500);
     return () => observer.disconnect();
-  }, [tab]);
-  const items = tab === "proxy"
-    ? ["Request", "Response", "Validation", "Examples", "Errors"]
+  }, [tab, page]);
+  const pageItems = {
+    "market-overview": [["Overview", "overview"], ["Authentication", "authentication"], ["Tiers", "tiers-permissions"], ["Free plan", "free-plan-usage"]],
+    "market-stocks": [["History bars", "post-v1-history-bars"], ["Trade + quote", "post-v1-stock-history-trade-quote"], ["US equities", "stock-data-availability"]],
+    "market-options": [["Routing", "provider-fallback-cache"], ["Contracts", "post-v1-options-contracts"], ["Snapshots", "post-v1-options-snapshots"], ["Direct API", "post-v3-option-direct-value"]],
+    "market-indices": [["Index history", "get-post-v1-indices-history"]],
+    "market-research": [["Spectral history", "get-post-v1-spectral-tick-flow"], ["Coverage", "get-v1-spectral-tick-flow-coverage"]],
+    "market-crypto-news": [["News history", "post-v1-history-news"], ["Orderbooks", "post-v1-crypto-us-latest-orderbooks"]],
+    "market-cn": [["CN overview", "cn-data-overview"], ["Catalog", "cn-catalog"], ["Access", "cn-access"]],
+    "financial-statements": [["Income statement", "fmp-income-statement"], ["Balance sheet", "fmp-balance-sheet-statement"], ["Cash flow", "fmp-cash-flow-statement"], ["PIT statements", "fmp-pit-statements"]],
+    "financial-ratios": [["Ratios", "fmp-ratios"], ["Key metrics", "fmp-key-metrics"], ["Growth", "fmp-financial-growth"], ["Enterprise value", "fmp-enterprise-values"]],
+    subscriptions: [["Subscribe", "subscribe"], ["Unsubscribe", "unsubscribe"], ["Trade", "trade"], ["Quote", "quote"], ["Bar", "bar"]],
+  };
+  const items = pageItems[page] || (tab === "proxy"
+    ? [["Overview", "overview"]]
     : tab === "morningstar"
     ? [
       ["Morningstar overview", "morningstar-overview"],
@@ -1216,7 +1292,7 @@ function OnThisPage({ tab }) {
     ]
     : tab === "ws"
     ? ["Connect", "Authenticate", "Subscribe", "Message shapes", "Reconnect"]
-    : ["Overview", "Components", "Latency", "Uptime", "Incidents"];
+    : ["Overview", "Components", "Latency", "Uptime", "Incidents"]);
   return (
     <aside className="on-this-page" style={{
       padding: "40px 20px",
@@ -1989,22 +2065,10 @@ function BulkOrderBody() {
   );
 }
 
-function FinancialSourceSelector({ active, onRegular, onMorningstar }) {
+function FinancialSourceSelector({ active }) {
   const sources = [
-    {
-      id: "regular",
-      title: "Regular / FMP",
-      zh: "标准财务数据",
-      meta: "50+ endpoints · statements · ratios · profiles",
-      action: onRegular,
-    },
-    {
-      id: "morningstar",
-      title: "Morningstar",
-      zh: "日度宽表快照",
-      meta: "28 metrics · 550 symbols · 2020–present",
-      action: onMorningstar,
-    },
+    { id: "regular", title: "Regular / FMP", zh: "标准财务数据", meta: "50+ endpoints · statements · ratios · profiles", href: DOC_PATHS.financialRegular },
+    { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "28 metrics · 550 symbols · 2020–present", href: DOC_PATHS.financialMorningstar },
   ];
   return (
     <section id="financial-source-selector" style={{ marginBottom: 26 }}>
@@ -2018,28 +2082,14 @@ function FinancialSourceSelector({ active, onRegular, onMorningstar }) {
         {sources.map((source) => {
           const selected = active === source.id;
           return (
-            <button
-              key={source.id}
-              type="button"
-              onClick={source.action}
-              aria-pressed={selected}
-              style={{
-                textAlign: "left",
-                cursor: source.action ? "pointer" : "default",
-                padding: "16px 18px",
-                borderRadius: 10,
-                border: selected ? "2px solid var(--accent-ink)" : "1px solid var(--rule)",
-                background: selected ? "var(--accent-soft)" : "var(--bg-paper)",
-                color: "var(--ink-strong)",
-              }}
-            >
+            <a key={source.id} href={source.href} aria-current={selected ? "page" : undefined} style={{ textAlign: "left", cursor: "pointer", textDecoration: "none", padding: "16px 18px", borderRadius: 10, border: selected ? "2px solid var(--accent-ink)" : "1px solid var(--rule)", background: selected ? "var(--accent-soft)" : "var(--bg-paper)", color: "var(--ink-strong)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 6 }}>
                 <strong style={{ fontSize: 17 }}>{source.title}</strong>
                 <span style={{ fontSize: 11, color: selected ? "var(--accent-ink)" : "var(--ink-soft)" }}>{selected ? "SELECTED" : "OPEN →"}</span>
               </div>
               <div style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 5 }}>{source.zh}</div>
               <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{source.meta}</div>
-            </button>
+            </a>
           );
         })}
       </div>
@@ -2047,7 +2097,7 @@ function FinancialSourceSelector({ active, onRegular, onMorningstar }) {
   );
 }
 
-function FmpDataOverview({ openFundamentals, openMorningstar }) {
+function FmpDataOverview() {
   const panel = {
     background: "var(--bg-paper)",
     border: "1px solid var(--rule)",
@@ -2056,7 +2106,7 @@ function FmpDataOverview({ openFundamentals, openMorningstar }) {
   };
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
-      <FinancialSourceSelector active="" onRegular={openFundamentals} onMorningstar={openMorningstar} />
+      <FinancialSourceSelector active="" />
       <div className="eyebrow" style={{ marginBottom: 10 }}>Regular / FMP financial data · Premium</div>
       <h2 id="fmp-data-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}><Bilingual {...API_CATEGORIES.financial} /></h2>
       <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
@@ -2084,7 +2134,7 @@ function FmpDataOverview({ openFundamentals, openMorningstar }) {
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 22 }}>
         <strong style={{ color: "var(--accent-ink)" }}>查看完整接口文档</strong>
         <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> 左侧 Financial data API 部分包含所有接口的详细参数、返回示例和使用说明。<br/>See the Financial data API section for complete documentation with parameters and examples.</span>
-        <button onClick={openFundamentals} className="btn" style={{ marginLeft: 12, padding: "7px 11px", fontSize: 12 }}>打开文档 / Open Docs →</button>
+        <a href={DOC_PATHS.financialRegular} className="btn" style={{ marginLeft: 12, padding: "7px 11px", fontSize: 12 }}>打开文档 / Open Docs →</a>
       </div>
       <h3 id="fmp-snapshot-boundary" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>数据更新说明 / Data Updates</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, margin: "0 0 22px" }}>
@@ -2115,7 +2165,13 @@ function FmpEndpointSection({ id, route, title, params, note }) {
   );
 }
 
-function FmpFundamentalsBody({ openMorningstar }) {
+const FMP_FOCUS_BOUNDARIES = [
+  ["fmp-income-statement", "statements"],
+  ["fmp-ratios", "ratios"],
+  ["fmp-market-reference", "regular"],
+];
+
+function FmpFundamentalsBody({ focus }) {
   const panel = {
     background: "var(--bg-paper)",
     border: "1px solid var(--rule)",
@@ -2173,10 +2229,11 @@ function FmpFundamentalsBody({ openMorningstar }) {
     ["/stable/stock-list", "股票目录 / Stock list", "optional limit", "获取数据覆盖的所有股票列表。List of all covered stocks."],
     ["/stable/symbol-change", "Ticker 变更 / Symbol change", "optional limit", "获取股票代码历史变更记录（如公司更名）。Historical ticker symbol changes (e.g., company renamings)."],
   ];
+  const focusRef = useFocusedDirectChildren(focus, "regular", FMP_FOCUS_BOUNDARIES, ["financial-source-selector"]);
 
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto" }}>
-      <FinancialSourceSelector active="regular" onMorningstar={openMorningstar} />
+    <div ref={focusRef} style={{ maxWidth: 860, margin: "0 auto" }}>
+      <FinancialSourceSelector active="regular" />
       <div className="eyebrow" style={{ marginBottom: 10 }}>Regular / FMP · Premium</div>
       <h2 id="fmp-fundamentals-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>财务数据 API / Financial Data API</h2>
       <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
@@ -2262,7 +2319,7 @@ function FmpFundamentalsBody({ openMorningstar }) {
       <FmpEndpointSection id="fmp-financial-growth" route="/stable/financial-growth" title="财务增长汇总 / Financial Growth Summary" params={<><code>symbol</code>, <code>period=annual</code>, <code>limit</code></>} note="获取财务数据整体增长情况汇总。Get overall financial growth summary." />
       <FmpEndpointSection id="fmp-enterprise-values" route="/stable/enterprise-values" title="企业价值 / Enterprise Value" params={<><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></>} note="获取企业价值历史数据。Get historical enterprise value data." />
       <FmpEndpointSection id="fmp-financial-scores" route="/stable/financial-scores" title="财务评分 / Financial Scores" params={<><code>symbol</code>, 可选 <code>limit</code></>} note="获取 Altman Z-Score、Piotroski F-Score 等财务健康评分。Get Altman Z-Score, Piotroski F-Score, and other financial health scores." />
-      <h3 className="display-title" style={{ fontSize: 28, margin: "32px 0 4px" }}>行情与公司资料接口 / Market Data & Company Info</h3>
+      <h3 id="fmp-market-reference" className="display-title" style={{ fontSize: 28, margin: "32px 0 4px" }}>行情与公司资料接口 / Market Data & Company Info</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65, margin: "0 0 4px" }}>
         以下接口提供股票报价、公司资料、分析师评级等数据。
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>The following endpoints provide stock quotes, company profiles, analyst ratings, and more.</span>
@@ -2431,7 +2488,7 @@ Content-Type: application/json
   );
 }
 
-function MorningstarFundamentalsBody({ openRegular }) {
+function MorningstarFundamentalsBody() {
   const metrics = [
     ["Valuation / 估值", "market_cap · pe_ratio · pb_ratio · ps_ratio · ev_to_ebitda · dividend_yield · earning_yield"],
     ["Profitability / 盈利能力", "roe · roa · gross_margin · operating_margin · net_margin"],
@@ -2443,7 +2500,7 @@ function MorningstarFundamentalsBody({ openRegular }) {
   ];
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
-      <FinancialSourceSelector active="morningstar" onRegular={openRegular} />
+      <FinancialSourceSelector active="morningstar" />
 
       <div className="eyebrow" style={{ marginBottom: 10 }}>Morningstar US Fundamentals · Premium</div>
       <h2 id="morningstar-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>Morningstar 财务数据 / Fundamentals</h2>
@@ -2880,11 +2937,43 @@ function CnDataSections() {
   );
 }
 
-function ProxyApiBody() {
+function useFocusedDirectChildren(focus, defaultSection, boundaries, alwaysVisibleIds = []) {
+  const ref = React.useRef(null);
+  React.useLayoutEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    let section = defaultSection;
+    for (const child of Array.from(root.children)) {
+      const containsId = (id) => child.id === id || child.querySelector(`[id="${id}"]`);
+      const boundary = boundaries.find(([id]) => containsId(id));
+      if (boundary) section = boundary[1];
+      const alwaysVisible = alwaysVisibleIds.some(containsId);
+      child.hidden = Boolean(focus && !alwaysVisible && section !== focus);
+    }
+  }, [focus, defaultSection, boundaries, alwaysVisibleIds]);
+  return ref;
+}
+
+const PROXY_FOCUS_BOUNDARIES = [
+  ["cn-data-overview", "cn"],
+  ["free-plan-usage", "overview"],
+  ["post-v1-history-bars", "stocks"],
+  ["get-post-v1-indices-history", "indices"],
+  ["get-post-v1-spectral-tick-flow", "research"],
+  ["post-v1-history-news", "crypto-news"],
+  ["post-v1-stock-history-trade-quote", "stocks"],
+  ["market-us-world", "stocks"],
+  ["provider-fallback-cache", "options"],
+  ["post-v1-crypto-us-latest-orderbooks", "crypto-news"],
+  ["post-admin-login", "overview"],
+];
+
+function ProxyApiBody({ focus }) {
   const lang = useCurrentLanguage();
   const isZh = lang === "zh";
+  const focusRef = useFocusedDirectChildren(focus, "overview", PROXY_FOCUS_BOUNDARIES);
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div ref={focusRef} style={{ maxWidth: 760 }}>
 
       {/* ── Getting started ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Getting started</div>
@@ -2908,7 +2997,7 @@ function ProxyApiBody() {
         All data surfaces accept the same token. Origin hosts and cache tiers may move during failover, so clients should never pin a raw server IP.
         <br/><span style={{ color: "var(--ink-soft)" }}>历史 REST、实时 REST 与 WebSocket 均使用稳定域名和同一 Token。故障切换时源站与缓存层可能调整，客户端不应绑定裸 IP。</span>
       </div>
-      <a href="#cn-data-overview" style={{ textDecoration: "none" }}>
+      <a href={DOC_PATHS.marketCn} style={{ textDecoration: "none" }}>
         <div style={{ border: "1px solid var(--accent-rule)", background: "var(--accent-soft)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13, display: "flex", gap: 12, alignItems: "center" }}>
           <span style={{ padding: "2px 8px", borderRadius: 999, background: "var(--accent-ink)", color: "var(--ink-inverse)", fontFamily: "var(--f-mono)", fontSize: 10, fontWeight: 700, letterSpacing: ".08em", whiteSpace: "nowrap" }}>PRIVATE BETA · LIVE · 内测已上线</span>
           <span style={{ color: "var(--ink-base)" }}>
@@ -3020,7 +3109,7 @@ Authorization: Bearer <TOKEN>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontSize: 12 }}><a href="#cn-data-overview">CN Data 中国数据</a> · live /v1/cn/* · private beta · no purchase; explicit account authorization required</td>
+            <td style={{ fontSize: 12 }}><a href={DOC_PATHS.marketCn}>CN Data 中国数据</a> · live /v1/cn/* · private beta · no purchase; explicit account authorization required</td>
           </tr>
         </tbody>
       </table>
@@ -3488,11 +3577,11 @@ print("Option contracts:", resp_opt.status_code)`}
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>美股接口受套餐权限和行情覆盖范围约束；世界覆盖从中国 A 股归档（内测、单独授权）开始。</span>
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 40 }}>
-        <a href="#stock-data-availability" style={{ textDecoration: "none", border: "1px solid var(--rule)", borderRadius: 10, padding: "14px 16px", background: "var(--bg-paper)" }}>
+        <a href={DOC_PATHS.marketStocks} style={{ textDecoration: "none", border: "1px solid var(--rule)", borderRadius: 10, padding: "14px 16px", background: "var(--bg-paper)" }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-strong)", marginBottom: 4 }}>美股 US market</div>
           <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>/v2/stocks/* · US market data →</div>
         </a>
-        <a href="#cn-data-overview" style={{ textDecoration: "none", border: "1px solid var(--accent-rule)", borderRadius: 10, padding: "14px 16px", background: "var(--accent-soft)" }}>
+        <a href={DOC_PATHS.marketCn} style={{ textDecoration: "none", border: "1px solid var(--accent-rule)", borderRadius: 10, padding: "14px 16px", background: "var(--accent-soft)" }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: "var(--accent-ink)", marginBottom: 4 }}>世界/中国 World · CN <span style={{ fontFamily: "var(--f-mono)", fontSize: 10, border: "1px solid var(--rule-strong)", borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>内测 beta</span></div>
           <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>/v1/cn/* · archive slice · explicit auth →</div>
         </a>
@@ -4312,14 +4401,20 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
   );
 }
 
-function WsUsageBody() {
+const WS_FOCUS_BOUNDARIES = [
+  ["subscribe", "subscriptions"],
+  ["reconnect", "guide"],
+];
+
+function WsUsageBody({ focus }) {
   const lang = useCurrentLanguage();
   const isZh = lang === "zh";
   const H3 = ({ children }) => (
     <h3 style={{ fontFamily: "var(--f-sans)", fontWeight: 500, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--ink-muted)", margin: "32px 0 12px" }}>{children}</h3>
   );
+  const focusRef = useFocusedDirectChildren(focus, "guide", WS_FOCUS_BOUNDARIES);
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div ref={focusRef} style={{ maxWidth: 760 }}>
       <div className="eyebrow" style={{ marginBottom: 10 }}>{isZh ? "实时数据流" : "Realtime"}</div>
       <h2 id="endpoint" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>{isZh ? "WebSocket 连接与实时数据流" : "WebSocket connection"}</h2>
       <DocDesc

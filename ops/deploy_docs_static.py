@@ -13,9 +13,30 @@ import subprocess
 import tempfile
 
 
+DOC_PAGE_INDEXES = (
+    "docs/index.html",
+    "docs/market/overview/index.html",
+    "docs/market/stocks/index.html",
+    "docs/market/options/index.html",
+    "docs/market/indices/index.html",
+    "docs/market/research-signals/index.html",
+    "docs/market/crypto-news/index.html",
+    "docs/market/cn/index.html",
+    "docs/financial/index.html",
+    "docs/financial/regular/index.html",
+    "docs/financial/morningstar/index.html",
+    "docs/financial/statements/index.html",
+    "docs/financial/ratios-growth/index.html",
+    "docs/bulk/download/index.html",
+    "docs/realtime/websocket/index.html",
+    "docs/realtime/subscriptions/index.html",
+    "docs/status/index.html",
+    "docs/usage/index.html",
+)
+
 FILES = (
     "assets/docs-page.js", "assets/token-page.js", "docs/docs-site.jsx",
-    "docs/tokens.css", "tokens.css", "docs/index.html", "index.html",
+    "docs/tokens.css", "tokens.css", *DOC_PAGE_INDEXES, "index.html",
 )
 
 
@@ -24,6 +45,7 @@ def digest(path):
 
 
 def atomic_copy(source, target):
+    target.parent.mkdir(parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(prefix=".docs-next-", dir=target.parent)
     os.close(fd)
     try:
@@ -48,9 +70,15 @@ def deploy(release, manifest_path, apply):
     assert mount["Source"] == str(public) and not mount["RW"]
     identity = (public.stat().st_dev, public.stat().st_ino)
     for name in FILES:
-        assert not (public / name).is_symlink()
+        target = public / name
+        expected_before = manifest["files"][name]["before"]
+        assert not target.is_symlink()
         assert digest(source / name) == manifest["files"][name]["after"], name
-        assert digest(public / name) == manifest["files"][name]["before"], name
+        if expected_before is None:
+            assert not target.exists(), name
+        else:
+            assert target.is_file(), name
+            assert digest(target) == expected_before, name
     for name, expected in manifest["dependencies"].items():
         assert name in {"token-page.jsx", "language.js", "docs/usage-page.jsx", "docs-site.jsx"}
         assert digest(public / name) == expected, name
@@ -61,9 +89,11 @@ def deploy(release, manifest_path, apply):
     backup = release / "rollback"
     backup.mkdir()  # Fail closed on an already attempted release.
     for name in FILES:
-        target = backup / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(public / name, target)
+        live = public / name
+        if live.exists():
+            target = backup / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(live, target)
     receipt = {**manifest, "container_id": before["Id"], "public_inode": identity}
     try:
         # Keep directory inodes and publish HTML only after the bundles and styles.
@@ -83,7 +113,12 @@ def deploy(release, manifest_path, apply):
         receipt["status"] = "host_container_verified_public_acceptance_pending"
     except BaseException:
         for name in FILES:
-            atomic_copy(backup / name, public / name)
+            saved = backup / name
+            live = public / name
+            if saved.exists():
+                atomic_copy(saved, live)
+            else:
+                live.unlink(missing_ok=True)
         receipt["status"] = "rolled_back"
         raise
     finally:
