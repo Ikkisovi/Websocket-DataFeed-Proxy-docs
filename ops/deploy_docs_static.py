@@ -37,6 +37,7 @@ DOC_PAGE_INDEXES = (
 FILES = (
     "assets/docs-page.js", "assets/token-page.js",
     "assets/providers/fmp-data.png", "assets/providers/morningstar.png", "assets/providers/alpaca.png",
+    "skills/leandata-market-data/SKILL.md",
     "docs/docs-site.jsx", "docs/tokens.css", "tokens.css", *DOC_PAGE_INDEXES, "index.html",
 )
 

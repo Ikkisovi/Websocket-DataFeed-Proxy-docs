@@ -14,7 +14,8 @@ When operating under a Free plan token (`role: free`):
 1. **REST Historical Window:** Historical REST requests (`/v2/stocks/bars`, `/v1/history/bars`, `/v1/indices/history`, `/v1/options/eod`) **must include explicit `start` and `end` bounds within the most recent 31 calendar days**. Dates older than 31 days or requests with missing bounds fail with `403 free_historical_window_exceeded` or `403 free_historical_date_range_required`.
 2. **Option Chains and Snapshots:** Contract discovery (`/v1/options/contracts`) and option Greeks snapshots (`/v1/options/snapshots/expiry`, `/v1/options/snapshots/{underlying}`) are limited to the **nearest 2 upcoming expiration cycles** (e.g. 0DTE and nearest weekly/monthly expiries). Requesting further-out expirations fails with `403 free_option_chain_window_exceeded`.
 3. **Financial Fundamentals:** Corporate financial statements (Income Statement, Balance Sheet, Cash Flow) require an active **Premium** subscription and fail with `403 fmp_premium_required`.
-4. **Upgrade Guidance:** When encountering `403 free_*_exceeded`, guide the user to upgrade their plan at `https://leandata.uk/account.html`.
+4. **Cash Indices Minute/Daily:** `GET/POST /v1/indices/minute`, `/v1/indices/minute/coverage`, `GET/POST /v1/indices/daily`, `/v1/indices/daily/coverage` (SPX, NDX, VIX, DJI only) require a **paid plan** and fail with `403 cash_indices_paid_plan_required` on Free. This is separate from the CBOE daily endpoint `/v1/indices/history` (SPX, VIX, VIX3M).
+5. **Upgrade Guidance: When encountering `403 free_*_exceeded`, guide the user to upgrade their plan at `https://leandata.uk/account.html`.
 
 ## Request workflow
 
@@ -48,6 +49,28 @@ curl -X POST https://api.leandata.uk/v1/history/options/bars \
   -d '{"symbols":"AAPL260620C00200000","timeframe":"1Min","start":"2023-04-01","end":"2023-06-30"}'
 ```
 
+Cash-index minute bars (Paid plan; SPX, NDX, VIX, DJI only):
+
+```bash
+curl "https://api.leandata.uk/v1/indices/minute?symbol=SPX&start=2026-09-15&end=2026-09-17&limit=3" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+Cash-index derived daily bars (Paid plan):
+
+```bash
+curl "https://api.leandata.uk/v1/indices/daily?symbol=VIX&start=2026-09-15&end=2026-09-17" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+For cash indices:
+
+- Symbols are limited to SPX, NDX, VIX, and DJI. Any other symbol fails with `400 invalid_symbol`.
+- `start`/`end` are inclusive UTC calendar days (`YYYY-MM-DD`). Minute `ts` values are UTC normalized from exchange-local sessions (SPX/VIX/DJI 08:31–15:15 America/Chicago, NDX 09:31–16:00 America/New_York).
+- There is no volume column at the source. Daily bars are derived server-side: open is the first bar, close the last bar, date bucketed in listing-exchange time.
+- Default limit 5,000, max 10,000; overflow returns `truncated: true`. Unfiltered cross-sections are limited to 7 inclusive calendar days (`400 identity_or_short_window_required`).
+- Free plan receives `403 cash_indices_paid_plan_required`. For CBOE daily closes including VIX3M, use `/v1/indices/history` instead.
+
 For option bars:
 
 - Supply exact OCC symbols; do not invent a contract from a ticker, strike, or expiry.
@@ -64,7 +87,7 @@ Capture the HTTP status, response JSON, request ID header/body field, endpoint, 
 |---|---|---|
 | `400` | Invalid request | Read `error`/`message`; check required fields, date order/format, timeframe, JSON, and symbol format. Do not retry unchanged. |
 | `401` | Missing or invalid authentication | Confirm the Bearer header is present and the token has no extra quotes or whitespace. Do not expose it. |
-| `403` | Permission or request-policy rejection | Check error code: `free_historical_window_exceeded` (needs <=31 days bounds), `free_option_chain_window_exceeded` (needs nearest 2 expiries), `fmp_premium_required` (needs Premium plan). Read the error body and account usage endpoint; guide user to upgrade at `https://leandata.uk/account.html`. |
+| `403` | Permission or request-policy rejection | Check error code: `free_historical_window_exceeded` (needs <=31 days bounds), `free_option_chain_window_exceeded` (needs nearest 2 expiries), `fmp_premium_required` (needs Premium plan), `cash_indices_paid_plan_required` (cash-indices minute/daily need a paid plan), `morningstar_premium_required` / `spectral_paid_plan_required` (provider archives need paid/Premium plans). Read the error body and account usage endpoint; guide user to upgrade at `https://leandata.uk/account.html`. |
 | `404` | Route or resource not found | Verify the exact documented path. A missing result is not proof that the symbol never existed. |
 | `408` | Request timeout | Retry a smaller date window with exponential backoff. |
 | `429` | Invalid-token abuse protection, concurrency, or rate limit | If `error` is `invalid_token_rate_limited` or `invalid_token_temporarily_blocked`, stop retrying the unchanged credential, honor `Retry-After`, and obtain/verify a token first. For other `429` responses, stop parallel calls and retry with exponential backoff and jitter. |

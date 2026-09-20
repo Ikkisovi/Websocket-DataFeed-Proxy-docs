@@ -105,8 +105,8 @@ function TokenPage() {
         fontSize: 13,
       }}>
         <span>
-          <strong>最近更新 · 财务历史与 Free 计划说明已更新</strong>
-          　文档现在更容易理解，并明确说明 Free 的可用范围；长期财务历史已恢复，股票日线查不到时也会自动尝试历史归档。
+          <strong>最近更新 · 现金指数分钟线与 GPU 指数已上线</strong>
+          　SPX / NDX / VIX / DJI 的 1 分钟线与派生日线已上线（/v1/indices/minute，Paid plan）；另类数据区新增 GPU 租赁指数看板。
         </span>
         <span style={{ fontFamily: "var(--f-mono)", whiteSpace: "nowrap" }}>查看更新 / View updates →</span>
       </a>

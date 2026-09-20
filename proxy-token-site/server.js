@@ -593,6 +593,15 @@ function writeProxyUsersFile(data) {
 
 const PRODUCT_UPDATES = [
   {
+    id: 'cash-indices-minute-gpu-index-2026-09',
+    date: '2026-09-20',
+    title: '现金指数分钟线与 GPU 租赁指数已上线',
+    title_en: 'Cash-index minute bars and GPU rental index are live',
+    body: 'SPX / NDX / VIX / DJI 的 1 分钟 OHLC（2020 年起，UTC 时间戳）与按交易所时区派生的日线已上线：/v1/indices/minute、/v1/indices/minute/coverage、/v1/indices/daily、/v1/indices/daily/coverage，需要 Paid plan；源端无成交量列，缺失 bar 不填补。另类数据区新增 GPU 租赁指数看板（/alternative-data），含历史曲线与说明。CBOE 日线 /v1/indices/history（含 VIX3M）保持不变。',
+    body_en: '1-minute OHLC for SPX / NDX / VIX / DJI (since 2020, UTC timestamps) plus exchange-timezone-derived daily bars are live: /v1/indices/minute, /v1/indices/minute/coverage, /v1/indices/daily, /v1/indices/daily/coverage; paid plans only. No volume column exists at the source and missing bars are never filled. The alternative-data section adds a GPU rental index dashboard (/alternative-data) with history and methodology. The CBOE daily endpoint /v1/indices/history (incl. VIX3M) is unchanged.',
+    tag: 'Indices · Alternative data'
+  },
+  {
     id: 'financial-history-free-plan-2026-08',
     date: '2026-08-23',
     title: '财务历史与 Free 计划说明已更新',

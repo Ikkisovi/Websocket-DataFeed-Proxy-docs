@@ -1142,8 +1142,8 @@ describe('Registration and bulk product UI contract', () => {
     ];
     for (const page of pages) {
       const html = fs.readFileSync(path.join(__dirname, 'public', 'docs', page, 'index.html'), 'utf8');
-      expect(html).toContain('/assets/docs-page.js?v=20260920-cash-indices');
-      expect(html).toContain('/docs/tokens.css?v=20260920-cash-indices');
+      expect(html).toContain('/assets/docs-page.js?v=20260920-site-refresh');
+      expect(html).toContain('/docs/tokens.css?v=20260920-site-refresh');
     }
     expect(docsSource).toContain('href: DOC_PATHS.marketStocks');
     expect(docsSource).toContain('href: DOC_PATHS.financialMorningstar');
@@ -1181,8 +1181,9 @@ describe('Registration and bulk product UI contract', () => {
   it('adds a bilingual updates banner and updates page entry point', () => {
     const updatesHtml = fs.readFileSync(path.join(__dirname, 'public', 'updates.html'), 'utf8');
     const updatesSource = fs.readFileSync(path.join(__dirname, 'public', 'updates-page.jsx'), 'utf8');
-    expect(tokenPageSource).toContain('财务历史与 Free 计划说明已更新');
-    expect(tokenPageSource).toContain('股票日线查不到时也会自动尝试历史归档');
+    expect(tokenPageSource).toContain('现金指数分钟线与 GPU 指数已上线');
+    expect(tokenPageSource).toContain('/v1/indices/minute');
+    expect(tokenPageSource).toContain('GPU 租赁指数看板');
     expect(tokenPageSource).toContain('href="/updates"');
     expect(tokenPageSource).toContain('查看更新 / View updates →');
     expect(updatesHtml).toContain('src="/assets/updates-page.js"');
@@ -1250,6 +1251,12 @@ describe('Product updates and account-scoped feedback', () => {
       expect.objectContaining({
         title: expect.stringContaining('Index options'),
         body: expect.stringContaining('SPX / SPXW')
+      }),
+      expect.objectContaining({
+        id: 'cash-indices-minute-gpu-index-2026-09',
+        date: '2026-09-20',
+        title: expect.stringContaining('现金指数分钟线'),
+        body: expect.stringContaining('/v1/indices/minute')
       })
     ]));
     const unauthorized = await request(app).get('/api/product-updates/feedback/mine');
