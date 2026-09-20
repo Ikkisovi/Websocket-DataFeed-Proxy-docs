@@ -636,12 +636,12 @@ describe('POST /api/register', () => {
     expect(res.body.success).toBe(false);
   });
 
-  it('allows registration without an email', async () => {
-    const res = await registerRequest({
+  it('requires an email and verification code for registration', async () => {
+    const res = await request(app).post('/api/register').send({
       username: 'noMail', phone: '1', tier: 'free'
     });
-    expect(res.statusCode).toBe(201);
-    expect(res.body.status).toBe('approved');
+    expect(res.statusCode).toBe(400);
+    expect(res.body.message).toContain('必填');
     expect(JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'))).toEqual([]);
   });
 
@@ -653,12 +653,13 @@ describe('POST /api/register', () => {
     expect(res.body.error).toBe('registration_is_free_only');
   });
 
-  it('stores an optional email on the Free account', async () => {
+  it('stores the verified email on the Free account', async () => {
     const res = await registerRequest({
       username: 'mailUser', phone: '1', tier: 'free', email: 'mailuser@example.com'
     });
     expect(res.statusCode).toBe(201);
     expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0].email).toBe('mailuser@example.com');
+    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0].email_verified).toBe(true);
   });
 });
 
@@ -693,7 +694,7 @@ describe('Email verification and registration template', () => {
     }));
   });
 
-  it('does not require an email challenge for registration', async () => {
+  it('requires a valid matching email challenge for registration', async () => {
     const requested = await request(app)
       .post('/api/register/request-code')
       .send({ email: 'wrong-code@example.com' });
@@ -705,9 +706,9 @@ describe('Email verification and registration template', () => {
       phone: '123',
       tier: 'free'
     });
-    expect(response.statusCode).toBe(201);
-    expect(response.body.status).toBe('approved');
-    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))).toHaveLength(1);
+    expect(response.statusCode).toBe(400);
+    expect(response.body.message).toContain('验证码错误');
+    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))).toHaveLength(0);
   });
 
   it('allows an admin to read and update the registration email template', async () => {
@@ -1026,10 +1027,10 @@ describe('Registration and bulk product UI contract', () => {
     'utf8'
   );
 
-  it('keeps registration on username and phone and replaces the Basic card with Bulk Download', () => {
+  it('requires verified email and replaces the Basic card with Bulk Download', () => {
     expect(registerSource).toContain('required');
-    expect(registerSource).toContain('用户名和手机号共同确定账户');
-    expect(registerSource).not.toContain('/api/register/request-code');
+    expect(registerSource).toContain('用户名、手机号和邮箱共同确定账户');
+    expect(registerSource).toContain('/api/register/request-code');
     expect(registerSource).toContain('Bulk Download');
     expect(registerSource).toContain('/docs/#bulk');
     expect(registerSource).not.toContain('id: "basic"');

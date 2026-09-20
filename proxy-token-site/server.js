@@ -3435,11 +3435,14 @@ app.post('/api/register', async (req, res) => {
     email: cleanEmail
   });
 
-  if (!cleanUsername || !cleanPhone) {
-    return res.status(400).json({ success: false, message: '用户名和手机号都是必填的。' });
+  if (!cleanUsername || !cleanPhone || !cleanEmail || !verificationId || !verificationCode) {
+    return res.status(400).json({ success: false, message: '邮箱、验证码、用户名和手机号都是必填的。' });
   }
-  if (cleanEmail && !isValidEmail(cleanEmail)) {
+  if (!isValidEmail(cleanEmail)) {
     return res.status(400).json({ success: false, message: '邮箱格式不正确。' });
+  }
+  if (!/^\d{6}$/.test(String(verificationCode).trim())) {
+    return res.status(400).json({ success: false, message: '验证码必须是 6 位数字。' });
   }
   if (!hasCompleteAccountIdentity(identity)) {
     return res.status(400).json({ success: false, message: '用户名和手机号必须共同构成账户标识。' });
@@ -3455,6 +3458,40 @@ app.post('/api/register', async (req, res) => {
   }
   const selectedTier = 'free';
 
+  if (!emailSetting('EMAIL_VERIFY_SECRET')) {
+    return res.status(503).json({ success: false, message: '邮箱验证服务尚未配置完成。' });
+  }
+  const challenges = readJSON(EMAIL_VERIFICATION_FILE, []);
+  const challenge = challenges.find(entry => (
+    entry.id === String(verificationId).trim() && entry.email === cleanEmail
+  ));
+  if (!challenge || challenge.status !== 'pending') {
+    return res.status(400).json({ success: false, message: '验证码无效或已使用，请重新获取验证码。' });
+  }
+  if (new Date(challenge.expires_at).getTime() <= Date.now()) {
+    challenge.status = 'expired';
+    writeJSONAtomic(EMAIL_VERIFICATION_FILE, challenges);
+    return res.status(400).json({ success: false, message: '验证码已过期，请重新获取验证码。' });
+  }
+  challenge.attempts = Number(challenge.attempts || 0) + 1;
+  const matches = safeEqual(
+    challenge.code_hash,
+    verificationCodeHash(challenge.id, String(verificationCode).trim())
+  );
+  if (!matches) {
+    if (challenge.attempts >= EMAIL_CODE_MAX_ATTEMPTS) challenge.status = 'locked';
+    writeJSONAtomic(EMAIL_VERIFICATION_FILE, challenges);
+    return res.status(400).json({
+      success: false,
+      message: challenge.status === 'locked'
+        ? '验证码错误次数过多，请重新获取验证码。'
+        : '验证码错误，请重试。'
+    });
+  }
+  challenge.status = 'used';
+  challenge.verified_at = new Date().toISOString();
+  writeJSONAtomic(EMAIL_VERIFICATION_FILE, challenges);
+
   const users = readJSON(USERS_FILE);
   const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
   const proxyUsers = Array.isArray(proxyData.users) ? proxyData.users : [];
@@ -3462,6 +3499,17 @@ app.post('/api/register', async (req, res) => {
   if (existingUser) {
     const proxyUser = proxyUsers.find(user => user.user_id === accountRegistryId(existingUser));
     if (proxyUser?.token) {
+      if (!existingUser.email) {
+        existingUser.email = cleanEmail;
+        existingUser.email_verified = true;
+        existingUser.email_verified_at = challenge.verified_at;
+        writeJSONAtomic(USERS_FILE, users);
+        if (proxyUser && !proxyUser.email) {
+          proxyUser.email = cleanEmail;
+          proxyUser.email_verified = true;
+          writeProxyUsersAndSyncAsync(proxyData);
+        }
+      }
       const tierId = existingUser.tier || proxyUser.role || 'free';
       return res.json({
         success: true,
@@ -3486,7 +3534,9 @@ app.post('/api/register', async (req, res) => {
     username: cleanUsername,
     phone: cleanPhone,
     tier: selectedTier,
-    ...(cleanEmail && { email: cleanEmail }),
+    email: cleanEmail,
+    email_verified: true,
+    email_verified_at: challenge.verified_at,
     account_id: accountId,
     registered_at: new Date().toISOString()
   };
