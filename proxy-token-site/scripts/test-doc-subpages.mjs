@@ -101,6 +101,15 @@ assert(!research.window.document.body.textContent.includes('quantconnect.png'));
 assert.match(research.window.document.body.textContent, /executionperiodseconds/);
 assert.match(research.window.document.body.textContent, /oa_underlying_sid/);
 assert(!isVisible(research.window.document.getElementById("get-post-v1-indices-history")));
+
+const indices = await render("/docs/market/indices/");
+assert(isVisible(indices.window.document.getElementById("cash-indices-overview")));
+assert(isVisible(indices.window.document.getElementById("get-post-v1-indices-minute")));
+assert(isVisible(indices.window.document.getElementById("get-post-v1-indices-daily")));
+assert(isVisible(indices.window.document.getElementById("get-post-v1-indices-history")));
+assert(!isVisible(indices.window.document.getElementById("get-post-v1-spectral-tick-flow")));
+indices.window.LeandataI18n.destroy();
+indices.window.close();
 research.window.LeandataI18n.destroy();
 research.window.close();
 

@@ -836,6 +836,11 @@ const SECTION_ZH_LABELS = {
   "stock trade+quote": "逐笔成交与报价",
   "Index Data": "指数数据",
   "index history": "指数日线历史",
+  "Cash minute archive": "现金指数分钟归档",
+  "Cash minute history": "分钟线历史",
+  "Cash minute coverage": "分钟线覆盖范围",
+  "Cash daily history": "派生日线历史",
+  "Cash daily coverage": "派生日线覆盖范围",
   "Research Signals": "研究信号",
   "Spectral overview": "Spectral 概览",
   "Spectral methodology": "Spectral 方法解读",
@@ -1057,7 +1062,7 @@ function SideNav({ tab, page }) {
     { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions", "Free plan usage"] },
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news", "stock trade+quote"] },
-    { title: "Index Data", items: ["index history"] },
+    { title: "Index Data", items: ["index history", "Cash minute archive", "Cash minute history", "Cash minute coverage", "Cash daily history", "Cash daily coverage"] },
     { title: "Research Signals", items: ["Spectral overview", "Spectral methodology", "Spectral processing", "Spectral fields", "Spectral history", "Spectral coverage", "Spectral workflows"] },
     { title: "Stock Data", items: ["Market · US / World"], children: [
       { title: "US market", items: ["overview"], children: [
@@ -1161,7 +1166,7 @@ function SideNav({ tab, page }) {
       "enterprise-values": "fmp-enterprise-values",
       "financial-scores": "fmp-financial-scores",
     };
-    const ID_MAP = {'Morningstar overview': 'morningstar-overview', 'What is PIT?': 'morningstar-pit', 'Deduplication': 'morningstar-processing', 'Morningstar fields': 'morningstar-fields', 'Morningstar history': 'morningstar-history', 'Morningstar coverage': 'morningstar-coverage', 'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'Spectral overview': 'spectral-overview', 'Spectral methodology': 'spectral-methodology', 'Spectral processing': 'spectral-processing', 'Spectral fields': 'spectral-fields', 'Spectral history': 'get-post-v1-spectral-tick-flow', 'Spectral coverage': 'get-v1-spectral-tick-flow-coverage', 'Spectral workflows': 'spectral-workflows', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
+    const ID_MAP = {'Morningstar overview': 'morningstar-overview', 'What is PIT?': 'morningstar-pit', 'Deduplication': 'morningstar-processing', 'Morningstar fields': 'morningstar-fields', 'Morningstar history': 'morningstar-history', 'Morningstar coverage': 'morningstar-coverage', 'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'Cash minute archive': 'cash-indices-overview', 'Cash minute history': 'get-post-v1-indices-minute', 'Cash minute coverage': 'get-v1-indices-minute-coverage', 'Cash daily history': 'get-post-v1-indices-daily', 'Cash daily coverage': 'get-v1-indices-daily-coverage', 'Spectral overview': 'spectral-overview', 'Spectral methodology': 'spectral-methodology', 'Spectral processing': 'spectral-processing', 'Spectral fields': 'spectral-fields', 'Spectral history': 'get-post-v1-spectral-tick-flow', 'Spectral coverage': 'get-v1-spectral-tick-flow-coverage', 'Spectral workflows': 'spectral-workflows', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
     const getId = (label) => tab === "fmp-fundamentals"
       ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
       : ID_MAP[label] || slugify(label);
@@ -1274,7 +1279,7 @@ function OnThisPage({ tab, page }) {
     "market-overview": [["Overview", "overview"], ["Authentication", "authentication"], ["Tiers", "tiers-permissions"], ["Free plan", "free-plan-usage"]],
     "market-stocks": [["History bars", "post-v1-history-bars"], ["Trade + quote", "post-v1-stock-history-trade-quote"], ["US equities", "stock-data-availability"]],
     "market-options": [["Routing", "provider-fallback-cache"], ["Contracts", "post-v1-options-contracts"], ["Snapshots", "post-v1-options-snapshots"], ["Direct API", "post-v3-option-direct-value"]],
-    "market-indices": [["Index history", "get-post-v1-indices-history"]],
+    "market-indices": [["Index history", "get-post-v1-indices-history"], ["Cash minute archive", "cash-indices-overview"], ["Minute history", "get-post-v1-indices-minute"], ["Minute coverage", "get-v1-indices-minute-coverage"], ["Daily history", "get-post-v1-indices-daily"], ["Daily coverage", "get-v1-indices-daily-coverage"]],
     "market-research": [["Overview", "spectral-overview"], ["Methodology", "spectral-methodology"], ["Deduplication", "spectral-processing"], ["Fields", "spectral-fields"], ["History API", "get-post-v1-spectral-tick-flow"], ["Coverage API", "get-v1-spectral-tick-flow-coverage"], ["Workflows", "spectral-workflows"]],
     "market-crypto-news": [["News history", "post-v1-history-news"], ["Orderbooks", "post-v1-crypto-us-latest-orderbooks"]],
     "market-cn": [["CN overview", "cn-data-overview"], ["Catalog", "cn-catalog"], ["Access", "cn-access"]],
@@ -3152,6 +3157,8 @@ const PROXY_FOCUS_BOUNDARIES = [
   ["free-plan-usage", "overview"],
   ["post-v1-history-bars", "stocks"],
   ["get-post-v1-indices-history", "indices"],
+  ["cash-indices-overview", "indices"],
+  ["get-post-v1-indices-minute", "indices"],
   ["spectral-overview", "research"],
   ["get-post-v1-spectral-tick-flow", "research"],
   ["post-v1-history-news", "crypto-news"],
@@ -3601,6 +3608,113 @@ print("Option contracts:", resp_opt.status_code)`}
     { "date": "2024-01-02", "open": 13.22, "high": 14.23, "low": 13.10, "close": 13.20 }
   ],
   "request_id": "..."
+}`}
+      </pre>
+
+      <h2 id="cash-indices-overview" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>QuantConnect 现金指数分钟线 / Cash-indices minute archive</h2>
+      <DocDesc
+        zh="SPX、NDX、VIX、DJI 四个现金指数的 1 分钟 OHLC 归档（2020-01-02 起，无 volume 列，源端本来就没有）。时间戳统一为 UTC：SPX/VIX/DJI 按 America/Chicago 会话（08:31–15:15），NDX 按 America/New_York 会话（09:31–16:00）；提前收市日 bar 较少，缺失 bar 原样保留不填补。日度版由分钟线按交易所时区派生：open 取首 bar，close 取尾 bar。四个新接口均为 Paid plan，Free 返回 403 cash_indices_paid_plan_required。"
+        en="1-minute OHLC archive for SPX, NDX, VIX and DJI cash indices since 2020-01-02 (no volume column exists at the source). Timestamps are UTC normalized from exchange-local sessions: SPX/VIX/DJI 08:31-15:15 America/Chicago, NDX 09:31-16:00 America/New_York. Early-close days carry fewer bars; missing bars are preserved, never filled. The daily version is derived from minute bars in listing-exchange timezones: open is the first bar, close the last bar. All four endpoints require a paid plan; Free returns 403 cash_indices_paid_plan_required."
+      />
+      <ProviderStats items={[
+        ["2,697,734", "minute bars (UTC)", "分钟 bar（UTC）"],
+        ["6,748", "derived daily bars", "派生日线"],
+        ["1,687", "trading dates per symbol", "每标的交易日"],
+        ["2020 → 2026", "archive window", "归档区间"],
+      ]} />
+
+      <h2 id="get-post-v1-indices-minute" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/indices/minute</h2>
+      <DocDesc
+        zh="查询现金指数分钟线。symbol 仅支持 SPX、NDX、VIX、DJI（最多 4 个）；start/end 为 UTC 日历日（包含）；默认 limit 5,000，最大 10,000，超量返回 truncated=true。无 symbol 的横截面请求最多 7 个包含首尾的日历日。Paid plan 可用，Free 返回 403。"
+        en="Query cash-index minute bars. Symbols are limited to SPX, NDX, VIX and DJI (max 4); start/end are inclusive UTC calendar days; default limit 5,000, max 10,000 with truncated=true on overflow. Unfiltered cross-sections are limited to 7 inclusive calendar days. Paid plans only; Free returns 403."
+      />
+      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/indices/minute`} />
+      <ParamTable rows={[
+        { name: "symbol / symbols", type: "string", required: false, desc: "SPX, NDX, VIX, DJI; comma-separated, max 4", zh: "仅 SPX、NDX、VIX、DJI，逗号分隔，最多 4 个" },
+        { name: "start", type: "date", required: false, desc: "Inclusive UTC date YYYY-MM-DD; defaults to end minus 30 days", zh: "起始 UTC 日期（包含）；默认 end 前 30 天" },
+        { name: "end", type: "date", required: false, desc: "Inclusive UTC date YYYY-MM-DD; defaults to today", zh: "结束 UTC 日期（包含）；默认今天" },
+        { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000", zh: "默认 5,000，最大 10,000" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1/indices/minute?symbol=SPX&start=2026-09-15&end=2026-09-17&limit=3"`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`// Response excerpt
+{
+  "schema": "cash_indices_minute_history_v1",
+  "scope": "qc_cash_indices",
+  "ts_semantics": "UTC timestamps normalized from exchange-local sessions",
+  "row_count": 3,
+  "truncated": false,
+  "rows": [
+    { "symbol": "SPX", "ts": "2026-09-15 13:31:00", "open": 7612.82, "high": 7617.26, "low": 7609.95, "close": 7614.18 }
+  ]
+}`}
+      </pre>
+
+      <h2 id="get-v1-indices-minute-coverage" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET /v1/indices/minute/coverage</h2>
+      <DocDesc
+        zh="返回分钟线总量、起止 UTC 时间戳、distinct 日期数和分 symbol 覆盖。Paid plan 可用，Free 返回 403。"
+        en="Return minute-bar totals, UTC bounds, distinct dates and per-symbol coverage. Paid plans only; Free returns 403."
+      />
+      <EndpointBadge method="GET" path={`${REST_BASE}/v1/indices/minute/coverage`} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1/indices/minute/coverage"`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`// Response excerpt (verified 2026-09-20)
+{
+  "schema": "cash_indices_minute_coverage_v1",
+  "totals": { "rows": "2697734", "distinct_dates": "1687", "symbols": "4",
+    "min_ts": "2020-01-02 14:31:00", "max_ts": "2026-09-18 20:15:00" },
+  "by_symbol": [ ... ]
+}`}
+      </pre>
+
+      <h2 id="get-post-v1-indices-daily" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/indices/daily</h2>
+      <DocDesc
+        zh="查询由分钟线派生的现金指数日线：date 按上市交易所时区切分，open/high/low/close 为首/最高/最低/尾 bar，附 bars 与 session 起止（UTC）。参数与分钟线一致。Paid plan 可用，Free 返回 403。"
+        en="Query daily bars derived from the minute archive: date is bucketed in listing-exchange time, open/high/low/close come from the first/highest/lowest/last bars, plus bar counts and UTC session bounds. Same parameters as the minute endpoint. Paid plans only; Free returns 403."
+      />
+      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/indices/daily`} />
+      <ParamTable rows={[
+        { name: "symbol / symbols", type: "string", required: false, desc: "SPX, NDX, VIX, DJI; comma-separated, max 4", zh: "仅 SPX、NDX、VIX、DJI，逗号分隔，最多 4 个" },
+        { name: "start", type: "date", required: false, desc: "Inclusive YYYY-MM-DD; defaults to end minus 30 days", zh: "起始日期（包含）；默认 end 前 30 天" },
+        { name: "end", type: "date", required: false, desc: "Inclusive YYYY-MM-DD; defaults to today", zh: "结束日期（包含）；默认今天" },
+        { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000", zh: "默认 5,000，最大 10,000" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1/indices/daily?symbol=VIX&start=2026-09-15&end=2026-09-17"`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`// Response excerpt
+{
+  "schema": "cash_indices_daily_history_v1",
+  "rows": [
+    { "symbol": "VIX", "date": "2026-09-15", "open": 16.84, "high": 17.84, "low": 16.84, "close": 17.21, "bars": 405 }
+  ]
+}`}
+      </pre>
+
+      <h2 id="get-v1-indices-daily-coverage" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET /v1/indices/daily/coverage</h2>
+      <DocDesc
+        zh="返回日线总量、日期范围和分 symbol 覆盖（含平均 bar 数）。Paid plan 可用，Free 返回 403。"
+        en="Return daily-bar totals, date range and per-symbol coverage including average bars. Paid plans only; Free returns 403."
+      />
+      <EndpointBadge method="GET" path={`${REST_BASE}/v1/indices/daily/coverage`} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1/indices/daily/coverage"`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`// Response excerpt (verified 2026-09-20)
+{
+  "schema": "cash_indices_daily_coverage_v1",
+  "totals": { "rows": "6748", "min_date": "2020-01-02", "max_date": "2026-09-18", "symbols": "4" },
+  "by_symbol": [ ... ]
 }`}
       </pre>
 

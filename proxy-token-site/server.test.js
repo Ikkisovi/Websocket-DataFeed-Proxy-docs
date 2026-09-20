@@ -1119,6 +1119,19 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).toContain('Every topic now has its own URL and focused page');
   });
 
+  it('documents cash-indices minute and derived daily endpoints', () => {
+    expect(docsSource).toContain('id="cash-indices-overview"');
+    expect(docsSource).toContain('GET/POST /v1/indices/minute');
+    expect(docsSource).toContain('/v1/indices/minute/coverage');
+    expect(docsSource).toContain('GET/POST /v1/indices/daily');
+    expect(docsSource).toContain('/v1/indices/daily/coverage');
+    expect(docsSource).toContain('cash_indices_minute_history_v1');
+    expect(docsSource).toContain('cash_indices_daily_history_v1');
+    expect(docsSource).toContain('America/Chicago');
+    expect(docsSource).toContain('2697734');
+    expect(docsSource).toContain('cash_indices_paid_plan_required');
+  });
+
   it('builds independent physical pages for every docs navigation subsection', () => {
     const pages = [
       'market/overview', 'market/stocks', 'market/options', 'market/indices',
@@ -1129,8 +1142,8 @@ describe('Registration and bulk product UI contract', () => {
     ];
     for (const page of pages) {
       const html = fs.readFileSync(path.join(__dirname, 'public', 'docs', page, 'index.html'), 'utf8');
-      expect(html).toContain('/assets/docs-page.js?v=20260920-alpaca-placement');
-      expect(html).toContain('/docs/tokens.css?v=20260920-alpaca-placement');
+      expect(html).toContain('/assets/docs-page.js?v=20260920-cash-indices');
+      expect(html).toContain('/docs/tokens.css?v=20260920-cash-indices');
     }
     expect(docsSource).toContain('href: DOC_PATHS.marketStocks');
     expect(docsSource).toContain('href: DOC_PATHS.financialMorningstar');
