@@ -95,7 +95,9 @@ assert(isVisible(research.window.document.getElementById("spectral-methodology")
 assert(isVisible(research.window.document.getElementById("spectral-processing")));
 assert(isVisible(research.window.document.getElementById("spectral-fields")));
 assert(isVisible(research.window.document.getElementById("get-post-v1-spectral-tick-flow")));
-assert.equal(research.window.document.querySelector('#spectral-overview img').getAttribute('src'), "/assets/providers/quantconnect.png");
+assert.equal(research.window.document.querySelector('#spectral-overview img'), null);
+assert(research.window.document.querySelector('#spectral-overview .provider-logo-frame svg'));
+assert(!research.window.document.body.textContent.includes('quantconnect.png'));
 assert.match(research.window.document.body.textContent, /executionperiodseconds/);
 assert.match(research.window.document.body.textContent, /oa_underlying_sid/);
 assert(!isVisible(research.window.document.getElementById("get-post-v1-indices-history")));
@@ -114,6 +116,12 @@ assert.match(morningstarEn.window.document.body.textContent, /What is point-in-t
 assert.match(morningstarEn.window.document.body.textContent, /Deduplication and processing/);
 morningstarEn.window.LeandataI18n.destroy();
 morningstarEn.window.close();
+
+const stocksPage = await render("/docs/market/stocks/");
+assert(stocksPage.window.document.querySelector('img[src="/assets/providers/alpaca.png"]'));
+assert.match(stocksPage.window.document.body.textContent, /US Equities Market Data API/);
+stocksPage.window.LeandataI18n.destroy();
+stocksPage.window.close();
 
 const financial = await render("/docs/financial/");
 assert(financial.window.document.querySelector('img[src="/assets/providers/fmp-data.png"]'));

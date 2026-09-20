@@ -1129,8 +1129,8 @@ describe('Registration and bulk product UI contract', () => {
     ];
     for (const page of pages) {
       const html = fs.readFileSync(path.join(__dirname, 'public', 'docs', page, 'index.html'), 'utf8');
-      expect(html).toContain('/assets/docs-page.js?v=20260919-pit-processing-guide');
-      expect(html).toContain('/docs/tokens.css?v=20260919-pit-processing-guide');
+      expect(html).toContain('/assets/docs-page.js?v=20260920-alpaca-placement');
+      expect(html).toContain('/docs/tokens.css?v=20260920-alpaca-placement');
     }
     expect(docsSource).toContain('href: DOC_PATHS.marketStocks');
     expect(docsSource).toContain('href: DOC_PATHS.financialMorningstar');
@@ -1139,14 +1139,16 @@ describe('Registration and bulk product UI contract', () => {
 
   it('uses supplied provider logos and publishes complete bilingual provider guides', () => {
     const providerAssets = [
-      'fmp-data.png', 'morningstar.png', 'quantconnect.png',
+      'fmp-data.png', 'morningstar.png', 'alpaca.png',
     ];
     for (const asset of providerAssets) {
       expect(fs.statSync(path.join(__dirname, 'public', 'assets', 'providers', asset)).size).toBeGreaterThan(10000);
     }
     expect(docsSource).toContain('/assets/providers/fmp-data.png');
     expect(docsSource).toContain('/assets/providers/morningstar.png');
-    expect(docsSource).toContain('/assets/providers/quantconnect.png');
+    expect(docsSource).toContain('/assets/providers/alpaca.png');
+    expect(docsSource).not.toContain('quantconnect.png');
+    expect(docsSource).toContain('US equities market-data feed illustration');
     expect(docsSource).toContain('ProviderHero');
     expect(docsSource).toContain('什么是 PIT？ / What is point-in-time data?');
     expect(docsSource).toContain('去重与数据处理 / Deduplication and processing');

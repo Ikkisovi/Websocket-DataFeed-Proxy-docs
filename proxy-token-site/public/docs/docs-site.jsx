@@ -1456,10 +1456,22 @@ function DocDesc({ en, zh, style }) {
 const PROVIDER_LOGOS = {
   fmp: "/assets/providers/fmp-data.png",
   morningstar: "/assets/providers/morningstar.png",
-  quantconnect: "/assets/providers/quantconnect.png",
+  alpaca: "/assets/providers/alpaca.png",
 };
 
-function ProviderHero({ id, provider, eyebrow, title, zhTitle, en, zh, chips = [], alt }) {
+function ProviderMotif() {
+  const bars = [34, 58, 44, 78, 62, 96, 70, 52, 84, 66, 40, 74, 56, 90, 48];
+  return (
+    <svg viewBox="0 0 160 110" width="100%" height="100%" aria-hidden="true" role="presentation">
+      {bars.map((h, i) => (
+        <rect key={i} x={8 + i * 10} y={100 - h} width={6} rx={3} height={h} fill="var(--provider-accent, var(--accent))" opacity={0.35 + (h / 100) * 0.6} />
+      ))}
+    </svg>
+  );
+}
+
+function ProviderHero({ id, provider, eyebrow, title, zhTitle, en, zh, chips = [], alt, logo }) {
+  const logoSrc = logo === undefined ? PROVIDER_LOGOS[provider] : logo;
   const isZh = useCurrentLanguage() === "zh";
   return (
     <section id={id} className={`provider-hero ${provider}`}>
@@ -1475,7 +1487,11 @@ function ProviderHero({ id, provider, eyebrow, title, zhTitle, en, zh, chips = [
         </div>
       </div>
       <div className="provider-logo-frame">
-        <img src={PROVIDER_LOGOS[provider]} alt={alt || `${title} logo`} loading="eager" />
+        {logoSrc ? (
+          <img src={logoSrc} alt={alt || `${title} logo`} loading="eager" />
+        ) : (
+          <ProviderMotif />
+        )}
       </div>
     </section>
   );
@@ -3598,7 +3614,7 @@ print("Option contracts:", resp_opt.status_code)`}
         en="A daily research signal designed to detect persistent periodic structure in equity trading flow. The API covers a historical-SPY-membership dataset and returns a revision-aware, deduplicated latest view through bounded, authenticated queries."
         zh="用于识别股票成交订单流中持续周期结构的日频研究信号。API 面向历史 SPY 成分范围，通过有界、认证查询返回修订感知且去重后的 latest view。"
         chips={["daily signal", "historical SPY membership", "stable Equity SID", "10 source fields", "paid plans"]}
-        alt="QuantConnect provider logo"
+        logo={null}
       />
 
       <ProviderStats items={[
@@ -3866,9 +3882,19 @@ print("Option contracts:", resp_opt.status_code)`}
         Feed availability follows standard market entitlement: <code>iex</code> is the default; <code>sip</code>, <code>delayed_sip</code>, <code>boats</code>, <code>overnight</code>, and <code>otc</code> depend on the requested endpoint and subscription.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>以下股票行情接口均通过标准 <code>GET</code> 路径开放。响应结构遵循官方全市场行情规范，鉴权、多级服务端缓存与并发控制由代理统一处理。</span>
       </p>
-      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 28px" }}>
+      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 16px" }}>
         Every endpoint in this section returns standard JSON payloads. Repeated latest/snapshot calls return <code>X-Cache: DISK_HIT</code> when served from cache.
       </p>
+
+      <div className="provider-source-card" style={{ marginBottom: 28 }}>
+        <img className="provider-source-logo" src={PROVIDER_LOGOS.alpaca} alt="US equities market-data feed illustration" loading="lazy" />
+        <div>
+          <strong style={{ display: "block", fontSize: 15, color: "var(--ink-strong)", marginBottom: 4 }}>美股 US market · bars · quotes · trades · snapshots</strong>
+          <div style={{ fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.6 }}>日线与分钟 K 线、报价、逐笔成交、综合快照经同一 Token 提供；feed 与套餐权限见各接口说明。
+            <br/><span style={{ color: "var(--ink-soft)", fontSize: 12 }}>Daily and minute bars, quotes, trades and snapshots on one token; feed and plan entitlement per endpoint.</span>
+          </div>
+        </div>
+      </div>
 
       {STOCK_ENDPOINT_GROUPS.map((group, gi) => (
         <div key={group.title} style={{ marginBottom: gi === STOCK_ENDPOINT_GROUPS.length - 1 ? 48 : 28 }}>
