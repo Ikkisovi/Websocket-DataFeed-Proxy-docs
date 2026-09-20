@@ -626,38 +626,6 @@ function DocsTopbar({ active = "proxy" }) {
   );
 }
 
-function IndexOptionsBanner() {
-  const lang = useCurrentLanguage();
-  const isZh = lang === "zh";
-  return (
-    <div style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 12,
-      flexWrap: "wrap",
-      padding: "10px 18px",
-      borderBottom: "1px solid var(--accent-rule)",
-      background: "var(--accent-soft)",
-      color: "var(--accent-ink)",
-      fontSize: 13,
-    }}>
-      <span style={{
-        padding: "2px 7px",
-        borderRadius: 999,
-        background: "var(--accent-ink)",
-        color: "var(--ink-inverse)",
-        fontFamily: "var(--f-mono)",
-        fontSize: 10,
-        fontWeight: 600,
-        letterSpacing: ".08em",
-        textTransform: "uppercase",
-      }}>New</span>
-      <strong>{isZh ? "指数期权现已全面上线。" : "Index options are fully supported."}</strong>
-      <span>{isZh ? "SPX/SPXW、VIX/VIXW、DJX 和 XSP 等合约查询与实时期权行情流已就绪。" : "SPX/SPXW, VIX/VIXW, DJX, and XSP contract discovery and live option streaming are available."}</span>
-    </div>
-  );
-}
-
 const DOC_PAGE_CONFIG = {
   home: { path: DOC_PATHS.home, tab: "home" },
   "market-overview": { path: DOC_PATHS.marketOverview, tab: "proxy", focus: "overview" },
@@ -779,7 +747,6 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
   return (
     <div className="proxy-app" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       {!hideTopbar && <DocsTopbar active={visibleTab} />}
-      <IndexOptionsBanner />
       <div className="docs-hero" style={{ padding: "44px 64px 28px", borderBottom: "1px solid var(--rule)", background: "var(--bg-paper)", position: "relative", overflow: "hidden" }}>
         <div className="eyebrow" style={{ marginBottom: 14 }}>Reference · live docs</div>
         <h1 className="display-title" style={{ fontSize: 64, margin: "0 0 14px" }}>Stock Options Proxy <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>API</span></h1>
