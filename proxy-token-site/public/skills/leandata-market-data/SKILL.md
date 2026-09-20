@@ -14,7 +14,7 @@ When operating under a Free plan token (`role: free`):
 1. **REST Historical Window:** Historical REST requests (`/v2/stocks/bars`, `/v1/history/bars`, `/v1/indices/history`, `/v1/options/eod`) **must include explicit `start` and `end` bounds within the most recent 31 calendar days**. Dates older than 31 days or requests with missing bounds fail with `403 free_historical_window_exceeded` or `403 free_historical_date_range_required`.
 2. **Option Chains and Snapshots:** Contract discovery (`/v1/options/contracts`) and option Greeks snapshots (`/v1/options/snapshots/expiry`, `/v1/options/snapshots/{underlying}`) are limited to the **nearest 2 upcoming expiration cycles** (e.g. 0DTE and nearest weekly/monthly expiries). Requesting further-out expirations fails with `403 free_option_chain_window_exceeded`.
 3. **Financial Fundamentals:** Corporate financial statements (Income Statement, Balance Sheet, Cash Flow) require an active **Premium** subscription and fail with `403 fmp_premium_required`.
-4. **Cash Indices Minute/Daily:** `GET/POST /v1/indices/minute`, `/v1/indices/minute/coverage`, `GET/POST /v1/indices/daily`, `/v1/indices/daily/coverage` (SPX, NDX, VIX, DJI only) require a **paid plan** and fail with `403 cash_indices_paid_plan_required` on Free. This is separate from the CBOE daily endpoint `/v1/indices/history` (SPX, VIX, VIX3M).
+4. **Cash Indices Minute/Daily:** `GET/POST /v1/indices/minute`, `/v1/indices/minute/coverage` (12 symbols: SPX, NDX, VIX, DJI, VIX3M, VIX6M, RUT, DXY, TNX, VVIX, SKEW, VXN), `GET/POST /v1/indices/daily`, `/v1/indices/daily/coverage` (SPX, NDX, VIX, DJI only; other symbols are minute-only) require a **paid plan** and fail with `403 cash_indices_paid_plan_required` on Free. This is separate from the CBOE daily endpoint `/v1/indices/history` (SPX, VIX, VIX3M).
 5. **Upgrade Guidance: When encountering `403 free_*_exceeded`, guide the user to upgrade their plan at `https://leandata.uk/account.html`.
 
 ## Request workflow
@@ -49,7 +49,7 @@ curl -X POST https://api.leandata.uk/v1/history/options/bars \
   -d '{"symbols":"AAPL260620C00200000","timeframe":"1Min","start":"2023-04-01","end":"2023-06-30"}'
 ```
 
-Cash-index minute bars (Paid plan; SPX, NDX, VIX, DJI only):
+Cash-index minute bars (Paid plan; 12 symbols: SPX, NDX, VIX, DJI, VIX3M, VIX6M, RUT, DXY, TNX, VVIX, SKEW, VXN):
 
 ```bash
 curl "https://api.leandata.uk/v1/indices/minute?symbol=SPX&start=2026-09-15&end=2026-09-17&limit=3" \
@@ -65,11 +65,11 @@ curl "https://api.leandata.uk/v1/indices/daily?symbol=VIX&start=2026-09-15&end=2
 
 For cash indices:
 
-- Symbols are limited to SPX, NDX, VIX, and DJI. Any other symbol fails with `400 invalid_symbol`.
+- Minute symbols are limited to the 12 archived cash indices (SPX, NDX, VIX, DJI, VIX3M, VIX6M, RUT, DXY, TNX, VVIX, SKEW, VXN). Any other symbol fails with `400 invalid_symbol`. Daily bars cover only SPX, NDX, VIX, DJI; requesting a minute-only symbol on a daily endpoint fails with `400 invalid_symbol`, resample minute bars client-side instead.
 - `start`/`end` are inclusive UTC calendar days (`YYYY-MM-DD`). Minute `ts` values are UTC normalized from exchange-local sessions (SPX/VIX/DJI 08:31–15:15 America/Chicago, NDX 09:31–16:00 America/New_York).
 - There is no volume column at the source. Daily bars are derived server-side: open is the first bar, close the last bar, date bucketed in listing-exchange time.
 - Default limit 5,000, max 10,000; overflow returns `truncated: true`. Unfiltered cross-sections are limited to 7 inclusive calendar days (`400 identity_or_short_window_required`).
-- Free plan receives `403 cash_indices_paid_plan_required`. For CBOE daily closes including VIX3M, use `/v1/indices/history` instead.
+- Free plan receives `403 cash_indices_paid_plan_required`. For CBOE daily closes including VIX3M, use `/v1/indices/history` instead. DXY trades near-24h with a 17:00-18:00 ET break; SKEW and early-close days are sparse by design.
 
 For option bars:
 

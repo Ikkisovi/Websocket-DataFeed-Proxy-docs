@@ -1128,7 +1128,7 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).toContain('cash_indices_minute_history_v1');
     expect(docsSource).toContain('cash_indices_daily_history_v1');
     expect(docsSource).toContain('America/Chicago');
-    expect(docsSource).toContain('2697734');
+    expect(docsSource).toContain('9741555');
     expect(docsSource).toContain('cash_indices_paid_plan_required');
   });
 

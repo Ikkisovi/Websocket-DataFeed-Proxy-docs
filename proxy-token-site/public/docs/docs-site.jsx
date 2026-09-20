@@ -3613,24 +3613,24 @@ print("Option contracts:", resp_opt.status_code)`}
 
       <h2 id="cash-indices-overview" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>QuantConnect 现金指数分钟线 / Cash-indices minute archive</h2>
       <DocDesc
-        zh="SPX、NDX、VIX、DJI 四个现金指数的 1 分钟 OHLC 归档（2020-01-02 起，无 volume 列，源端本来就没有）。时间戳统一为 UTC：SPX/VIX/DJI 按 America/Chicago 会话（08:31–15:15），NDX 按 America/New_York 会话（09:31–16:00）；提前收市日 bar 较少，缺失 bar 原样保留不填补。日度版由分钟线按交易所时区派生：open 取首 bar，close 取尾 bar。四个新接口均为 Paid plan，Free 返回 403 cash_indices_paid_plan_required。"
-        en="1-minute OHLC archive for SPX, NDX, VIX and DJI cash indices since 2020-01-02 (no volume column exists at the source). Timestamps are UTC normalized from exchange-local sessions: SPX/VIX/DJI 08:31-15:15 America/Chicago, NDX 09:31-16:00 America/New_York. Early-close days carry fewer bars; missing bars are preserved, never filled. The daily version is derived from minute bars in listing-exchange timezones: open is the first bar, close the last bar. All four endpoints require a paid plan; Free returns 403 cash_indices_paid_plan_required."
+        zh="十二个现金指数的 1 分钟 OHLC 归档（2020-01-02 起，无 volume 列，源端本来就没有）：SPX、NDX、VIX、DJI、VIX3M、VIX6M、RUT、DXY、TNX、VVIX、SKEW、VXN。时间戳统一为 UTC：SPX/VIX/DJI/VIX3M/VIX6M/RUT/TNX/VVIX/SKEW/VXN 按 America/Chicago 会话，NDX/DXY 按 America/New_York 会话（DXY 近 24 小时、每日 17:00–18:00 ET 休市，节假日全天休市）。提前收市日与稀疏日 bar 较少，缺失 bar 原样保留不填补。日度版仅覆盖 SPX/NDX/VIX/DJI（由分钟线按交易所时区派生：open 取首 bar，close 取尾 bar）；其余八个标的为分钟线专用，日度请客户端自行 resample。四个新接口均为 Paid plan，Free 返回 403 cash_indices_paid_plan_required。"
+        en="1-minute OHLC archive for twelve cash indices since 2020-01-02 (no volume column exists at the source): SPX, NDX, VIX, DJI, VIX3M, VIX6M, RUT, DXY, TNX, VVIX, SKEW and VXN. Timestamps are UTC normalized from exchange-local sessions: SPX/VIX/DJI/VIX3M/VIX6M/RUT/TNX/VVIX/SKEW/VXN in America/Chicago, NDX/DXY in America/New_York (DXY trades near-24h with a 17:00-18:00 ET break and is closed on holidays). Early-close and sparse days carry fewer bars; missing bars are preserved, never filled. The derived daily version covers only SPX/NDX/VIX/DJI (open is the first bar, close the last bar, bucketed in listing-exchange time); the other eight symbols are minute-only, resample client-side for daily bars. All four endpoints require a paid plan; Free returns 403 cash_indices_paid_plan_required."
       />
       <ProviderStats items={[
-        ["2,697,734", "minute bars (UTC)", "分钟 bar（UTC）"],
-        ["6,748", "derived daily bars", "派生日线"],
-        ["1,687", "trading dates per symbol", "每标的交易日"],
+        ["9,741,555", "minute bars (UTC)", "分钟 bar（UTC）"],
+        ["6,748", "derived daily bars (4 symbols)", "派生日线（4 标的）"],
+        ["2,420", "distinct UTC dates (DXY near-24h)", "不同 UTC 日期（含 DXY 近 24 小时）"],
         ["2020 → 2026", "archive window", "归档区间"],
       ]} />
 
       <h2 id="get-post-v1-indices-minute" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/indices/minute</h2>
       <DocDesc
-        zh="查询现金指数分钟线。symbol 仅支持 SPX、NDX、VIX、DJI（最多 4 个）；start/end 为 UTC 日历日（包含）；默认 limit 5,000，最大 10,000，超量返回 truncated=true。无 symbol 的横截面请求最多 7 个包含首尾的日历日。Paid plan 可用，Free 返回 403。"
-        en="Query cash-index minute bars. Symbols are limited to SPX, NDX, VIX and DJI (max 4); start/end are inclusive UTC calendar days; default limit 5,000, max 10,000 with truncated=true on overflow. Unfiltered cross-sections are limited to 7 inclusive calendar days. Paid plans only; Free returns 403."
+        zh="查询现金指数分钟线。symbol 支持全部十二个标的（SPX、NDX、VIX、DJI、VIX3M、VIX6M、RUT、DXY、TNX、VVIX、SKEW、VXN，最多 12 个）；start/end 为 UTC 日历日（包含）；默认 limit 5,000，最大 10,000，超量返回 truncated=true。无 symbol 的横截面请求最多 7 个包含首尾的日历日。Paid plan 可用，Free 返回 403。"
+        en="Query cash-index minute bars. All twelve symbols are supported (SPX, NDX, VIX, DJI, VIX3M, VIX6M, RUT, DXY, TNX, VVIX, SKEW, VXN; max 12); start/end are inclusive UTC calendar days; default limit 5,000, max 10,000 with truncated=true on overflow. Unfiltered cross-sections are limited to 7 inclusive calendar days. Paid plans only; Free returns 403."
       />
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/indices/minute`} />
       <ParamTable rows={[
-        { name: "symbol / symbols", type: "string", required: false, desc: "SPX, NDX, VIX, DJI; comma-separated, max 4", zh: "仅 SPX、NDX、VIX、DJI，逗号分隔，最多 4 个" },
+        { name: "symbol / symbols", type: "string", required: false, desc: "12 cash-index symbols; comma-separated, max 12", zh: "十二个现金指数代码，逗号分隔，最多 12 个" },
         { name: "start", type: "date", required: false, desc: "Inclusive UTC date YYYY-MM-DD; defaults to end minus 30 days", zh: "起始 UTC 日期（包含）；默认 end 前 30 天" },
         { name: "end", type: "date", required: false, desc: "Inclusive UTC date YYYY-MM-DD; defaults to today", zh: "结束 UTC 日期（包含）；默认今天" },
         { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000", zh: "默认 5,000，最大 10,000" },
@@ -3667,16 +3667,16 @@ print("Option contracts:", resp_opt.status_code)`}
 {`// Response excerpt (verified 2026-09-20)
 {
   "schema": "cash_indices_minute_coverage_v1",
-  "totals": { "rows": "2697734", "distinct_dates": "1687", "symbols": "4",
-    "min_ts": "2020-01-02 14:31:00", "max_ts": "2026-09-18 20:15:00" },
+  "totals": { "rows": "9741555", "distinct_dates": "2420", "symbols": "12",
+    "min_ts": "2020-01-02 05:01:00", "max_ts": "2026-09-19 04:00:00" },
   "by_symbol": [ ... ]
 }`}
       </pre>
 
       <h2 id="get-post-v1-indices-daily" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/indices/daily</h2>
       <DocDesc
-        zh="查询由分钟线派生的现金指数日线：date 按上市交易所时区切分，open/high/low/close 为首/最高/最低/尾 bar，附 bars 与 session 起止（UTC）。参数与分钟线一致。Paid plan 可用，Free 返回 403。"
-        en="Query daily bars derived from the minute archive: date is bucketed in listing-exchange time, open/high/low/close come from the first/highest/lowest/last bars, plus bar counts and UTC session bounds. Same parameters as the minute endpoint. Paid plans only; Free returns 403."
+        zh="查询由分钟线派生的现金指数日线：仅支持 SPX/NDX/VIX/DJI 四个标的；date 按上市交易所时区切分，open/high/low/close 为首/最高/最低/尾 bar，附 bars 与 session 起止（UTC）。其余八个分钟线专用标的请客户端自行 resample，请求它们会返回 400 invalid_symbol。Paid plan 可用，Free 返回 403。"
+        en="Query daily bars derived from the minute archive: only SPX/NDX/VIX/DJI are supported; date is bucketed in listing-exchange time, open/high/low/close come from the first/highest/lowest/last bars, plus bar counts and UTC session bounds. The other eight minute-only symbols must be resampled client-side; requesting them returns 400 invalid_symbol. Paid plans only; Free returns 403."
       />
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/indices/daily`} />
       <ParamTable rows={[
