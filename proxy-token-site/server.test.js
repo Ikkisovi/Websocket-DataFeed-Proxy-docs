@@ -1129,8 +1129,8 @@ describe('Registration and bulk product UI contract', () => {
     ];
     for (const page of pages) {
       const html = fs.readFileSync(path.join(__dirname, 'public', 'docs', page, 'index.html'), 'utf8');
-      expect(html).toContain('/assets/docs-page.js?v=20260919-provider-guides');
-      expect(html).toContain('/docs/tokens.css?v=20260919-provider-guides');
+      expect(html).toContain('/assets/docs-page.js?v=20260919-pit-processing-guide');
+      expect(html).toContain('/docs/tokens.css?v=20260919-pit-processing-guide');
     }
     expect(docsSource).toContain('href: DOC_PATHS.marketStocks');
     expect(docsSource).toContain('href: DOC_PATHS.financialMorningstar');
@@ -1148,12 +1148,17 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).toContain('/assets/providers/morningstar.png');
     expect(docsSource).toContain('/assets/providers/quantconnect.png');
     expect(docsSource).toContain('ProviderHero');
+    expect(docsSource).toContain('什么是 PIT？ / What is point-in-time data?');
+    expect(docsSource).toContain('去重与数据处理 / Deduplication and processing');
     expect(docsSource).toContain('字段字典 / Field dictionary');
     expect(docsSource).toContain('Spectral Tick-Flow 频谱订单流信号');
     expect(docsSource).toContain('executionperiodseconds');
     expect(docsSource).toContain('volumevarianceexplained');
     expect(docsSource).toContain('oa_underlying_sid');
     expect(docsSource).toContain('Provider attribution / 数据来源');
+    expect(docsSource).not.toContain('数据如何进入 API / How the data reaches the API');
+    expect(docsSource).not.toContain('Validated overlap captures and revisions');
+    expect(docsSource).not.toContain('Capture lineage');
     expect(docsCss).toContain('.provider-hero');
     expect(docsCss).toContain('.proxy-app [hidden] { display: none !important; }');
   });

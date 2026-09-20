@@ -839,6 +839,7 @@ const SECTION_ZH_LABELS = {
   "Research Signals": "研究信号",
   "Spectral overview": "Spectral 概览",
   "Spectral methodology": "Spectral 方法解读",
+  "Spectral processing": "Spectral 去重与版本处理",
   "Spectral fields": "Spectral 字段字典",
   "Spectral history": "Spectral 历史信号",
   "Spectral coverage": "Spectral 覆盖范围",
@@ -896,6 +897,8 @@ const SECTION_ZH_LABELS = {
   "Financial data API": "财务数据 API",
   "Morningstar fundamentals": "Morningstar 财务数据",
   "Morningstar overview": "Morningstar 概览",
+  "What is PIT?": "什么是 PIT？",
+  "Deduplication": "去重与数据处理",
   "Morningstar fields": "Morningstar 字段字典",
   "Morningstar history": "Morningstar 历史快照",
   "Morningstar coverage": "Morningstar 覆盖范围",
@@ -1055,7 +1058,7 @@ function SideNav({ tab, page }) {
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news", "stock trade+quote"] },
     { title: "Index Data", items: ["index history"] },
-    { title: "Research Signals", items: ["Spectral overview", "Spectral methodology", "Spectral fields", "Spectral history", "Spectral coverage", "Spectral workflows"] },
+    { title: "Research Signals", items: ["Spectral overview", "Spectral methodology", "Spectral processing", "Spectral fields", "Spectral history", "Spectral coverage", "Spectral workflows"] },
     { title: "Stock Data", items: ["Market · US / World"], children: [
       { title: "US market", items: ["overview"], children: [
         { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
@@ -1073,7 +1076,7 @@ function SideNav({ tab, page }) {
     { title: "Admin endpoints", items: ["login", "pending", "approve", "reject"] },
     { title: "Reference", items: ["Error codes", "Rate limits"] },
   ] : tab === "morningstar" ? [
-    { title: "Morningstar fundamentals", items: ["Morningstar overview", "Morningstar fields", "Morningstar history", "Morningstar coverage"] },
+    { title: "Morningstar fundamentals", items: ["Morningstar overview", "What is PIT?", "Deduplication", "Morningstar fields", "Morningstar history", "Morningstar coverage"] },
   ] : tab === "fmp-fundamentals" ? [
     { title: "Financial data API", items: ["Financial data overview", "Request contract", "Response metadata"] },
     { title: "Market history", items: ["historical-price-eod/full"] },
@@ -1158,7 +1161,7 @@ function SideNav({ tab, page }) {
       "enterprise-values": "fmp-enterprise-values",
       "financial-scores": "fmp-financial-scores",
     };
-    const ID_MAP = {'Morningstar overview': 'morningstar-overview', 'Morningstar fields': 'morningstar-fields', 'Morningstar history': 'morningstar-history', 'Morningstar coverage': 'morningstar-coverage', 'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'Spectral overview': 'spectral-overview', 'Spectral methodology': 'spectral-methodology', 'Spectral fields': 'spectral-fields', 'Spectral history': 'get-post-v1-spectral-tick-flow', 'Spectral coverage': 'get-v1-spectral-tick-flow-coverage', 'Spectral workflows': 'spectral-workflows', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
+    const ID_MAP = {'Morningstar overview': 'morningstar-overview', 'What is PIT?': 'morningstar-pit', 'Deduplication': 'morningstar-processing', 'Morningstar fields': 'morningstar-fields', 'Morningstar history': 'morningstar-history', 'Morningstar coverage': 'morningstar-coverage', 'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'Spectral overview': 'spectral-overview', 'Spectral methodology': 'spectral-methodology', 'Spectral processing': 'spectral-processing', 'Spectral fields': 'spectral-fields', 'Spectral history': 'get-post-v1-spectral-tick-flow', 'Spectral coverage': 'get-v1-spectral-tick-flow-coverage', 'Spectral workflows': 'spectral-workflows', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
     const getId = (label) => tab === "fmp-fundamentals"
       ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
       : ID_MAP[label] || slugify(label);
@@ -1272,7 +1275,7 @@ function OnThisPage({ tab, page }) {
     "market-stocks": [["History bars", "post-v1-history-bars"], ["Trade + quote", "post-v1-stock-history-trade-quote"], ["US equities", "stock-data-availability"]],
     "market-options": [["Routing", "provider-fallback-cache"], ["Contracts", "post-v1-options-contracts"], ["Snapshots", "post-v1-options-snapshots"], ["Direct API", "post-v3-option-direct-value"]],
     "market-indices": [["Index history", "get-post-v1-indices-history"]],
-    "market-research": [["Overview", "spectral-overview"], ["Methodology", "spectral-methodology"], ["Fields", "spectral-fields"], ["History API", "get-post-v1-spectral-tick-flow"], ["Coverage API", "get-v1-spectral-tick-flow-coverage"], ["Workflows", "spectral-workflows"]],
+    "market-research": [["Overview", "spectral-overview"], ["Methodology", "spectral-methodology"], ["Deduplication", "spectral-processing"], ["Fields", "spectral-fields"], ["History API", "get-post-v1-spectral-tick-flow"], ["Coverage API", "get-v1-spectral-tick-flow-coverage"], ["Workflows", "spectral-workflows"]],
     "market-crypto-news": [["News history", "post-v1-history-news"], ["Orderbooks", "post-v1-crypto-us-latest-orderbooks"]],
     "market-cn": [["CN overview", "cn-data-overview"], ["Catalog", "cn-catalog"], ["Access", "cn-access"]],
     "financial-statements": [["Income statement", "fmp-income-statement"], ["Balance sheet", "fmp-balance-sheet-statement"], ["Cash flow", "fmp-cash-flow-statement"], ["PIT statements", "fmp-pit-statements"]],
@@ -1284,6 +1287,8 @@ function OnThisPage({ tab, page }) {
     : tab === "morningstar"
     ? [
       ["Morningstar overview", "morningstar-overview"],
+      ["What is PIT?", "morningstar-pit"],
+      ["Deduplication", "morningstar-processing"],
       ["Field dictionary", "morningstar-fields"],
       ["History endpoint", "morningstar-history"],
       ["Coverage endpoint", "morningstar-coverage"],
@@ -2606,38 +2611,50 @@ function MorningstarFundamentalsBody() {
         eyebrow="Independent fundamentals provider · Premium"
         title="Morningstar Fundamentals"
         zhTitle="Morningstar 财务基本面"
-        en="A revision-aware daily archive of selected Morningstar US fundamentals collected through QuantConnect/LEAN. Leandata exposes a bounded, read-only latest view while preserving source NULLs, daily fill-forward behavior, and provider-specific semantics."
-        zh="通过 QuantConnect/LEAN 采集的 Morningstar 美股基本面日度归档，保留修订语义、源端 NULL 与日度前填行为。Leandata 仅通过有界、只读的 latest view 对外提供，并与 Regular/FMP schema 完全隔离。"
-        chips={["daily snapshots", "28 nullable metrics", "SPY + QQQ capture", "latest-view dedup", "Premium"]}
+        en="A revision-aware daily dataset of selected Morningstar US fundamentals. Leandata exposes a bounded, read-only latest view while preserving source NULLs, daily fill-forward behavior, availability-date semantics, and provider-specific revision rules."
+        zh="Morningstar 美股基本面的修订感知日度数据集。Leandata 通过有界、只读的 latest view 提供数据，并保留源端 NULL、日度前填、可用日期语义及供应商修订规则。"
+        chips={["daily snapshots", "28 nullable metrics", "SPY + QQQ scope", "latest-view dedup", "Premium"]}
         alt="Morningstar provider logo"
       />
 
-      <ProviderStats items={[
-        ["847,954", "logical latest rows", "去重后的逻辑行"],
-        ["550", "captured symbols", "抓取标的数"],
-        ["1,682", "distinct availability dates", "不同可用日期"],
-        ["2020 → 2026", "current archive window", "当前归档区间"],
-      ]} />
-
-      <h3 className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>数据如何进入 API / How the data reaches the API</h3>
-      <ProviderFlow items={[
-        ["Morningstar", "Provider fundamentals and ratios", "供应商基本面与比率"],
-        ["QuantConnect / LEAN", "Fundamental.Time daily observations", "按 Fundamental.Time 形成日度观测"],
-        ["Leandata archive", "Validated overlap captures and revisions", "校验重叠窗口与修订版本"],
-        ["Latest API view", "One logical symbol/date observation", "每个 symbol/date 一个逻辑观测"],
+      <h3 id="morningstar-pit" className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>什么是 PIT？ / What is point-in-time data?</h3>
+      <DocDesc
+        zh="PIT（Point-in-Time）数据要求在回看某个历史日期时，只使用当时已经公开或可获得的信息，并使用当时真实存在的证券与成分关系。它的目的，是避免把后来才知道的财报修订、指数成分变化或公司存续结果提前带入历史回测。"
+        en="Point-in-time (PIT) data means that a historical simulation may use only information that was public or available at that historical moment, together with the securities and memberships that actually existed then. Its purpose is to prevent later revisions, constituent changes, or survival outcomes from leaking backward into a backtest."
+      />
+      <ProviderFeatures items={[
+        ["Availability timing", "A value belongs to a backtest only after it became available, not merely because its fiscal period had ended.", "数值只有在真正可用后才能进入回测，不能仅因财报期已经结束就提前使用。"],
+        ["Revision timing", "A later restatement must not silently replace what an investor could have known on an earlier date.", "后续重述不能静默替换投资者在更早日期能够知道的内容。"],
+        ["Universe timing", "Historical membership should reflect the constituents present on each date, rather than only today's survivors.", "历史股票池应反映每个日期当时的成分，而不是只保留今天仍存续的公司。"],
+        ["Why it matters", "Without PIT controls, look-ahead and survivorship bias can materially overstate research performance.", "缺少 PIT 控制会引入未来信息和幸存者偏差，从而显著夸大研究表现。"],
       ]} />
 
       <div className="provider-note">
-        <strong>覆盖与时间边界 / Coverage and timing boundary</strong><br/>
-        当前归档覆盖抓取时点的 SPY + QQQ 成分，存在 current-constituent survivorship bias；不是历史 PIT 成分全集。<code>date</code> 是 LEAN <code>Fundamental.Time</code> availability/file date，不是 <code>EndTime</code> 或 fiscal period end。源端日度 fill-forward 原样保留，因此连续多日相同财务值不代表新的公司披露。
-        <br/>The archive reflects captured SPY + QQQ constituents and therefore has current-constituent survivorship bias; it is not a historical PIT membership universe. <code>date</code> is the LEAN <code>Fundamental.Time</code> availability/file date, not <code>EndTime</code> or fiscal period end. Source daily fill-forward is preserved, so repeated values across dates do not imply a new filing.
+        <strong>本数据集的 PIT 边界 / PIT boundary of this dataset</strong><br/>
+        本数据集的股票范围基于 SPY + QQQ 股票集合，而不是完整的历史 PIT 成分序列，因此存在 current-constituent survivorship bias。<code>date</code> 使用 LEAN <code>Fundamental.Time</code> availability/file date，不是 <code>EndTime</code> 或 fiscal period end。它改善了单行数据的可用时间语义，但不等于完整的严格 PIT 认证。
+        <br/>The symbol scope is based on an SPY + QQQ stock set rather than a complete historical PIT membership series, so current-constituent survivorship bias remains. <code>date</code> uses the LEAN <code>Fundamental.Time</code> availability/file date, not <code>EndTime</code> or fiscal period end. This improves row-level availability timing, but it is not equivalent to full strict-PIT certification.
       </div>
 
+      <ProviderStats items={[
+        ["847,954", "deduplicated logical rows", "去重后的逻辑行"],
+        ["550", "symbols in dataset scope", "数据范围内标的数"],
+        ["1,682", "distinct availability dates", "不同可用日期"],
+        ["2020 → 2026", "current dataset window", "当前数据区间"],
+      ]} />
+
+      <h3 id="morningstar-processing" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>去重与数据处理 / Deduplication and processing</h3>
+      <ProviderFlow items={[
+        ["Normalize key", "Use symbol + availability date as the logical key", "以 symbol + 可用日期作为逻辑键"],
+        ["Resolve versions", "Identify physical versions of the same logical observation", "识别同一逻辑观测的物理版本"],
+        ["Select latest", "Return one latest logical row per symbol/date", "每个 symbol/date 返回一条最新逻辑行"],
+        ["Preserve meaning", "Keep source values, NULLs, and fill-forward unchanged", "保持源值、NULL 与前填语义不变"],
+      ]} />
+
       <ProviderFeatures items={[
-        ["Availability-date semantics", "Rows are keyed by when LEAN makes the observation available, not by fiscal period end.", "行键表示 LEAN 中数据可用的日期，不是财报期末日期。"],
-        ["Revision-safe latest view", "Overlap captures may create physical revisions; the API returns only the deduplicated logical latest view.", "重叠采集可产生物理修订；API 只返回去重后的逻辑最新视图。"],
-        ["NULL is unavailable", "NULL remains NULL. The service never converts a missing metric to zero.", "NULL 表示不可用，服务不会把缺失指标转换为 0。"],
-        ["Separate provider contract", "Morningstar fields, scope, entitlements, and revision policy remain separate from Regular/FMP.", "Morningstar 的字段、范围、权限与修订策略均与 Regular/FMP 独立。"],
+        ["Deterministic deduplication", "The latest view collapses repeated physical rows into one logical symbol/date observation.", "latest view 将重复物理行折叠为一个 symbol/date 逻辑观测。"],
+        ["Revision-aware selection", "If the same logical key has multiple versions, the latest admitted version is returned.", "同一逻辑键存在多个版本时，返回最新纳入的版本。"],
+        ["No value rewriting", "The API does not winsorize, interpolate, forward-fill, or convert a missing metric to zero.", "API 不缩尾、不插值、不自行前填，也不把缺失指标转换为零。"],
+        ["Source fill-forward disclosed", "Repeated daily values may reflect the provider's source-level fill-forward and do not imply a new filing.", "连续相同日值可能来自供应商源端前填，并不代表新的公司披露。"],
       ]} />
 
       <h3 className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>字段 / Metrics</h3>
@@ -2771,8 +2788,8 @@ X-Data-Source: morningstar_fundamentals_archive
 X-Request-Id: <uuid>`}</pre>
 
       <div className="provider-attribution">
-        <strong>Provider attribution / 数据来源：</strong> Morningstar US Fundamentals, collected through QuantConnect/LEAN and served from Leandata's independent archive. Morningstar and its marks are the property of their respective owner. Leandata is not presenting this archive as the complete Morningstar universe or as certified strict point-in-time data.
-        <br/>数据源为经 QuantConnect/LEAN 获取的 Morningstar US Fundamentals，并由 Leandata 独立归档提供。Morningstar 名称及标识归其权利人所有。Leandata 不将本归档表述为 Morningstar 完整股票池或经认证的严格 PIT 数据。
+        <strong>Provider attribution / 数据来源：</strong> Morningstar US Fundamentals. Morningstar and its marks are the property of their respective owner. Leandata is not presenting this dataset as the complete Morningstar universe or as certified strict point-in-time data.
+        <br/>数据源为 Morningstar US Fundamentals。Morningstar 名称及标识归其权利人所有。Leandata 不将本数据集表述为 Morningstar 完整股票池或经认证的严格 PIT 数据。
         <br/><a href="https://www.quantconnect.com/data/morning-star-us-fundamentals" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>Official dataset disclosure / 官方数据披露 ↗</a>
       </div>
     </div>
@@ -3578,8 +3595,8 @@ print("Option contracts:", resp_opt.status_code)`}
         eyebrow="QuantConnect research signal · Paid plans"
         title="Spectral Tick-Flow Signal"
         zhTitle="Spectral Tick-Flow 频谱订单流信号"
-        en="A daily research signal designed to detect persistent periodic structure in equity trading flow. Leandata archives observations for historically observed SPY constituents and exposes the deduplicated latest capture through bounded, authenticated APIs."
-        zh="用于识别股票成交订单流中持续周期结构的日频研究信号。Leandata 按历史观测到的 SPY 成分归档，并通过有界、认证 API 提供去重后的最新 capture。"
+        en="A daily research signal designed to detect persistent periodic structure in equity trading flow. The API covers a historical-SPY-membership dataset and returns a revision-aware, deduplicated latest view through bounded, authenticated queries."
+        zh="用于识别股票成交订单流中持续周期结构的日频研究信号。API 面向历史 SPY 成分范围，通过有界、认证查询返回修订感知且去重后的 latest view。"
         chips={["daily signal", "historical SPY membership", "stable Equity SID", "10 source fields", "paid plans"]}
         alt="QuantConnect provider logo"
       />
@@ -3599,17 +3616,18 @@ print("Option contracts:", resp_opt.status_code)`}
         ["Sparse by design", "Missing dates and NULL fields remain missing. Leandata performs no interpolation, forward fill, or zero substitution.", "缺失日期和 NULL 原样保留；Leandata 不插值、不前填、也不替换为零。"],
       ]} />
 
+      <h3 id="spectral-processing" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>去重与版本处理 / Deduplication and version handling</h3>
       <ProviderFlow items={[
-        ["SPY membership", "Historically observed constituent SIDs", "历史观测成分 SID"],
-        ["QC signal", "Per-security SpectralTickFlowSignal history", "逐证券 Spectral 信号历史"],
-        ["Capture lineage", "Raw files retain source and capture identity", "原始文件保留来源与采集身份"],
-        ["Latest API", "Newest capture per SID/date, preserving distinct rows", "按 SID/date 选择最新采集并保留不同记录"],
+        ["Stable key", "Group observations by underlying SID + signal date", "按底层 SID + 信号日期分组"],
+        ["Resolve version", "Find the newest admitted version for each logical key", "为每个逻辑键确定最新纳入版本"],
+        ["Preserve distinct rows", "Keep every different row in that newest version", "保留最新版本中的每条不同记录"],
+        ["Expose provenance", "Return source_file, captured_at, and row_hash", "返回 source_file、captured_at 与 row_hash"],
       ]} />
 
       <div className="provider-note">
         <strong>历史身份与覆盖边界 / Historical identity and coverage boundary</strong><br/>
-        <code>oa_underlying_sid</code> 是稳定身份；<code>oa_requested_ticker</code> 只是采集时使用的历史别名。20 个 ticker alias 映射到多个 SID，因此长期研究不得只按 ticker 拼接。该归档不是官方 universe-file 全量，2009–2014 高度稀疏，显式订阅 SPY 本体目前仍为 0 行。
-        <br/><code>oa_underlying_sid</code> is the stable identity; <code>oa_requested_ticker</code> is only the historical alias used for collection. Twenty ticker aliases map to multiple SIDs, so long-history research must not join by ticker alone. This is not the official universe-file lineage, 2009–2014 are highly sparse, and explicit SPY subscriptions currently yield zero rows.
+        <code>oa_underlying_sid</code> 是稳定身份；<code>oa_requested_ticker</code> 是该观测对应的历史别名。20 个 ticker alias 映射到多个 SID，因此长期研究不得只按 ticker 拼接。该数据集不是官方 universe-file 全量，2009–2014 高度稀疏，SPY 本体目前仍为 0 行。
+        <br/><code>oa_underlying_sid</code> is the stable identity; <code>oa_requested_ticker</code> is the historical alias associated with the observation. Twenty ticker aliases map to multiple SIDs, so long-history research must not join by ticker alone. This is not the official universe-file lineage, 2009–2014 are highly sparse, and SPY itself currently has zero rows.
       </div>
 
       <h3 id="spectral-fields" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>字段字典 / Field dictionary</h3>
@@ -3627,15 +3645,15 @@ print("Option contracts:", resp_opt.status_code)`}
           ["volumedominantperiodseconds", ["Dominant periodicity in the volume spectrum, in seconds", "成交量频谱的主导周期（秒）"], ["Nullable source value", "源端可为空"]],
           ["volumevarianceexplained", ["Share of observed volume variation explained by the dominant component", "主导成分解释的成交量变化比例"], ["NULL is preserved", "NULL 原样保留"]],
           ["oa_underlying_sid", ["Stable historical Equity security identifier", "稳定的历史 Equity 证券标识"], ["Preferred query and join key", "推荐查询与关联键"]],
-          ["oa_requested_ticker", ["Ticker alias used when collecting the signal", "采集信号时使用的 ticker 别名"], ["Not a stable historical key", "不是稳定历史键"]],
-          ["source_file / captured_at / row_hash", ["Capture provenance and distinct-row identity", "采集来源、时间与不同记录身份"], ["Latest-view provenance remains visible", "latest view 仍显示来源信息"]],
+          ["oa_requested_ticker", ["Ticker alias associated with the observation", "该观测对应的 ticker 历史别名"], ["Not a stable historical key", "不是稳定历史键"]],
+          ["source_file / captured_at / row_hash", ["Version provenance and distinct-row identity", "版本来源、时间与不同记录身份"], ["Latest-view provenance remains visible", "latest view 仍显示来源信息"]],
         ]}
       />
 
       <h2 id="get-post-v1-spectral-tick-flow" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/signals/spectral-tick-flow</h2>
       <DocDesc
-        zh="查询 historical-membership latest view。支持 ticker alias 或底层 Equity SID；建议历史研究优先使用 SID。API 只暴露最新逻辑视图，不提供原始旧 capture 或采集凭据。"
-        en="Query the historical-membership latest view by ticker alias or underlying Equity SID; SID is preferred for historical research. The API exposes only the latest logical view, not superseded raw captures or collection credentials."
+        zh="查询 historical-membership latest view。支持 ticker alias 或底层 Equity SID；建议历史研究优先使用 SID。API 只暴露最新逻辑视图，不提供被取代的物理版本。"
+        en="Query the historical-membership latest view by ticker alias or underlying Equity SID; SID is preferred for historical research. The API exposes only the latest logical view, not superseded physical versions."
       />
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/signals/spectral-tick-flow`} />
       <ParamTable rows={[
@@ -3728,8 +3746,8 @@ print("Option contracts:", resp_opt.status_code)`}
         The signal does not guarantee returns, certify trade direction, or provide executable orders. Backtests must independently model investable prices, decision timing, missingness, costs, corporate actions, and membership timing.
       </div>
       <div className="provider-attribution">
-        <strong>Provider attribution / 数据来源：</strong> QuantConnect Spectral Tick-Flow Signal. QuantConnect and its marks are the property of their respective owner. Leandata's historical-membership archive is an independent capture lineage and must not be represented as the official universe-file dataset.
-        <br/>数据源为 QuantConnect Spectral Tick-Flow Signal。QuantConnect 名称及标识归其权利人所有。Leandata historical-membership 归档是独立采集 lineage，不得表述为官方 universe-file 全量数据。
+        <strong>Provider attribution / 数据来源：</strong> QuantConnect Spectral Tick-Flow Signal. QuantConnect and its marks are the property of their respective owner. Leandata's historical-membership dataset is independently maintained and must not be represented as the official universe-file dataset.
+        <br/>数据源为 QuantConnect Spectral Tick-Flow Signal。QuantConnect 名称及标识归其权利人所有。Leandata historical-membership 数据集独立维护，不得表述为官方 universe-file 全量数据。
         <br/><a href="https://www.quantconnect.com/docs/v2/writing-algorithms/datasets/quantconnect/spectral-tick-flow-signal" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>Official dataset documentation / 官方数据文档 ↗</a>
       </div>
 

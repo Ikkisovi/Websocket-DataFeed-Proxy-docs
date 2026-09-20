@@ -79,6 +79,8 @@ subscriptions.window.close();
 
 const morningstar = await render("/docs/financial/morningstar/");
 assert(isVisible(morningstar.window.document.getElementById("morningstar-overview")));
+assert(isVisible(morningstar.window.document.getElementById("morningstar-pit")));
+assert(isVisible(morningstar.window.document.getElementById("morningstar-processing")));
 assert(isVisible(morningstar.window.document.getElementById("morningstar-fields")));
 assert.equal(morningstar.window.document.querySelector('#morningstar-overview img').getAttribute('src'), "/assets/providers/morningstar.png");
 assert.match(morningstar.window.document.body.textContent, /Morningstar 财务基本面|Morningstar Fundamentals/);
@@ -90,6 +92,7 @@ morningstar.window.close();
 const research = await render("/docs/market/research-signals/");
 assert(isVisible(research.window.document.getElementById("spectral-overview")));
 assert(isVisible(research.window.document.getElementById("spectral-methodology")));
+assert(isVisible(research.window.document.getElementById("spectral-processing")));
 assert(isVisible(research.window.document.getElementById("spectral-fields")));
 assert(isVisible(research.window.document.getElementById("get-post-v1-spectral-tick-flow")));
 assert.equal(research.window.document.querySelector('#spectral-overview img').getAttribute('src'), "/assets/providers/quantconnect.png");
@@ -107,7 +110,8 @@ researchEn.window.close();
 
 const morningstarEn = await render("/docs/financial/morningstar/", "en");
 assert.match(morningstarEn.window.document.querySelector("#morningstar-overview h2").textContent, /Morningstar Fundamentals/);
-assert.match(morningstarEn.window.document.body.textContent, /Availability-date semantics/);
+assert.match(morningstarEn.window.document.body.textContent, /What is point-in-time data/);
+assert.match(morningstarEn.window.document.body.textContent, /Deduplication and processing/);
 morningstarEn.window.LeandataI18n.destroy();
 morningstarEn.window.close();
 
