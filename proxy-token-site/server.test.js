@@ -1142,8 +1142,8 @@ describe('Registration and bulk product UI contract', () => {
     ];
     for (const page of pages) {
       const html = fs.readFileSync(path.join(__dirname, 'public', 'docs', page, 'index.html'), 'utf8');
-      expect(html).toContain('/assets/docs-page.js?v=20260920-site-refresh');
-      expect(html).toContain('/docs/tokens.css?v=20260920-site-refresh');
+      expect(html).toContain('/assets/docs-page.js?v=20260920-banner-removed');
+      expect(html).toContain('/docs/tokens.css?v=20260920-banner-removed');
     }
     expect(docsSource).toContain('href: DOC_PATHS.marketStocks');
     expect(docsSource).toContain('href: DOC_PATHS.financialMorningstar');
