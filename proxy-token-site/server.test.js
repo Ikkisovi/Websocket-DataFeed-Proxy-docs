@@ -1181,9 +1181,9 @@ describe('Registration and bulk product UI contract', () => {
   it('adds a bilingual updates banner and updates page entry point', () => {
     const updatesHtml = fs.readFileSync(path.join(__dirname, 'public', 'updates.html'), 'utf8');
     const updatesSource = fs.readFileSync(path.join(__dirname, 'public', 'updates-page.jsx'), 'utf8');
-    expect(tokenPageSource).toContain('现金指数分钟线与 GPU 指数已上线');
-    expect(tokenPageSource).toContain('/v1/indices/minute');
-    expect(tokenPageSource).toContain('GPU 租赁指数看板');
+    expect(tokenPageSource).toContain('历史数据补齐，中国数据即将接入');
+    expect(tokenPageSource).toContain('十二个现金指数分钟线已回填完毕，每日更新');
+    expect(tokenPageSource).toContain('GPU 租赁指数与网站视觉同步上线');
     expect(tokenPageSource).toContain('href="/updates"');
     expect(tokenPageSource).toContain('查看更新 / View updates →');
     expect(updatesHtml).toContain('src="/assets/updates-page.js"');
@@ -1253,10 +1253,10 @@ describe('Product updates and account-scoped feedback', () => {
         body: expect.stringContaining('SPX / SPXW')
       }),
       expect.objectContaining({
-        id: 'cash-indices-minute-gpu-index-2026-09',
+        id: 'history-backfill-cn-roadmap-visual-2026-09',
         date: '2026-09-20',
-        title: expect.stringContaining('现金指数分钟线'),
-        body: expect.stringContaining('/v1/indices/minute')
+        title: expect.stringContaining('历史数据补齐'),
+        body: expect.stringContaining('每日更新')
       })
     ]));
     const unauthorized = await request(app).get('/api/product-updates/feedback/mine');

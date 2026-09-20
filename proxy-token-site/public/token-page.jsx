@@ -105,8 +105,8 @@ function TokenPage() {
         fontSize: 13,
       }}>
         <span>
-          <strong>最近更新 · 现金指数分钟线与 GPU 指数已上线</strong>
-          　SPX / NDX / VIX / DJI 的 1 分钟线与派生日线已上线（/v1/indices/minute，Paid plan）；另类数据区新增 GPU 租赁指数看板。
+          <strong>最近更新 · 历史数据补齐，中国数据即将接入</strong>
+          　Morningstar、Spectral 与十二个现金指数分钟线已回填完毕，每日更新；GPU 租赁指数与网站视觉同步上线。
         </span>
         <span style={{ fontFamily: "var(--f-mono)", whiteSpace: "nowrap" }}>查看更新 / View updates →</span>
       </a>
