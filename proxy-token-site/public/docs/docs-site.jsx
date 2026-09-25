@@ -488,146 +488,284 @@ function UptimeBlock({ label, data }) {
 
 const { useState } = React;
 
-function DocsTopbar({ active = "proxy", onNav }) {
-  const lang = useCurrentLanguage();
-  const isZh = lang === "zh";
+const DOC_PATHS = {
+  home: "/docs/",
+  marketOverview: "/docs/market/overview/",
+  marketStocks: "/docs/market/stocks/",
+  marketOptions: "/docs/market/options/",
+  marketIndices: "/docs/market/indices/",
+  marketResearch: "/docs/market/research-signals/",
+  marketCryptoNews: "/docs/market/crypto-news/",
+  marketCn: "/docs/market/cn/",
+  financial: "/docs/financial/",
+  financialRegular: "/docs/financial/regular/",
+  financialMorningstar: "/docs/financial/morningstar/",
+  financialStatements: "/docs/financial/statements/",
+  financialRatios: "/docs/financial/ratios-growth/",
+  bulk: "/docs/bulk/download/",
+  websocket: "/docs/realtime/websocket/",
+  subscriptions: "/docs/realtime/subscriptions/",
+  status: "/docs/status/",
+  usage: "/docs/usage/",
+};
+
+const NAV_GROUPS = [
+  {
+    key: "market",
+    label: "行情数据", en: "Market data",
+    match: ["proxy"],
+    mainTab: "proxy",
+    items: [
+      { label: "总览与认证", en: "Overview & authentication", desc: "Overview · Auth · Tiers", href: DOC_PATHS.marketOverview },
+      { label: "股票行情", en: "Stock data", desc: "Bars · Quotes · Trades", href: DOC_PATHS.marketStocks },
+      { label: "期权行情", en: "Options data", desc: "Contracts · Snapshots · OI", href: DOC_PATHS.marketOptions },
+      { label: "指数行情", en: "Index data", desc: "SPX · VIX · DJX · XSP", href: DOC_PATHS.marketIndices },
+      { label: "研究信号", en: "Research signals", desc: "Spectral Tick-Flow · SID", href: DOC_PATHS.marketResearch },
+      { label: "加密与新闻", en: "Crypto & news", desc: "Orderbooks · News", href: DOC_PATHS.marketCryptoNews },
+      { label: "中国数据·内测", en: "CN Data · Private beta", desc: "CN archive · /v1/cn/*", href: DOC_PATHS.marketCn },
+    ],
+  },
+  {
+    key: "financial",
+    label: "财务数据", en: "Financial data",
+    match: ["fmp", "fmp-fundamentals", "morningstar"],
+    mainTab: "fmp",
+    items: [
+      { label: "选择数据源", en: "Choose source", desc: "Regular / FMP · Morningstar", href: DOC_PATHS.financial },
+      { label: "Regular / FMP", en: "Regular / FMP", desc: "50+ standard endpoints", href: DOC_PATHS.financialRegular },
+      { label: "Morningstar", en: "Morningstar", desc: "Daily wide fundamentals", href: DOC_PATHS.financialMorningstar },
+      { label: "财务三表", en: "Financial statements", desc: "Income · Balance · Cashflow", href: DOC_PATHS.financialStatements },
+      { label: "比率与增长", en: "Ratios & growth", desc: "Ratios · Growth", href: DOC_PATHS.financialRatios },
+    ],
+  },
+  {
+    key: "batch",
+    label: "批量与实时", en: "Bulk & realtime",
+    match: ["bulk", "ws"],
+    mainTab: "bulk",
+    items: [
+      { label: "批量下载", en: "Bulk download", desc: "¥50 / 50GB snapshot", href: DOC_PATHS.bulk },
+      { label: "WS 使用指南", en: "WS guide", desc: "6 channels", href: DOC_PATHS.websocket },
+      { label: "订阅与消息", en: "Subscriptions & messages", desc: "Subscribe · Shapes", href: DOC_PATHS.subscriptions },
+    ],
+  },
+  {
+    key: "ops",
+    label: "状态与用量", en: "Status & usage",
+    match: ["status", "usage"],
+    mainTab: "status",
+    items: [
+      { label: "服务状态", en: "Service status", desc: "Live · Latency · Uptime", href: DOC_PATHS.status },
+      { label: "用量统计", en: "Usage", desc: "30d · Token stats", href: DOC_PATHS.usage },
+      { label: "产品更新", en: "Product updates", desc: "Changelog", href: "/updates" },
+    ],
+  },
+];
+
+function DocsTopbar({ active = "proxy" }) {
+  const isZh = useCurrentLanguage() === "zh";
   const Toggle = window.LanguageToggle;
+  const [openMenu, setOpenMenu] = React.useState(null);
   return (
-    <div className="topbar">
-      <div className="brand">
+    <div className="topbar docs-topbar" onMouseLeave={() => setOpenMenu(null)}>
+      <a className="brand" href={DOC_PATHS.home} style={{ textDecoration: "none", color: "inherit" }}>
         <span className="dot"></span>
         <span><strong>{isZh ? "数据接口文档" : "Proxy Docs"}</strong></span>
-      </div>
+      </a>
       <div className="divider"></div>
       <div className="nav">
-        <a className={active === "proxy" ? "active" : ""} onClick={() => onNav && onNav("proxy")} style={{ cursor: "pointer" }}>{isZh ? "行情 API" : "Proxy API"}</a>
-        <a onClick={() => { onNav && onNav("proxy"); window.location.hash = "cn-data-overview"; }} style={{ cursor: "pointer" }}>{isZh ? "中国数据 · 内测" : "CN Data · Private beta"}</a>
-        <a className={active === "fmp" ? "active" : ""} onClick={() => onNav && onNav("fmp")} style={{ cursor: "pointer" }}>{isZh ? "财务数据" : "Financial Data"}</a>
-        <a className={active === "bulk" ? "active" : ""} onClick={() => onNav && onNav("bulk")} style={{ cursor: "pointer" }}>{isZh ? "批量下载" : "Bulk Download"}</a>
-        <a className={active === "ws" ? "active" : ""} onClick={() => onNav && onNav("ws")} style={{ cursor: "pointer" }}>{isZh ? "WS 实时流" : "WS Stream"}</a>
-        <a className={active === "status" ? "active" : ""} onClick={() => onNav && onNav("status")} style={{ cursor: "pointer" }}>{isZh ? "服务状态" : "Status"}</a>
-        <a className={active === "usage" ? "active" : ""} onClick={() => onNav && onNav("usage")} style={{ cursor: "pointer" }}>{isZh ? "用量统计" : "Usage"}</a>
-        <a href="/alternative-data/" style={{ cursor: "pointer" }}>{isZh ? "另类数据" : "Alternative data"}</a>
-        <a href="/updates" style={{ cursor: "pointer" }}>{isZh ? "产品更新" : "Updates"}</a>
+        {NAV_GROUPS.map((g) => {
+          const isActive = g.match.includes(active);
+          const isOpen = openMenu === g.key;
+          return (
+            <div key={g.key} className="nav-group" style={{ position: "relative" }} onMouseEnter={() => setOpenMenu(g.key)}>
+              <button
+                type="button" aria-expanded={isOpen}
+                onKeyDown={(event) => { if (event.key === "Escape") setOpenMenu(null); }}
+                className={isActive ? "active" : ""}
+                style={{ cursor: "pointer", border: 0, background: "transparent", font: "inherit", color: "inherit", padding: "8px 10px" }}
+                onClick={() => {
+                  setOpenMenu(g.key);
+                }}
+              >
+                {isZh ? g.label : g.en}
+                <span style={{ display: "inline-block", marginLeft: 5, fontSize: 10, color: "var(--ink-soft)", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>&#9662;</span>
+              </button>
+              {isOpen && (
+                <div className="nav-group-panel" style={{
+                  position: "absolute", top: "calc(100% + 6px)", left: 0, minWidth: 248,
+                  background: "var(--bg-paper)", border: "1px solid var(--rule)", borderRadius: 10,
+                  boxShadow: "0 12px 32px rgba(26,24,21,.14)", padding: 6, zIndex: 50,
+                }}>
+                  {g.items.map((it, idx) => (
+                    <a
+                      key={idx}
+                      href={it.href}
+                      style={{ display: "flex", flexDirection: "column", gap: 1, padding: "8px 10px", borderRadius: 6, cursor: "pointer" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-sunken)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      onClick={() => setOpenMenu(null)}
+                    >
+                      <span style={{ fontSize: 13, color: "var(--ink-strong)", fontWeight: 500 }}>{isZh ? it.label : it.en}</span>
+                      <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{it.desc}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <a href="/alternative-data/">{isZh ? "另类数据" : "Alternative data"}</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
         {Toggle ? <Toggle /> : null}
-        <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>{isZh ? "Token 账户管理 →" : "Token Portal →"}</a>
+        <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>Token portal →</a>
       </div>
     </div>
   );
 }
 
+const DOC_PAGE_CONFIG = {
+  home: { path: DOC_PATHS.home, tab: "home" },
+  "market-overview": { path: DOC_PATHS.marketOverview, tab: "proxy", focus: "overview" },
+  "market-stocks": { path: DOC_PATHS.marketStocks, tab: "proxy", focus: "stocks" },
+  "market-options": { path: DOC_PATHS.marketOptions, tab: "proxy", focus: "options" },
+  "market-indices": { path: DOC_PATHS.marketIndices, tab: "proxy", focus: "indices" },
+  "market-research": { path: DOC_PATHS.marketResearch, tab: "proxy", focus: "research" },
+  "market-crypto-news": { path: DOC_PATHS.marketCryptoNews, tab: "proxy", focus: "crypto-news" },
+  "market-cn": { path: DOC_PATHS.marketCn, tab: "proxy", focus: "cn" },
+  financial: { path: DOC_PATHS.financial, tab: "fmp" },
+  "financial-regular": { path: DOC_PATHS.financialRegular, tab: "fmp-fundamentals" },
+  "financial-morningstar": { path: DOC_PATHS.financialMorningstar, tab: "morningstar" },
+  "financial-statements": { path: DOC_PATHS.financialStatements, tab: "fmp-fundamentals", focus: "statements" },
+  "financial-ratios": { path: DOC_PATHS.financialRatios, tab: "fmp-fundamentals", focus: "ratios" },
+  bulk: { path: DOC_PATHS.bulk, tab: "bulk" },
+  websocket: { path: DOC_PATHS.websocket, tab: "ws" },
+  subscriptions: { path: DOC_PATHS.subscriptions, tab: "ws", focus: "subscriptions" },
+  status: { path: DOC_PATHS.status, tab: "status" },
+  usage: { path: DOC_PATHS.usage, tab: "usage" },
+};
 
+const DOC_PAGE_BY_PATH = Object.fromEntries(
+  Object.entries(DOC_PAGE_CONFIG).map(([page, config]) => [config.path, page])
+);
 
-function IndexOptionsBanner() {
-  const lang = useCurrentLanguage();
-  const isZh = lang === "zh";
+function normalizeDocsPath(pathname) {
+  if (pathname === "/docs" || pathname === "/docs/index.html") return DOC_PATHS.home;
+  if (pathname.endsWith("/index.html")) return pathname.slice(0, -"index.html".length);
+  return pathname.endsWith("/") ? pathname : pathname + "/";
+}
+
+function legacyDocsPath(hash) {
+  if (!hash) return null;
+  if (hash === "fmp" || hash === "financial-source-selector" || hash.startsWith("fmp-data-")) return DOC_PATHS.financial;
+  if (hash === "morningstar" || hash.startsWith("morningstar-")) return DOC_PATHS.financialMorningstar;
+  if (["fmp-income-statement", "fmp-balance-sheet-statement", "fmp-cash-flow-statement", "fmp-pit-statements"].includes(hash)) return DOC_PATHS.financialStatements;
+  if (hash.startsWith("fmp-ratio") || hash.startsWith("fmp-key-metric") || hash.includes("growth") || hash === "fmp-enterprise-values" || hash === "fmp-financial-scores") return DOC_PATHS.financialRatios;
+  if (hash.startsWith("fmp-")) return DOC_PATHS.financialRegular;
+  if (hash.startsWith("cn-")) return DOC_PATHS.marketCn;
+  if (hash.includes("spectral")) return DOC_PATHS.marketResearch;
+  if (hash.includes("indices-history")) return DOC_PATHS.marketIndices;
+  if (hash.includes("options") || hash.startsWith("post-v3-option") || hash === "provider-fallback-cache") return DOC_PATHS.marketOptions;
+  if (hash.includes("crypto") || hash.includes("history-news")) return DOC_PATHS.marketCryptoNews;
+  if (["endpoint", "auth-message", "heartbeat", "stocks", "options", "crypto", "news", "overnight", "reconnect", "backpressure", "ws"].includes(hash)) return DOC_PATHS.websocket;
+  if (["subscribe", "unsubscribe", "trade", "quote", "bar"].includes(hash)) return DOC_PATHS.subscriptions;
+  if (hash.startsWith("stock-") || hash.includes("history-bars") || hash.includes("trade-quote")) return DOC_PATHS.marketStocks;
+  if (["proxy", "authentication", "overview", "tiers-permissions", "free-plan-usage", "post-register", "post-check-status", "post-generate-token", "error-codes", "rate-limits"].includes(hash)) return DOC_PATHS.marketOverview;
+  if (hash === "bulk") return DOC_PATHS.bulk;
+  if (hash === "status") return DOC_PATHS.status;
+  if (hash === "usage") return DOC_PATHS.usage;
+  return null;
+}
+
+function DocsHome() {
+  const isZh = useCurrentLanguage() === "zh";
   return (
-    <div style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 12,
-      flexWrap: "wrap",
-      padding: "10px 18px",
-      borderBottom: "1px solid var(--accent-rule)",
-      background: "var(--accent-soft)",
-      color: "var(--accent-ink)",
-      fontSize: 13,
-    }}>
-      <span style={{
-        padding: "2px 7px",
-        borderRadius: 999,
-        background: "var(--accent-ink)",
-        color: "var(--ink-inverse)",
-        fontFamily: "var(--f-mono)",
-        fontSize: 10,
-        fontWeight: 600,
-        letterSpacing: ".08em",
-        textTransform: "uppercase",
-      }}>New</span>
-      <strong>{isZh ? "指数期权现已全面上线。" : "Index options are fully supported."}</strong>
-      <span>{isZh ? "SPX/SPXW、VIX/VIXW、DJX 和 XSP 等合约查询与实时期权行情流已就绪。" : "SPX/SPXW, VIX/VIXW, DJX, and XSP contract discovery and live option streaming are available."}</span>
+    <div style={{ maxWidth: 980, margin: "0 auto" }}>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>{isZh ? "独立文档页面" : "Independent documentation pages"}</div>
+      <h2 className="display-title" style={{ fontSize: 44, margin: "0 0 12px" }}>{isZh ? "选择文档主题" : "Choose a documentation topic"}</h2>
+      <p style={{ color: "var(--ink-muted)", fontSize: 15, lineHeight: 1.7, margin: "0 0 26px" }}>
+        {isZh ? "每个主题现在都有独立 URL 和独立内容页，不再跳转到单一长文档中的软锚点。" : "Every topic now has its own URL and focused page instead of a soft anchor into one long document."}
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 16 }}>
+        {NAV_GROUPS.map((group) => (
+          <section key={group.key} className="card" style={{ padding: 18 }}>
+            <h3 style={{ margin: "0 0 12px", fontSize: 19 }}>{isZh ? group.label : group.en}</h3>
+            <div style={{ display: "grid", gap: 8 }}>
+              {group.items.map((item) => (
+                <a key={item.href} href={item.href} style={{ textDecoration: "none", padding: "9px 10px", borderRadius: 7, border: "1px solid var(--rule)", background: "var(--bg-paper)" }}>
+                  <strong style={{ display: "block", color: "var(--ink-strong)", fontSize: 13 }}>{isZh ? item.label : item.en}</strong>
+                  <span style={{ color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>{item.desc}</span>
+                </a>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }
 
 function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
-  const validTabs = ["proxy", "fmp", "fmp-fundamentals", "bulk", "ws", "status", "usage"];
-  const fmpOverviewIds = ["fmp-data-overview", "fmp-snapshot-boundary", "fmp-future-data-families"];
-  const hashTab = typeof window !== "undefined" && window.location.hash ? window.location.hash.slice(1) : "";
-  const startTab = validTabs.includes(hashTab)
-    ? hashTab
-    : fmpOverviewIds.includes(hashTab)
-      ? "fmp"
-      : hashTab.startsWith("fmp-")
-        ? "fmp-fundamentals"
-        : initialTab;
-  const [tab, setTab] = useState(startTab);
+  const pathname = typeof window === "undefined" ? DOC_PATHS.home : normalizeDocsPath(window.location.pathname);
+  const fallbackPage = initialTab === "fmp" ? "financial" : initialTab === "ws" ? "websocket" : "home";
+  const page = DOC_PAGE_BY_PATH[pathname] || (hideTopbar ? fallbackPage : "home");
+  const config = DOC_PAGE_CONFIG[page];
+  const tab = config.tab;
+  const visibleTab = tab === "fmp-fundamentals" || tab === "morningstar" ? "fmp" : tab;
+  const threeColumnPage = ["proxy", "ws", "fmp-fundamentals", "morningstar"].includes(tab);
+
+  React.useEffect(() => {
+    if (normalizeDocsPath(window.location.pathname) !== DOC_PATHS.home) return;
+    const hash = decodeURIComponent(window.location.hash.slice(1));
+    const target = legacyDocsPath(hash);
+    if (target) window.location.replace(target + (hash ? `#${hash}` : ""));
+  }, []);
 
   React.useEffect(() => {
     const scrollToHash = () => {
       const id = decodeURIComponent(window.location.hash.slice(1));
-      if (!id || validTabs.includes(id)) return;
-      window.requestAnimationFrame(() => {
-        document.getElementById(id)?.scrollIntoView({ block: "start" });
-      });
+      if (!id) return;
+      window.requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: "start" }));
     };
     scrollToHash();
     window.addEventListener("hashchange", scrollToHash);
     return () => window.removeEventListener("hashchange", scrollToHash);
-  }, [tab]);
+  }, [page]);
 
-  const showTopbar = !hideTopbar;
-  const visibleTab = tab === "fmp-fundamentals" ? "fmp" : tab;
-  const threeColumnTab = tab === "proxy" || tab === "ws" || tab === "fmp-fundamentals";
+  const content = page === "home" ? <DocsHome />
+    : config.tab === "proxy" ? <ProxyApiBody focus={config.focus} />
+    : page === "financial" ? <FmpDataOverview />
+    : config.tab === "fmp-fundamentals" ? <FmpFundamentalsBody focus={config.focus} />
+    : config.tab === "morningstar" ? <MorningstarFundamentalsBody />
+    : page === "bulk" ? <BulkOrderBody />
+    : config.tab === "ws" ? <WsUsageBody focus={config.focus} />
+    : page === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…"))
+    : React.createElement(StatusBody);
 
   return (
     <div className="proxy-app" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      {showTopbar && <DocsTopbar active={visibleTab} onNav={setTab} />}
-      <IndexOptionsBanner />
-
-      {/* Hero */}
-      <div className="docs-hero" style={{
-        padding: "44px 64px 28px",
-        borderBottom: "1px solid var(--rule)",
-        background: "var(--bg-paper)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
+      {!hideTopbar && <DocsTopbar active={visibleTab} />}
+      <div className="docs-hero" style={{ padding: "44px 64px 28px", borderBottom: "1px solid var(--rule)", background: "var(--bg-paper)", position: "relative", overflow: "hidden" }}>
         <div className="eyebrow" style={{ marginBottom: 14 }}>Reference · live docs</div>
-        <h1 className="display-title" style={{ fontSize: 64, margin: "0 0 14px" }}>
-          Stock Options Proxy <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>API</span>
-        </h1>
-        <p style={{ color: "var(--ink-muted)", maxWidth: 640, fontSize: 15, margin: 0 }}>
-          Real-time US equities, options, crypto and news — one unified token, zero provider configuration.
-          The <strong style={{ color: "var(--ink-strong)" }}>Proxy API</strong> covers REST endpoints and tier management;
-          <strong style={{ color: "var(--ink-strong)" }}>WS usage</strong> covers the 6 realtime streaming channels.
-        </p>
-
-        {/* Tab strip */}
+        <h1 className="display-title" style={{ fontSize: 64, margin: "0 0 14px" }}>Stock Options Proxy <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>API</span></h1>
+        <p style={{ color: "var(--ink-muted)", maxWidth: 640, fontSize: 15, margin: 0 }}>Real-time US equities, options, crypto and news — one unified token, zero provider configuration. Each documentation topic is published as an independent page.</p>
         <div className="docs-tabs" style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
-          <Tab id="proxy" tab={visibleTab} setTab={setTab} label="Proxy API" count="45+ endpoints" />
-          <Tab id="fmp" tab={visibleTab} setTab={setTab} label="Financial data" count="overview" />
-          <Tab id="bulk" tab={visibleTab} setTab={setTab} label="Bulk Download" count="¥50 / 50GB" />
-          <Tab id="ws" tab={visibleTab} setTab={setTab} label="WS usage" count="6 channels" />
-          <Tab id="status" tab={visibleTab} setTab={setTab} label="Status" count="live" />
-          <Tab id="usage" tab={visibleTab} setTab={setTab} label="Usage" count="my stats" />
+          <Tab id="proxy" tab={visibleTab} href={DOC_PATHS.marketOverview} label="Proxy API" count="47+ endpoints" />
+          <Tab id="fmp" tab={visibleTab} href={DOC_PATHS.financial} label="Financial data" count="2 sources" />
+          <Tab id="bulk" tab={visibleTab} href={DOC_PATHS.bulk} label="Bulk Download" count="¥50 / 50GB" />
+          <Tab id="ws" tab={visibleTab} href={DOC_PATHS.websocket} label="WS usage" count="6 channels" />
+          <Tab id="status" tab={visibleTab} href={DOC_PATHS.status} label="Status" count="live" />
+          <Tab id="usage" tab={visibleTab} href={DOC_PATHS.usage} label="Usage" count="my stats" />
           <div style={{ flex: 1 }}></div>
-          <div className="docs-last-sync" style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>
-            last sync · 2026-07-29 · public REST / RT / WSS
-          </div>
+          <div className="docs-last-sync" style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>last sync · 2026-09-19 · public REST / RT / WSS</div>
         </div>
       </div>
-
-      {/* Content */}
-      <div className="docs-content-grid" style={{ display: "grid", gridTemplateColumns: threeColumnTab ? "220px 1fr 220px" : "1fr", flex: 1 }}>
-        {threeColumnTab && <SideNav tab={tab} />}
-        <main className={tab === "bulk" ? "bulk-main" : ""} style={{ padding: threeColumnTab ? "40px 56px" : "36px 32px", background: "var(--bg-canvas)" }}>
-          {tab === "proxy" ? <ProxyApiBody /> : tab === "fmp" ? <FmpDataOverview openFundamentals={() => setTab("fmp-fundamentals")} /> : tab === "fmp-fundamentals" ? <FmpFundamentalsBody /> : tab === "bulk" ? <BulkOrderBody /> : tab === "ws" ? <WsUsageBody /> : tab === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…")) : (React.createElement(StatusBody))}
-        </main>
-        {threeColumnTab && <OnThisPage tab={tab} />}
+      <div className={"docs-content-grid" + (threeColumnPage ? " has-3col" : "")} style={{ display: "grid", gridTemplateColumns: threeColumnPage ? "228px minmax(0,1fr) 200px" : "1fr", flex: 1 }}>
+        {threeColumnPage && <SideNav tab={tab} page={page} />}
+        <main className={tab === "bulk" ? "bulk-main" : ""} style={{ padding: threeColumnPage ? "40px 44px" : "36px 32px", background: "var(--bg-canvas)", minWidth: 0 }}>{content}</main>
+        {threeColumnPage && <OnThisPage tab={tab} page={page} />}
       </div>
     </div>
   );
@@ -637,35 +775,19 @@ function slugify(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-function Tab({ id, tab, setTab, label, count }) {
+function Tab({ id, tab, href, label, count }) {
   const active = tab === id;
   return (
-    <button
-      onClick={() => setTab(id)}
-      style={{
-        background: "transparent",
-        border: "none",
-        padding: "12px 0",
-        marginRight: 28,
-        cursor: "pointer",
-        fontFamily: "var(--f-sans)",
-        fontSize: 14,
-        fontWeight: 500,
-        color: active ? "var(--ink-strong)" : "var(--ink-muted)",
-        borderBottom: `2px solid ${active ? "var(--ink-strong)" : "transparent"}`,
-        marginBottom: -1,
-        display: "flex",
-        alignItems: "baseline",
-        gap: 8,
-      }}
-    >
-      {label}
-      <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)", fontWeight: 400 }}>{count}</span>
-    </button>
+    <a href={href} style={{ background: "transparent", border: "none", padding: "12px 0", marginRight: 28, cursor: "pointer", textDecoration: "none", fontFamily: "var(--f-sans)", fontSize: 14, fontWeight: 500, color: active ? "var(--ink-strong)" : "var(--ink-muted)", borderBottom: `2px solid ${active ? "var(--ink-strong)" : "transparent"}`, marginBottom: -1, display: "flex", alignItems: "baseline", gap: 8 }}>
+      {label}<span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)", fontWeight: 400 }}>{count}</span>
+    </a>
   );
 }
 
 const SECTION_ZH_LABELS = {
+  "Market · US / World": "市场 · 美国 / 世界",
+  "US market": "美国市场",
+  "World · CN 中国数据": "世界 · 中国数据",
   "Getting started": "入门指南",
   "Overview": "概览与架构",
   "Authentication": "身份鉴权",
@@ -681,6 +803,19 @@ const SECTION_ZH_LABELS = {
   "stock trade+quote": "逐笔成交与报价",
   "Index Data": "指数数据",
   "index history": "指数日线历史",
+  "Cash minute archive": "现金指数分钟归档",
+  "Cash minute history": "分钟线历史",
+  "Cash minute coverage": "分钟线覆盖范围",
+  "Cash daily history": "派生日线历史",
+  "Cash daily coverage": "派生日线覆盖范围",
+  "Research Signals": "研究信号",
+  "Spectral overview": "Spectral 概览",
+  "Spectral methodology": "Spectral 方法解读",
+  "Spectral processing": "Spectral 去重与版本处理",
+  "Spectral fields": "Spectral 字段字典",
+  "Spectral history": "Spectral 历史信号",
+  "Spectral coverage": "Spectral 覆盖范围",
+  "Spectral workflows": "Spectral 研究工作流",
   "Stock Data": "股票数据",
   "overview": "数据概览",
   "Multi-symbol": "多股票批量",
@@ -732,6 +867,13 @@ const SECTION_ZH_LABELS = {
   "Error codes": "错误代码",
   "Rate limits": "并发与限流",
   "Financial data API": "财务数据 API",
+  "Morningstar fundamentals": "Morningstar 财务数据",
+  "Morningstar overview": "Morningstar 概览",
+  "What is PIT?": "什么是 PIT？",
+  "Deduplication": "去重与数据处理",
+  "Morningstar fields": "Morningstar 字段字典",
+  "Morningstar history": "Morningstar 历史快照",
+  "Morningstar coverage": "Morningstar 覆盖范围",
   "Financial data overview": "财务数据概览",
   "Request contract": "请求规范",
   "Response metadata": "响应元数据",
@@ -853,17 +995,11 @@ const SECTION_ZH_LABELS = {
   "Access & scope": "权限与范围"
 };
 
-function SideNav({ tab }) {
+function SideNav({ tab, page }) {
   const [activeId, setActiveId] = React.useState("");
-  const [expanded, setExpanded] = React.useState({
-    "Stock Data": true,
-    "CN Data 中国数据": true,
-    "Multi-symbol": true,
-    "Metadata": true,
-    "Single symbol": true,
-    "Options Data": true,
-    "Snapshots": true,
-  });
+  const [query, setQuery] = React.useState("");
+  const [expanded, setExpanded] = React.useState({});
+  React.useEffect(() => { setQuery(""); setExpanded({}); }, [tab]);
   React.useEffect(() => {
     const onHashChange = () => setActiveId(window.location.hash.slice(1));
     window.addEventListener('hashchange', onHashChange);
@@ -874,18 +1010,34 @@ function SideNav({ tab }) {
     return () => { window.removeEventListener('hashchange', onHashChange); observer.disconnect(); };
   }, [tab]);
 
-  const toggle = (title) => setExpanded(prev => ({ ...prev, [title]: !prev[title] }));
+  const toggle = (title, open) => setExpanded(prev => ({ ...prev, [title]: !open }));
+
+  // Filter groups/items by search query. A group survives when its title,
+  // one of its items, or one of its children matches; matching forces expand.
+  const q = query.trim().toLowerCase();
+  const filterSection = (sec) => {
+    if (!q) return sec;
+    const items = (sec.items || []).filter((it) => (it + " " + (SECTION_ZH_LABELS[it] || "")).toLowerCase().includes(q));
+    const children = (sec.children || []).map(filterSection).filter((c) => c);
+    if ((sec.title + " " + (SECTION_ZH_LABELS[sec.title] || "")).toLowerCase().includes(q)) return sec;
+    if (items.length === 0 && children.length === 0) return null;
+    return { ...sec, items, children: children.length > 0 ? children : undefined };
+  };
+  const visibleSections = (tabSections) => tabSections.map(filterSection).filter((sec) => sec);
 
   const sections = tab === "proxy" ? [
     { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions", "Free plan usage"] },
-    { title: "CN Data 中国数据", items: ["CN Data overview", "Daily bars", "Minute bars", "Valuation", "Membership", "Reference", "Fundamentals", "ETF data", "ETF minutes", "Options", "Funds", "Shareholders", "Reserved routes", "Catalog", "Access & scope"] },
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news", "stock trade+quote"] },
-    { title: "Index Data", items: ["index history"] },
-    { title: "Stock Data", items: ["overview"], children: [
-      { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
-      { title: "Metadata", items: ["condition codes", "exchange codes"] },
-      { title: "Single symbol", items: ["single bars", "single latest bar", "single quotes", "single latest quote", "single snapshot", "single trades", "single latest trade"] },
+    { title: "Index Data", items: ["index history", "Cash minute archive", "Cash minute history", "Cash minute coverage", "Cash daily history", "Cash daily coverage"] },
+    { title: "Research Signals", items: ["Spectral overview", "Spectral methodology", "Spectral processing", "Spectral fields", "Spectral history", "Spectral coverage", "Spectral workflows"] },
+    { title: "Stock Data", items: ["Market · US / World"], children: [
+      { title: "US market", items: ["overview"], children: [
+        { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
+        { title: "Metadata", items: ["condition codes", "exchange codes"] },
+        { title: "Single symbol", items: ["single bars", "single latest bar", "single quotes", "single latest quote", "single snapshot", "single trades", "single latest trade"] },
+      ]},
+      { title: "World · CN 中国数据", items: ["CN Data overview", "Daily bars", "Minute bars", "Valuation", "Membership", "Reference", "Fundamentals", "ETF data", "ETF minutes", "Options", "Funds", "Shareholders", "Reserved routes", "Catalog", "Access & scope"] },
     ]},
     { title: "Options Data", items: ["routing model", "contracts"], children: [
       { title: "Snapshots", items: ["snapshots", "quote", "snapshot trade", "open interest", "expiry", "snapshot ohlc"] },
@@ -895,6 +1047,8 @@ function SideNav({ tab }) {
     { title: "Crypto Data", items: ["orderbooks"] },
     { title: "Admin endpoints", items: ["login", "pending", "approve", "reject"] },
     { title: "Reference", items: ["Error codes", "Rate limits"] },
+  ] : tab === "morningstar" ? [
+    { title: "Morningstar fundamentals", items: ["Morningstar overview", "What is PIT?", "Deduplication", "Morningstar fields", "Morningstar history", "Morningstar coverage"] },
   ] : tab === "fmp-fundamentals" ? [
     { title: "Financial data API", items: ["Financial data overview", "Request contract", "Response metadata"] },
     { title: "Market history", items: ["historical-price-eod/full"] },
@@ -916,6 +1070,27 @@ function SideNav({ tab }) {
     { title: "Metrics history", items: ["Uptime", "Incidents", "Methodology"] },
   ];
 
+  const pageSections = {
+    "market-overview": sections.filter((section) => ["Getting started", "Token API", "Admin endpoints", "Reference"].includes(section.title)),
+    "market-stocks": [
+      { title: "REST History", items: ["history/bars", "stock trade+quote"] },
+      { title: "Stock Data", items: ["Market · US / World"], children: [{ title: "US market", items: ["overview"], children: [
+        { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
+        { title: "Metadata", items: ["condition codes", "exchange codes"] },
+        { title: "Single symbol", items: ["single bars", "single latest bar", "single quotes", "single latest quote", "single snapshot", "single trades", "single latest trade"] },
+      ]}]},
+    ],
+    "market-options": sections.filter((section) => section.title === "Options Data"),
+    "market-indices": sections.filter((section) => section.title === "Index Data"),
+    "market-research": sections.filter((section) => section.title === "Research Signals"),
+    "market-crypto-news": [{ title: "REST History", items: ["history/news"] }, ...sections.filter((section) => section.title === "Crypto Data")],
+    "market-cn": [{ title: "World · CN 中国数据", items: ["CN Data overview", "Daily bars", "Minute bars", "Valuation", "Membership", "Reference", "Fundamentals", "ETF data", "ETF minutes", "Options", "Funds", "Shareholders", "Reserved routes", "Catalog", "Access & scope"] }],
+    "financial-statements": sections.filter((section) => section.title === "Financial statements"),
+    "financial-ratios": sections.filter((section) => ["Ratios & metrics", "Growth & valuation"].includes(section.title)),
+    subscriptions: sections.filter((section) => section.title === "Messages"),
+  };
+  const scopedSections = pageSections[page] || sections;
+
   function Chevron({ open }) {
     return (
       <svg width="10" height="10" viewBox="0 0 10 10" style={{ transition: 'transform 0.2s', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', marginLeft: 'auto', opacity: 0.5 }}>
@@ -924,13 +1099,13 @@ function SideNav({ tab }) {
     );
   }
 
-  function Section({ s, depth = 0 }) {
+  function Section({ s, depth = 0, defaultOpen = false, forceOpen = false }) {
     const lang = useCurrentLanguage();
     const isZh = lang === "zh";
     const hasChildren = s.children && s.children.length > 0;
     const hasItems    = s.items && s.items.length > 0;
     const isParent    = hasChildren || hasItems;
-    const isOpen      = expanded[s.title] !== false;
+    const isOpen      = forceOpen || (expanded[s.title] ?? defaultOpen);
     const isMono      = s.title.includes("endpoints") || s.title === "Messages";
 
     const BASE_PAD    = 10;
@@ -958,7 +1133,7 @@ function SideNav({ tab }) {
       "enterprise-values": "fmp-enterprise-values",
       "financial-scores": "fmp-financial-scores",
     };
-    const ID_MAP = {'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
+    const ID_MAP = {'Morningstar overview': 'morningstar-overview', 'What is PIT?': 'morningstar-pit', 'Deduplication': 'morningstar-processing', 'Morningstar fields': 'morningstar-fields', 'Morningstar history': 'morningstar-history', 'Morningstar coverage': 'morningstar-coverage', 'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'Cash minute archive': 'cash-indices-overview', 'Cash minute history': 'get-post-v1-indices-minute', 'Cash minute coverage': 'get-v1-indices-minute-coverage', 'Cash daily history': 'get-post-v1-indices-daily', 'Cash daily coverage': 'get-v1-indices-daily-coverage', 'Spectral overview': 'spectral-overview', 'Spectral methodology': 'spectral-methodology', 'Spectral processing': 'spectral-processing', 'Spectral fields': 'spectral-fields', 'Spectral history': 'get-post-v1-spectral-tick-flow', 'Spectral coverage': 'get-v1-spectral-tick-flow-coverage', 'Spectral workflows': 'spectral-workflows', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
     const getId = (label) => tab === "fmp-fundamentals"
       ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
       : ID_MAP[label] || slugify(label);
@@ -967,7 +1142,7 @@ function SideNav({ tab }) {
       <div style={{ marginBottom: hasChildren ? 0 : 8 }}>
         {/* ── header row (chevron right-aligned like the reference) ── */}
         <div
-          onClick={() => isParent && toggle(s.title)}
+          onClick={() => isParent && toggle(s.title, isOpen)}
           style={{
             display: "flex", alignItems: "center",
             padding: "5px 10px 5px " + indent,
@@ -1015,7 +1190,7 @@ function SideNav({ tab }) {
 
                 {/* nested sub-sections */}
                 {hasChildren && s.children.map((child, k) => (
-                  <Section key={k} s={child} depth={depth + 1} />
+                  <Section key={k} s={child} depth={depth + 1} defaultOpen={k === 0} forceOpen={forceOpen} />
                 ))}
               </div>
             )}
@@ -1026,18 +1201,39 @@ function SideNav({ tab }) {
   }
 
   return (
-    <nav style={{
-      padding: "32px 0 32px 32px",
+    <nav className="docs-sidenav" style={{
+      padding: "8px 0 32px 24px",
       borderRight: "1px solid var(--rule)",
       background: "var(--bg-canvas)",
       fontSize: 13, position: "sticky", top: 0, height: "100vh", overflow: "auto"
     }}>
-      {sections.map((s, i) => <Section key={i} s={s} />)}
+      <div style={{ padding: "12px 16px 12px 8px", position: "sticky", top: 0, background: "var(--bg-canvas)", zIndex: 2 }}>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="搜索接口… / filter"
+          style={{
+            width: "100%", fontFamily: "var(--f-mono)", fontSize: 12,
+            padding: "7px 10px", borderRadius: 6, boxSizing: "border-box",
+            border: "1px solid var(--rule-strong)", background: "var(--bg-paper)",
+            color: "var(--ink-strong)", outline: "none",
+          }}
+        />
+        {q && (
+          <div style={{ marginTop: 6, fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>
+            {visibleSections(scopedSections).length} groups match
+          </div>
+        )}
+      </div>
+      {visibleSections(scopedSections).length === 0 && (
+        <div style={{ padding: "8px 16px 8px 8px", fontSize: 12, color: "var(--ink-soft)" }}>无匹配 · no match</div>
+      )}
+      {visibleSections(scopedSections).map((s, i) => <Section key={i} s={s} defaultOpen={i === 0} forceOpen={!!q} />)}
     </nav>
   );
 }
 
-function OnThisPage({ tab }) {
+function OnThisPage({ tab, page }) {
   const [activeId, setActiveId] = React.useState("");
   React.useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
@@ -1045,9 +1241,30 @@ function OnThisPage({ tab }) {
     }, { rootMargin: '-20% 0px -80% 0px' });
     setTimeout(() => document.querySelectorAll('h2[id], h3[id]').forEach(h => observer.observe(h)), 500);
     return () => observer.disconnect();
-  }, [tab]);
-  const items = tab === "proxy"
-    ? ["Request", "Response", "Validation", "Examples", "Errors"]
+  }, [tab, page]);
+  const pageItems = {
+    "market-overview": [["Overview", "overview"], ["Authentication", "authentication"], ["Tiers", "tiers-permissions"], ["Free plan", "free-plan-usage"]],
+    "market-stocks": [["History bars", "post-v1-history-bars"], ["Trade + quote", "post-v1-stock-history-trade-quote"], ["US equities", "stock-data-availability"]],
+    "market-options": [["Routing", "provider-fallback-cache"], ["Contracts", "post-v1-options-contracts"], ["Snapshots", "post-v1-options-snapshots"], ["Direct API", "post-v3-option-direct-value"]],
+    "market-indices": [["Index history", "get-post-v1-indices-history"], ["Cash minute archive", "cash-indices-overview"], ["Minute history", "get-post-v1-indices-minute"], ["Minute coverage", "get-v1-indices-minute-coverage"], ["Daily history", "get-post-v1-indices-daily"], ["Daily coverage", "get-v1-indices-daily-coverage"]],
+    "market-research": [["Overview", "spectral-overview"], ["Methodology", "spectral-methodology"], ["Deduplication", "spectral-processing"], ["Fields", "spectral-fields"], ["History API", "get-post-v1-spectral-tick-flow"], ["Coverage API", "get-v1-spectral-tick-flow-coverage"], ["Workflows", "spectral-workflows"]],
+    "market-crypto-news": [["News history", "post-v1-history-news"], ["Orderbooks", "post-v1-crypto-us-latest-orderbooks"]],
+    "market-cn": [["CN overview", "cn-data-overview"], ["Catalog", "cn-catalog"], ["Access", "cn-access"]],
+    "financial-statements": [["Income statement", "fmp-income-statement"], ["Balance sheet", "fmp-balance-sheet-statement"], ["Cash flow", "fmp-cash-flow-statement"], ["PIT statements", "fmp-pit-statements"]],
+    "financial-ratios": [["Ratios", "fmp-ratios"], ["Key metrics", "fmp-key-metrics"], ["Growth", "fmp-financial-growth"], ["Enterprise value", "fmp-enterprise-values"]],
+    subscriptions: [["Subscribe", "subscribe"], ["Unsubscribe", "unsubscribe"], ["Trade", "trade"], ["Quote", "quote"], ["Bar", "bar"]],
+  };
+  const items = pageItems[page] || (tab === "proxy"
+    ? [["Overview", "overview"]]
+    : tab === "morningstar"
+    ? [
+      ["Morningstar overview", "morningstar-overview"],
+      ["What is PIT?", "morningstar-pit"],
+      ["Deduplication", "morningstar-processing"],
+      ["Field dictionary", "morningstar-fields"],
+      ["History endpoint", "morningstar-history"],
+      ["Coverage endpoint", "morningstar-coverage"],
+    ]
     : tab === "fmp-fundamentals"
     ? [
       ["Financial data overview", "fmp-fundamentals-overview"],
@@ -1058,10 +1275,10 @@ function OnThisPage({ tab }) {
     ]
     : tab === "ws"
     ? ["Connect", "Authenticate", "Subscribe", "Message shapes", "Reconnect"]
-    : ["Overview", "Components", "Latency", "Uptime", "Incidents"];
+    : ["Overview", "Components", "Latency", "Uptime", "Incidents"]);
   return (
-    <aside style={{
-      padding: "40px 24px",
+    <aside className="on-this-page" style={{
+      padding: "40px 20px",
       borderLeft: "1px solid var(--rule)",
       background: "var(--bg-canvas)", fontSize: 12.5, position: "sticky", top: 0, height: "100vh", overflow: "auto"
     }}>
@@ -1205,6 +1422,104 @@ function DocDesc({ en, zh, style }) {
       {isZh && en && zh && <><br/><span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{en}</span></>}
       {!isZh && zh && en && <><br/><span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{zh}</span></>}
     </p>
+  );
+}
+
+const PROVIDER_LOGOS = {
+  fmp: "/assets/providers/fmp-data.png",
+  morningstar: "/assets/providers/morningstar.png",
+  alpaca: "/assets/providers/alpaca.png",
+};
+
+function ProviderMotif() {
+  const bars = [34, 58, 44, 78, 62, 96, 70, 52, 84, 66, 40, 74, 56, 90, 48];
+  return (
+    <svg viewBox="0 0 160 110" width="100%" height="100%" aria-hidden="true" role="presentation">
+      {bars.map((h, i) => (
+        <rect key={i} x={8 + i * 10} y={100 - h} width={6} rx={3} height={h} fill="var(--provider-accent, var(--accent))" opacity={0.35 + (h / 100) * 0.6} />
+      ))}
+    </svg>
+  );
+}
+
+function ProviderHero({ id, provider, eyebrow, title, zhTitle, en, zh, chips = [], alt, logo }) {
+  const logoSrc = logo === undefined ? PROVIDER_LOGOS[provider] : logo;
+  const isZh = useCurrentLanguage() === "zh";
+  return (
+    <section id={id} className={`provider-hero ${provider}`}>
+      <div className="provider-hero-copy">
+        <div className="eyebrow">{eyebrow}</div>
+        <h2 className="provider-hero-title">{isZh ? zhTitle : title}</h2>
+        <p className="provider-hero-subtitle">
+          {isZh ? zh : en}
+          <br/><span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{isZh ? en : zh}</span>
+        </p>
+        <div className="provider-chip-row">
+          {chips.map((chip) => <span className="provider-chip" key={chip}>{chip}</span>)}
+        </div>
+      </div>
+      <div className="provider-logo-frame">
+        {logoSrc ? (
+          <img src={logoSrc} alt={alt || `${title} logo`} loading="eager" />
+        ) : (
+          <ProviderMotif />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ProviderStats({ items }) {
+  return (
+    <div className="provider-stat-grid">
+      {items.map(([value, en, zh]) => (
+        <div className="provider-stat" key={`${value}-${en}`}>
+          <strong>{value}</strong>
+          <span><Bilingual en={en} zh={zh} /></span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProviderFeatures({ items }) {
+  return (
+    <div className="provider-feature-grid">
+      {items.map(([title, en, zh]) => (
+        <div className="provider-feature" key={title}>
+          <h4>{title}</h4>
+          <p><Bilingual en={en} zh={zh} /></p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProviderFlow({ items }) {
+  return (
+    <div className="provider-flow">
+      {items.map(([title, en, zh]) => (
+        <div className="provider-flow-step" key={title}>
+          <strong>{title}</strong>
+          <span><Bilingual en={en} zh={zh} /></span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BilingualDataTable({ columns, rows, style }) {
+  const isZh = useCurrentLanguage() === "zh";
+  return (
+    <table className="tbl card" style={{ overflow: "hidden", width: "100%", marginBottom: 22, ...style }}>
+      <thead><tr>{columns.map(([en, zh]) => <th key={en}>{isZh ? `${zh} / ${en}` : en}</th>)}</tr></thead>
+      <tbody>{rows.map((row, rowIndex) => (
+        <tr key={rowIndex}>{row.map((cell, cellIndex) => {
+          const value = Array.isArray(cell) ? (isZh ? cell[1] : cell[0]) : cell;
+          return <td key={cellIndex} style={cellIndex === 0 ? { fontFamily: "var(--f-mono)", fontSize: 11.5, color: "var(--ink-strong)" } : { fontSize: 12.5 }}>{value}</td>;
+        })}</tr>
+      ))}</tbody>
+    </table>
   );
 }
 
@@ -1831,7 +2146,40 @@ function BulkOrderBody() {
   );
 }
 
-function FmpDataOverview({ openFundamentals }) {
+function FinancialSourceSelector({ active }) {
+  const sources = [
+    { id: "regular", title: "Regular / FMP", zh: "标准财务数据", meta: "50+ endpoints · statements · ratios · profiles", href: DOC_PATHS.financialRegular, logo: PROVIDER_LOGOS.fmp, alt: "FMP Data logo" },
+    { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "28 metrics · 550 symbols · 2020–present", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo" },
+  ];
+  return (
+    <section id="financial-source-selector" style={{ marginBottom: 26 }}>
+      <div className="eyebrow" style={{ marginBottom: 9 }}>第一步 / Step 1</div>
+      <h2 className="display-title" style={{ fontSize: 30, margin: "0 0 8px" }}>选择财务数据源 / Choose a financial data source</h2>
+      <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 14px" }}>
+        两套 provider 保持独立 schema、覆盖范围和修订语义。请选择后再查看接口。
+        <br/>Providers keep separate schemas, coverage, and revision semantics. Choose a source before opening its endpoints.
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
+        {sources.map((source) => {
+          const selected = active === source.id;
+          return (
+            <a key={source.id} href={source.href} aria-current={selected ? "page" : undefined} className="provider-source-card" style={{ color: "var(--ink-strong)", textDecoration: "none" }}>
+              <img className="provider-source-logo" src={source.logo} alt={source.alt} loading="lazy" />
+              <div>
+                <strong style={{ display: "block", fontSize: 17, marginBottom: 3 }}>{source.title}</strong>
+                <div style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 5 }}>{source.zh}</div>
+                <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{source.meta}</div>
+              </div>
+              <span style={{ fontSize: 11, color: selected ? "var(--accent-ink)" : "var(--ink-soft)", whiteSpace: "nowrap" }}>{selected ? "SELECTED" : "OPEN →"}</span>
+            </a>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function FmpDataOverview() {
   const panel = {
     background: "var(--bg-paper)",
     border: "1px solid var(--rule)",
@@ -1840,13 +2188,18 @@ function FmpDataOverview({ openFundamentals }) {
   };
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
-      <div className="eyebrow" style={{ marginBottom: 10 }}>Financial fundamentals data · Premium</div>
-      <h2 id="fmp-data-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}><Bilingual {...API_CATEGORIES.financial} /></h2>
-      <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
-        通过 Leandata 获取美股财务数据，包括财报、财务指标、公司资料等。使用您的 Leandata token 即可访问，无需额外的 API 密钥。
-        <br/>Access US stock financial data including statements, metrics, and company profiles. Use your Leandata token—no additional API keys needed.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 14 }}>详细接口文档请查看左侧 <strong style={{ color: "var(--ink-strong)" }}>Financial data API</strong> 部分。</span>
-      </p>
+      <FinancialSourceSelector active="" />
+      <ProviderHero
+        id="fmp-data-overview"
+        provider="fmp"
+        eyebrow="Regular financial provider · Premium"
+        title="FMP financial data"
+        zhTitle="FMP 标准财务数据"
+        en="A broad endpoint catalog for US company statements, ratios, growth, profiles, market reference data, and historical prices. Authenticate with the same Leandata token—no separate upstream API key is required."
+        zh="覆盖美股财务三表、比率、增长、公司资料、市场参考数据和历史价格的标准接口目录。统一使用 Leandata Token，无需另行配置上游 API Key。"
+        chips={["50+ endpoints", "statements", "ratios & growth", "company profiles", "Premium"]}
+        alt="FMP Data provider logo"
+      />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 22 }}>
         <div style={panel}>
           <div className="eyebrow" style={{ color: "var(--ink-soft)", marginBottom: 8 }}>访问权限 / Access</div>
@@ -1867,7 +2220,7 @@ function FmpDataOverview({ openFundamentals }) {
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 22 }}>
         <strong style={{ color: "var(--accent-ink)" }}>查看完整接口文档</strong>
         <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> 左侧 Financial data API 部分包含所有接口的详细参数、返回示例和使用说明。<br/>See the Financial data API section for complete documentation with parameters and examples.</span>
-        <button onClick={openFundamentals} className="btn" style={{ marginLeft: 12, padding: "7px 11px", fontSize: 12 }}>打开文档 / Open Docs →</button>
+        <a href={DOC_PATHS.financialRegular} className="btn" style={{ marginLeft: 12, padding: "7px 11px", fontSize: 12 }}>打开文档 / Open Docs →</a>
       </div>
       <h3 id="fmp-snapshot-boundary" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>数据更新说明 / Data Updates</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, margin: "0 0 22px" }}>
@@ -1898,7 +2251,13 @@ function FmpEndpointSection({ id, route, title, params, note }) {
   );
 }
 
-function FmpFundamentalsBody() {
+const FMP_FOCUS_BOUNDARIES = [
+  ["fmp-income-statement", "statements"],
+  ["fmp-ratios", "ratios"],
+  ["fmp-market-reference", "regular"],
+];
+
+function FmpFundamentalsBody({ focus }) {
   const panel = {
     background: "var(--bg-paper)",
     border: "1px solid var(--rule)",
@@ -1956,15 +2315,22 @@ function FmpFundamentalsBody() {
     ["/stable/stock-list", "股票目录 / Stock list", "optional limit", "获取数据覆盖的所有股票列表。List of all covered stocks."],
     ["/stable/symbol-change", "Ticker 变更 / Symbol change", "optional limit", "获取股票代码历史变更记录（如公司更名）。Historical ticker symbol changes (e.g., company renamings)."],
   ];
+  const focusRef = useFocusedDirectChildren(focus, "regular", FMP_FOCUS_BOUNDARIES, ["financial-source-selector"]);
 
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto" }}>
-      <div className="eyebrow" style={{ marginBottom: 10 }}>美股财务数据 · Premium</div>
-      <h2 id="fmp-fundamentals-overview" className="display-title" style={{ fontSize: 42, margin: "0 0 10px" }}>财务数据 API / Financial Data API</h2>
-      <p style={{ fontSize: 16, color: "var(--ink-muted)", lineHeight: 1.65, margin: "0 0 24px", maxWidth: 820 }}>
-        Premium 账户可访问公司财报、财务比率、关键指标、公司资料及参考数据。
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Premium access includes company statements, ratios, metrics, profiles, and reference data.</span>
-      </p>
+    <div ref={focusRef} style={{ maxWidth: 860, margin: "0 auto" }}>
+      <FinancialSourceSelector active="regular" />
+      <ProviderHero
+        id="fmp-fundamentals-overview"
+        provider="fmp"
+        eyebrow="Regular / FMP provider · Premium"
+        title="Regular / FMP Financial API"
+        zhTitle="Regular / FMP 财务数据 API"
+        en="Premium access includes company statements, ratios, growth metrics, profiles, market reference data, analyst research, and valuation endpoints through one Leandata token."
+        zh="Premium 账户可通过一个 Leandata Token 访问公司财报、财务比率、增长指标、公司资料、市场参考、分析师研究与估值接口。"
+        chips={["50+ endpoints", "GET + POST", "statements", "ratios & growth", "Premium"]}
+        alt="FMP Data provider logo"
+      />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 28 }}>
         <div style={panel}>
@@ -2044,7 +2410,7 @@ function FmpFundamentalsBody() {
       <FmpEndpointSection id="fmp-financial-growth" route="/stable/financial-growth" title="财务增长汇总 / Financial Growth Summary" params={<><code>symbol</code>, <code>period=annual</code>, <code>limit</code></>} note="获取财务数据整体增长情况汇总。Get overall financial growth summary." />
       <FmpEndpointSection id="fmp-enterprise-values" route="/stable/enterprise-values" title="企业价值 / Enterprise Value" params={<><code>symbol</code>, <code>period=annual|quarter</code>, <code>limit</code></>} note="获取企业价值历史数据。Get historical enterprise value data." />
       <FmpEndpointSection id="fmp-financial-scores" route="/stable/financial-scores" title="财务评分 / Financial Scores" params={<><code>symbol</code>, 可选 <code>limit</code></>} note="获取 Altman Z-Score、Piotroski F-Score 等财务健康评分。Get Altman Z-Score, Piotroski F-Score, and other financial health scores." />
-      <h3 className="display-title" style={{ fontSize: 28, margin: "32px 0 4px" }}>行情与公司资料接口 / Market Data & Company Info</h3>
+      <h3 id="fmp-market-reference" className="display-title" style={{ fontSize: 28, margin: "32px 0 4px" }}>行情与公司资料接口 / Market Data & Company Info</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65, margin: "0 0 4px" }}>
         以下接口提供股票报价、公司资料、分析师评级等数据。
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>The following endpoints provide stock quotes, company profiles, analyst ratings, and more.</span>
@@ -2208,6 +2574,211 @@ Content-Type: application/json
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 8 }}>
         <strong style={{ color: "var(--accent-ink)" }}>使用提示 / Usage Tip</strong>
         <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> 只需使用您的 Leandata token，无需额外的数据供应商密钥。如需查询特定历史版本，保存对应的 <code>as_of</code> 时间和 <code>package_sha256</code> 标识符。<br/>Use your Leandata token only; no additional data-vendor key is required. To reproduce a specific version, save its <code>as_of</code> timestamp and <code>package_sha256</code> identifier.</span>
+      </div>
+    </div>
+  );
+}
+
+function MorningstarFundamentalsBody() {
+  const metrics = [
+    ["Valuation / 估值", "market_cap · pe_ratio · pb_ratio · ps_ratio · ev_to_ebitda · dividend_yield · earning_yield"],
+    ["Profitability / 盈利能力", "roe · roa · gross_margin · operating_margin · net_margin"],
+    ["Liquidity & leverage / 偿债与杠杆", "current_ratio · debt_to_equity"],
+    ["Income statement / 利润表", "total_revenue · operating_income · net_income · ebitda"],
+    ["Cash flow / 现金流", "operating_cash_flow · free_cash_flow · capital_expenditure"],
+    ["Balance sheet / 资产负债表", "total_assets · total_liabilities · cash_and_equivalents · stockholders_equity"],
+    ["Reference market fields / 辅助行情", "adjusted_price · dollar_volume · volume"],
+  ];
+  return (
+    <div style={{ maxWidth: 860, margin: "0 auto" }}>
+      <FinancialSourceSelector active="morningstar" />
+
+      <ProviderHero
+        id="morningstar-overview"
+        provider="morningstar"
+        eyebrow="Independent fundamentals provider · Premium"
+        title="Morningstar Fundamentals"
+        zhTitle="Morningstar 财务基本面"
+        en="A revision-aware daily dataset of selected Morningstar US fundamentals. Leandata exposes a bounded, read-only latest view while preserving source NULLs, daily fill-forward behavior, availability-date semantics, and provider-specific revision rules."
+        zh="Morningstar 美股基本面的修订感知日度数据集。Leandata 通过有界、只读的 latest view 提供数据，并保留源端 NULL、日度前填、可用日期语义及供应商修订规则。"
+        chips={["daily snapshots", "28 nullable metrics", "SPY + QQQ scope", "latest-view dedup", "Premium"]}
+        alt="Morningstar provider logo"
+      />
+
+      <h3 id="morningstar-pit" className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>什么是 PIT？ / What is point-in-time data?</h3>
+      <DocDesc
+        zh="PIT（Point-in-Time）数据要求在回看某个历史日期时，只使用当时已经公开或可获得的信息，并使用当时真实存在的证券与成分关系。它的目的，是避免把后来才知道的财报修订、指数成分变化或公司存续结果提前带入历史回测。"
+        en="Point-in-time (PIT) data means that a historical simulation may use only information that was public or available at that historical moment, together with the securities and memberships that actually existed then. Its purpose is to prevent later revisions, constituent changes, or survival outcomes from leaking backward into a backtest."
+      />
+      <ProviderFeatures items={[
+        ["Availability timing", "A value belongs to a backtest only after it became available, not merely because its fiscal period had ended.", "数值只有在真正可用后才能进入回测，不能仅因财报期已经结束就提前使用。"],
+        ["Revision timing", "A later restatement must not silently replace what an investor could have known on an earlier date.", "后续重述不能静默替换投资者在更早日期能够知道的内容。"],
+        ["Universe timing", "Historical membership should reflect the constituents present on each date, rather than only today's survivors.", "历史股票池应反映每个日期当时的成分，而不是只保留今天仍存续的公司。"],
+        ["Why it matters", "Without PIT controls, look-ahead and survivorship bias can materially overstate research performance.", "缺少 PIT 控制会引入未来信息和幸存者偏差，从而显著夸大研究表现。"],
+      ]} />
+
+      <div className="provider-note">
+        <strong>本数据集的 PIT 边界 / PIT boundary of this dataset</strong><br/>
+        本数据集的股票范围基于 SPY + QQQ 股票集合，而不是完整的历史 PIT 成分序列，因此存在 current-constituent survivorship bias。<code>date</code> 使用 LEAN <code>Fundamental.Time</code> availability/file date，不是 <code>EndTime</code> 或 fiscal period end。它改善了单行数据的可用时间语义，但不等于完整的严格 PIT 认证。
+        <br/>The symbol scope is based on an SPY + QQQ stock set rather than a complete historical PIT membership series, so current-constituent survivorship bias remains. <code>date</code> uses the LEAN <code>Fundamental.Time</code> availability/file date, not <code>EndTime</code> or fiscal period end. This improves row-level availability timing, but it is not equivalent to full strict-PIT certification.
+      </div>
+
+      <ProviderStats items={[
+        ["847,954", "deduplicated logical rows", "去重后的逻辑行"],
+        ["550", "symbols in dataset scope", "数据范围内标的数"],
+        ["1,682", "distinct availability dates", "不同可用日期"],
+        ["2020 → 2026", "current dataset window", "当前数据区间"],
+      ]} />
+
+      <h3 id="morningstar-processing" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>去重与数据处理 / Deduplication and processing</h3>
+      <ProviderFlow items={[
+        ["Normalize key", "Use symbol + availability date as the logical key", "以 symbol + 可用日期作为逻辑键"],
+        ["Resolve versions", "Identify physical versions of the same logical observation", "识别同一逻辑观测的物理版本"],
+        ["Select latest", "Return one latest logical row per symbol/date", "每个 symbol/date 返回一条最新逻辑行"],
+        ["Preserve meaning", "Keep source values, NULLs, and fill-forward unchanged", "保持源值、NULL 与前填语义不变"],
+      ]} />
+
+      <ProviderFeatures items={[
+        ["Deterministic deduplication", "The latest view collapses repeated physical rows into one logical symbol/date observation.", "latest view 将重复物理行折叠为一个 symbol/date 逻辑观测。"],
+        ["Revision-aware selection", "If the same logical key has multiple versions, the latest admitted version is returned.", "同一逻辑键存在多个版本时，返回最新纳入的版本。"],
+        ["No value rewriting", "The API does not winsorize, interpolate, forward-fill, or convert a missing metric to zero.", "API 不缩尾、不插值、不自行前填，也不把缺失指标转换为零。"],
+        ["Source fill-forward disclosed", "Repeated daily values may reflect the provider's source-level fill-forward and do not imply a new filing.", "连续相同日值可能来自供应商源端前填，并不代表新的公司披露。"],
+      ]} />
+
+      <h3 className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>字段 / Metrics</h3>
+      <div style={{ display: "grid", gap: 8, marginBottom: 28 }}>
+        {metrics.map(([group, fields]) => (
+          <div key={group} style={{ borderTop: "1px solid var(--rule)", padding: "10px 0" }}>
+            <strong style={{ display: "block", fontSize: 13, marginBottom: 4 }}>{group}</strong>
+            <code style={{ color: "var(--ink-muted)", fontSize: 12, lineHeight: 1.7 }}>{fields}</code>
+          </div>
+        ))}
+      </div>
+
+      <h3 id="morningstar-fields" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>字段字典 / Field dictionary</h3>
+      <BilingualDataTable
+        columns={[["Field", "字段"], ["Meaning", "含义"], ["Boundary", "使用边界"]]}
+        rows={[
+          ["market_cap", ["Equity market capitalization", "股票总市值"], ["Nullable provider observation", "供应商观测值，可为空"]],
+          ["pe_ratio", ["Price-to-earnings ratio", "市盈率"], ["Do not impute missing earnings", "盈利缺失时不得插补"]],
+          ["pb_ratio", ["Price-to-book ratio", "市净率"], ["Provider methodology preserved", "保留供应商口径"]],
+          ["ps_ratio", ["Price-to-sales ratio", "市销率"], ["Provider methodology preserved", "保留供应商口径"]],
+          ["ev_to_ebitda", ["Enterprise value to EBITDA", "企业价值 / EBITDA"], ["May be unavailable for some capital structures", "部分资本结构可能不可用"]],
+          ["dividend_yield", ["Dividend yield", "股息率"], ["Currently source-NULL across this archive", "当前归档中源端均为空"]],
+          ["earning_yield", ["Earnings yield", "盈利收益率"], ["Nullable; not a trading return", "可为空；并非投资回报率"]],
+          ["roe", ["Return on equity", "净资产收益率"], ["Daily snapshot of provider ratio", "供应商比率的日度快照"]],
+          ["roa", ["Return on assets", "总资产收益率"], ["Daily snapshot of provider ratio", "供应商比率的日度快照"]],
+          ["gross_margin", ["Gross profit margin", "毛利率"], ["Ratio units follow source", "比例单位遵循源端"]],
+          ["operating_margin", ["Operating margin", "营业利润率"], ["Ratio units follow source", "比例单位遵循源端"]],
+          ["net_margin", ["Net profit margin", "净利率"], ["Ratio units follow source", "比例单位遵循源端"]],
+          ["current_ratio", ["Current assets / current liabilities", "流动比率"], ["Nullable for non-comparable issuers", "不可比发行人可能为空"]],
+          ["debt_to_equity", ["Debt-to-equity ratio", "债务权益比"], ["Provider methodology preserved", "保留供应商口径"]],
+          ["total_revenue", ["Total reported revenue", "营业总收入"], ["Snapshot value, not a filing event timestamp", "快照值，不是披露事件时间"]],
+          ["operating_income", ["Operating income", "营业利润"], ["Currency and scale follow source", "币种与量级遵循源端"]],
+          ["net_income", ["Net income", "净利润"], ["Currency and scale follow source", "币种与量级遵循源端"]],
+          ["ebitda", ["Earnings before interest, taxes, depreciation and amortization", "息税折旧摊销前利润"], ["Provider-computed where available", "按供应商可用口径"]],
+          ["operating_cash_flow", ["Cash flow from operations", "经营活动现金流"], ["Snapshot value", "快照值"]],
+          ["free_cash_flow", ["Free cash flow", "自由现金流"], ["Provider calculation preserved", "保留供应商计算口径"]],
+          ["capital_expenditure", ["Capital expenditure", "资本开支"], ["Sign convention follows source", "正负号遵循源端"]],
+          ["total_assets", ["Total assets", "总资产"], ["Snapshot value", "快照值"]],
+          ["total_liabilities", ["Total liabilities", "总负债"], ["Snapshot value", "快照值"]],
+          ["cash_and_equivalents", ["Cash and cash equivalents", "现金及现金等价物"], ["Snapshot value", "快照值"]],
+          ["stockholders_equity", ["Stockholders' equity", "股东权益"], ["Snapshot value", "快照值"]],
+          ["adjusted_price", ["Reference adjusted equity price", "辅助复权价格"], ["Not the authoritative market-price API", "不是权威行情接口"]],
+          ["dollar_volume", ["Reference dollar volume", "辅助成交额"], ["For context only", "仅作上下文参考"]],
+          ["volume", ["Reference share volume", "辅助成交量"], ["For context only", "仅作上下文参考"]],
+        ]}
+      />
+      <p className="callout" style={{ marginBottom: 30 }}>
+        <code>dividend_yield</code> 当前所有 logical rows 均为源端 NULL；保留该字段用于 schema 稳定性，客户端不得将其解释为 0。
+        <br/><code>dividend_yield</code> is currently source-NULL for every logical row. It remains in the stable schema and must not be interpreted as zero.
+      </p>
+
+      <section id="morningstar-history" style={{ borderTop: "1px solid var(--rule)", paddingTop: 26, marginBottom: 34 }}>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>History · GET / POST</div>
+        <h3 className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>历史快照 / Daily history</h3>
+        <EndpointBadge method="GET" path="/v1/fundamentals/morningstar" />
+        <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
+          查询去重后的日度宽表。<code>symbol</code> 是 <code>symbols</code> 的单值别名；GET query 与 POST JSON body 均受相同边界约束。
+          <br/>Query deduplicated daily-wide observations. <code>symbol</code> aliases the single-value form of <code>symbols</code>; GET query and POST JSON body use the same bounds.
+        </p>
+        <ParamTable rows={[
+          { name: "symbol / symbols", type: "string", required: false, desc: "Comma-separated US equity tickers; maximum 100.", zh: "逗号分隔的美股代码，最多 100 个。" },
+          { name: "start", type: "date", required: false, desc: "Inclusive YYYY-MM-DD start; defaults to end minus 30 calendar days.", zh: "包含式 YYYY-MM-DD 起始日期；默认 end 前 30 个日历日。" },
+          { name: "end", type: "date", required: false, desc: "Inclusive YYYY-MM-DD end; defaults to today.", zh: "包含式 YYYY-MM-DD 结束日期；默认今天。" },
+          { name: "fields", type: "string", required: false, desc: "Comma-separated subset of the 28 metrics; defaults to all.", zh: "28 个指标的逗号分隔子集；默认全部。" },
+          { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000. One extra row proves truncation.", zh: "默认 5,000，最大 10,000；额外读取一行用于证明截断。" },
+        ]} />
+        <div className="callout" style={{ marginBottom: 18 }}>
+          未指定 symbol 的横截面查询最多允许 7 个 inclusive calendar days。超过时返回 <code>400 symbol_or_short_window_required</code>。响应中的 <code>truncated=true</code> 表示存在更多 logical rows。
+          <br/>Unfiltered cross-sections are limited to seven inclusive calendar days. Larger requests return <code>400 symbol_or_short_window_required</code>. <code>truncated=true</code> proves more logical rows exist.
+        </div>
+        <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS \\
+  'https://leandata.uk/v1/fundamentals/morningstar?symbol=AAPL&start=2026-09-15&end=2026-09-17&fields=market_cap,pe_ratio,total_revenue,net_income,free_cash_flow' \\
+  -H 'Authorization: Bearer YOUR_TOKEN'`}</pre>
+        <pre className="code">{`{
+  "schema": "morningstar_fundamentals_history_v1",
+  "source": "morningstar",
+  "scope": "spy_qqq_current_constituent_capture",
+  "date_semantics": "Lean Fundamental.Time availability/file date",
+  "pit_policy": "not certified strict point-in-time",
+  "fill_policy": "source daily fill-forward is preserved; API performs no filling",
+  "row_count": 3,
+  "truncated": false,
+  "rows": [
+    {
+      "symbol": "AAPL",
+      "date": "2026-09-15",
+      "market_cap": 4835635601200,
+      "pe_ratio": 37.997707,
+      "total_revenue": 416161000000,
+      "net_income": 112010000000,
+      "free_cash_flow": 98767000000
+    }
+  ]
+}`}</pre>
+      </section>
+
+      <section id="morningstar-coverage" style={{ borderTop: "1px solid var(--rule)", paddingTop: 26, marginBottom: 32 }}>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>Coverage · GET</div>
+        <h3 className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>覆盖与 NULL 审计 / Coverage & NULL audit</h3>
+        <EndpointBadge method="GET" path="/v1/fundamentals/morningstar/coverage" />
+        <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
+          返回 physical/logical rows、日期范围、distinct dates、symbol 数、逐年 coverage，以及每个 metric 的 NULL 数。无需日期参数，但仍要求 Premium token。
+          <br/>Returns physical/logical rows, date range, distinct dates, symbol count, annual coverage, and per-metric NULL counts. It takes no date parameters but still requires a Premium token.
+        </p>
+        <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS 'https://leandata.uk/v1/fundamentals/morningstar/coverage' \\
+  -H 'Authorization: Bearer YOUR_TOKEN'`}</pre>
+        <pre className="code">{`{
+  "schema": "morningstar_fundamentals_coverage_v1",
+  "source": "morningstar",
+  "totals": {
+    "logical_rows": "847954",
+    "physical_rows": "852106",
+    "min_date": "2020-01-02",
+    "max_date": "2026-09-17",
+    "distinct_dates": "1682",
+    "symbols": "550"
+  },
+  "null_counts": { "market_cap": "16441", "pe_ratio": "23764", "dividend_yield": "847954" },
+  "years": [ ... ]
+}`}</pre>
+      </section>
+
+      <h3 className="display-title" style={{ fontSize: 27, margin: "0 0 10px" }}>权限、响应头与错误 / Access, headers & errors</h3>
+      <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, marginBottom: 14 }}>
+        两个 endpoints 均使用现有 Bearer authentication、historical concurrency、archive/egress admission 和 usage/access logging。Standard/Free 返回 <code>403 morningstar_premium_required</code>。后端错误经过清洗，不泄漏 ClickHouse SQL 或凭据。
+        <br/>Both endpoints reuse Bearer authentication, historical concurrency, archive/egress admission, and usage/access logging. Standard/Free receives <code>403 morningstar_premium_required</code>. Backend errors are sanitized and do not expose ClickHouse SQL or credentials.
+      </p>
+      <pre className="code">{`X-Cache: HIT
+X-Cache-Tier: archive_clickhouse
+X-Data-Source: morningstar_fundamentals_archive
+X-Request-Id: <uuid>`}</pre>
+
+      <div className="provider-attribution">
+        <strong>Provider attribution / 数据来源：</strong> Morningstar US Fundamentals. Morningstar and its marks are the property of their respective owner. Leandata is not presenting this dataset as the complete Morningstar universe or as certified strict point-in-time data.
+        <br/>数据源为 Morningstar US Fundamentals。Morningstar 名称及标识归其权利人所有。Leandata 不将本数据集表述为 Morningstar 完整股票池或经认证的严格 PIT 数据。
+        <br/><a href="https://www.quantconnect.com/data/morning-star-us-fundamentals" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>Official dataset disclosure / 官方数据披露 ↗</a>
       </div>
     </div>
   );
@@ -2531,11 +3102,46 @@ function CnDataSections() {
   );
 }
 
-function ProxyApiBody() {
+function useFocusedDirectChildren(focus, defaultSection, boundaries, alwaysVisibleIds = []) {
+  const ref = React.useRef(null);
+  React.useLayoutEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    let section = defaultSection;
+    for (const child of Array.from(root.children)) {
+      const containsId = (id) => child.id === id || child.querySelector(`[id="${id}"]`);
+      const boundary = boundaries.find(([id]) => containsId(id));
+      if (boundary) section = boundary[1];
+      const alwaysVisible = alwaysVisibleIds.some(containsId);
+      child.hidden = Boolean(focus && !alwaysVisible && section !== focus);
+    }
+  }, [focus, defaultSection, boundaries, alwaysVisibleIds]);
+  return ref;
+}
+
+const PROXY_FOCUS_BOUNDARIES = [
+  ["cn-data-overview", "cn"],
+  ["free-plan-usage", "overview"],
+  ["post-v1-history-bars", "stocks"],
+  ["get-post-v1-indices-history", "indices"],
+  ["cash-indices-overview", "indices"],
+  ["get-post-v1-indices-minute", "indices"],
+  ["spectral-overview", "research"],
+  ["get-post-v1-spectral-tick-flow", "research"],
+  ["post-v1-history-news", "crypto-news"],
+  ["post-v1-stock-history-trade-quote", "stocks"],
+  ["market-us-world", "stocks"],
+  ["provider-fallback-cache", "options"],
+  ["post-v1-crypto-us-latest-orderbooks", "crypto-news"],
+  ["post-admin-login", "overview"],
+];
+
+function ProxyApiBody({ focus }) {
   const lang = useCurrentLanguage();
   const isZh = lang === "zh";
+  const focusRef = useFocusedDirectChildren(focus, "overview", PROXY_FOCUS_BOUNDARIES);
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div ref={focusRef} style={{ maxWidth: 760 }}>
 
       {/* ── Getting started ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Getting started</div>
@@ -2559,7 +3165,7 @@ function ProxyApiBody() {
         All data surfaces accept the same token. Origin hosts and cache tiers may move during failover, so clients should never pin a raw server IP.
         <br/><span style={{ color: "var(--ink-soft)" }}>历史 REST、实时 REST 与 WebSocket 均使用稳定域名和同一 Token。故障切换时源站与缓存层可能调整，客户端不应绑定裸 IP。</span>
       </div>
-      <a href="#cn-data-overview" style={{ textDecoration: "none" }}>
+      <a href={DOC_PATHS.marketCn} style={{ textDecoration: "none" }}>
         <div style={{ border: "1px solid var(--accent-rule)", background: "var(--accent-soft)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13, display: "flex", gap: 12, alignItems: "center" }}>
           <span style={{ padding: "2px 8px", borderRadius: 999, background: "var(--accent-ink)", color: "var(--ink-inverse)", fontFamily: "var(--f-mono)", fontSize: 10, fontWeight: 700, letterSpacing: ".08em", whiteSpace: "nowrap" }}>PRIVATE BETA · LIVE · 内测已上线</span>
           <span style={{ color: "var(--ink-base)" }}>
@@ -2671,7 +3277,7 @@ Authorization: Bearer <TOKEN>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontSize: 12 }}><a href="#cn-data-overview">CN Data 中国数据</a> · live /v1/cn/* · private beta · no purchase; explicit account authorization required</td>
+            <td style={{ fontSize: 12 }}><a href={DOC_PATHS.marketCn}>CN Data 中国数据</a> · live /v1/cn/* · private beta · no purchase; explicit account authorization required</td>
           </tr>
         </tbody>
       </table>
@@ -2972,6 +3578,276 @@ print("Option contracts:", resp_opt.status_code)`}
 }`}
       </pre>
 
+      <h2 id="cash-indices-overview" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>QuantConnect 现金指数分钟线 / Cash-indices minute archive</h2>
+      <DocDesc
+        zh="十二个现金指数的 1 分钟 OHLC 归档（2020-01-02 起，无 volume 列，源端本来就没有）：SPX、NDX、VIX、DJI、VIX3M、VIX6M、RUT、DXY、TNX、VVIX、SKEW、VXN。时间戳统一为 UTC：SPX/VIX/DJI/VIX3M/VIX6M/RUT/TNX/VVIX/SKEW/VXN 按 America/Chicago 会话，NDX/DXY 按 America/New_York 会话（DXY 近 24 小时、每日 17:00–18:00 ET 休市，节假日全天休市）。提前收市日与稀疏日 bar 较少，缺失 bar 原样保留不填补。日度版仅覆盖 SPX/NDX/VIX/DJI（由分钟线按交易所时区派生：open 取首 bar，close 取尾 bar）；其余八个标的为分钟线专用，日度请客户端自行 resample。四个新接口均为 Paid plan，Free 返回 403 cash_indices_paid_plan_required。"
+        en="1-minute OHLC archive for twelve cash indices since 2020-01-02 (no volume column exists at the source): SPX, NDX, VIX, DJI, VIX3M, VIX6M, RUT, DXY, TNX, VVIX, SKEW and VXN. Timestamps are UTC normalized from exchange-local sessions: SPX/VIX/DJI/VIX3M/VIX6M/RUT/TNX/VVIX/SKEW/VXN in America/Chicago, NDX/DXY in America/New_York (DXY trades near-24h with a 17:00-18:00 ET break and is closed on holidays). Early-close and sparse days carry fewer bars; missing bars are preserved, never filled. The derived daily version covers only SPX/NDX/VIX/DJI (open is the first bar, close the last bar, bucketed in listing-exchange time); the other eight symbols are minute-only, resample client-side for daily bars. All four endpoints require a paid plan; Free returns 403 cash_indices_paid_plan_required."
+      />
+      <ProviderStats items={[
+        ["9,741,555", "minute bars (UTC)", "分钟 bar（UTC）"],
+        ["6,748", "derived daily bars (4 symbols)", "派生日线（4 标的）"],
+        ["2,420", "distinct UTC dates (DXY near-24h)", "不同 UTC 日期（含 DXY 近 24 小时）"],
+        ["2020 → 2026", "archive window", "归档区间"],
+      ]} />
+
+      <h2 id="get-post-v1-indices-minute" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/indices/minute</h2>
+      <DocDesc
+        zh="查询现金指数分钟线。symbol 支持全部十二个标的（SPX、NDX、VIX、DJI、VIX3M、VIX6M、RUT、DXY、TNX、VVIX、SKEW、VXN，最多 12 个）；start/end 为 UTC 日历日（包含）；默认 limit 5,000，最大 10,000，超量返回 truncated=true。无 symbol 的横截面请求最多 7 个包含首尾的日历日。Paid plan 可用，Free 返回 403。"
+        en="Query cash-index minute bars. All twelve symbols are supported (SPX, NDX, VIX, DJI, VIX3M, VIX6M, RUT, DXY, TNX, VVIX, SKEW, VXN; max 12); start/end are inclusive UTC calendar days; default limit 5,000, max 10,000 with truncated=true on overflow. Unfiltered cross-sections are limited to 7 inclusive calendar days. Paid plans only; Free returns 403."
+      />
+      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/indices/minute`} />
+      <ParamTable rows={[
+        { name: "symbol / symbols", type: "string", required: false, desc: "12 cash-index symbols; comma-separated, max 12", zh: "十二个现金指数代码，逗号分隔，最多 12 个" },
+        { name: "start", type: "date", required: false, desc: "Inclusive UTC date YYYY-MM-DD; defaults to end minus 30 days", zh: "起始 UTC 日期（包含）；默认 end 前 30 天" },
+        { name: "end", type: "date", required: false, desc: "Inclusive UTC date YYYY-MM-DD; defaults to today", zh: "结束 UTC 日期（包含）；默认今天" },
+        { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000", zh: "默认 5,000，最大 10,000" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1/indices/minute?symbol=SPX&start=2026-09-15&end=2026-09-17&limit=3"`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`// Response excerpt
+{
+  "schema": "cash_indices_minute_history_v1",
+  "scope": "qc_cash_indices",
+  "ts_semantics": "UTC timestamps normalized from exchange-local sessions",
+  "row_count": 3,
+  "truncated": false,
+  "rows": [
+    { "symbol": "SPX", "ts": "2026-09-15 13:31:00", "open": 7612.82, "high": 7617.26, "low": 7609.95, "close": 7614.18 }
+  ]
+}`}
+      </pre>
+
+      <h2 id="get-v1-indices-minute-coverage" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET /v1/indices/minute/coverage</h2>
+      <DocDesc
+        zh="返回分钟线总量、起止 UTC 时间戳、distinct 日期数和分 symbol 覆盖。Paid plan 可用，Free 返回 403。"
+        en="Return minute-bar totals, UTC bounds, distinct dates and per-symbol coverage. Paid plans only; Free returns 403."
+      />
+      <EndpointBadge method="GET" path={`${REST_BASE}/v1/indices/minute/coverage`} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1/indices/minute/coverage"`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`// Response excerpt (verified 2026-09-20)
+{
+  "schema": "cash_indices_minute_coverage_v1",
+  "totals": { "rows": "9741555", "distinct_dates": "2420", "symbols": "12",
+    "min_ts": "2020-01-02 05:01:00", "max_ts": "2026-09-19 04:00:00" },
+  "by_symbol": [ ... ]
+}`}
+      </pre>
+
+      <h2 id="get-post-v1-indices-daily" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/indices/daily</h2>
+      <DocDesc
+        zh="查询由分钟线派生的现金指数日线：仅支持 SPX/NDX/VIX/DJI 四个标的；date 按上市交易所时区切分，open/high/low/close 为首/最高/最低/尾 bar，附 bars 与 session 起止（UTC）。其余八个分钟线专用标的请客户端自行 resample，请求它们会返回 400 invalid_symbol。Paid plan 可用，Free 返回 403。"
+        en="Query daily bars derived from the minute archive: only SPX/NDX/VIX/DJI are supported; date is bucketed in listing-exchange time, open/high/low/close come from the first/highest/lowest/last bars, plus bar counts and UTC session bounds. The other eight minute-only symbols must be resampled client-side; requesting them returns 400 invalid_symbol. Paid plans only; Free returns 403."
+      />
+      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/indices/daily`} />
+      <ParamTable rows={[
+        { name: "symbol / symbols", type: "string", required: false, desc: "SPX, NDX, VIX, DJI; comma-separated, max 4", zh: "仅 SPX、NDX、VIX、DJI，逗号分隔，最多 4 个" },
+        { name: "start", type: "date", required: false, desc: "Inclusive YYYY-MM-DD; defaults to end minus 30 days", zh: "起始日期（包含）；默认 end 前 30 天" },
+        { name: "end", type: "date", required: false, desc: "Inclusive YYYY-MM-DD; defaults to today", zh: "结束日期（包含）；默认今天" },
+        { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000", zh: "默认 5,000，最大 10,000" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1/indices/daily?symbol=VIX&start=2026-09-15&end=2026-09-17"`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`// Response excerpt
+{
+  "schema": "cash_indices_daily_history_v1",
+  "rows": [
+    { "symbol": "VIX", "date": "2026-09-15", "open": 16.84, "high": 17.84, "low": 16.84, "close": 17.21, "bars": 405 }
+  ]
+}`}
+      </pre>
+
+      <h2 id="get-v1-indices-daily-coverage" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET /v1/indices/daily/coverage</h2>
+      <DocDesc
+        zh="返回日线总量、日期范围和分 symbol 覆盖（含平均 bar 数）。Paid plan 可用，Free 返回 403。"
+        en="Return daily-bar totals, date range and per-symbol coverage including average bars. Paid plans only; Free returns 403."
+      />
+      <EndpointBadge method="GET" path={`${REST_BASE}/v1/indices/daily/coverage`} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1/indices/daily/coverage"`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`// Response excerpt (verified 2026-09-20)
+{
+  "schema": "cash_indices_daily_coverage_v1",
+  "totals": { "rows": "6748", "min_date": "2020-01-02", "max_date": "2026-09-18", "symbols": "4" },
+  "by_symbol": [ ... ]
+}`}
+      </pre>
+
+      {/* ── Research Signals ── */}
+      <ProviderHero
+        id="spectral-overview"
+        provider="quantconnect"
+        eyebrow="QuantConnect research signal · Paid plans"
+        title="Spectral Tick-Flow Signal"
+        zhTitle="Spectral Tick-Flow 频谱订单流信号"
+        en="A daily research signal designed to detect persistent periodic structure in equity trading flow. The API covers a historical-SPY-membership dataset and returns a revision-aware, deduplicated latest view through bounded, authenticated queries."
+        zh="用于识别股票成交订单流中持续周期结构的日频研究信号。API 面向历史 SPY 成分范围，通过有界、认证查询返回修订感知且去重后的 latest view。"
+        chips={["daily signal", "historical SPY membership", "stable Equity SID", "10 source fields", "paid plans"]}
+        logo={null}
+      />
+
+      <ProviderStats items={[
+        ["1,436,047", "logical signal rows", "逻辑信号行"],
+        ["898", "underlying Equity SIDs", "底层 Equity SID"],
+        ["2,839", "distinct signal dates", "不同信号日期"],
+        ["2009 → 2026", "observed archive window", "已观测归档区间"],
+      ]} />
+
+      <h3 id="spectral-methodology" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>信号解读 / Interpreting the signal</h3>
+      <ProviderFeatures items={[
+        ["Periodic execution", "Execution fields describe periodic structure detected in trade flow; they are research features, not orders or guaranteed forecasts.", "Execution 字段描述成交订单流中的周期结构；它们是研究特征，不是订单或收益保证。"],
+        ["Volume spectrum", "Volume fields summarize dominant periodicity and the share of observed volume variation explained by that component.", "Volume 字段概括主导周期及该周期对观测成交量变化的解释比例。"],
+        ["Cross-sectional ranking", "ExecutionScore can support daily ranking, confirmation, or position-sizing research across a universe.", "ExecutionScore 可用于股票池日度排序、信号确认或仓位研究。"],
+        ["Sparse by design", "Missing dates and NULL fields remain missing. Leandata performs no interpolation, forward fill, or zero substitution.", "缺失日期和 NULL 原样保留；Leandata 不插值、不前填、也不替换为零。"],
+      ]} />
+
+      <h3 id="spectral-processing" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>去重与版本处理 / Deduplication and version handling</h3>
+      <ProviderFlow items={[
+        ["Stable key", "Group observations by underlying SID + signal date", "按底层 SID + 信号日期分组"],
+        ["Resolve version", "Find the newest admitted version for each logical key", "为每个逻辑键确定最新纳入版本"],
+        ["Preserve distinct rows", "Keep every different row in that newest version", "保留最新版本中的每条不同记录"],
+        ["Expose provenance", "Return source_file, captured_at, and row_hash", "返回 source_file、captured_at 与 row_hash"],
+      ]} />
+
+      <div className="provider-note">
+        <strong>历史身份与覆盖边界 / Historical identity and coverage boundary</strong><br/>
+        <code>oa_underlying_sid</code> 是稳定身份；<code>oa_requested_ticker</code> 是该观测对应的历史别名。20 个 ticker alias 映射到多个 SID，因此长期研究不得只按 ticker 拼接。该数据集不是官方 universe-file 全量，2009–2014 高度稀疏，SPY 本体目前仍为 0 行。
+        <br/><code>oa_underlying_sid</code> is the stable identity; <code>oa_requested_ticker</code> is the historical alias associated with the observation. Twenty ticker aliases map to multiple SIDs, so long-history research must not join by ticker alone. This is not the official universe-file lineage, 2009–2014 are highly sparse, and SPY itself currently has zero rows.
+      </div>
+
+      <h3 id="spectral-fields" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>字段字典 / Field dictionary</h3>
+      <BilingualDataTable
+        columns={[["Field", "字段"], ["Interpretation", "解释"], ["API behavior", "API 行为"]]}
+        rows={[
+          ["executionperiodseconds", ["Detected execution periodicity in seconds", "检测到的执行周期（秒）"], ["Nullable source value", "源端可为空"]],
+          ["executionrayleigh", ["Rayleigh-style periodicity statistic for execution flow", "执行订单流的 Rayleigh 型周期统计量"], ["Returned without rescaling", "不重新缩放，原样返回"]],
+          ["executionscore", ["Composite execution-flow signal score", "综合执行订单流信号分数"], ["Useful for ranking; not a probability", "可用于排序；并非概率"]],
+          ["executionsigned", ["Source-inferred signed execution indication", "源端推断的有向执行指示"], ["NULL is preserved", "NULL 原样保留"]],
+          ["executionsize", ["Source estimate associated with detected execution flow", "与检测到的执行流相关的源端规模估计"], ["Do not infer missing values", "不得推断缺失值"]],
+          ["signaturecount", ["Count of detected execution signatures", "检测到的执行特征数量"], ["A positive value indicates detected signatures", "正值表示检测到特征"]],
+          ["tradecount", ["Trade count used by the source observation", "源端观测使用的成交笔数"], ["Daily observation field", "日度观测字段"]],
+          ["value", ["Source signal value associated with the observation", "该观测对应的源端信号值"], ["Provider semantics preserved", "保留供应商语义"]],
+          ["volumedominantperiodseconds", ["Dominant periodicity in the volume spectrum, in seconds", "成交量频谱的主导周期（秒）"], ["Nullable source value", "源端可为空"]],
+          ["volumevarianceexplained", ["Share of observed volume variation explained by the dominant component", "主导成分解释的成交量变化比例"], ["NULL is preserved", "NULL 原样保留"]],
+          ["oa_underlying_sid", ["Stable historical Equity security identifier", "稳定的历史 Equity 证券标识"], ["Preferred query and join key", "推荐查询与关联键"]],
+          ["oa_requested_ticker", ["Ticker alias associated with the observation", "该观测对应的 ticker 历史别名"], ["Not a stable historical key", "不是稳定历史键"]],
+          ["source_file / captured_at / row_hash", ["Version provenance and distinct-row identity", "版本来源、时间与不同记录身份"], ["Latest-view provenance remains visible", "latest view 仍显示来源信息"]],
+        ]}
+      />
+
+      <h2 id="get-post-v1-spectral-tick-flow" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/signals/spectral-tick-flow</h2>
+      <DocDesc
+        zh="查询 historical-membership latest view。支持 ticker alias 或底层 Equity SID；建议历史研究优先使用 SID。API 只暴露最新逻辑视图，不提供被取代的物理版本。"
+        en="Query the historical-membership latest view by ticker alias or underlying Equity SID; SID is preferred for historical research. The API exposes only the latest logical view, not superseded physical versions."
+      />
+      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/signals/spectral-tick-flow`} />
+      <ParamTable rows={[
+        { name: "symbol / symbols", type: "string", required: false, desc: "Requested ticker aliases, comma-separated, maximum 100", zh: "requested ticker 历史别名，逗号分隔，最多 100 个" },
+        { name: "sid / sids", type: "string", required: false, desc: "Underlying Equity SIDs, comma-separated, maximum 100; preferred historical identity", zh: "底层 Equity SID，逗号分隔，最多 100 个；推荐作为历史身份" },
+        { name: "start", type: "date", required: false, desc: "Inclusive YYYY-MM-DD; defaults to end minus 30 days", zh: "起始日（包含），YYYY-MM-DD；默认 end 前 30 天" },
+        { name: "end", type: "date", required: false, desc: "Inclusive YYYY-MM-DD; defaults to today", zh: "结束日（包含），YYYY-MM-DD；默认今天" },
+        { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000", zh: "默认 5,000，最大 10,000" },
+      ]} />
+      <DocDesc
+        zh="必须提供 symbol/sid，或把无筛选横截面限制在最多 7 个包含首尾的日历日。truncated=true 表示应缩短日期窗口或按 SID 拆分。两条 Spectral endpoint 仅对认证付费计划开放；Free 计划返回 403。NULL 和 sparse dates 按源端原样返回，不填零、不插值。"
+        en="Provide symbol/sid, or keep an unfiltered cross-section to at most seven inclusive calendar days. If truncated=true, narrow the date window or split by SID. Both Spectral endpoints require an authenticated paid plan; Free returns 403. Source NULLs and sparse dates are preserved without filling or interpolation."
+      />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1/signals/spectral-tick-flow?sid=ARNC%20WF6J1S513QZP&start=2020-04-01&end=2020-04-01&limit=10"`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`// Response — both valid HWM seam rows are retained
+{
+  "schema": "spectral_tick_flow_history_v1",
+  "scope": "spy_historical_membership",
+  "row_count": 2,
+  "truncated": false,
+  "rows": [
+    {
+      "symbol": "ARNC.SpectralTickFlowSignal",
+      "time": "2020-04-01",
+      "executionperiodseconds": 170.7,
+      "executionrayleigh": 3.63,
+      "executionscore": 7.8,
+      "executionsigned": false,
+      "executionsize": 5,
+      "signaturecount": 0,
+      "tradecount": 32162,
+      "value": 7.8,
+      "volumedominantperiodseconds": 300,
+      "volumevarianceexplained": 0.00098,
+      "oa_signal_sid": "ARNC.SpectralTickFlowSignal WF6J1S513QZO",
+      "oa_underlying_sid": "ARNC WF6J1S513QZP",
+      "oa_requested_ticker": "HWM",
+      "oa_membership_tickers": "ARNC|HWM",
+      "source_file": "spectral_tick_flow_spy_historical_membership_2020.csv",
+      "captured_at": "2026-09-19 19:16:43.130",
+      "row_hash": "2050873149935201807"
+    }
+  ]
+}`}
+      </pre>
+
+      <h2 id="get-v1-spectral-tick-flow-coverage" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET /v1/signals/spectral-tick-flow/coverage</h2>
+      <DocDesc
+        zh="返回归档总行数、起止日期、distinct dates、SID/ticker 数、SPY 行数、executionsigned NULL 计数和逐年覆盖。2026-09-19 已验证 latest view 为 1,436,047 行、898 个底层 SID、2009-07-30 至 2026-09-18。"
+        en="Return total and annual coverage: rows, date bounds, distinct dates, SID/ticker counts, SPY rows, and preserved executionsigned NULLs. As verified on 2026-09-19, the latest view contains 1,436,047 rows across 898 underlying SIDs from 2009-07-30 through 2026-09-18."
+      />
+      <EndpointBadge method="GET" path={`${REST_BASE}/v1/signals/spectral-tick-flow/coverage`} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1/signals/spectral-tick-flow/coverage"`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`// Response excerpt
+{
+  "schema": "spectral_tick_flow_coverage_v1",
+  "scope": "spy_historical_membership",
+  "totals": {
+    "rows": "1436047",
+    "distinct_dates": "2839",
+    "underlying_sids": "898",
+    "requested_tickers": "878",
+    "spy_rows": "0",
+    "execution_signed_nulls": "724",
+    "min_date": "2009-07-30",
+    "max_date": "2026-09-18"
+  },
+  "years": [ ... ]
+}`}
+      </pre>
+
+      <h3 id="spectral-workflows" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>研究工作流 / Research workflows</h3>
+      <ProviderFeatures items={[
+        ["Daily cross-sectional rank", "Rank eligible SIDs by ExecutionScore after applying a common finite-data mask.", "在共同有限值样本上按 ExecutionScore 对符合条件的 SID 做日度横截面排序。"],
+        ["Confirmation filter", "Require SignatureCount > 0 or combine the signal with independent liquidity and risk controls.", "要求 SignatureCount > 0，或与独立流动性及风险约束共同使用。"],
+        ["Market-neutral research", "Compare top and bottom cohorts with lagged execution, transaction costs, and survivorship-safe membership.", "使用滞后执行、交易成本和无幸存者偏差的成分关系比较顶部与底部组。"],
+        ["Revision audit", "Retain source_file, captured_at, and row_hash in downstream research artifacts.", "在下游研究产物中保留 source_file、captured_at 与 row_hash。"],
+      ]} />
+      <div className="provider-note">
+        <strong>研究而非交易指令 / Research signal, not an order instruction</strong><br/>
+        信号不提供收益保证、成交方向认证或可直接执行的订单。回测必须独立处理可交易价格、下单时钟、缺失值、交易成本、公司行动与成分时点。<br/>
+        The signal does not guarantee returns, certify trade direction, or provide executable orders. Backtests must independently model investable prices, decision timing, missingness, costs, corporate actions, and membership timing.
+      </div>
+      <div className="provider-attribution">
+        <strong>Provider attribution / 数据来源：</strong> QuantConnect Spectral Tick-Flow Signal. QuantConnect and its marks are the property of their respective owner. Leandata's historical-membership dataset is independently maintained and must not be represented as the official universe-file dataset.
+        <br/>数据源为 QuantConnect Spectral Tick-Flow Signal。QuantConnect 名称及标识归其权利人所有。Leandata historical-membership 数据集独立维护，不得表述为官方 universe-file 全量数据。
+        <br/><a href="https://www.quantconnect.com/docs/v2/writing-algorithms/datasets/quantconnect/spectral-tick-flow-signal" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>Official dataset documentation / 官方数据文档 ↗</a>
+      </div>
+
       <h2 id="post-v1-history-news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/news</h2>
       <DocDesc
         zh="获取全市场或指定标的的历史新闻文章与快讯，所有套餐均可使用。支持 max_pages 自动分页，每页返回最多 50 篇。"
@@ -3058,6 +3934,25 @@ print("Option contracts:", resp_opt.status_code)`}
 }`}
       </pre>
 
+            {/* ── Market selector: US / World ── */}
+      <div className="eyebrow" style={{ marginBottom: 10 }}>Market · 市场选择</div>
+      <h2 id="market-us-world" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Choose your market · 选择市场</h2>
+      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 16px" }}>
+        US stock routes are available subject to plan permissions and feed coverage. World coverage starts with CN archive
+        slices under <code>/v1/cn/*</code> (private beta · explicit account authorization, ordinary plans excluded).
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>美股接口受套餐权限和行情覆盖范围约束；世界覆盖从中国 A 股归档（内测、单独授权）开始。</span>
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 40 }}>
+        <a href={DOC_PATHS.marketStocks} style={{ textDecoration: "none", border: "1px solid var(--rule)", borderRadius: 10, padding: "14px 16px", background: "var(--bg-paper)" }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-strong)", marginBottom: 4 }}>美股 US market</div>
+          <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>/v2/stocks/* · US market data →</div>
+        </a>
+        <a href={DOC_PATHS.marketCn} style={{ textDecoration: "none", border: "1px solid var(--accent-rule)", borderRadius: 10, padding: "14px 16px", background: "var(--accent-soft)" }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--accent-ink)", marginBottom: 4 }}>世界/中国 World · CN <span style={{ fontFamily: "var(--f-mono)", fontSize: 10, border: "1px solid var(--rule-strong)", borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>内测 beta</span></div>
+          <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>/v1/cn/* · archive slice · explicit auth →</div>
+        </a>
+      </div>
+
       {/* ── Stock Data ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Stock Data</div>
 
@@ -3068,9 +3963,19 @@ print("Option contracts:", resp_opt.status_code)`}
         Feed availability follows standard market entitlement: <code>iex</code> is the default; <code>sip</code>, <code>delayed_sip</code>, <code>boats</code>, <code>overnight</code>, and <code>otc</code> depend on the requested endpoint and subscription.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>以下股票行情接口均通过标准 <code>GET</code> 路径开放。响应结构遵循官方全市场行情规范，鉴权、多级服务端缓存与并发控制由代理统一处理。</span>
       </p>
-      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 28px" }}>
+      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 16px" }}>
         Every endpoint in this section returns standard JSON payloads. Repeated latest/snapshot calls return <code>X-Cache: DISK_HIT</code> when served from cache.
       </p>
+
+      <div className="provider-source-card" style={{ marginBottom: 28 }}>
+        <img className="provider-source-logo" src={PROVIDER_LOGOS.alpaca} alt="US equities market-data feed illustration" loading="lazy" />
+        <div>
+          <strong style={{ display: "block", fontSize: 15, color: "var(--ink-strong)", marginBottom: 4 }}>美股 US market · bars · quotes · trades · snapshots</strong>
+          <div style={{ fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.6 }}>日线与分钟 K 线、报价、逐笔成交、综合快照经同一 Token 提供；feed 与套餐权限见各接口说明。
+            <br/><span style={{ color: "var(--ink-soft)", fontSize: 12 }}>Daily and minute bars, quotes, trades and snapshots on one token; feed and plan entitlement per endpoint.</span>
+          </div>
+        </div>
+      </div>
 
       {STOCK_ENDPOINT_GROUPS.map((group, gi) => (
         <div key={group.title} style={{ marginBottom: gi === STOCK_ENDPOINT_GROUPS.length - 1 ? 48 : 28 }}>
@@ -3872,14 +4777,20 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
   );
 }
 
-function WsUsageBody() {
+const WS_FOCUS_BOUNDARIES = [
+  ["subscribe", "subscriptions"],
+  ["reconnect", "guide"],
+];
+
+function WsUsageBody({ focus }) {
   const lang = useCurrentLanguage();
   const isZh = lang === "zh";
   const H3 = ({ children }) => (
     <h3 style={{ fontFamily: "var(--f-sans)", fontWeight: 500, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--ink-muted)", margin: "32px 0 12px" }}>{children}</h3>
   );
+  const focusRef = useFocusedDirectChildren(focus, "guide", WS_FOCUS_BOUNDARIES);
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div ref={focusRef} style={{ maxWidth: 760 }}>
       <div className="eyebrow" style={{ marginBottom: 10 }}>{isZh ? "实时数据流" : "Realtime"}</div>
       <h2 id="endpoint" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>{isZh ? "WebSocket 连接与实时数据流" : "WebSocket connection"}</h2>
       <DocDesc

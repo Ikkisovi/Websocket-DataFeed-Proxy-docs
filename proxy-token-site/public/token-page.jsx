@@ -105,8 +105,8 @@ function TokenPage() {
         fontSize: 13,
       }}>
         <span>
-          <strong>最近更新 · 财务历史与 Free 计划说明已更新</strong>
-          　文档现在更容易理解，并明确说明 Free 的可用范围；长期财务历史已恢复，股票日线查不到时也会自动尝试历史归档。
+          <strong>最近更新 · 历史数据补齐，中国数据即将接入</strong>
+          　Morningstar、Spectral 与十二个现金指数分钟线已回填完毕，每日更新；GPU 租赁指数与网站视觉同步上线。
         </span>
         <span style={{ fontFamily: "var(--f-mono)", whiteSpace: "nowrap" }}>查看更新 / View updates →</span>
       </a>
@@ -127,7 +127,7 @@ function TokenPage() {
           <div className="card" style={{ padding: 14, marginBottom: 24 }}>
             <div className="eyebrow" style={{ marginBottom: 6 }}>AI agent skill</div>
             <p style={{ color: "var(--ink-muted)", fontSize: 12.5, lineHeight: 1.55, margin: "0 0 10px" }}>
-              下载公开 skill，让 AI agent（如 Claude Code / Cursor / Codex）按正确规范拉取数据，包含 Free 计划范围约束与 400–504 错误分析。
+              下载 AI 使用指南，帮助 Claude Code、Cursor 和 Codex 正确调用 Leandata API。
             </p>
             <a
               className="btn"

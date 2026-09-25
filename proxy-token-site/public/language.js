@@ -298,7 +298,6 @@
     "对同时支持 GET 与 POST 的端点，幂等历史查询优先使用 GET。重复请求可能命中热缓存或归档缓存，请查看 X-Cache / X-Cache-Tier，不要依赖特定边缘供应商。": "For endpoints that support both GET and POST, prefer GET for idempotent historical queries. Repeated requests may hit hot or archive cache; inspect X-Cache and X-Cache-Tier rather than assuming an edge provider.",
     "每个新 HTTPS 请求需约 100ms 用于 TCP + TLS 握手。使用持久连接（HTTP/2 或 keep-alive）可将此开销分摊到所有请求。": "Each new HTTPS request spends about 100 ms on TCP and TLS setup. Persistent HTTP/2 or keep-alive connections amortize this cost across requests.",
     "提供两个 REST 基础 URL，根据查询类型选择合适的。": "Two REST base URLs are available; choose the one appropriate for the query type.",
-    "指数期权现已全面上线。": "Index options are now supported.",
 
     "Admin 登录": "Admin sign-in",
     "管理员密码": "Admin password",

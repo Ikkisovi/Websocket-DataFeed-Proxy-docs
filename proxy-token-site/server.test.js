@@ -636,12 +636,12 @@ describe('POST /api/register', () => {
     expect(res.body.success).toBe(false);
   });
 
-  it('allows registration without an email', async () => {
-    const res = await registerRequest({
+  it('requires an email and verification code for registration', async () => {
+    const res = await request(app).post('/api/register').send({
       username: 'noMail', phone: '1', tier: 'free'
     });
-    expect(res.statusCode).toBe(201);
-    expect(res.body.status).toBe('approved');
+    expect(res.statusCode).toBe(400);
+    expect(res.body.message).toContain('必填');
     expect(JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'))).toEqual([]);
   });
 
@@ -653,12 +653,13 @@ describe('POST /api/register', () => {
     expect(res.body.error).toBe('registration_is_free_only');
   });
 
-  it('stores an optional email on the Free account', async () => {
+  it('stores the verified email on the Free account', async () => {
     const res = await registerRequest({
       username: 'mailUser', phone: '1', tier: 'free', email: 'mailuser@example.com'
     });
     expect(res.statusCode).toBe(201);
     expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0].email).toBe('mailuser@example.com');
+    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0].email_verified).toBe(true);
   });
 });
 
@@ -693,7 +694,7 @@ describe('Email verification and registration template', () => {
     }));
   });
 
-  it('does not require an email challenge for registration', async () => {
+  it('requires a valid matching email challenge for registration', async () => {
     const requested = await request(app)
       .post('/api/register/request-code')
       .send({ email: 'wrong-code@example.com' });
@@ -705,9 +706,9 @@ describe('Email verification and registration template', () => {
       phone: '123',
       tier: 'free'
     });
-    expect(response.statusCode).toBe(201);
-    expect(response.body.status).toBe('approved');
-    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))).toHaveLength(1);
+    expect(response.statusCode).toBe(400);
+    expect(response.body.message).toContain('验证码错误');
+    expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))).toHaveLength(0);
   });
 
   it('allows an admin to read and update the registration email template', async () => {
@@ -1009,6 +1010,10 @@ describe('Registration and bulk product UI contract', () => {
     path.join(__dirname, 'public', 'docs-site.jsx'),
     'utf8'
   );
+  const docsCss = fs.readFileSync(
+    path.join(__dirname, 'public', 'docs', 'tokens.css'),
+    'utf8'
+  );
   const tokenPageSource = fs.readFileSync(
     path.join(__dirname, 'public', 'token-page.jsx'),
     'utf8'
@@ -1022,10 +1027,10 @@ describe('Registration and bulk product UI contract', () => {
     'utf8'
   );
 
-  it('keeps registration on username and phone and replaces the Basic card with Bulk Download', () => {
+  it('requires verified email and replaces the Basic card with Bulk Download', () => {
     expect(registerSource).toContain('required');
-    expect(registerSource).toContain('用户名和手机号共同确定账户');
-    expect(registerSource).not.toContain('/api/register/request-code');
+    expect(registerSource).toContain('用户名、手机号和邮箱共同确定账户');
+    expect(registerSource).toContain('/api/register/request-code');
     expect(registerSource).toContain('Bulk Download');
     expect(registerSource).toContain('/docs/#bulk');
     expect(registerSource).not.toContain('id: "basic"');
@@ -1074,8 +1079,8 @@ describe('Registration and bulk product UI contract', () => {
     expect(tokenPageSource).not.toContain('portal · production');
     expect(tokenPageSource).not.toContain('>Account</a>');
     expect(tokenEntry).toContain('from "../public/token-page.jsx"');
-    expect(rootIndexSource).toContain('src="/assets/token-page.js"');
-    expect(docsIndexSource).toContain('src="/assets/docs-page.js"');
+    expect(rootIndexSource).toMatch(/src="\/assets\/token-page\.js(?:\?[^"]*)?"/);
+    expect(docsIndexSource).toMatch(/src="\/assets\/docs-page\.js(?:\?[^"]*)?"/);
     expect(rootIndexSource).not.toContain('type="text/babel"');
     expect(docsIndexSource).not.toContain('type="text/babel"');
     expect(docsSource.match(/Index options are supported/g)).toHaveLength(1);
@@ -1091,8 +1096,8 @@ describe('Registration and bulk product UI contract', () => {
   });
 
   it('uses neutral bilingual financial-data language', () => {
-    expect(docsSource).toContain('Premium access includes company statements, ratios, metrics, profiles, and reference data.');
-    expect(docsSource).toContain('Premium 账户可访问公司财报、财务比率、关键指标、公司资料及参考数据。');
+    expect(docsSource).toContain('Premium access includes company statements, ratios, growth metrics, profiles, market reference data');
+    expect(docsSource).toContain('Premium 账户可通过一个 Leandata Token 访问公司财报、财务比率、增长指标');
     expect(docsSource).toContain('function Bilingual');
     expect(docsSource).not.toMatch(/Alpaca|ThetaData/);
     expect(docsSource).not.toContain('FMP 数据');
@@ -1100,11 +1105,86 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).not.toContain('No FMP');
   });
 
+  it('puts the Regular or Morningstar source choice first and documents Morningstar boundaries', () => {
+    expect(docsSource).toContain('id="financial-source-selector"');
+    expect(docsSource).toContain('选择财务数据源 / Choose a financial data source');
+    expect(docsSource).toContain('Regular / FMP');
+    expect(docsSource).toContain('/v1/fundamentals/morningstar');
+    expect(docsSource).toContain('/v1/fundamentals/morningstar/coverage');
+    expect(docsSource).toContain('not certified strict point-in-time');
+    expect(docsSource).toContain('source daily fill-forward is preserved; API performs no filling');
+    expect(docsSource).toContain('morningstar_premium_required');
+    expect(docsSource).toContain('financialMorningstar: "/docs/financial/morningstar/"');
+    expect(docsSource).toContain('financialRegular: "/docs/financial/regular/"');
+    expect(docsSource).toContain('marketStocks: "/docs/market/stocks/"');
+    expect(docsSource).toContain('Every topic now has its own URL and focused page');
+  });
+
+  it('documents cash-indices minute and derived daily endpoints', () => {
+    expect(docsSource).toContain('id="cash-indices-overview"');
+    expect(docsSource).toContain('GET/POST /v1/indices/minute');
+    expect(docsSource).toContain('/v1/indices/minute/coverage');
+    expect(docsSource).toContain('GET/POST /v1/indices/daily');
+    expect(docsSource).toContain('/v1/indices/daily/coverage');
+    expect(docsSource).toContain('cash_indices_minute_history_v1');
+    expect(docsSource).toContain('cash_indices_daily_history_v1');
+    expect(docsSource).toContain('America/Chicago');
+    expect(docsSource).toContain('9741555');
+    expect(docsSource).toContain('cash_indices_paid_plan_required');
+  });
+
+  it('builds independent physical pages for every docs navigation subsection', () => {
+    const pages = [
+      'market/overview', 'market/stocks', 'market/options', 'market/indices',
+      'market/research-signals', 'market/crypto-news', 'market/cn',
+      'financial', 'financial/regular', 'financial/morningstar',
+      'financial/statements', 'financial/ratios-growth', 'bulk/download',
+      'realtime/websocket', 'realtime/subscriptions', 'status', 'usage',
+    ];
+    for (const page of pages) {
+      const html = fs.readFileSync(path.join(__dirname, 'public', 'docs', page, 'index.html'), 'utf8');
+      expect(html).toContain('/assets/docs-page.js?v=20260920-banner-removed');
+      expect(html).toContain('/docs/tokens.css?v=20260920-banner-removed');
+    }
+    expect(docsSource).toContain('href: DOC_PATHS.marketStocks');
+    expect(docsSource).toContain('href: DOC_PATHS.financialMorningstar');
+    expect(docsSource).not.toContain('href={it.href || "#"');
+  });
+
+  it('uses supplied provider logos and publishes complete bilingual provider guides', () => {
+    const providerAssets = [
+      'fmp-data.png', 'morningstar.png', 'alpaca.png',
+    ];
+    for (const asset of providerAssets) {
+      expect(fs.statSync(path.join(__dirname, 'public', 'assets', 'providers', asset)).size).toBeGreaterThan(10000);
+    }
+    expect(docsSource).toContain('/assets/providers/fmp-data.png');
+    expect(docsSource).toContain('/assets/providers/morningstar.png');
+    expect(docsSource).toContain('/assets/providers/alpaca.png');
+    expect(docsSource).not.toContain('quantconnect.png');
+    expect(docsSource).toContain('US equities market-data feed illustration');
+    expect(docsSource).toContain('ProviderHero');
+    expect(docsSource).toContain('什么是 PIT？ / What is point-in-time data?');
+    expect(docsSource).toContain('去重与数据处理 / Deduplication and processing');
+    expect(docsSource).toContain('字段字典 / Field dictionary');
+    expect(docsSource).toContain('Spectral Tick-Flow 频谱订单流信号');
+    expect(docsSource).toContain('executionperiodseconds');
+    expect(docsSource).toContain('volumevarianceexplained');
+    expect(docsSource).toContain('oa_underlying_sid');
+    expect(docsSource).toContain('Provider attribution / 数据来源');
+    expect(docsSource).not.toContain('数据如何进入 API / How the data reaches the API');
+    expect(docsSource).not.toContain('Validated overlap captures and revisions');
+    expect(docsSource).not.toContain('Capture lineage');
+    expect(docsCss).toContain('.provider-hero');
+    expect(docsCss).toContain('.proxy-app [hidden] { display: none !important; }');
+  });
+
   it('adds a bilingual updates banner and updates page entry point', () => {
     const updatesHtml = fs.readFileSync(path.join(__dirname, 'public', 'updates.html'), 'utf8');
     const updatesSource = fs.readFileSync(path.join(__dirname, 'public', 'updates-page.jsx'), 'utf8');
-    expect(tokenPageSource).toContain('财务历史与 Free 计划说明已更新');
-    expect(tokenPageSource).toContain('股票日线查不到时也会自动尝试历史归档');
+    expect(tokenPageSource).toContain('历史数据补齐，中国数据即将接入');
+    expect(tokenPageSource).toContain('十二个现金指数分钟线已回填完毕，每日更新');
+    expect(tokenPageSource).toContain('GPU 租赁指数与网站视觉同步上线');
     expect(tokenPageSource).toContain('href="/updates"');
     expect(tokenPageSource).toContain('查看更新 / View updates →');
     expect(updatesHtml).toContain('src="/assets/updates-page.js"');
@@ -1172,6 +1252,12 @@ describe('Product updates and account-scoped feedback', () => {
       expect.objectContaining({
         title: expect.stringContaining('Index options'),
         body: expect.stringContaining('SPX / SPXW')
+      }),
+      expect.objectContaining({
+        id: 'history-backfill-cn-roadmap-visual-2026-09',
+        date: '2026-09-20',
+        title: expect.stringContaining('历史数据补齐'),
+        body: expect.stringContaining('每日更新')
       })
     ]));
     const unauthorized = await request(app).get('/api/product-updates/feedback/mine');

@@ -380,3 +380,33 @@ code.inline, .ic {
     font-size: 40px !important;
   }
 }
+
+/* --- Grouped docs nav (desktop flyout, responsive rails) --- */
+.topbar .nav-group > button {
+  display: inline-flex;
+  align-items: center;
+}
+@media (max-width: 1180px) {
+  /* Narrow desktop / tablet: drop the right rail, give the width back to content.
+     The inline 3-col grid is overridden here; TokenCard stays reachable via
+     the topbar "Token portal" link. */
+  .docs-content-grid.has-3col {
+    grid-template-columns: 228px minmax(0, 1fr) !important;
+  }
+  .docs-content-grid.has-3col > aside.on-this-page {
+    display: none !important;
+  }
+}
+@media (max-width: 720px) {
+  .topbar .nav-group-panel { position: fixed !important; top: auto !important; left: 12px !important; right: 12px; min-width: 0 !important; }
+  .docs-content-grid.has-3col { grid-template-columns: minmax(0, 1fr) !important; }
+  .docs-sidenav { position: static !important; height: auto !important; max-height: 300px; }
+}
+
+.docs-topbar .nav-group > button.active { background: var(--bg-sunken) !important; border-radius: var(--radius-md); }
+@media (max-width: 720px) {
+  .docs-topbar { height: auto; flex-wrap: wrap; padding-block: 8px; }
+  .docs-topbar .nav { order: 3; width: 100%; flex-shrink: 1; flex-wrap: wrap; overflow: visible; margin: 0; }
+  .docs-topbar .meta { display: flex; margin-left: auto; }
+  .docs-content-grid > nav.docs-sidenav { display: block !important; }
+}
