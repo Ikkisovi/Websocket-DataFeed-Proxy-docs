@@ -62,6 +62,53 @@ const ZPAY_PAYMENT_ENV_FILE = path.join(TEST_DATA_DIR, 'zpay-payment.env');
 const EMAIL_VERIFICATION_FILE = path.join(TEST_DATA_DIR, 'email-verifications.json');
 const EMAIL_TEMPLATE_FILE = path.join(TEST_DATA_DIR, 'email-template.json');
 
+describe('Research data checkout', () => {
+  test('serves a separate page and authoritative free product catalog', async () => {
+    const page = await request(app).get('/research-data');
+    expect(page.status).toBe(200);
+    expect(page.text).toContain('/assets/research-data-page.js');
+    const catalog = await request(app).get('/api/research-data/products');
+    expect(catalog.status).toBe(200);
+    expect(catalog.headers['cache-control']).toBe('no-store');
+    expect(catalog.body.products).toEqual([expect.objectContaining({
+      id: 'spectral-tick-flow', amount_minor: 0, status: 'free',
+      payment_required: false, authentication_required: true
+    })]);
+  });
+
+  test('requires an account and rejects unknown products without changing entitlements', async () => {
+    expect((await request(app).post('/api/research-data/checkout')
+      .send({ product_id: 'spectral-tick-flow' })).status).toBe(401);
+    fs.writeFileSync(USERS_FILE, JSON.stringify([{ username: 'research-user', phone: '13800009999', tier: 'free' }]));
+    const registry = { users: [{ user_id: 'research-user', token: 'research-test-token', role: 'free', expires_at: '2099-01-01T00:00:00Z' }] };
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify(registry));
+    const login = await request(app).post('/api/account/login').send({ credential: { user_id: 'research-user', phone: '13800009999' } });
+    expect(login.status).toBe(200);
+    const cookie = login.headers['set-cookie'][0].split(';')[0];
+    const checkout = body => request(app).post('/api/research-data/checkout').set('Cookie', cookie).send(body);
+    const before = [USERS_FILE, TEST_PROXY_FILE, PAYMENT_ORDERS_FILE].map(file => fs.readFileSync(file, 'utf8'));
+    for (const product_id of ['standard-1m', '__proto__', 'constructor', ['spectral-tick-flow'], null]) {
+      expect((await checkout({ product_id })).status).toBe(400);
+    }
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const result = await checkout({
+        product_id: 'spectral-tick-flow', amount_minor: 9999, role: 'premium', payment_method: 'stripe_card'
+      });
+      expect(result.status).toBe(200);
+      expect(result.body).toMatchObject({ status: 'free_access', amount_minor: 0, payment_required: false });
+      expect(JSON.stringify(result.body)).not.toContain('research-test-token');
+    }
+    expect([USERS_FILE, TEST_PROXY_FILE, PAYMENT_ORDERS_FILE].map(file => fs.readFileSync(file, 'utf8'))).toEqual(before);
+    for (const expiry of ['2020-01-01T00:00:00Z', 'invalid']) {
+      registry.users[0].expires_at = expiry;
+      fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify(registry));
+      const expired = await checkout({ product_id: 'spectral-tick-flow' });
+      expect(expired.status).toBe(403);
+      expect(expired.body.code).toBe('token_expired');
+    }
+  });
+});
+
 function generateStripeTestHeader(payload, secret, timestamp = Math.floor(Date.now() / 1000)) {
   const signature = crypto
     .createHmac('sha256', secret)

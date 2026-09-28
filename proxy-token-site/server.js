@@ -74,6 +74,7 @@ app.get('/updates', (req, res) => res.sendFile(path.join(__dirname, 'public', 'u
 app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'public', 'register.html')));
 app.get('/account', (req, res) => res.sendFile(path.join(__dirname, 'public', 'account.html')));
 app.get('/checkout', (req, res) => res.sendFile(path.join(__dirname, 'public', 'checkout.html')));
+app.get('/research-data', (req, res) => res.sendFile(path.join(__dirname, 'public', 'research-data.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
 // --- Data paths (overridable for tests via env) ---
@@ -345,6 +346,55 @@ function buildPaymentBundles() {
 }
 
 const PAYMENT_BUNDLES = buildPaymentBundles();
+
+// Research products are priced independently of market-data subscriptions.
+// Free access uses the existing active token; it never changes account entitlements.
+const RESEARCH_PRODUCTS = Object.freeze({
+  'spectral-tick-flow': Object.freeze({
+    id: 'spectral-tick-flow',
+    name: 'Spectral Tick-Flow Signal',
+    status: 'free',
+    amount_minor: 0,
+    currency: 'CNY',
+    payment_required: false,
+    authentication_required: true,
+    docs_url: '/docs/market/research-signals/',
+    endpoints: ['/v1/signals/spectral-tick-flow', '/v1/signals/spectral-tick-flow/coverage']
+  })
+});
+
+app.get('/api/research-data/products', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  return res.json({ success: true, products: Object.values(RESEARCH_PRODUCTS) });
+});
+
+app.post('/api/research-data/checkout', requireAccount, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const productId = req.body?.product_id;
+  const product = typeof productId === 'string' && Object.hasOwn(RESEARCH_PRODUCTS, productId)
+    ? RESEARCH_PRODUCTS[productId] : null;
+  if (!product) {
+    return res.status(400).json({ success: false, code: 'unknown_product' });
+  }
+  const expiry = req.account.proxyUser.expires_at;
+  if (expiry && (!Number.isFinite(Date.parse(expiry)) || Date.parse(expiry) <= Date.now())) {
+    return res.status(403).json({ success: false, code: 'token_expired' });
+  }
+  // Fail closed if a future product needs payment: do not fulfill it through this path.
+  if (product.status !== 'free' || product.amount_minor !== 0 || product.payment_required) {
+    return res.status(409).json({ success: false, code: 'payment_required' });
+  }
+  return res.json({
+    success: true,
+    status: 'free_access',
+    product,
+    amount_minor: product.amount_minor,
+    currency: product.currency,
+    payment_required: false,
+    token_url: '/account',
+    expires_at: expiry || null
+  });
+});
 
 // --- In-memory admin sessions ---
 const adminSessions = new Set();

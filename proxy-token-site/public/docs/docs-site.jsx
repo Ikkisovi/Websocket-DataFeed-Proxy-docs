@@ -616,6 +616,7 @@ function DocsTopbar({ active = "proxy" }) {
           );
         })}
         <a href="/alternative-data/">{isZh ? "另类数据" : "Alternative data"}</a>
+        <a href="/research-data">{isZh ? "研究数据采购" : "Research Data"}</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
@@ -3689,12 +3690,12 @@ print("Option contracts:", resp_opt.status_code)`}
       <ProviderHero
         id="spectral-overview"
         provider="quantconnect"
-        eyebrow="QuantConnect research signal · Paid plans"
+        eyebrow="QuantConnect research signal · Currently free"
         title="Spectral Tick-Flow Signal"
         zhTitle="Spectral Tick-Flow 频谱订单流信号"
         en="A daily research signal designed to detect persistent periodic structure in equity trading flow. The API covers a historical-SPY-membership dataset and returns a revision-aware, deduplicated latest view through bounded, authenticated queries."
         zh="用于识别股票成交订单流中持续周期结构的日频研究信号。API 面向历史 SPY 成分范围，通过有界、认证查询返回修订感知且去重后的 latest view。"
-        chips={["daily signal", "historical SPY membership", "stable Equity SID", "10 source fields", "paid plans"]}
+        chips={["daily signal", "historical SPY membership", "stable Equity SID", "10 source fields", "free with token"]}
         logo={null}
       />
 
@@ -3761,9 +3762,10 @@ print("Option contracts:", resp_opt.status_code)`}
         { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000", zh: "默认 5,000，最大 10,000" },
       ]} />
       <DocDesc
-        zh="必须提供 symbol/sid，或把无筛选横截面限制在最多 7 个包含首尾的日历日。truncated=true 表示应缩短日期窗口或按 SID 拆分。两条 Spectral endpoint 仅对认证付费计划开放；Free 计划返回 403。NULL 和 sparse dates 按源端原样返回，不填零、不插值。"
-        en="Provide symbol/sid, or keep an unfiltered cross-section to at most seven inclusive calendar days. If truncated=true, narrow the date window or split by SID. Both Spectral endpoints require an authenticated paid plan; Free returns 403. Source NULLs and sparse dates are preserved without filling or interpolation."
+        zh="必须提供 symbol/sid，或把无筛选横截面限制在最多 7 个包含首尾的日历日。truncated=true 表示应缩短日期窗口或按 SID 拆分。两条 Spectral endpoint 当前免费，所有有效 Token（含 Free 计划）均可访问已有历史归档，不受行情免费套餐回溯窗口限制。NULL 和 sparse dates 按源端原样返回，不填零、不插值。"
+        en="Provide symbol/sid, or keep an unfiltered cross-section to at most seven inclusive calendar days. If truncated=true, narrow the date window or split by SID. Both Spectral endpoints are currently free with any active token, including Free plans, across the available archive without the free market-data lookback window. Source NULLs and sparse dates are preserved without filling or interpolation."
       />
+      <p><a href="/research-data" style={{ color: "var(--accent-ink)" }}>研究数据采购 · Research Data checkout →</a></p>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v1/signals/spectral-tick-flow?sid=ARNC%20WF6J1S513QZP&start=2020-04-01&end=2020-04-01&limit=10"`}

@@ -73,6 +73,7 @@ function AccountTopbar({ loggedIn, onLogout }) {
         <a href="/docs/">Docs</a>
         <a href="/register">新用户注册</a>
         <a href="/account" className="active">账户管理</a>
+        <a href="/research-data">研究数据采购</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
@@ -355,6 +356,9 @@ function AccountPage() {
       const data = await accountRequest("/api/account/overview");
       setOverview(data);
       setAuthenticated(true);
+      if (new URLSearchParams(window.location.search).get("next") === "research-data") {
+        window.location.replace("/research-data");
+      }
       return data;
     } catch (error) {
       if (error.status === 401) {

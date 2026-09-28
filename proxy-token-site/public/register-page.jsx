@@ -749,6 +749,9 @@ function RegisterPage() {
                     <label className="label" style={{ marginTop: 14 }}>一次性 Token</label>
                     <input className="input mono" readOnly value={activatedAccess.token} style={{ fontSize: 12 }} />
                     <div className="hint">请立即复制并安全保存；有效期至 {activatedAccess.expiry ? new Date(activatedAccess.expiry).toLocaleDateString("zh-CN") : "—"}。</div>
+                    {new URLSearchParams(window.location.search).get("next") === "research-data" && (
+                      <a className="btn accent" href="/research-data" style={{ marginTop: 14 }}>继续研究数据采购 →</a>
+                    )}
                   </div>
                 )}
               </div>

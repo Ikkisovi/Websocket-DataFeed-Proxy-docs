@@ -8,6 +8,7 @@ const entries = [
   "token-page",
   "register-page",
   "checkout-page",
+  "research-data-page",
   "account-page",
   "updates-page",
   "docs-page",

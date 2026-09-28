@@ -18,6 +18,9 @@
     "更新与留言 — Leandata": "Updates and feedback — Leandata",
 
     "账户管理": "Account",
+    "研究数据采购": "Research Data",
+    "研究数据采购 →": "Research Data →",
+    "继续研究数据采购 →": "Continue to Research Data →",
     "已有账号 · 账户管理 →": "Already registered · Manage account →",
     "新用户注册": "Create account",
     "退出登录": "Sign out",

@@ -385,6 +385,7 @@ function CheckoutPage() {
           <CheckoutIcon name="back" /> 配置套餐
         </button>
         <div className="checkout-error" style={{ marginTop: 40 }}>{error || "无法打开结账页。"}</div>
+        <p><a href="/research-data">研究数据采购 →</a></p>
       </main>
     );
   }
@@ -394,6 +395,7 @@ function CheckoutPage() {
       <button className="checkout-back" onClick={goBack}>
         <CheckoutIcon name="back" /> 配置套餐
       </button>
+      <p><a href="/research-data">研究数据采购 →</a></p>
 
       {result ? (
           <CheckoutSuccess info={info} result={result} issuedToken={issuedToken} />
