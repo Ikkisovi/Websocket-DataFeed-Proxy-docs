@@ -46,3 +46,7 @@ data/bulk-orders.json
 
 # Generated aggregate publication (source captures stay on the workstation)
 public/alternative-data/gpu-index.json
+
+# Mutable admin-authored announcement history belongs to the persistent data volume.
+/data/product-updates.json
+/data/product-updates.json.*.tmp

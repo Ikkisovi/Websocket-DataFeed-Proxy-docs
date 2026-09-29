@@ -2,6 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const crypto = require('crypto');
+const { cleanAnnouncementHtml, announcementText, announcementParagraph } = require('./public/assets/announcement-sanitize.cjs');
 const fs = require('fs');
 const net = require('net');
 const path = require('path');
@@ -83,6 +84,7 @@ const PENDING_FILE = path.join(DATA_DIR, 'pending.json');
 const BULK_ORDERS_FILE = path.join(DATA_DIR, 'bulk-orders.json');
 const PAYMENT_ORDERS_FILE = path.join(DATA_DIR, 'payment-orders.json');
 const PRODUCT_FEEDBACK_FILE = path.join(DATA_DIR, 'product-update-feedback.json');
+const PRODUCT_UPDATES_FILE = path.join(DATA_DIR, 'product-updates.json');
 const EMAIL_VERIFICATION_FILE = path.join(DATA_DIR, 'email-verifications.json');
 const EMAIL_TEMPLATE_FILE = path.join(DATA_DIR, 'email-template.json');
 const EMAIL_ENV_FILE = process.env.EMAIL_ENV_FILE || path.join(DATA_DIR, 'email.env');
@@ -4020,9 +4022,129 @@ app.post('/api/account/renew', requireAccount, (req, res) => {
 // ============================================================
 // PRODUCT UPDATES: public changelog + account-scoped feedback
 // ============================================================
+function readProductUpdates() {
+  try {
+    const entries = JSON.parse(fs.readFileSync(PRODUCT_UPDATES_FILE, 'utf8'));
+    if (!Array.isArray(entries) || entries.some(entry => !entry || typeof entry.id !== 'string'
+      || typeof entry.title !== 'string' || typeof entry.body_html !== 'string'
+      || typeof entry.date !== 'string' || !Number.isSafeInteger(entry.version) || entry.version < 1
+      || !['draft', 'published', 'archived'].includes(entry.status))
+      || new Set(entries.map(entry => entry.id)).size !== entries.length) {
+      throw new Error('Invalid announcement store');
+    }
+    return entries;
+  } catch (error) {
+    // Only a missing store uses the legacy seed. Never overwrite corrupt history.
+    if (error.code !== 'ENOENT') throw error;
+    return PRODUCT_UPDATES.map(entry => ({
+      ...entry,
+      body_html: announcementParagraph(entry.body),
+      body_en_html: announcementParagraph(entry.body_en),
+      status: 'published', version: 1,
+      created_at: `${entry.date}T00:00:00.000Z`,
+      updated_at: `${entry.date}T00:00:00.000Z`,
+      published_at: `${entry.date}T00:00:00.000Z`
+    }));
+  }
+}
+
+function sortedProductUpdates(entries) {
+  return entries.sort((a, b) => b.date.localeCompare(a.date)
+    || String(b.created_at).localeCompare(String(a.created_at)) || a.id.localeCompare(b.id));
+}
+
+function publicProductUpdate(entry) {
+  const body_html = cleanAnnouncementHtml(entry.body_html);
+  const body_en_html = cleanAnnouncementHtml(entry.body_en_html);
+  return {
+    id: entry.id, date: entry.date, tag: entry.tag || '',
+    title: entry.title, title_en: entry.title_en || '',
+    body_html, body_en_html,
+    body: announcementText(body_html), body_en: announcementText(body_en_html)
+  };
+}
+
+function validateProductUpdate(input) {
+  const limits = { title: 200, title_en: 200, tag: 80, body_html: 30000, body_en_html: 30000 };
+  for (const [key, limit] of Object.entries(limits)) {
+    if (input[key] !== undefined && (typeof input[key] !== 'string' || input[key].length > limit)) {
+      return { error: `${key} exceeds its limit or is not text.` };
+    }
+  }
+  const date = input.date;
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)
+    || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) {
+    return { error: '请选择有效的公告日期。' };
+  }
+  if (!['draft', 'published', 'archived'].includes(input.status)) return { error: 'Invalid announcement status.' };
+  const body_html = cleanAnnouncementHtml(input.body_html);
+  const body_en_html = cleanAnnouncementHtml(input.body_en_html);
+  if (!input.title?.trim()) return { error: '请填写公告标题。' };
+  if (input.status === 'published' && !announcementText(body_html)) return { error: '发布前请填写正文。' };
+  return { entry: {
+    title: input.title.trim(), title_en: (input.title_en || '').trim(),
+    tag: (input.tag || '').trim(), date, body_html, body_en_html, status: input.status
+  } };
+}
+
+function productUpdateStorageError(res) {
+  return res.status(503).json({ success: false, error: 'announcement_storage_unavailable', message: '公告读取或保存失败，历史内容未被覆盖，请稍后重试。' });
+}
+
 app.get('/api/product-updates', (_req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=60');
-  return res.json({ success: true, updates: PRODUCT_UPDATES });
+  res.setHeader('Cache-Control', 'no-store');
+  try {
+    return res.json({ success: true, updates: sortedProductUpdates(readProductUpdates()
+      .filter(entry => entry.status === 'published')).map(publicProductUpdate) });
+  } catch { return productUpdateStorageError(res); }
+});
+
+app.use('/api/admin/product-updates', requireAdmin, (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
+
+app.get('/api/admin/product-updates', (_req, res) => {
+  try {
+    return res.json({ success: true, updates: sortedProductUpdates(readProductUpdates())
+      .map(entry => ({ ...entry, ...publicProductUpdate(entry) })) });
+  } catch { return productUpdateStorageError(res); }
+});
+
+app.post('/api/admin/product-updates', (req, res) => {
+  const validation = validateProductUpdate({ ...req.body, status: req.body?.status || 'draft' });
+  if (validation.error) return res.status(400).json({ success: false, message: validation.error });
+  try {
+    const entries = readProductUpdates();
+    const now = new Date().toISOString();
+    const entry = { ...validation.entry, id: `update_${crypto.randomUUID()}`, version: 1,
+      created_at: now, updated_at: now, published_at: validation.entry.status === 'published' ? now : null };
+    entries.push(entry);
+    writeJSONAtomic(PRODUCT_UPDATES_FILE, entries);
+    return res.status(201).json({ success: true, update: { ...entry, ...publicProductUpdate(entry) } });
+  } catch { return productUpdateStorageError(res); }
+});
+
+app.put('/api/admin/product-updates/:id', (req, res) => {
+  try {
+    // Synchronous read/check/atomic-write keeps each mutation indivisible in this
+    // single portal process. Version checks protect against stale admin tabs.
+    const entries = readProductUpdates();
+    const index = entries.findIndex(entry => entry.id === req.params.id);
+    if (index < 0) return res.status(404).json({ success: false, message: '公告不存在。' });
+    const previous = entries[index];
+    if (req.body?.version !== previous.version) {
+      return res.status(409).json({ success: false, error: 'announcement_conflict', message: '此公告已在其他页面更新，请刷新列表并重新打开，避免覆盖修改。' });
+    }
+    const validation = validateProductUpdate(req.body);
+    if (validation.error) return res.status(400).json({ success: false, message: validation.error });
+    const now = new Date().toISOString();
+    const entry = { ...previous, ...validation.entry, version: previous.version + 1, updated_at: now,
+      published_at: previous.published_at || (validation.entry.status === 'published' ? now : null) };
+    entries[index] = entry;
+    writeJSONAtomic(PRODUCT_UPDATES_FILE, entries);
+    return res.json({ success: true, update: { ...entry, ...publicProductUpdate(entry) } });
+  } catch { return productUpdateStorageError(res); }
 });
 
 app.get('/api/product-updates/feedback/mine', requireAccount, (req, res) => {
