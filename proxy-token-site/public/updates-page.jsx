@@ -56,6 +56,7 @@ function UpdatesPage() {
         fetch("/api/product-updates"),
         fetch("/api/product-updates/feedback/mine", { credentials: "same-origin" }),
       ]);
+      if (!updatesResponse.ok) throw new Error('Updates unavailable');
       const updatesData = await updatesResponse.json();
       setUpdates(updatesData.updates || []);
       if (mineResponse.ok) {
@@ -112,14 +113,20 @@ function UpdatesPage() {
           <section>
             <h2 className="display-title" style={{ fontSize: 28, margin: "0 0 14px" }}>近期改动</h2>
             {loading && <p style={{ color: "var(--ink-muted)" }}>读取中…</p>}
+            {!loading && updates.length === 0 && <p style={{ color: "var(--ink-muted)" }}>暂无已发布公告。</p>}
             {!loading && updates.map(item => (
               <article key={item.id} className="card" style={{ padding: 20, marginBottom: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
                   <span className="tier premium">{item.tag}</span><span style={{ color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 12 }}>{updateDate(item.date)}</span>
                 </div>
-                <h3 style={{ margin: "0 0 8px", fontSize: 20 }}>{item.title}</h3>
-                <p style={{ margin: "0 0 8px", color: "var(--ink-muted)", lineHeight: 1.6 }}>{item.body}</p>
-                <p style={{ margin: 0, color: "var(--ink-soft)", fontSize: 13, lineHeight: 1.5 }}>{item.title_en} · {item.body_en}</p>
+                <h3 data-no-i18n="true" style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 700, overflowWrap: "anywhere" }}>{item.title}</h3>
+                {item.body_html ? <div data-no-i18n="true" className="announcement-rich-text" dangerouslySetInnerHTML={{ __html: item.body_html }} />
+                  : <p style={{ margin: "0 0 8px", color: "var(--ink-muted)", lineHeight: 1.6 }}>{item.body}</p>}
+                {(item.title_en || item.body_en) && <section style={{ marginTop: 14, color: "var(--ink-muted)", fontSize: 13 }}>
+                  {item.title_en && <h4 style={{ margin: "0 0 8px", fontWeight: 700 }}>{item.title_en}</h4>}
+                  {item.body_en_html ? <div data-no-i18n="true" className="announcement-rich-text" dangerouslySetInnerHTML={{ __html: item.body_en_html }} />
+                    : <p style={{ margin: 0, lineHeight: 1.6 }}>{item.body_en}</p>}
+                </section>}
               </article>
             ))}
             <article className="card" style={{ padding: 20, marginBottom: 14 }}>

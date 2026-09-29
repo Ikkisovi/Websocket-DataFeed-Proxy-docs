@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin — 审核后台</title>
+  <link rel="stylesheet" href="/site-announcements.css">
+  <script defer src="/assets/site-announcements.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1053,6 +1055,9 @@
     <div class="tab" data-tab="bulk" onclick="switchTab(this)">
       Bulk 下载 <span class="count" id="tab-count-bulk">0</span>
     </div>
+    <div class="tab" data-tab="site-updates" onclick="switchTab(this)">
+      网站公告 <span class="count" id="tab-count-site-updates">—</span>
+    </div>
     <div class="tab" data-tab="announce" onclick="switchTab(this)">
       Email 公告 <span class="count" id="tab-count-announce">—</span>
     </div>
@@ -1233,6 +1238,56 @@
       <div id="list-bulk">
         <div class="empty">正在加载 Bulk 申请…</div>
       </div>
+    </div>
+    <div id="panel-site-updates" class="hidden">
+      <section id="site-updates-panel">
+        <div class="site-updates-heading">
+          <div><h1>网站公告</h1><p>撰写产品更新与服务通知，在这里管理草稿、已发布公告和历史记录。</p></div>
+          <a class="btn ghost" href="/updates" target="_blank" rel="noopener">查看网站更新页 ↗</a>
+        </div>
+        <div class="site-updates-actions">
+          <label class="field-label" for="site-updates-template">新公告模板</label>
+          <select class="input" id="site-updates-template"><option value="blank">空白公告</option><option value="product">产品更新</option><option value="maintenance">维护通知</option></select>
+          <button class="btn primary" type="button" id="site-updates-new">＋ 新建公告</button>
+        </div>
+        <p id="site-updates-message" role="status" aria-live="polite"></p>
+        <div class="site-updates-layout">
+          <aside class="site-updates-history" aria-label="历史公告">
+            <div class="site-updates-history-header">
+              <h2>历史公告 <span id="site-updates-count"></span></h2>
+              <input class="input" type="search" id="site-updates-search" aria-label="搜索公告" placeholder="搜索标题、分类或正文">
+              <select class="input" id="site-updates-filter" aria-label="公告状态"><option value="">全部状态</option><option value="draft">草稿</option><option value="published">已发布</option><option value="archived">已归档</option></select>
+              <button class="btn ghost" type="button" id="site-updates-refresh">刷新列表</button>
+            </div>
+            <div id="site-updates-list"></div>
+          </aside>
+          <section class="site-updates-editor">
+            <header><h2 id="site-updates-editor-title">新建公告</h2><span id="site-updates-status">草稿</span></header>
+            <p id="site-updates-hint"></p>
+            <form id="site-updates-form">
+              <fieldset id="site-updates-fields">
+                <div><label class="field-label" for="site-updates-title">标题 · 自动加粗</label><input class="input" id="site-updates-title" required maxlength="200" placeholder="用一句话说明本次更新"></div>
+                <div class="site-updates-pair">
+                  <div><label class="field-label" for="site-updates-date">公告日期</label><input class="input" id="site-updates-date" type="date" required></div>
+                  <div><label class="field-label" for="site-updates-tag">分类 / 标签（可选）</label><input class="input" id="site-updates-tag" maxlength="80" placeholder="例如：数据更新"></div>
+                </div>
+                <div><div class="field-label">正文 · 支持子标题、加粗与列表</div><div class="pell" id="site-updates-body"></div></div>
+                <details id="site-updates-english"><summary>English version（可选）</summary>
+                  <div class="announce-field"><label class="field-label" for="site-updates-title_en">English title</label><input class="input" id="site-updates-title_en" maxlength="200"></div>
+                  <div class="announce-field"><div class="field-label">English body</div><div class="pell" id="site-updates-body_en"></div></div>
+                </details>
+              </fieldset>
+              <div class="site-updates-actions">
+                <button class="btn" type="button" id="site-updates-preview-button">预览排版</button>
+                <button class="btn" type="submit" id="site-updates-save">保存草稿</button>
+                <button class="btn primary" type="button" id="site-updates-publish">发布到网站</button>
+                <button class="btn ghost" type="button" id="site-updates-archive" hidden>归档公告</button>
+              </div>
+            </form>
+            <article id="site-updates-preview" aria-label="公告预览" data-no-i18n="true" hidden></article>
+          </section>
+        </div>
+      </section>
     </div>
     <div id="panel-announce" class="hidden">
       <div class="announce-header">
@@ -1466,6 +1521,7 @@
     document.getElementById('panel-payments').classList.toggle('hidden', tab !== 'payments');
     document.getElementById('panel-bulk').classList.toggle('hidden', tab !== 'bulk');
     document.getElementById('panel-announce').classList.toggle('hidden', tab !== 'announce');
+    document.getElementById('panel-site-updates').classList.toggle('hidden', tab !== 'site-updates');
     document.getElementById('panel-template').classList.toggle('hidden', tab !== 'template');
     document.getElementById('panel-user360').classList.toggle('hidden', tab !== 'user360');
 
@@ -1475,6 +1531,7 @@
         : tab === 'usage' ? '用户用量监控'
         : tab === 'archive' ? 'Archive / 回填观察'
         : tab === 'announce' ? '公告后台'
+        : tab === 'site-updates' ? '网站公告管理'
         : tab === 'template' ? '注册邮件模板'
         : tab === 'bulk' ? 'Bulk 订单后台'
         : '审核后台';
@@ -1499,6 +1556,7 @@
     }
     if (tab === 'archive') loadArchivePipeline();
     if (tab === 'announce') loadAnnouncements();
+    if (tab === 'site-updates') window.SiteAnnouncements.open(() => adminToken);
     if (tab === 'bulk') loadData();
     if (tab === 'template') loadEmailTemplate();
   }
