@@ -17,6 +17,7 @@ spec.loader.exec_module(mail)
 ROW = {
     'id': 'update_example', 'title': '我们的下一步目标', 'date': '2026-09-29',
     'body': '即将上线的新数据。', 'body_en': '', 'version': 6, 'status': 'published',
+    'body_html': '<h2>更新</h2><p><strong>即将上线</strong>的新数据。</p><ul><li>列表</li></ul>',
 }
 
 
@@ -27,6 +28,7 @@ class FakeAPI:
         self.send_error = False
         self.failed = False
         self.incomplete = False
+        self.html = '<html><body><h1>Announcement</h1><strong>Bold</strong></body></html>'
 
     def call(self, path, payload=None):
         self.calls.append((path, payload))
@@ -43,6 +45,7 @@ class FakeAPI:
             return {'success': not self.failed, 'results': results}
         return {
             'success': True, 'dry_run': True, 'reachable': [{}, {}],
+            'format': 'multipart/alternative', 'html': self.html,
             'skipped': [{'reason': 'no_email'}, {'reason': 'test_user'}],
             'duplicate_recipients': [{}], 'recipient_snapshot': 'frozen-recipients',
         }
@@ -84,6 +87,36 @@ class EmailContractTests(unittest.TestCase):
         with self.assertRaises(mail.OperationError):
             mail.queue_send(self.api, 'latest')
         self.assertFalse(self.api.calls)
+
+    def test_bilingual_rich_html_is_sent_without_flattening(self):
+        self.api.row.update(title_en='New <Data>', body_en='Details', body_en_html='<h3>Details</h3><p><b>New</b></p>')
+        summary, payload = mail.preview(self.api, ROW['id'])
+        self.assertIn(ROW['body_html'], payload['body_html'])
+        self.assertIn('<h2>New &lt;Data&gt;</h2>', payload['body_html'])
+        self.assertIn('<h3>Details</h3><p><b>New</b></p>', payload['body_html'])
+        self.assertEqual(summary['html'], self.api.html)
+        self.queue()
+        self.deliver()
+        self.assertEqual(self.api.sends()[0]['body_html'], payload['body_html'])
+
+    def test_server_without_html_capability_cannot_queue_plaintext_by_accident(self):
+        self.api.html = None
+        with self.assertRaises(mail.OperationError):
+            self.queue()
+        self.launch.assert_not_called()
+        self.assertFalse(self.api.sends())
+
+    def test_changed_html_template_blocks_before_send(self):
+        self.queue()
+        self.api.html = '<html>A different template</html>'
+        self.assertEqual(self.deliver()['state'], 'blocked_before_send')
+        self.assertFalse(self.api.sends())
+
+    def test_formatting_only_edit_changes_content_fingerprint(self):
+        self.queue()
+        self.api.row['body_html'] = '<p>即将上线的新数据。</p>'
+        self.assertEqual(self.deliver()['state'], 'blocked_before_send')
+        self.assertFalse(self.api.sends())
 
     def test_drafts_cannot_be_emailed(self):
         self.api.row['status'] = 'draft'

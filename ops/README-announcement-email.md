@@ -10,11 +10,20 @@ python3 ops/email_site_announcement.py send <announcement-id>
 python3 ops/email_site_announcement.py status <announcement-id>
 ```
 
-`preview` sends nothing. It returns the exact plain-text email, announcement
-version, content hash, unique recipient count, exclusions, and recipient snapshot.
-It uses the published title/body verbatim, includes an authored English body when
-present, and adds the public updates link and site signature. It does not generate
-translations or include a draft. Rich formatting remains available at the link.
+`preview` sends nothing. It returns the HTML email and plain-text alternative,
+announcement version, content/HTML hashes, unique recipient count, exclusions,
+and recipient snapshot. It preserves the published rich body (bold, headings,
+lists and links), includes authored English content when present, and adds the
+updates link and site signature. The server applies the registration email's
+font/color/footer style and safe inline email styles. It does not generate
+translations or include a draft. An older API without HTML support fails closed.
+
+To save the actual server-rendered HTML for inspection without sending mail:
+
+```bash
+python3 ops/email_site_announcement.py preview latest > /tmp/announcement-preview.json
+python3 -c 'import json,pathlib; p=json.loads(pathlib.Path("/tmp/announcement-preview.json").read_text()); pathlib.Path("/tmp/announcement-preview.html").write_text(p["html"])'
+```
 
 `send` immediately submits the announcement to all eligible registry users with
 valid email addresses, including expired human accounts. The existing server
@@ -38,7 +47,7 @@ delivery. Detailed existing server receipts remain in `data/announce-log.jsonl`.
 
 Each announcement ID can be submitted only once through this tool, including
 after edits. A lock serializes concurrent submissions; repeated calls return the
-existing receipt. A content/version change before dispatch blocks the job. A
+existing receipt. A content/version or rendered HTML change before dispatch blocks the job. A
 previous non-test server send with the same subject also blocks it. This is a CLI
 guard; independently initiated admin UI/API sends do not share its lock.
 
