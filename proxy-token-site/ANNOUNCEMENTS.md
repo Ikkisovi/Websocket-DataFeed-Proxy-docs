@@ -11,6 +11,10 @@ Open `/admin`, sign in, and choose **网站公告**. This manages the public
   Saving a published entry updates the public page immediately.
 - Search historical titles, tags and bodies; filter by status. Archived
   announcements remain editable and can be restored as drafts or republished.
+- The homepage banner follows the first entry in the public updates feed and
+  displays its title and a plain-text excerpt. It refreshes on page focus and
+  every minute while visible, uses optional English content in English mode,
+  and hides when the feed is empty or unavailable.
 - Unsaved edits trigger a discard warning. Conflicting edits return HTTP 409;
   refresh the history list and reopen the entry before editing again.
 

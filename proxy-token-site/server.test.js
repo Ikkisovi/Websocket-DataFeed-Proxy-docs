@@ -1229,9 +1229,6 @@ describe('Registration and bulk product UI contract', () => {
   it('adds a bilingual updates banner and updates page entry point', () => {
     const updatesHtml = fs.readFileSync(path.join(__dirname, 'public', 'updates.html'), 'utf8');
     const updatesSource = fs.readFileSync(path.join(__dirname, 'public', 'updates-page.jsx'), 'utf8');
-    expect(tokenPageSource).toContain('历史数据补齐，中国数据即将接入');
-    expect(tokenPageSource).toContain('十二个现金指数分钟线已回填完毕，每日更新');
-    expect(tokenPageSource).toContain('GPU 租赁指数与网站视觉同步上线');
     expect(tokenPageSource).toContain('href="/updates"');
     expect(tokenPageSource).toContain('查看更新 / View updates →');
     expect(updatesHtml).toContain('src="/assets/updates-page.js"');

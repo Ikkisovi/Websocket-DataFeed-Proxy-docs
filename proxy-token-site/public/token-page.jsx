@@ -1,8 +1,73 @@
 // TokenPage.jsx — Redesigned token-generation page (replaces public/index.html)
 // Same shell + topbar as docs site; left = form, right = docs iframe
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { DocsSite } from "./docs/docs-site.jsx";
+
+function LatestAnnouncement() {
+  const [announcement, setAnnouncement] = useState(null);
+  const [language, setLanguage] = useState(() => window.LeandataI18n?.getLanguage() || "zh");
+
+  useEffect(() => {
+    let active = true;
+    let controller;
+    const refresh = async () => {
+      if (document.visibilityState === "hidden") return;
+      controller?.abort();
+      const request = new AbortController();
+      controller = request;
+      try {
+        const response = await fetch("/api/product-updates", { cache: "no-store", signal: request.signal });
+        if (!response.ok) throw new Error("Announcements unavailable");
+        const data = await response.json();
+        if (!data.success || !Array.isArray(data.updates)) throw new Error("Invalid announcement feed");
+        // The public feed contains published entries in the same order as /updates.
+        if (active && !request.signal.aborted) setAnnouncement(data.updates[0] || null);
+      } catch {
+        // Do not leave an archived or outdated announcement visible after a failed refresh.
+        if (active && !request.signal.aborted) setAnnouncement(null);
+      }
+    };
+    const onLanguageChange = event => setLanguage(event.detail.language);
+    refresh();
+    const timer = window.setInterval(refresh, 60000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("leandata:languagechange", onLanguageChange);
+    return () => {
+      active = false;
+      controller?.abort();
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("leandata:languagechange", onLanguageChange);
+    };
+  }, []);
+
+  if (!announcement) return null;
+  const english = language === "en";
+  const title = english && announcement.title_en ? announcement.title_en : announcement.title;
+  const body = english && announcement.body_en ? announcement.body_en : announcement.body;
+  const characters = Array.from(String(body || "").replace(/\s+/g, " ").trim());
+  const summary = characters.slice(0, 140).join("") + (characters.length > 140 ? "…" : "");
+
+  return (
+    <a href="/updates" data-announcement-id={announcement.id} data-no-i18n="true" style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap",
+      gap: "6px 16px", padding: "11px 22px", background: "var(--accent-soft)",
+      borderBottom: "1px solid var(--accent-rule)", color: "var(--accent-ink)",
+      textDecoration: "none", fontSize: 13,
+    }}>
+      <span style={{ flex: "1 1 320px", minWidth: 0, overflowWrap: "anywhere" }}>
+        <strong>{english ? "Latest update" : "最近更新"} · {title}</strong>
+        {summary && <span>　{summary}</span>}
+      </span>
+      <span style={{ fontFamily: "var(--f-mono)", whiteSpace: "nowrap" }}>
+        {english ? "View updates →" : "查看更新 / View updates →"}
+      </span>
+    </a>
+  );
+}
 
 function TokenTopbar({ portalOpen, setPortalOpen }) {
   return (
@@ -93,24 +158,7 @@ function TokenPage() {
     <div className="proxy-app" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <TokenTopbar portalOpen={portalOpen} setPortalOpen={setPortalOpen} />
 
-      <a href="/updates" style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 16,
-        padding: "11px 22px",
-        background: "var(--accent-soft)",
-        borderBottom: "1px solid var(--accent-rule)",
-        color: "var(--accent-ink)",
-        textDecoration: "none",
-        fontSize: 13,
-      }}>
-        <span>
-          <strong>最近更新 · 历史数据补齐，中国数据即将接入</strong>
-          　Morningstar、Spectral 与十二个现金指数分钟线已回填完毕，每日更新；GPU 租赁指数与网站视觉同步上线。
-        </span>
-        <span style={{ fontFamily: "var(--f-mono)", whiteSpace: "nowrap" }}>查看更新 / View updates →</span>
-      </a>
+      <LatestAnnouncement />
 
       <div style={{ display: "grid", gridTemplateColumns: portalOpen ? "minmax(420px, 440px) 1fr" : "1fr", flex: 1, minHeight: 0 }}>
         {/* Left: form */}
