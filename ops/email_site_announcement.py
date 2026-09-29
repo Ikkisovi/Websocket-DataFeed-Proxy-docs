@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 import fcntl
 import hashlib
+from html import escape
 import json
 import os
 from pathlib import Path
@@ -128,15 +129,28 @@ def message(row):
     if not title or not body:
         raise OperationError('Announcement needs a title and plain-text body.')
     parts = [title, row['date'], body]
+    rich = ['<p>' + escape(row['date']) + '</p>',
+        row.get('body_html', '').strip() or '<p>' + escape(body).replace('\n', '<br>') + '</p>']
     if row.get('body_en', '').strip():
         parts += [row.get('title_en', '').strip() or title, row['body_en'].strip()]
+        rich += ['<h2>' + escape(row.get('title_en', '').strip() or title) + '</h2>',
+            row.get('body_en_html', '').strip() or '<p>' + escape(row['body_en'].strip()).replace('\n', '<br>') + '</p>']
     parts += ['查看公告 / View updates: https://leandata.uk/updates', '恺 Kai · leandata.uk']
-    payload = {'subject': 'Leandata · ' + title, 'body': '\n\n'.join(parts)}
+    rich += ['<p><a href="https://leandata.uk/updates">查看公告 / View updates →</a></p>',
+        '<p>恺 Kai · leandata.uk</p>']
+    payload = {'subject': 'Leandata · ' + title, 'body': '\n\n'.join(parts), 'body_html': ''.join(rich)}
     if len(payload['subject']) > 200 or re.search(r'[\r\n]', payload['subject']):
         raise OperationError('Email subject is too long or contains a line break.')
-    if len(payload['body']) > 100000:
+    if max(len(payload['body']), len(payload['body_html'])) > 100000:
         raise OperationError('Email body is too long.')
     return payload
+
+
+def html_preview(response):
+    html = response.get('html')
+    if response.get('format') != 'multipart/alternative' or not isinstance(html, str) or not html.strip():
+        raise OperationError('Portal did not return HTML mail; deploy the HTML email API before sending.')
+    return html, hashlib.sha256(html.encode()).hexdigest()
 
 
 def preview(api, selector):
@@ -145,10 +159,12 @@ def preview(api, selector):
     recipients = api.call(SEND_PATH, payload)
     if not recipients.get('success') or recipients.get('dry_run') is not True:
         raise OperationError('Recipient preview failed.')
+    html, html_hash = html_preview(recipients)
     smtp = api.call('/api/admin/announce/recipients')['smtp_configured']
     summary = {
         'announcement_id': row['id'], 'version': row['version'], 'title': row['title'],
         'subject': payload['subject'], 'body': payload['body'], 'content_sha256': digest(payload),
+        'format': 'multipart/alternative', 'html': html, 'html_sha256': html_hash,
         'recipient_count': len(recipients['reachable']),
         'recipient_snapshot': recipients['recipient_snapshot'],
         'skipped': dict(Counter(r['reason'] for r in recipients['skipped'])),
@@ -175,7 +191,7 @@ def previous_sends(subject):
 
 
 def public_receipt(job):
-    return {key: value for key, value in job.items() if key not in {'payload', 'body'}}
+    return {key: value for key, value in job.items() if key not in {'payload', 'body', 'html'}}
 
 
 def launch(key):
@@ -219,6 +235,7 @@ def queue_send(api, selector):
             **payload, 'confirm': True, 'recipient_snapshot': summary['recipient_snapshot'],
         }}
         job.pop('body')
+        job.pop('html')
         atomic_write(path, job)
         # Persist before launch. Any interruption remains blocked against a duplicate send.
         job['runner_sha256'] = launch(key)
@@ -238,6 +255,9 @@ def deliver(key, api_factory=AdminAPI):
             current = announcement(api, job['announcement_id'])
             if current['version'] != job['version'] or digest(message(current)) != job['content_sha256']:
                 raise OperationError('Announcement changed after queueing; no email was sent.')
+            rendered = api.call(SEND_PATH, message(current))
+            if html_preview(rendered)[1] != job['html_sha256']:
+                raise OperationError('Email HTML changed after queueing; no email was sent.')
             if previous_sends(job['subject']):
                 raise OperationError('Email history now contains this subject; no email was sent.')
         except Exception:

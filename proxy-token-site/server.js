@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const crypto = require('crypto');
-const { cleanAnnouncementHtml, announcementText, announcementParagraph } = require('./public/assets/announcement-sanitize.cjs');
+const { cleanAnnouncementHtml, announcementText, announcementParagraph, escapeAnnouncementText, announcementEmailHtml } = require('./public/assets/announcement-sanitize.cjs');
 const fs = require('fs');
 const net = require('net');
 const path = require('path');
@@ -44,6 +44,9 @@ app.all(
   express.urlencoded({ extended: false }),
   handleZpayNotification
 );
+// Announcement mail carries both UTF-8 text and HTML; keep the larger parser
+// scoped to that route while enforcing per-field limits in the handler.
+app.use('/api/admin/announce/send', bodyParser.json({ limit: '1mb' }));
 app.use(bodyParser.json());
 
 // Mobile UA detection — serve mobile.html for phones/tablets
@@ -138,6 +141,16 @@ function emailSetting(name) {
   return String(currentEmailConfig()[name] || '').trim();
 }
 
+const EMAIL_HTML_OPEN = '<div style="font-family:Arial,sans-serif;line-height:1.7;color:#25211d">';
+const EMAIL_HTML_FOOTER = [
+  '<hr style="border:0;border-top:1px solid #e0e0e0;margin:24px 0 16px" />',
+  '<p style="font-size:12px;color:#888888;line-height:1.6;margin:0">',
+  '  <strong>Leandata Technologies Ltd.</strong><br />',
+  '  700 W Georgia St, Vancouver, BC V7Y 1B6, Canada<br />',
+  '  <a href="https://leandata.uk" style="color:#176b72;text-decoration:none">https://leandata.uk</a>',
+  '</p>'
+].join('');
+
 const DEFAULT_EMAIL_TEMPLATE = {
   subject: '{{site_name}} 邮箱验证码',
   text: [
@@ -155,18 +168,13 @@ const DEFAULT_EMAIL_TEMPLATE = {
     'https://leandata.uk'
   ].join('\n'),
   html: [
-    '<div style="font-family:Arial,sans-serif;line-height:1.7;color:#25211d">',
+    EMAIL_HTML_OPEN,
     '<p>您好，</p>',
     '<p>您正在注册 {{site_name}}。</p>',
     '<p>您的邮箱验证码是：</p>',
     '<p style="font-size:32px;font-weight:700;letter-spacing:0.28em;color:#176b72">{{code}}</p>',
     '<p>验证码在 {{expires_minutes}} 分钟内有效。如果不是您本人操作，请忽略此邮件。</p>',
-    '<hr style="border:0;border-top:1px solid #e0e0e0;margin:24px 0 16px" />',
-    '<p style="font-size:12px;color:#888888;line-height:1.6;margin:0">',
-    '  <strong>Leandata Technologies Ltd.</strong><br />',
-    '  700 W Georgia St, Vancouver, BC V7Y 1B6, Canada<br />',
-    '  <a href="https://leandata.uk" style="color:#176b72;text-decoration:none">https://leandata.uk</a>',
-    '</p>',
+    EMAIL_HTML_FOOTER,
     '</div>'
   ].join('')
 };
@@ -4611,6 +4619,24 @@ function renderAnnounceBody(template, user) {
     .replaceAll('{expires_date}', expiry);
 }
 
+function renderAnnounceHtml(subject, bodyHtml, user) {
+  const personalized = user ? renderAnnounceBody(bodyHtml, {
+    ...user, user_id: escapeAnnouncementText(user.user_id),
+    role: escapeAnnouncementText(user.role),
+    expires_at: escapeAnnouncementText((user.expires_at || '').slice(0, 10))
+  }) : bodyHtml;
+  return [
+    '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>',
+    '<body style="margin:0;padding:24px;background:#ffffff">',
+    '<div style="max-width:680px;margin:0 auto">',
+    EMAIL_HTML_OPEN,
+    `<h1 style="margin:0 0 24px;font-size:28px;line-height:1.4;font-weight:700;color:#176b72">${escapeAnnouncementText(subject)}</h1>`,
+    announcementEmailHtml(personalized),
+    EMAIL_HTML_FOOTER,
+    '</div></div></body></html>'
+  ].join('');
+}
+
 function announceRecipientSnapshot(recipients) {
   const stable = recipients
     .map(({ source, user_id, email, role, expires_at }) => ({
@@ -5028,6 +5054,14 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
   if (validationError) {
     return res.status(400).json({ success: false, message: validationError });
   }
+  if (req.body?.body_html !== undefined && (typeof req.body.body_html !== 'string'
+    || req.body.body_html.length > ANNOUNCE_MAX_BODY_LENGTH)) {
+    return res.status(400).json({ success: false, message: 'body_html must be text and at most 100000 characters.' });
+  }
+  const bodyHtml = cleanAnnouncementHtml(req.body?.body_html) || announcementParagraph(body);
+  const html = renderAnnounceHtml(subject, bodyHtml);
+  const htmlSha256 = crypto.createHash('sha256').update(html).digest('hex');
+  const format = 'multipart/alternative';
 
   const selection = resolveAnnounceSelection(req.body || {});
   if (selection.error) {
@@ -5061,6 +5095,7 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
     return res.json({
       success: true,
       dry_run: true,
+      format, html, html_sha256: htmlSha256,
       reachable: recipients,
       skipped,
       duplicate_recipients: duplicateRecipients,
@@ -5068,7 +5103,7 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
       manual_recipients: manualRecipients,
       recipient_snapshot: recipientSnapshot,
       sample: recipients.length
-        ? { to: recipients[0].email, text: renderAnnounceBody(body, recipients[0]) }
+        ? { to: recipients[0].email, text: renderAnnounceBody(body, recipients[0]), html: renderAnnounceHtml(subject, bodyHtml, recipients[0]) }
         : null
     });
   }
@@ -5095,7 +5130,8 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
         config: cfg,
         to: testTo,
         subject,
-        text: renderAnnounceBody(body, previewUser)
+        text: renderAnnounceBody(body, previewUser),
+        html: renderAnnounceHtml(subject, bodyHtml, previewUser)
       });
       results.push({ email: testTo, status: 'sent' });
     } catch (err) {
@@ -5107,12 +5143,14 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
     }
     appendAnnounceLog({
       subject,
+      format, html_sha256: htmlSha256,
       test_to: testTo,
       recipient_snapshot: recipientSnapshot,
       results
     });
     return res.json({
       success: results[0].status === 'sent',
+      format, html_sha256: htmlSha256,
       test_to: testTo,
       results,
       reachable_count: recipients.length,
@@ -5147,7 +5185,8 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
         config: cfg,
         to: recipient.email,
         subject,
-        text: renderAnnounceBody(body, recipient)
+        text: renderAnnounceBody(body, recipient),
+        html: renderAnnounceHtml(subject, bodyHtml, recipient)
       });
       results.push({
         source: recipient.source,
@@ -5168,6 +5207,7 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
 
   appendAnnounceLog({
     subject,
+    format, html_sha256: htmlSha256,
     recipient_snapshot: recipientSnapshot,
     selected_user_ids: selectedUserIds,
     manual_recipient_count: manualRecipients.length,
@@ -5176,6 +5216,7 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
   const failures = results.filter(result => result.status !== 'sent').length;
   return res.json({
     success: failures === 0,
+    format, html_sha256: htmlSha256,
     results,
     skipped,
     duplicate_recipients: duplicateRecipients,
@@ -7665,6 +7706,7 @@ module.exports = {
   EC2_HOST,
   EC2_USERS_PATH,
   EC2_SSH_KEY,
+  __buildSmtpMessageForTest: buildSmtpMessage,
   __resetUsageAggregatorForTest: () => usageAggregator.__resetForTest(),
   __refreshUsageAggregatorForTest: () => usageAggregator.ensureFresh(0),
   __setUsageAggregatorTestHooks: (hooks) => usageAggregator.__setTestHooks(hooks)
