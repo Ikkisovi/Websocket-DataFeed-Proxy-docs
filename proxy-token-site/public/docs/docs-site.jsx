@@ -523,6 +523,7 @@ const NAV_GROUPS = [
       { label: "研究信号", en: "Research signals", desc: "Spectral Tick-Flow · SID", href: DOC_PATHS.marketResearch },
       { label: "加密与新闻", en: "Crypto & news", desc: "Snapshots · Orderbooks · News", href: DOC_PATHS.marketCryptoNews },
       { label: "中国数据·内测", en: "CN Data · Private beta", desc: "CN archive · /v1/cn/*", href: DOC_PATHS.marketCn },
+      { label: "期货归档·运维", en: "Futures archive · Ops", desc: "QC continuous · /v1/futures/*", href: `${DOC_PATHS.marketIndices}#futures-operator-archive` },
     ],
   },
   {
@@ -666,6 +667,7 @@ function legacyDocsPath(hash) {
   if (hash.startsWith("fmp-ratio") || hash.startsWith("fmp-key-metric") || hash.includes("growth") || hash === "fmp-enterprise-values" || hash === "fmp-financial-scores") return DOC_PATHS.financialRatios;
   if (hash.startsWith("fmp-")) return DOC_PATHS.financialRegular;
   if (hash.startsWith("cn-")) return DOC_PATHS.marketCn;
+  if (hash.startsWith("futures-") || hash.includes("futures")) return DOC_PATHS.marketIndices;
   if (hash.includes("spectral")) return DOC_PATHS.marketResearch;
   if (hash.includes("indices-history")) return DOC_PATHS.marketIndices;
   if (hash.includes("options") || hash.startsWith("post-v3-option") || hash === "provider-fallback-cache") return DOC_PATHS.marketOptions;
@@ -994,7 +996,11 @@ const SECTION_ZH_LABELS = {
   "Shareholders": "股东持仓",
   "Money flow": "资金流",
   "Billboard": "龙虎榜",
-  "Access & scope": "权限与范围"
+  "Access & scope": "权限与范围",
+  "Futures Data (Operator)": "期货数据 (运维通道)",
+  "Futures operator archive": "连续期货归档 (运维)",
+  "Futures catalog": "期货目录 (Catalog)",
+  "Futures minute bars": "期货分钟线 (History Bars)"
 };
 
 function SideNav({ tab, page }) {
@@ -1032,6 +1038,7 @@ function SideNav({ tab, page }) {
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news", "stock trade+quote"] },
     { title: "Index Data", items: ["index history", "Cash minute archive", "Cash minute history", "Cash minute coverage", "Cash daily history", "Cash daily coverage"] },
+    { title: "Futures Data (Operator)", items: ["Futures operator archive", "Futures catalog", "Futures minute bars"] },
     { title: "Research Signals", items: ["Spectral overview", "Spectral methodology", "Spectral processing", "Spectral fields", "Spectral history", "Spectral coverage", "Spectral workflows"] },
     { title: "Stock Data", items: ["Market · US / World"], children: [
       { title: "US market", items: ["overview"], children: [
@@ -1083,7 +1090,7 @@ function SideNav({ tab, page }) {
       ]}]},
     ],
     "market-options": sections.filter((section) => section.title === "Options Data"),
-    "market-indices": sections.filter((section) => section.title === "Index Data"),
+    "market-indices": sections.filter((section) => ["Index Data", "Futures Data (Operator)"].includes(section.title)),
     "market-research": sections.filter((section) => section.title === "Research Signals"),
     "market-crypto-news": [{ title: "REST History", items: ["history/news"] }, ...sections.filter((section) => section.title === "Crypto Data")],
     "market-cn": [{ title: "World · CN 中国数据", items: ["CN Data overview", "Daily bars", "Minute bars", "Valuation", "Membership", "Reference", "Fundamentals", "ETF data", "ETF minutes", "Options", "Funds", "Shareholders", "Reserved routes", "Catalog", "Access & scope"] }],
@@ -1135,7 +1142,7 @@ function SideNav({ tab, page }) {
       "enterprise-values": "fmp-enterprise-values",
       "financial-scores": "fmp-financial-scores",
     };
-    const ID_MAP = {'Morningstar overview': 'morningstar-overview', 'What is PIT?': 'morningstar-pit', 'Deduplication': 'morningstar-processing', 'Morningstar fields': 'morningstar-fields', 'Morningstar history': 'morningstar-history', 'Morningstar coverage': 'morningstar-coverage', 'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'Cash minute archive': 'cash-indices-overview', 'Cash minute history': 'get-post-v1-indices-minute', 'Cash minute coverage': 'get-v1-indices-minute-coverage', 'Cash daily history': 'get-post-v1-indices-daily', 'Cash daily coverage': 'get-v1-indices-daily-coverage', 'Spectral overview': 'spectral-overview', 'Spectral methodology': 'spectral-methodology', 'Spectral processing': 'spectral-processing', 'Spectral fields': 'spectral-fields', 'Spectral history': 'get-post-v1-spectral-tick-flow', 'Spectral coverage': 'get-v1-spectral-tick-flow-coverage', 'Spectral workflows': 'spectral-workflows', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'crypto snapshots': 'get-post-v1beta3-crypto-us-snapshots', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
+    const ID_MAP = {'Morningstar overview': 'morningstar-overview', 'What is PIT?': 'morningstar-pit', 'Deduplication': 'morningstar-processing', 'Morningstar fields': 'morningstar-fields', 'Morningstar history': 'morningstar-history', 'Morningstar coverage': 'morningstar-coverage', 'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'Cash minute archive': 'cash-indices-overview', 'Cash minute history': 'get-post-v1-indices-minute', 'Cash minute coverage': 'get-v1-indices-minute-coverage', 'Cash daily history': 'get-post-v1-indices-daily', 'Cash daily coverage': 'get-v1-indices-daily-coverage', 'Futures operator archive': 'futures-operator-archive', 'Futures catalog': 'get-v1-futures-catalog', 'Futures minute bars': 'get-v1-futures-history-bars', 'Spectral overview': 'spectral-overview', 'Spectral methodology': 'spectral-methodology', 'Spectral processing': 'spectral-processing', 'Spectral fields': 'spectral-fields', 'Spectral history': 'get-post-v1-spectral-tick-flow', 'Spectral coverage': 'get-v1-spectral-tick-flow-coverage', 'Spectral workflows': 'spectral-workflows', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'crypto snapshots': 'get-post-v1beta3-crypto-us-snapshots', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
     const getId = (label) => tab === "fmp-fundamentals"
       ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
       : ID_MAP[label] || slugify(label);
@@ -1248,7 +1255,7 @@ function OnThisPage({ tab, page }) {
     "market-overview": [["Overview", "overview"], ["Authentication", "authentication"], ["Tiers", "tiers-permissions"], ["Free plan", "free-plan-usage"]],
     "market-stocks": [["History bars", "post-v1-history-bars"], ["Trade + quote", "post-v1-stock-history-trade-quote"], ["US equities", "stock-data-availability"]],
     "market-options": [["Routing", "provider-fallback-cache"], ["Contracts", "post-v1-options-contracts"], ["Snapshots", "post-v1-options-snapshots"], ["Direct API", "post-v3-option-direct-value"]],
-    "market-indices": [["Index history", "get-post-v1-indices-history"], ["Cash minute archive", "cash-indices-overview"], ["Minute history", "get-post-v1-indices-minute"], ["Minute coverage", "get-v1-indices-minute-coverage"], ["Daily history", "get-post-v1-indices-daily"], ["Daily coverage", "get-v1-indices-daily-coverage"]],
+    "market-indices": [["Index history", "get-post-v1-indices-history"], ["Cash minute archive", "cash-indices-overview"], ["Minute history", "get-post-v1-indices-minute"], ["Minute coverage", "get-v1-indices-minute-coverage"], ["Daily history", "get-post-v1-indices-daily"], ["Daily coverage", "get-v1-indices-daily-coverage"], ["Futures archive (Ops)", "futures-operator-archive"], ["Futures catalog", "get-v1-futures-catalog"], ["Futures minute bars", "get-v1-futures-history-bars"]],
     "market-research": [["Overview", "spectral-overview"], ["Methodology", "spectral-methodology"], ["Deduplication", "spectral-processing"], ["Fields", "spectral-fields"], ["History API", "get-post-v1-spectral-tick-flow"], ["Coverage API", "get-v1-spectral-tick-flow-coverage"], ["Workflows", "spectral-workflows"]],
     "market-crypto-news": [["News history", "post-v1-history-news"], ["Crypto snapshots", "get-post-v1beta3-crypto-us-snapshots"], ["Orderbooks", "post-v1-crypto-us-latest-orderbooks"]],
     "market-cn": [["CN overview", "cn-data-overview"], ["Catalog", "cn-catalog"], ["Access", "cn-access"]],
@@ -3128,6 +3135,7 @@ const PROXY_FOCUS_BOUNDARIES = [
   ["get-post-v1-indices-history", "indices"],
   ["cash-indices-overview", "indices"],
   ["get-post-v1-indices-minute", "indices"],
+  ["futures-operator-archive", "indices"],
   ["spectral-overview", "research"],
   ["get-post-v1-spectral-tick-flow", "research"],
   ["post-v1-history-news", "crypto-news"],
@@ -3688,6 +3696,171 @@ print("Option contracts:", resp_opt.status_code)`}
 }`}
       </pre>
 
+      
+      <h2 id="futures-operator-archive" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>
+        <Bilingual
+          zh="QuantConnect 连续期货分钟线归档 (运维)"
+          en="QuantConnect Continuous Futures Minute Archive (Operator)"
+        />
+      </h2>
+      <div className="callout" style={{ marginBottom: 18, borderLeft: "3px solid var(--ok)", padding: "12px 16px", background: "var(--bg-paper)" }}>
+        <p style={{ margin: "0 0 6px", fontWeight: 600, color: "var(--ink-strong)" }}>
+          <Bilingual
+            zh="运维专用接口 · 公网路由已验收通过 (2026-09-30)"
+            en="Operator-Only Interface · Public Routing Accepted (2026-09-30)"
+          />
+        </p>
+        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "var(--ink-soft)" }}>
+          <Bilingual
+            zh="公网路由已于 2026-09-30 验收通过。该归档接口仅面向白名单运维账户（FUTURES_OWNER_IDS=ikkipipi）开放，有效非白名单账户返回 403 futures_access_required，未认证请求返回 401 invalid_token。不计入普通付费接口清单或配额豁免。QuantConnect / AlgoSeek 数据再分发权利未经验证，不开放常规商业访问。成功的数据响应附带 diagnostic_only=true 与 formal_go=false 诊断标记。"
+            en="Public routing passed acceptance on 2026-09-30. This archive endpoint is strictly restricted to allowlisted operator accounts (FUTURES_OWNER_IDS=ikkipipi); authenticated non-owner accounts receive 403 futures_access_required, and unauthenticated requests receive 401 invalid_token. It is not counted in public paid tier inventories or quota exemptions. QuantConnect / AlgoSeek redistribution rights are unverified; general commercial access is not available. Successful data responses include diagnostic_only=true and formal_go=false flags."
+          />
+        </p>
+      </div>
+
+      <ProviderStats items={[
+        ["2", "queryable roots (6A & CL)", "当前可查 root（6A 与 CL）"],
+        ["10,958,726", "verified rows (6A: 5.00M · CL: 5.96M)", "已回读行数（6A: 500万 · CL: 596万）"],
+        ["414", "partition files (207 each)", "分区文件数（各 207 个）"],
+        ["2009 → 2026", "historical archive span", "历史归档区间"],
+      ]} />
+
+      <h3 style={{ fontSize: 20, margin: "24px 0 12px", color: "var(--ink-strong)" }}>
+        <Bilingual zh="数据源语义与保真约定" en="Data Provenance & Fidelity" />
+      </h3>
+      <ol style={{ paddingLeft: 20, margin: "0 0 24px", color: "var(--ink-base)", fontSize: 14, lineHeight: 1.7 }}>
+        <li style={{ marginBottom: 8 }}>
+          <Bilingual
+            zh="显式未解析源端时钟：请求必须显式指定 clock=source_naive。返回源端原始 naive minute 时间戳（秒数固定为 00）。交易所本地时区、夏令时规则以及 bar 起始 vs 截止语义未获官方认证，不可视作 UTC。"
+            en="Explicit unresolved source_naive clock: Query must specify clock=source_naive. Returns raw naive minute timestamps with second=00. Exchange timezone, DST rules, and bar-start vs bar-end semantics remain uncertified; do not assume UTC."
+          />
+        </li>
+        <li style={{ marginBottom: 8 }}>
+          <Bilingual
+            zh={'合并序列化语义：Lean 框架合并序列化器可能输出源端报价派生的 OHLC。源端存在大量成交量为空（""）的记录，成交量缺失不能证明不存在成交，反之完整 OHLC 亦不证明为撮合成交 TradeBar。响应明确标注 ohlc_origin 为 merged_trade_quote_undetermined。'}
+            en={'Merged serializer semantics: The merged serializer may expose quote-derived OHLC. Absent volume does not certify executed TradeBars, nor does populated OHLC alone guarantee trade execution. Responses explicitly declare ohlc_origin as merged_trade_quote_undetermined.'}
+          />
+        </li>
+        <li style={{ marginBottom: 8 }}>
+          <Bilingual
+            zh="连续合约调整口径：源端采用 BACKWARDS_RATIO 与 OPEN_INTEREST 调整的连续合约历史，非 PIT 未调整合约，不可当做真实交割合约 roll 归档。到期日 1899-12-30 为源端连续合约占位标记（sentinel），非虚假到期日。"
+            en="Continuous contract adjustment: Source data is an adjusted continuous series (BACKWARDS_RATIO + OPEN_INTEREST), not PIT unadjusted and not individual contract rolls. Expiry 1899-12-30 is an observed continuous series sentinel, not a fabricated expiry."
+          />
+        </li>
+        <li style={{ marginBottom: 8 }}>
+          <Bilingual
+            zh={'源端数值文本保真与合法负值保留：返回全部 18 列源端 CSV 文本字符串，完全保留空字符串 ""（绝不替换为 0）。合法负价格原样保留；结构错误、非有限值（NaN/Inf）、OHLC 不一致或同一键值内容冲突等不合格分区会被隔离。无前值填充 (no forward-fill)，不裁剪极值。'}
+            en={'Exact source text & negative price preservation: Returns all 18 source CSV columns as exact text strings. Empty fields remain "" (no null-to-zero substitution). Legal negative prices are preserved. Ineligible partitions are quarantined for issues including structural errors, non-finite values (NaN/Inf), inconsistent OHLC, or conflicting values for the same row identity. No forward-fill, no clipping.'}
+          />
+        </li>
+        <li style={{ marginBottom: 8 }}>
+          <Bilingual
+            zh="结构与回读校验边界：首批已就绪品种 6A 与 CL 通过了全部 207 个月度分区的双向磁盘哈希与结构回读校验（总计 10,958,726 行；6A 4,999,315 行，CL 5,959,411 行）。这属于归档存储一致性验证，附带 diagnostic_only=true 与 formal_go=false，不构成交易回测执行认证或科研生产就绪认证。其余品种仍处于审计中。"
+            en="Structural and readback verification boundary: Initial queryable roots 6A and CL passed two-way disk hash and structural readback verification across all 207 monthly partitions (10,958,726 total rows: 4,999,315 for 6A, 5,959,411 for CL). This confirms archive storage consistency under diagnostic_only=true and formal_go=false, not trading execution parity or scientific production eligibility. Remaining roots remain under active audit."
+          />
+        </li>
+      </ol>
+
+      <h2 id="get-v1-futures-catalog" className="display-title" style={{ fontSize: 28, margin: "24px 0 8px" }}>GET /v1/futures/catalog</h2>
+      <p style={{ fontSize: 14, color: "var(--ink-base)", margin: "0 0 12px", lineHeight: 1.6 }}>
+        <Bilingual
+          zh="查询当前归档世代中所有已就绪的期货 root 目录信息，包括状态（AVAILABLE）、起止源端时间戳、分区文件数及总行数。仅限 FUTURES_OWNER_IDS 白名单账户访问。不接受业务查询参数，传参会返回 400 unknown_parameter。"
+          en="Query the catalog of query-ready futures roots in the active publisher index, returning root status (AVAILABLE), source extents, partition file counts, and total rows. Restricted to FUTURES_OWNER_IDS accounts. Accepts no business query parameters (authentication token is separate); extraneous parameters return 400 unknown_parameter."
+        />
+      </p>
+      <EndpointBadge method="GET" path="https://api.leandata.uk/v1/futures/catalog" />
+      <ParamTable rows={[
+        { name: "token", type: "string", required: false, desc: "Bearer token in Authorization header or query param token (must belong to FUTURES_OWNER_IDS).", zh: "认证 Token，可通过 Authorization: Bearer 或 query 传入（必须属于 FUTURES_OWNER_IDS 白名单）" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "https://api.leandata.uk/v1/futures/catalog"`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 36 }}>
+{`// Response excerpt (verified 2026-09-30: 2 queryable roots, exact counts and extents)
+{
+  "diagnostic_only": true,
+  "formal_go": false,
+  "source_clock": "source_naive",
+  "provenance": {
+    "source_snapshot_hash": "da36df53a77aba35e948020f6eed20413d74b20fcdbace8b7a899de05ffc99a3",
+    "code_sha256": "54e22781c880aa48156ccdd3bfca6ad1ae7f88d9a93b352c69d4569bf194c4b5",
+    "generation_hash": "7bc9351fdbd932c8adbc2fe5638f0e77d837246592364011a4a61c2929b86845",
+    "ohlc_origin": "merged_trade_quote_undetermined",
+    "adjustment": "adjusted_continuous_mapping_vintage_unverified"
+  },
+  "roots_count": 2,
+  "roots": [
+    {
+      "root": "6A",
+      "status": "AVAILABLE",
+      "first_time": "2009-05-31 23:01:00",
+      "last_time": "2026-08-31 23:00:00",
+      "total_files": 207,
+      "total_rows": 4999315
+    },
+    {
+      "root": "CL",
+      "status": "AVAILABLE",
+      "first_time": "2009-06-01 00:01:00",
+      "last_time": "2026-09-01 00:00:00",
+      "total_files": 207,
+      "total_rows": 5959411
+    }
+  ]
+}`}
+      </pre>
+
+      <h2 id="get-v1-futures-history-bars" className="display-title" style={{ fontSize: 28, margin: "24px 0 8px" }}>GET /v1/futures/history/bars</h2>
+      <p style={{ fontSize: 14, color: "var(--ink-base)", margin: "0 0 12px", lineHeight: 1.6 }}>
+        <Bilingual
+          zh="查询指定品种连续期货的分钟线历史数据。严格要求 clock=source_naive。单次查询跨度不得超过 31 天，limit 默认为 1,000，最大 5,000。支持通过 next_cursor 进行 HMAC 签名游标翻页（游标最长 1,024 字符，绑定世代哈希、标准化请求与最后记录身份）。单次响应上限 8 MiB，后端扫描上限 200,000 行。非白名单账户返回 403 futures_access_required；未认证请求返回 401 invalid_token。"
+          en="Query continuous futures historical minute bars for a single root. clock=source_naive is strictly required. The query date span cannot exceed 31 days; limit defaults to 1,000 and maxes at 5,000. Paginate with next_cursor, an opaque HMAC-signed token (maximum 1,024 characters) binding generation hash, normalized request, and last seen identity. Responses are capped at 8 MiB with a 200,000-row scan budget. Non-owner accounts receive 403 futures_access_required; unauthenticated requests receive 401 invalid_token."
+        />
+      </p>
+      <EndpointBadge method="GET" path="https://api.leandata.uk/v1/futures/history/bars" />
+      <ParamTable rows={[
+        { name: "root", type: "string", required: true, desc: "Single alphanumeric futures root ticker (available: 6A, CL).", zh: "单个字母数字期货 root 标识（当前可用：6A、CL）" },
+        { name: "start", type: "string", required: true, desc: "Inclusive naive minute timestamp YYYY-MM-DDTHH:MM:00 (second=00, no timezone offset).", zh: "起始源端分钟时间戳（包含），格式 YYYY-MM-DDTHH:MM:00，秒必须为 00，不可带时区" },
+        { name: "end", type: "string", required: true, desc: "Exclusive naive minute timestamp YYYY-MM-DDTHH:MM:00 (second=00, no timezone offset; end > start, span <= 31 days).", zh: "结束源端分钟时间戳（不含），格式 YYYY-MM-DDTHH:MM:00，end > start 且跨度不得超过 31 天" },
+        { name: "clock", type: "string", required: true, desc: "Must be exactly 'source_naive'. Omission or other values return 400 invalid_clock.", zh: "必须严格为 'source_naive'。缺失或为其它值将返回 400 invalid_clock" },
+        { name: "limit", type: "integer", required: false, desc: "Page size between 1 and 5,000; defaults to 1,000.", zh: "单页条数，介于 1 到 5,000 之间，默认 1,000" },
+        { name: "cursor", type: "string", required: false, desc: "Opaque HMAC-signed pagination token from previous next_cursor, maximum 1,024 characters. Tampering or generation mismatch returns 400 invalid_cursor.", zh: "上一页返回的不透明 HMAC 签名翻页游标 next_cursor，最多 1,024 字符。篡改或跨世代使用返回 400 invalid_cursor" },
+      ]} />
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "https://api.leandata.uk/v1/futures/history/bars?root=CL&start=2026-08-03T00:00:00&end=2026-08-04T00:00:00&clock=source_naive&limit=1"`}
+      </pre>
+      <pre className="code" style={{ marginBottom: 48 }}>
+{`// Response excerpt (verified 2026-09-30: exact first bar from CL receipt, 18 raw source text columns)
+{
+  "diagnostic_only": true,
+  "formal_go": false,
+  "source_clock": "source_naive",
+  "provenance": {
+    "source_snapshot_hash": "da36df53a77aba35e948020f6eed20413d74b20fcdbace8b7a899de05ffc99a3",
+    "code_sha256": "54e22781c880aa48156ccdd3bfca6ad1ae7f88d9a93b352c69d4569bf194c4b5",
+    "generation_hash": "7bc9351fdbd932c8adbc2fe5638f0e77d837246592364011a4a61c2929b86845",
+    "ohlc_origin": "merged_trade_quote_undetermined",
+    "adjustment": "adjusted_continuous_mapping_vintage_unverified"
+  },
+  "root": "CL",
+  "start": "2026-08-03T00:00:00",
+  "end": "2026-08-04T00:00:00",
+  "clock": "source_naive",
+  "columns": [
+    "expiry", "symbol", "time", "askopen", "askhigh", "asklow", "askclose", "asksize",
+    "bidopen", "bidhigh", "bidlow", "bidclose", "bidsize",
+    "open", "high", "low", "close", "volume"
+  ],
+  "bars": [
+    ["1899-12-30", "/CL", "2026-08-03 00:00:00", "75.32406843352302", "75.32406843352302", "75.26743379560307", "75.27687290192307", "4.0", "75.31462932720302", "75.31462932720302", "75.24855558296309", "75.26743379560307", "1.0", "75.31462932720302", "75.31462932720302", "75.24855558296309", "75.26743379560307", "37.0"]
+  ],
+  "count": 1,
+  "next_cursor": "<opaque signed next_cursor token>",
+  "limit": 1
+}`}
+      </pre>
       {/* ── Research Signals ── */}
       <ProviderHero
         id="spectral-overview"

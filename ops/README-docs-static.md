@@ -22,7 +22,7 @@ It does not add SSH keys, broaden sudo rules, or enable CI runners.
    independent docs-page `index.html` files—plus that reviewed script from the committed Git archive into
    `/srv/leandata/site-releases/docs-nav/<full-commit>`.
 5. Write a private deployment manifest with `commit`, a `files` mapping of each
-   allowlisted relative path to its `before` and `after` SHA-256, and `dependencies`
+   selected allowlisted relative path to its `before` and `after` SHA-256, and `dependencies`
    mapping unchanged `token-page.jsx`, `language.js`, `docs/usage-page.jsx` and
    `docs-site.jsx` to baseline SHA-256. Retain it outside the public directory.
 6. Run through the existing administrator channel:
@@ -31,6 +31,11 @@ It does not add SSH keys, broaden sudo rules, or enable CI runners.
    sudo -n python3 <release>/ops/deploy_docs_static.py <release> <manifest>
    sudo -n python3 <release>/ops/deploy_docs_static.py <release> <manifest> --apply
    ```
+
+A scoped subset must include the canonical docs source, both docs/homepage bundles,
+and both root/docs HTML entries. Keep unrelated registration, language, skill and
+account assets out of the selected file set; do not overwrite a newer live overlay
+merely because the source checkout contains a different unselected file.
 
 The helper locks deployment, fails on baseline drift, retains rollback copies,
 creates only allowlisted page directories, replaces files inside the existing

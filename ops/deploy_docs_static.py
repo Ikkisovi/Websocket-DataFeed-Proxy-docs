@@ -43,6 +43,15 @@ FILES = (
 )
 
 
+def scoped_files(manifest):
+    """Allow a complete docs update without replacing unrelated static assets."""
+    names = set(manifest['files'])
+    required = {'docs/docs-site.jsx', 'assets/docs-page.js', 'assets/token-page.js',
+                'index.html', 'docs/index.html'}
+    assert required <= names <= set(FILES), 'Incomplete or unapproved static scope'
+    return tuple(name for name in FILES if name in names)
+
+
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -64,7 +73,7 @@ def deploy(release, manifest_path, apply):
     assert re.fullmatch(r"[0-9a-f]{40}", manifest["commit"])
     assert release.name == manifest["commit"]
     assert release.parent == Path("/srv/leandata/site-releases/docs-nav")
-    assert set(manifest["files"]) == set(FILES)
+    names = scoped_files(manifest)
     public = Path("/srv/leandata/proxy-token-site/public")
     source = release / "proxy-token-site/public"
     container = "leandata-v2-leandata-ui-1"
@@ -72,7 +81,7 @@ def deploy(release, manifest_path, apply):
     mount = next(m for m in before["Mounts"] if m["Destination"] == "/app/public")
     assert mount["Source"] == str(public) and not mount["RW"]
     identity = (public.stat().st_dev, public.stat().st_ino)
-    for name in FILES:
+    for name in names:
         target = public / name
         expected_before = manifest["files"][name]["before"]
         assert not target.is_symlink()
@@ -91,7 +100,7 @@ def deploy(release, manifest_path, apply):
 
     backup = release / "rollback"
     backup.mkdir()  # Fail closed on an already attempted release.
-    for name in FILES:
+    for name in names:
         live = public / name
         if live.exists():
             target = backup / name
@@ -100,9 +109,9 @@ def deploy(release, manifest_path, apply):
     receipt = {**manifest, "container_id": before["Id"], "public_inode": identity}
     try:
         # Keep directory inodes and publish HTML only after the bundles and styles.
-        for name in FILES:
+        for name in names:
             atomic_copy(source / name, public / name)
-        for name in FILES:
+        for name in names:
             expected = manifest["files"][name]["after"]
             assert digest(public / name) == expected, name
             actual = subprocess.check_output([
@@ -115,7 +124,7 @@ def deploy(release, manifest_path, apply):
         assert identity == (public.stat().st_dev, public.stat().st_ino)
         receipt["status"] = "host_container_verified_public_acceptance_pending"
     except BaseException:
-        for name in FILES:
+        for name in names:
             saved = backup / name
             live = public / name
             if saved.exists():

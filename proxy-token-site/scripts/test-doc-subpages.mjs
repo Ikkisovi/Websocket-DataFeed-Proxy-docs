@@ -108,8 +108,34 @@ assert(isVisible(indices.window.document.getElementById("get-post-v1-indices-min
 assert(isVisible(indices.window.document.getElementById("get-post-v1-indices-daily")));
 assert(isVisible(indices.window.document.getElementById("get-post-v1-indices-history")));
 assert(!isVisible(indices.window.document.getElementById("get-post-v1-spectral-tick-flow")));
+assert(isVisible(indices.window.document.getElementById("futures-operator-archive")));
+assert(isVisible(indices.window.document.getElementById("get-v1-futures-catalog")));
+assert(isVisible(indices.window.document.getElementById("get-v1-futures-history-bars")));
+assert.match(indices.window.document.body.textContent, /当前可查 root（6A 与 CL）/);
+assert(!indices.window.document.body.textContent.includes('"roots_count": 68'));
+assert.match(indices.window.document.body.textContent, /"roots_count": 2/);
+assert.match(indices.window.document.body.textContent, /合法负值保留|合法负价格/);
+assert(!indices.window.document.body.textContent.includes('/srv/leandata'));
+assert(!indices.window.document.body.textContent.includes('18772'));
+assert(!indices.window.document.body.textContent.includes('/mnt/data/cache'));
+assert(!indices.window.document.body.textContent.includes('f7056926'));
+assert(!indices.window.document.body.textContent.includes('11e4cd11555f6027a6a7731d5d799a1e72a4bfd0'));
+assert.match(indices.window.document.body.textContent, /clock=source_naive/);
+assert.match(indices.window.document.body.textContent, /1,024/);
+assert.match(indices.window.document.body.textContent, /"\/CL"/);
+assert.match(indices.window.document.body.textContent, /"75\.32406843352302"/);
+assert(indices.window.document.querySelector('a[href*="#futures-operator-archive"]'));
 indices.window.LeandataI18n.destroy();
 indices.window.close();
+
+const indicesEn = await render("/docs/market/indices/", "en");
+assert.match(indicesEn.window.document.querySelector("#futures-operator-archive").textContent, /QuantConnect Continuous Futures Minute Archive \(Operator\)/);
+assert.match(indicesEn.window.document.body.textContent, /queryable roots \(6A & CL\)/);
+assert.match(indicesEn.window.document.body.textContent, /Explicit unresolved source_naive clock/);
+assert.match(indicesEn.window.document.body.textContent, /Legal negative prices are preserved/);
+assert(!indicesEn.window.document.querySelector("#futures-operator-archive").textContent.match(/[\u3400-\u9fff]/));
+indicesEn.window.LeandataI18n.destroy();
+indicesEn.window.close();
 research.window.LeandataI18n.destroy();
 research.window.close();
 
