@@ -47,9 +47,15 @@ function LatestAnnouncement() {
   if (!announcement) return null;
   const english = language === "en";
   const title = english && announcement.title_en ? announcement.title_en : announcement.title;
-  const body = english && announcement.body_en ? announcement.body_en : announcement.body;
-  const characters = Array.from(String(body || "").replace(/\s+/g, " ").trim());
-  const summary = characters.slice(0, 140).join("") + (characters.length > 140 ? "…" : "");
+  const html = english && announcement.body_en_html ? announcement.body_en_html : announcement.body_html;
+  // Parse into an inert fragment and display only the first authored heading as text.
+  // Paragraphs and lists belong on the updates page, never in the banner.
+  const fragment = document.createElement("template");
+  fragment.innerHTML = String(html || "");
+  fragment.content.querySelectorAll("script, style").forEach(element => element.remove());
+  const heading = fragment.content.querySelector("h2, h3")?.textContent || "";
+  const characters = Array.from(heading.replace(/\s+/g, " ").trim());
+  const subtitle = characters.slice(0, 140).join("") + (characters.length > 140 ? "…" : "");
 
   return (
     <a href="/updates" data-announcement-id={announcement.id} data-no-i18n="true" style={{
@@ -60,7 +66,7 @@ function LatestAnnouncement() {
     }}>
       <span style={{ flex: "1 1 320px", minWidth: 0, overflowWrap: "anywhere" }}>
         <strong>{english ? "Latest update" : "最近更新"} · {title}</strong>
-        {summary && <span>　{summary}</span>}
+        {subtitle && <span data-announcement-subtitle="true">　{subtitle}</span>}
       </span>
       <span style={{ fontFamily: "var(--f-mono)", whiteSpace: "nowrap" }}>
         {english ? "View updates →" : "查看更新 / View updates →"}
