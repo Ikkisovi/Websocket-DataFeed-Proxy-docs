@@ -88,6 +88,13 @@
 .docs-reader .provider-attribution { font-size: 13px; color: var(--ink-muted); }
 .docs-reader .docs-sidenav a, .docs-reader .on-this-page a { line-height: 1.6; }
 
+/* Keep the homepage's display identity; reference headings remain sans-serif. */
+.leandata-home .docs-reader .docs-hero h1 {
+  font-family: "Instrument Serif", "Source Serif Pro", Georgia, serif !important;
+  font-weight: 400;
+}
+.leandata-home .docs-reader .docs-hero h1 span { font-style: italic !important; }
+
 .code-example {
   max-width: 100%;
   min-width: 0;
