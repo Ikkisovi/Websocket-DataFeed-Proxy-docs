@@ -27,17 +27,83 @@
   padding: 40px clamp(24px, 3.5vw, 56px) !important;
   overflow-wrap: anywhere;
 }
-.docs-reader .docs-hero { padding: 36px 48px 24px !important; }
-.docs-reader .docs-tabs { margin-inline: -48px !important; padding-inline: 48px !important; }
+.docs-reader .docs-hero {
+  padding: 38px 48px 24px !important;
+  background: linear-gradient(115deg, #fff 55%, #f2faf7) !important;
+}
+.docs-reader .docs-tabs { margin-inline: -48px !important; padding-inline: 48px !important; overflow-x: auto; scrollbar-width: thin; }
+.docs-reader .docs-tabs > a { flex: 0 0 auto; white-space: nowrap; }
+.docs-brand-lockup { display: flex; align-items: center; gap: 24px; min-width: 0; }
+.docs-brand-logo {
+  position: relative;
+  display: block;
+  flex: 0 0 92px;
+  width: 92px;
+  height: 92px;
+  overflow: hidden;
+  border: 1px solid #12373a;
+  border-radius: 22px;
+  background: #071117;
+  box-shadow: 0 8px 22px rgb(14 73 72 / 12%);
+}
+/* Art-directed viewport of the original logo's symbol, not a replacement asset. */
+.docs-brand-logo img {
+  position: absolute;
+  width: 278%;
+  max-width: none;
+  height: auto;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -42%);
+}
+.docs-brand-logo:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 4px; }
+.docs-brand-type { min-width: 0; }
+.docs-brand-eyebrow {
+  margin-bottom: 7px;
+  color: var(--accent-ink);
+  font: 500 11px/1.4 var(--f-sans);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
 .docs-reader .docs-hero h1 {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin: 0;
   font-family: "Instrument Serif", "Source Serif Pro", Georgia, serif !important;
-  font-size: clamp(32px, 4vw, 44px) !important;
+  font-size: clamp(44px, 4.5vw, 60px) !important;
   font-weight: 400;
-  line-height: 1.2;
+  line-height: 1.05;
   letter-spacing: -.025em;
 }
-.docs-reader .docs-hero h1 span { font-style: italic !important; }
-.docs-reader .docs-hero p { font-size: 16px !important; line-height: 1.75; max-width: 780px !important; }
+.docs-brand-name { color: #152f34; }
+.docs-reader .docs-hero h1 .docs-product-name {
+  border-left: 1px solid #cdded9;
+  padding-left: 24px;
+  color: #4a6269;
+  font: 500 22px/1.25 var(--f-sans);
+  letter-spacing: -.025em;
+}
+.docs-brand-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; padding-left: 18px; }
+.docs-brand-meta span {
+  padding: 6px 10px;
+  border: 1px solid #d5e6e0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 65%);
+  color: #3f6867;
+  font: 500 11px/1.4 var(--f-sans);
+  white-space: nowrap;
+}
+.docs-reader .docs-hero p { font-size: 16px !important; line-height: 1.75; max-width: 840px !important; }
+.docs-brand-description { margin: 22px 0 0; color: var(--ink-muted); }
+@media (max-width: 1180px) {
+  .docs-brand-meta { display: none; }
+}
+@media (max-width: 900px) {
+  .docs-reader .docs-hero h1 { display: block; }
+  .docs-reader .docs-hero h1 .docs-product-name { display: block; margin-top: 8px; border-left: 0; padding-left: 0; font-size: 19px; }
+}
 .docs-reader .display-title, .docs-reader main h2, .docs-reader main h3, .docs-reader main h4,
 .docs-reader .provider-hero-title {
   font-family: var(--f-sans) !important;
@@ -179,9 +245,14 @@
 }
 @media (max-width: 720px) {
   .docs-reader .docs-content-grid > main { padding: 28px 18px !important; }
-  .docs-reader .docs-hero { padding: 28px 18px 20px !important; }
+  .docs-reader .docs-hero { display: block !important; padding: 28px 18px 20px !important; }
   .docs-reader .docs-tabs { margin-inline: -18px !important; padding-inline: 18px !important; }
-  .docs-reader .docs-hero h1 { font-size: 32px !important; }
+  .docs-brand-lockup { gap: 16px; }
+  .docs-brand-logo { flex-basis: 72px; width: 72px; height: 72px; border-radius: 18px; }
+  .docs-brand-eyebrow { font-size: 10px; margin-bottom: 5px; }
+  .docs-reader .docs-hero h1 { font-size: 44px !important; }
+  .docs-reader .docs-hero h1 .docs-product-name { font-size: 16px; margin-top: 6px; }
+  .docs-brand-description { margin-top: 18px; }
   .docs-reader .provider-hero { padding: 22px 20px; }
   .code-example .code { font-size: 13px; padding: 14px; }
   .code-toolbar { padding-inline: 10px; }

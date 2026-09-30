@@ -23,6 +23,14 @@ class StaticScopeTests(unittest.TestCase):
         self.assertLess(actual.index('docs/code-block.jsx'), actual.index('docs/docs-site.jsx'))
         self.assertNotIn('language.js', actual)
 
+    def test_brand_logo_is_allowlisted_and_published_before_html(self):
+        names = ['docs/docs-site.jsx', 'assets/docs-page.js', 'assets/token-page.js',
+                 'index.html', 'docs/index.html', 'logo.jpg']
+        actual = scoped_files(self.manifest(names))
+        self.assertIn('logo.jpg', actual)
+        self.assertLess(actual.index('logo.jpg'), actual.index('docs/index.html'))
+        self.assertNotIn('server.js', actual)
+
     def test_full_legacy_manifest_remains_accepted(self):
         self.assertEqual(scoped_files(self.manifest(FILES)), FILES)
 

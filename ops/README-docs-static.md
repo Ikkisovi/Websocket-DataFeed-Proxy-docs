@@ -10,6 +10,11 @@ The reading-experience layer uses `public/docs/reading.css` (scoped to
 portal bundles). Publish the reading stylesheet before the HTML entries. The
 page generator versions its CSS and JavaScript together. Existing account,
 checkout, announcement and backend files are not part of this overlay.
+The branded masthead reuses the original `public/logo.jpg` through an
+art-directed CSS viewport; the image itself is unchanged. Include that file
+in the hash-bound static manifest whenever publishing the masthead, even if
+its before/after hashes are identical. The display wordmark remains serif;
+reference headings, body copy and code controls keep the reading-layer fonts.
 
 Run `npm ci --ignore-scripts && npm test` from `proxy-token-site/` and
 `python3 ops/test_deploy_docs_static.py` from the repository root before a

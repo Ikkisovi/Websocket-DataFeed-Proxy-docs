@@ -1190,9 +1190,9 @@ describe('Registration and bulk product UI contract', () => {
     ];
     for (const page of pages) {
       const html = fs.readFileSync(path.join(__dirname, 'public', 'docs', page, 'index.html'), 'utf8');
-      expect(html).toContain('/assets/docs-page.js?v=20260930-leandata-title-v1');
-      expect(html).toContain('/docs/tokens.css?v=20260930-leandata-title-v1');
-      expect(html).toContain('/docs/reading.css?v=20260930-leandata-title-v1');
+      expect(html).toContain('/assets/docs-page.js?v=20260930-brand-masthead-v1');
+      expect(html).toContain('/docs/tokens.css?v=20260930-brand-masthead-v1');
+      expect(html).toContain('/docs/reading.css?v=20260930-brand-masthead-v1');
       expect(html).toContain('Instrument+Serif');
     }
     expect(docsSource).toContain('href: DOC_PATHS.marketStocks');
