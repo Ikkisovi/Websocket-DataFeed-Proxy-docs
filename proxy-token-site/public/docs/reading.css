@@ -1,0 +1,194 @@
+/* API reference reading layer. Scoped so account, checkout and admin UI stay unchanged. */
+.docs-reader {
+  --f-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  --f-display: var(--f-sans);
+  --bg-canvas: #ffffff;
+  --bg-sunken: #f6f7f9;
+  --bg-code: #f6f7f9;
+  --bg-code-paper: #f8fafc;
+  --ink-strong: #17212e;
+  --ink-base: #344054;
+  --ink-muted: #596579;
+  --ink-soft: #667085;
+  --rule: #e4e7ec;
+  --rule-strong: #d0d5dd;
+  --rule-faint: #f0f2f5;
+  --radius-md: 8px;
+  font-size: 16px;
+  line-height: 1.75;
+  letter-spacing: 0;
+}
+.docs-reader .docs-content-grid { min-width: 0; }
+.docs-reader .docs-content-grid > main {
+  width: 100%;
+  max-width: 1040px;
+  min-width: 0;
+  margin-inline: auto;
+  padding: 40px clamp(24px, 3.5vw, 56px) !important;
+  overflow-wrap: anywhere;
+}
+.docs-reader .docs-hero { padding: 36px 48px 24px !important; }
+.docs-reader .docs-tabs { margin-inline: -48px !important; padding-inline: 48px !important; }
+.docs-reader .docs-hero h1 {
+  font-family: var(--f-sans);
+  font-size: clamp(32px, 4vw, 44px) !important;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -.025em;
+}
+.docs-reader .docs-hero h1 span { font-style: normal !important; }
+.docs-reader .docs-hero p { font-size: 16px !important; line-height: 1.75; max-width: 780px !important; }
+.docs-reader .display-title, .docs-reader main h2, .docs-reader main h3, .docs-reader main h4,
+.docs-reader .provider-hero-title {
+  font-family: var(--f-sans) !important;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -.02em;
+  overflow-wrap: anywhere;
+  scroll-margin-top: 28px;
+}
+.docs-reader main h2 { font-size: clamp(23px, 2.5vw, 28px) !important; }
+.docs-reader main h3 { font-size: 20px; }
+.docs-reader main p, .docs-reader main li {
+  font-size: 16px !important;
+  line-height: 1.8 !important;
+  color: var(--ink-base);
+}
+.docs-reader main p > span { font-size: 15px !important; line-height: inherit; }
+.docs-reader .doc-description { color: var(--ink-base); }
+.docs-reader .eyebrow, .docs-reader .topbar .brand, .docs-reader .tbl th,
+.docs-reader .provider-chip, .docs-reader .provider-flow-step strong {
+  font-family: var(--f-sans);
+  letter-spacing: .04em;
+}
+.docs-reader .table-scroll {
+  width: 100%;
+  max-width: 100%;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+.docs-reader .table-scroll:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
+.docs-reader .table-scroll .tbl { min-width: 640px; margin: 0; }
+.docs-reader .method { white-space: nowrap; }
+.docs-reader .tbl { font-size: 14px; }
+.docs-reader .tbl td { font-size: 14px !important; line-height: 1.65; overflow-wrap: anywhere; }
+.docs-reader .tbl th { font-size: 12px; font-weight: 600; letter-spacing: .02em; }
+.docs-reader main :not(pre) > code { font-family: var(--f-mono); font-size: .875em; overflow-wrap: anywhere; }
+.docs-reader .provider-hero {
+  border-radius: 12px;
+  box-shadow: none;
+  background: var(--bg-paper);
+  padding: 28px;
+}
+.docs-reader .provider-hero-title { font-size: 30px !important; }
+.docs-reader .provider-logo-frame { width: 120px; border-radius: 12px; box-shadow: none; }
+.docs-reader .provider-note { font-size: 15px; line-height: 1.75; }
+.docs-reader .provider-attribution { font-size: 13px; color: var(--ink-muted); }
+.docs-reader .docs-sidenav a, .docs-reader .on-this-page a { line-height: 1.6; }
+
+.code-example {
+  max-width: 100%;
+  min-width: 0;
+  margin: 16px 0 24px;
+  border: 1px solid var(--rule, #e4e7ec);
+  border-radius: 10px;
+  background: #f6f7f9;
+  color: #344054;
+  overflow: clip;
+}
+.code-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--rule, #e4e7ec);
+  background: #fafbfc;
+  font: 500 12px/1.4 var(--f-sans);
+  color: #596579;
+}
+.code-language { letter-spacing: .02em; }
+.code-actions { display: flex; align-items: center; gap: 6px; }
+.code-action, .code-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 4px 8px;
+  background: transparent;
+  color: #475467;
+  font: 500 12px/1.4 var(--f-sans);
+  cursor: pointer;
+}
+.code-action:hover, .code-expand:hover { background: #e9edf2; color: #17212e; }
+.code-action[aria-pressed="true"] { background: #e9edf2; }
+.code-action:focus-visible, .code-expand:focus-visible, .code-example .code:focus-visible {
+  outline: 2px solid var(--accent-ink, #007c83);
+  outline-offset: -2px;
+}
+.code-example .code {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 18px 20px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #344054;
+  font-family: var(--f-mono);
+  font-size: 14px;
+  line-height: 1.75;
+  letter-spacing: 0;
+  white-space: pre;
+  overflow: auto;
+  overscroll-behavior: contain;
+  tab-size: 2;
+  scrollbar-width: thin;
+  scrollbar-color: #98a2b3 #eef0f4;
+}
+.code-example .code code { font: inherit; color: inherit; }
+.code-example .code.is-wrapped { white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; }
+.code-example .code.is-collapsed { max-height: 360px; }
+.code-example .code .s { color: #176044; }
+.code-example .code .n { color: #90501b; }
+.code-example .code .k { color: #6f42a0; }
+.code-example .code .c { color: #667085; font-style: normal; }
+.code-expand {
+  width: 100%;
+  min-height: 38px;
+  border-radius: 0;
+  border-top: 1px solid var(--rule, #e4e7ec);
+  background: #fafbfc;
+}
+.code-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .docs-reader .docs-content-grid > main { padding: 28px 18px !important; }
+  .docs-reader .docs-hero { padding: 28px 18px 20px !important; }
+  .docs-reader .docs-tabs { margin-inline: -18px !important; padding-inline: 18px !important; }
+  .docs-reader .docs-hero h1 { font-size: 32px !important; }
+  .docs-reader .provider-hero { padding: 22px 20px; }
+  .code-example .code { font-size: 13px; padding: 14px; }
+  .code-toolbar { padding-inline: 10px; }
+  .code-action { min-height: 36px; }
+}
+@media print {
+  .code-actions, .code-expand { display: none; }
+  .code-example .code.is-collapsed { max-height: none; }
+  .code-example .code { white-space: pre-wrap; overflow-wrap: anywhere; }
+}

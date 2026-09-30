@@ -15,6 +15,14 @@ class StaticScopeTests(unittest.TestCase):
         self.assertNotIn('assets/register-page.js', actual)
         self.assertNotIn('skills/leandata-market-data/SKILL.md', actual)
 
+    def test_reading_layer_is_scoped_and_published_before_html(self):
+        names = ['docs/docs-site.jsx', 'assets/docs-page.js', 'assets/token-page.js',
+                 'index.html', 'docs/index.html', 'docs/code-block.jsx', 'docs/reading.css']
+        actual = scoped_files(self.manifest(names))
+        self.assertLess(actual.index('docs/reading.css'), actual.index('docs/index.html'))
+        self.assertLess(actual.index('docs/code-block.jsx'), actual.index('docs/docs-site.jsx'))
+        self.assertNotIn('language.js', actual)
+
     def test_full_legacy_manifest_remains_accepted(self):
         self.assertEqual(scoped_files(self.manifest(FILES)), FILES)
 

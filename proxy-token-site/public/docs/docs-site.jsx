@@ -5,6 +5,7 @@ import React, {
   useState as useStatusState,
 } from "react";
 import { UsagePage } from "./usage-page.jsx";
+import { CodeBlock } from "./code-block.jsx";
 
 // ── StatusBody component ──
 // Fetches live data from /api/status, /api/uptime, /api/latency, /api/incidents.
@@ -748,7 +749,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
     : React.createElement(StatusBody);
 
   return (
-    <div className="proxy-app" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+    <div className="proxy-app docs-reader" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       {!hideTopbar && <DocsTopbar active={visibleTab} />}
       <div className="docs-hero" style={{ padding: "44px 64px 28px", borderBottom: "1px solid var(--rule)", background: "var(--bg-paper)", position: "relative", overflow: "hidden" }}>
         <div className="eyebrow" style={{ marginBottom: 14 }}>Reference · live docs</div>
@@ -1423,13 +1424,10 @@ function Bilingual({ en, zh }) {
 }
 
 function DocDesc({ en, zh, style }) {
-  const lang = useCurrentLanguage();
-  const isZh = lang === "zh";
+  const isZh = useCurrentLanguage() === "zh";
   return (
-    <p style={{ fontSize: 15, color: "var(--ink-base)", margin: "0 0 12px", lineHeight: 1.65, ...style }}>
+    <p className="doc-description" style={{ margin: "0 0 16px", ...style }}>
       {isZh ? (zh || en) : (en || zh)}
-      {isZh && en && zh && <><br/><span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{en}</span></>}
-      {!isZh && zh && en && <><br/><span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{zh}</span></>}
     </p>
   );
 }
@@ -1459,10 +1457,7 @@ function ProviderHero({ id, provider, eyebrow, title, zhTitle, en, zh, chips = [
       <div className="provider-hero-copy">
         <div className="eyebrow">{eyebrow}</div>
         <h2 className="provider-hero-title">{isZh ? zhTitle : title}</h2>
-        <p className="provider-hero-subtitle">
-          {isZh ? zh : en}
-          <br/><span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{isZh ? en : zh}</span>
-        </p>
+        <p className="provider-hero-subtitle">{isZh ? zh : en}</p>
         <div className="provider-chip-row">
           {chips.map((chip) => <span className="provider-chip" key={chip}>{chip}</span>)}
         </div>
@@ -1520,7 +1515,7 @@ function ProviderFlow({ items }) {
 function BilingualDataTable({ columns, rows, style }) {
   const isZh = useCurrentLanguage() === "zh";
   return (
-    <table className="tbl card" style={{ overflow: "hidden", width: "100%", marginBottom: 22, ...style }}>
+    <DocTable className="tbl card" style={{ overflow: "hidden", width: "100%", marginBottom: 22, ...style }}>
       <thead><tr>{columns.map(([en, zh]) => <th key={en}>{isZh ? `${zh} / ${en}` : en}</th>)}</tr></thead>
       <tbody>{rows.map((row, rowIndex) => (
         <tr key={rowIndex}>{row.map((cell, cellIndex) => {
@@ -1528,7 +1523,7 @@ function BilingualDataTable({ columns, rows, style }) {
           return <td key={cellIndex} style={cellIndex === 0 ? { fontFamily: "var(--f-mono)", fontSize: 11.5, color: "var(--ink-strong)" } : { fontSize: 12.5 }}>{value}</td>;
         })}</tr>
       ))}</tbody>
-    </table>
+    </DocTable>
   );
 }
 
@@ -1536,6 +1531,16 @@ const API_CATEGORIES = {
   market: { en: "Market data", zh: "行情数据" },
   financial: { en: "Financial data", zh: "财务数据" },
 };
+
+function DocTable({ children, style = {}, ...props }) {
+  const isZh = useCurrentLanguage() === "zh";
+  const { margin, marginTop, marginBottom, ...tableStyle } = style;
+  return (
+    <div className="table-scroll" style={{ margin, marginTop, marginBottom }} role="region" tabIndex={0} aria-label={isZh ? "参考表格，可横向滚动查看完整内容" : "Reference table; scroll horizontally for all columns"}>
+      <table {...props} style={tableStyle}>{children}</table>
+    </div>
+  );
+}
 
 function ParamRow({ name, type, required, desc, zh }) {
   const lang = useCurrentLanguage();
@@ -1561,7 +1566,7 @@ function ParamTable({ rows }) {
   const lang = useCurrentLanguage();
   const isZh = lang === "zh";
   return (
-    <table className="tbl" style={{ marginBottom: 20, width: "100%", fontSize: 13 }}>
+    <DocTable className="tbl" style={{ marginBottom: 20, width: "100%", fontSize: 13 }}>
       <thead>
         <tr>
           <th style={{ width: 180 }}>{isZh ? "参数名 / Parameter" : "Parameter"}</th>
@@ -1573,7 +1578,7 @@ function ParamTable({ rows }) {
       <tbody>
         {rows.map((r, i) => <ParamRow key={i} {...r} />)}
       </tbody>
-    </table>
+    </DocTable>
   );
 }
 
@@ -1823,10 +1828,10 @@ function StockEndpointSection({ endpoint }) {
       {endpoint.params.length > 0 ? <ParamTable rows={endpoint.params} /> : (
         <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 20px" }}>{isZh ? "无需必填查询参数。" : "No query parameters are required."}</p>
       )}
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}${endpoint.examplePath}"`}
-      </pre>
+      </CodeBlock>
     </section>
   );
 }
@@ -2380,7 +2385,7 @@ function FmpFundamentalsBody({ focus }) {
 
       <h3 className="display-title" style={{ fontSize: 28, margin: "28px 0 10px" }}>可用接口 / Available Endpoints</h3>
       <div style={{ overflowX: "auto", marginBottom: 16 }}>
-        <table className="tbl card" style={{ width: "100%", minWidth: 700, overflow: "hidden" }}>
+        <DocTable className="tbl card" style={{ width: "100%", minWidth: 700, overflow: "hidden" }}>
           <thead><tr><th>接口路径 / Route</th><th>数据类型 / Data Type</th><th>参数 / Parameters</th></tr></thead>
           <tbody>
             <tr><td style={mono}>/stable/income-statement</td><td>利润表 / Income statement</td><td><code>symbol</code>, 可选 <code>period</code>, <code>limit</code></td></tr>
@@ -2396,7 +2401,7 @@ function FmpFundamentalsBody({ focus }) {
             <tr><td style={mono}>/stable/financial-scores</td><td>财务评分 / Financial scores</td><td><code>symbol</code></td></tr>
             <tr><td style={mono}>/v1/pit/fmp/*</td><td>历史版本查询 / Versioned query</td><td><code>symbol</code>, <code>as_of</code>, <code>package_sha256</code></td></tr>
           </tbody>
-        </table>
+        </DocTable>
       </div>
 
       <h3 id="fmp-endpoint-subsections" className="display-title" style={{ fontSize: 28, margin: "32px 0 4px" }}>接口详细说明 / Endpoint Details</h3>
@@ -2428,7 +2433,7 @@ function FmpFundamentalsBody({ focus }) {
         <FmpEndpointSection key={route} id={`fmp-${route.slice("/stable/".length)}`} route={route} title={title} params={params} note={note} />
       ))}
 
-      <pre className="code" style={{ marginBottom: 22 }}>
+      <CodeBlock style={{ marginBottom: 22 }}>
 {`# 获取股票报价（示例使用 AAPL，返回历史数据非实时）
 # Get stock quote (example uses AAPL, returns historical data not real-time)
 curl "https://api.leandata.uk/stable/quote?symbol=AAPL" \\
@@ -2472,9 +2477,9 @@ curl "https://api.leandata.uk/stable/cash-flow-statement?symbol=AAPL&period=annu
 # Query versioned statement (requires timestamp and version identifier)
 curl "https://api.leandata.uk/v1/pit/fmp/income-statement?symbol=AAPL&as_of=2026-08-01T00:00:00Z&package_sha256=PACKAGE_SHA256" \\
   -H "Authorization: Bearer YOUR_TOKEN"`}
-      </pre>
+      </CodeBlock>
 
-      <pre className="code" style={{ marginBottom: 22 }}>
+      <CodeBlock style={{ marginBottom: 22 }}>
 {`# 获取季度财务比率
 # Get quarterly financial ratios
 curl "https://api.leandata.uk/stable/ratios?symbol=TSLA&period=quarter&limit=4" \\
@@ -2501,14 +2506,14 @@ curl "https://api.leandata.uk/stable/enterprise-values?symbol=META&period=quarte
   -H "Authorization: Bearer YOUR_TOKEN"
 curl "https://api.leandata.uk/stable/financial-scores?symbol=AMZN" \\
   -H "Authorization: Bearer YOUR_TOKEN"`}
-      </pre>
+      </CodeBlock>
 
       <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>响应示例 / Response Example</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 14px", maxWidth: 830 }}>
         接口返回 JSON 数组格式。以下是利润表数据的响应示例（字段值仅作示意）：
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Endpoints return JSON arrays. Below is an income statement response example (values are illustrative):</span>
       </p>
-      <pre className="code" style={{ marginBottom: 22 }}>
+      <CodeBlock style={{ marginBottom: 22 }}>
 {`HTTP/1.1 200 OK
 Content-Type: application/json
 
@@ -2531,7 +2536,7 @@ Content-Type: application/json
     "epsdiluted": 6.11
   }
 ]`}
-      </pre>
+      </CodeBlock>
 
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 14px", maxWidth: 830 }}>
         财务比率接口返回的字段包括 <code>currentRatio</code>（流动比率）、<code>quickRatio</code>（速动比率）、<code>debtToEquityRatio</code>（负债权益比）、<code>priceToEarningsRatio</code>（市盈率）、<code>returnOnEquity</code>（ROE）等。TTM 字段通常以 <code>TTM</code> 结尾。字段缺失或为 null 时表示数据源没有提供该字段，请勿当作零处理。
@@ -2540,7 +2545,7 @@ Content-Type: application/json
 
       <h3 id="fmp-request-contract" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>参数说明 / Parameters</h3>
       <div style={{ overflowX: "auto", marginBottom: 22 }}>
-        <table className="tbl card" style={{ width: "100%", minWidth: 700, overflow: "hidden" }}>
+        <DocTable className="tbl card" style={{ width: "100%", minWidth: 700, overflow: "hidden" }}>
           <thead><tr><th>参数 / Parameter</th><th>用途 / Usage</th><th>说明 / Notes</th></tr></thead>
           <tbody>
             <tr><td style={mono}>symbol</td><td>股票代码（必需）/ Required ticker</td><td>使用上市公司代码，例如 <code>AAPL</code>、<code>TSLA</code>。Use listed ticker symbol like <code>AAPL</code>, <code>TSLA</code>.</td></tr>
@@ -2549,7 +2554,7 @@ Content-Type: application/json
             <tr><td style={mono}>as_of</td><td>查询时间点（版本查询必需）/ Required for versioned queries</td><td>ISO-8601 时间戳格式。仅历史版本查询接口需要。<br/>ISO-8601 timestamp. Only required for versioned query endpoints.</td></tr>
             <tr><td style={mono}>package_sha256</td><td>版本标识符（版本查询必需）/ Version identifier</td><td>数据版本的唯一标识。用于可重复查询。<br/>Unique version identifier for reproducible queries.</td></tr>
           </tbody>
-        </table>
+        </DocTable>
       </div>
 
       <h3 id="fmp-response-metadata" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>数据覆盖说明 / Coverage Notes</h3>
@@ -2722,10 +2727,10 @@ function MorningstarFundamentalsBody() {
           未指定 symbol 的横截面查询最多允许 7 个 inclusive calendar days。超过时返回 <code>400 symbol_or_short_window_required</code>。响应中的 <code>truncated=true</code> 表示存在更多 logical rows。
           <br/>Unfiltered cross-sections are limited to seven inclusive calendar days. Larger requests return <code>400 symbol_or_short_window_required</code>. <code>truncated=true</code> proves more logical rows exist.
         </div>
-        <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS \\
+        <CodeBlock style={{ marginBottom: 18 }}>{`curl -sS \\
   'https://leandata.uk/v1/fundamentals/morningstar?symbol=AAPL&start=2026-09-15&end=2026-09-17&fields=market_cap,pe_ratio,total_revenue,net_income,free_cash_flow' \\
-  -H 'Authorization: Bearer YOUR_TOKEN'`}</pre>
-        <pre className="code">{`{
+  -H 'Authorization: Bearer YOUR_TOKEN'`}</CodeBlock>
+        <CodeBlock>{`{
   "schema": "morningstar_fundamentals_history_v1",
   "source": "morningstar",
   "scope": "spy_qqq_current_constituent_capture",
@@ -2745,7 +2750,7 @@ function MorningstarFundamentalsBody() {
       "free_cash_flow": 98767000000
     }
   ]
-}`}</pre>
+}`}</CodeBlock>
       </section>
 
       <section id="morningstar-coverage" style={{ borderTop: "1px solid var(--rule)", paddingTop: 26, marginBottom: 32 }}>
@@ -2756,9 +2761,9 @@ function MorningstarFundamentalsBody() {
           返回 physical/logical rows、日期范围、distinct dates、symbol 数、逐年 coverage，以及每个 metric 的 NULL 数。无需日期参数，但仍要求 Premium token。
           <br/>Returns physical/logical rows, date range, distinct dates, symbol count, annual coverage, and per-metric NULL counts. It takes no date parameters but still requires a Premium token.
         </p>
-        <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS 'https://leandata.uk/v1/fundamentals/morningstar/coverage' \\
-  -H 'Authorization: Bearer YOUR_TOKEN'`}</pre>
-        <pre className="code">{`{
+        <CodeBlock style={{ marginBottom: 18 }}>{`curl -sS 'https://leandata.uk/v1/fundamentals/morningstar/coverage' \\
+  -H 'Authorization: Bearer YOUR_TOKEN'`}</CodeBlock>
+        <CodeBlock>{`{
   "schema": "morningstar_fundamentals_coverage_v1",
   "source": "morningstar",
   "totals": {
@@ -2771,7 +2776,7 @@ function MorningstarFundamentalsBody() {
   },
   "null_counts": { "market_cap": "16441", "pe_ratio": "23764", "dividend_yield": "847954" },
   "years": [ ... ]
-}`}</pre>
+}`}</CodeBlock>
       </section>
 
       <h3 className="display-title" style={{ fontSize: 27, margin: "0 0 10px" }}>权限、响应头与错误 / Access, headers & errors</h3>
@@ -2779,10 +2784,10 @@ function MorningstarFundamentalsBody() {
         两个 endpoints 均使用现有 Bearer authentication、historical concurrency、archive/egress admission 和 usage/access logging。Standard/Free 返回 <code>403 morningstar_premium_required</code>。后端错误经过清洗，不泄漏 ClickHouse SQL 或凭据。
         <br/>Both endpoints reuse Bearer authentication, historical concurrency, archive/egress admission, and usage/access logging. Standard/Free receives <code>403 morningstar_premium_required</code>. Backend errors are sanitized and do not expose ClickHouse SQL or credentials.
       </p>
-      <pre className="code">{`X-Cache: HIT
+      <CodeBlock>{`X-Cache: HIT
 X-Cache-Tier: archive_clickhouse
 X-Data-Source: morningstar_fundamentals_archive
-X-Request-Id: <uuid>`}</pre>
+X-Request-Id: <uuid>`}</CodeBlock>
 
       <div className="provider-attribution">
         <strong>Provider attribution / 数据来源：</strong> Morningstar US Fundamentals. Morningstar and its marks are the property of their respective owner. Leandata is not presenting this dataset as the complete Morningstar universe or as certified strict point-in-time data.
@@ -2830,7 +2835,7 @@ function CnEndpoint({ id, title, method, path, source, params, example, en, zh }
       <EndpointBadge method={method} path={path} />
       <DocDesc en={en} zh={zh} />
       <ParamTable rows={params} />
-      <pre className="code" style={{ marginBottom: 8 }}>{example}</pre>
+      <CodeBlock style={{ marginBottom: 8 }}>{example}</CodeBlock>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: 0 }}>
         Accounts without CN Data access receive <code>403</code> for <code>/v1/cn/*</code>; CN Data requires explicit account authorization.
         <br/>未获得中国数据授权的账号请求 <code>/v1/cn/*</code> 返回 <code>403</code>；需要单独开通账号权限，普通套餐不自动包含。
@@ -3073,7 +3078,7 @@ function CnDataSections() {
         zh="内测已上线：普通套餐默认不包含（含 Premium），需明确授权账号本人（单独授权）。结账页不提供购买，价格待定（TBD）。"
         en="Live private beta: not included in ordinary plans (including Premium) by default; access requires explicit account authorization (own account only). Checkout offers no purchase; price TBD."
       />
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
+      <DocTable className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
         <thead><tr><th>Method</th><th>Endpoint</th><th>Family</th><th>Source</th><th>Status</th></tr></thead>
         <tbody>
           {["GET/POST /v1/cn/catalog|catalog|available", "GET/POST /v1/cn/daily/bars|daily|available", "GET/POST /v1/cn/minute/bars|minute|available", "GET/POST /v1/cn/valuation|valuation|available", "GET/POST /v1/cn/securities|membership|available", "GET/POST /v1/cn/reference/corporate-actions|reference|available", "GET/POST /v1/cn/reference/northbound|reference|available", "GET/POST /v1/cn/reference/margin|reference|available", "GET/POST /v1/cn/fundamentals/statements|fundamentals|available", "GET/POST /v1/cn/etf/bars|etf|available", "GET/POST /v1/cn/etf/minute/bars|etf|available", "GET/POST /v1/cn/etf/nav|etf|available", "GET/POST /v1/cn/etf/shares|etf|available", "GET/POST /v1/cn/shareholders/top|shareholders|available", "GET/POST /v1/cn/funds/holdings|funds|available", "GET/POST /v1/cn/funds/nav|funds|available", "GET/POST /v1/cn/funds/dividends|funds|available", "GET/POST /v1/cn/funds/financial-indicators|funds|available", "GET/POST /v1/cn/funds/investment-targets|funds|available", "GET/POST /v1/cn/options/daily|options|available", "GET/POST /v1/cn/options/contracts|options|available", "GET/POST /v1/cn/options/risk-indicators|options|available", "GET/POST /v1/cn/options/trade-ranks|options|available", "GET/POST /v1/cn/options/preopen|options|available", "GET/POST /v1/cn/options/adjustments|options|available", "GET/POST /v1/cn/options/exercises|options|available", "— /v1/cn/money-flow|money-flow|unavailable", "— /v1/cn/billboard|billboard|unavailable", "— /v1/cn/membership/sessions|membership|unavailable"].map((row) => {
@@ -3090,8 +3095,8 @@ function CnDataSections() {
             );
           })}
         </tbody>
-      </table>
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
+      </DocTable>
+      <DocTable className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead><tr><th>Plan</th><th>CN Data entitlement</th><th>/v1/cn/* access</th></tr></thead>
         <tbody>
           {["Free", "Trial", "Basic", "Value", "Standard", "Premium"].map((plan) => (
@@ -3102,7 +3107,7 @@ function CnDataSections() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </DocTable>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         CN Data uses your existing unified token with explicit account authorization (own account only). It is not included in ordinary plans; price TBD and checkout offers no purchase.
         <br/>中国数据沿用现有 Token，须明确授权账号本人使用；普通套餐默认不包含；价格待定，结账页不提供购买。
@@ -3161,7 +3166,7 @@ function ProxyApiBody({ focus }) {
         zh="Leandata 提供两类核心服务：Token 门户负责账户注册与 Token 签发管理；行情代理通过稳定公共域名提供历史 REST、实时 REST 与 WebSocket 实时行情流。使用单一 Token 即可访问全部数据接口，无需自行配置第三方凭证。"
         en="Leandata provides two core surfaces: a token portal for registration and token issuance, and a high-performance market data proxy for historical REST, realtime REST, and secure WebSocket streaming. Authenticate with a single unified token across all historical and realtime data endpoints without managing third-party credentials."
       />
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
+      <DocTable className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
         <thead><tr><th>Surface</th><th>Public URL</th><th>Auth</th></tr></thead>
         <tbody>
           <tr><td>Token portal</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{TOKEN_BASE}</td><td style={{ fontSize: 12 }}>username + phone</td></tr>
@@ -3169,7 +3174,7 @@ function ProxyApiBody({ focus }) {
           <tr><td>REST real-time proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{RT_BASE}</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Bearer &lt;token&gt;</td></tr>
           <tr><td>WS data proxy</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{WS_BASE}/stream/*</td><td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>auth message</td></tr>
         </tbody>
-      </table>
+      </DocTable>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13 }}>
         <strong style={{ color: "var(--ink-strong)" }}>{"\u26A1"} Stable public endpoints</strong> — use <code>api.leandata.uk</code> for historical REST,
         <code>rt-api.leandata.uk</code> for realtime REST, and <code>wss://leandata.uk/stream/*</code> for streaming.
@@ -3191,13 +3196,13 @@ function ProxyApiBody({ focus }) {
         zh="所有数据接口（REST 和 WS）都需要 UUID Token。推荐通过 HTTP Authorization 请求头传递，也支持在 POST JSON 请求体中传递："
         en="All data endpoints (REST and WS) require a UUID token. Pass it as an HTTP header or in the JSON body:"
       />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`# Option A — Authorization header (preferred)
 Authorization: Bearer <TOKEN>
 
 # Option B — token field in request body
 { "token": "<TOKEN>", "symbol": "AAPL", ... }`}
-      </pre>
+      </CodeBlock>
       <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 40px" }}>
         Tokens expire 30 days after issuance (trial: 3 days, non-renewable). The proxy returns <code>401</code> for invalid or expired tokens and <code>403</code> if your tier lacks permission for the endpoint.
       </p>
@@ -3206,13 +3211,13 @@ Authorization: Bearer <TOKEN>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px", margin: "0 0 40px", fontSize: 13, lineHeight: 1.6 }}>
         <strong>Runtime status: enabled on REST and WebSocket authentication.</strong> The limiter applies only to repeated invalid-token attempts; one expired or mistyped token is not a ban condition. REST returns <code>429</code> with <code>Retry-After</code>; WS returns a <code>429</code> control error with <code>retry_after_seconds</code> before closing the failed session.
         <br/><span style={{ color: "var(--ink-soft)" }}>运行状态：REST 与 WebSocket 鉴权均已启用。仅对重复的无效 Token 尝试限流；一次过期或输入错误不会触发封禁。REST 返回带 <code>Retry-After</code> 的 <code>429</code>；WS 在关闭失败连接前返回带 <code>retry_after_seconds</code> 的 <code>429</code> 控制错误。</span>
-        <table className="tbl card" style={{ overflow: "hidden", margin: "12px 0" }}>
+        <DocTable className="tbl card" style={{ overflow: "hidden", margin: "12px 0" }}>
           <thead><tr><th>Signal</th><th>Action</th><th>Scope</th></tr></thead>
           <tbody>
             <tr><td><code>5</code> invalid-token failures / <code>60s</code></td><td><code>429</code> soft throttle for <code>60s</code> with <code>Retry-After</code></td><td>abuse key</td></tr>
             <tr><td><code>15</code> failures / <code>5m</code></td><td>temporary ban for <code>5m</code></td><td>abuse key</td></tr>
           </tbody>
-        </table>
+        </DocTable>
         The abuse key uses a daily-rotated HMAC of the source IP plus a coarse User-Agent category. A presented token may be HMAC-fingerprinted for short-lived correlation, but raw IPs and raw tokens are never logged or persisted. Each temporary ban expires automatically after <code>5 minutes</code>; bans do not escalate. Pseudonymous counters and ban events are retained for at most <code>7 days</code>; identifier-free aggregate totals may be retained for <code>30 days</code>. Rotation occurs at <code>00:00 UTC</code>.
         <br/><span style={{ color: "var(--ink-soft)" }}>防护键由每日轮换的源 IP HMAC 和粗粒度 User-Agent 类别组成。Token 只允许以 HMAC 指纹做短期关联，不记录或持久化原始 IP/Token。每次临时封禁 <code>5 分钟</code>后自动解除，不会升级。伪匿名计数和封禁事件最多保留 <code>7 天</code>；去标识聚合总数可保留 <code>30 天</code>，每日 <code>00:00 UTC</code> 轮换。</span>
       </div>
@@ -3222,7 +3227,7 @@ Authorization: Bearer <TOKEN>
         zh="Token 套餐决定数据通道和 REST endpoint 权限；运行时安全限制除特别说明外为共享配置。Basic 仅为老账户兼容，不再开放新注册；大批量数据导出请使用独立的 Bulk Download。"
         en="Token plans control access to channels and REST endpoints. Runtime safety limits are shared unless stated otherwise below. Basic is shown only for existing-account compatibility and is closed to new registration; Bulk Download is the separate one-off product above."
       />
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
+      <DocTable className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
           <tr><th style={{ width: 120 }}>Plan</th><th>Price</th><th>WS channels</th><th>WS subjects</th><th>WS account connection cap</th><th>REST historical parallel</th><th>REST endpoints</th></tr>
         </thead>
@@ -3291,7 +3296,7 @@ Authorization: Bearer <TOKEN>
             <td style={{ fontSize: 12 }}><a href={DOC_PATHS.marketCn}>CN Data 中国数据</a> · live /v1/cn/* · private beta · no purchase; explicit account authorization required</td>
           </tr>
         </tbody>
-      </table>
+      </DocTable>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 8px" }}>
         There is currently no tier-specific rolling REST req/min limiter. Upstream provider limits, the shared service ceiling, and overload backpressure still apply.
         <br/>当前没有按套餐执行的 REST 滚动 req/min 限额；服务总并发和过载背压机制仍然生效。
@@ -3332,17 +3337,17 @@ Authorization: Bearer <TOKEN>
       <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 8px" }}>
         Always provide <code>start</code> and <code>end</code> within the 31-day rolling window:
       </p>
-      <pre className="code" style={{ marginBottom: 16 }}>
+      <CodeBlock style={{ marginBottom: 16 }}>
 {`# cURL Example (Recent 5 days of 1-minute bars)
 curl -X GET "https://api.leandata.uk/v2/stocks/bars?symbols=SPY&timeframe=1Min&start=2026-08-17&end=2026-08-21" \\
   -H "Authorization: Bearer YOUR_TOKEN"`}
-      </pre>
+      </CodeBlock>
 
       <h3 style={{ fontSize: 18, margin: "24px 0 8px" }}>2. Option contracts &amp; Greeks snapshots (Nearest 2 expiries)</h3>
       <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 8px" }}>
         Fetch option chain contracts or snapshot Greeks for the nearest 2 expiration cycles:
       </p>
-      <pre className="code" style={{ marginBottom: 16 }}>
+      <CodeBlock style={{ marginBottom: 16 }}>
 {`# Fetch contracts for the nearest upcoming expiries
 curl -X GET "https://api.leandata.uk/v1/options/contracts?underlying_symbols=SPY" \\
   -H "Authorization: Bearer YOUR_TOKEN"
@@ -3350,10 +3355,10 @@ curl -X GET "https://api.leandata.uk/v1/options/contracts?underlying_symbols=SPY
 # Query Greeks and snapshot quotes for a specific near-term expiry
 curl -X GET "https://api.leandata.uk/v1/options/snapshots/expiry?underlying=SPY&expiry=2026-08-25" \\
   -H "Authorization: Bearer YOUR_TOKEN"`}
-      </pre>
+      </CodeBlock>
 
       <h3 style={{ fontSize: 18, margin: "24px 0 8px" }}>3. Real-time WebSocket streaming</h3>
-      <pre className="code" style={{ marginBottom: 16 }}>
+      <CodeBlock style={{ marginBottom: 16 }}>
 {`// Connect to wss://leandata.uk/stream
 const ws = new WebSocket("wss://leandata.uk/stream");
 
@@ -3376,10 +3381,10 @@ ws.onmessage = (event) => {
     }));
   }
 };`}
-      </pre>
+      </CodeBlock>
 
       <h3 style={{ fontSize: 18, margin: "24px 0 8px" }}>4. Python SDK quickstart</h3>
-      <pre className="code" style={{ marginBottom: 28 }}>
+      <CodeBlock style={{ marginBottom: 28 }}>
 {`import requests
 from datetime import datetime, timezone, timedelta
 
@@ -3409,10 +3414,10 @@ resp_opt = requests.get(
     headers=HEADERS
 )
 print("Option contracts:", resp_opt.status_code)`}
-      </pre>
+      </CodeBlock>
 
       <h3 style={{ fontSize: 18, margin: "24px 0 8px" }}>5. Error codes &amp; upgrade paths / 常见拦截错误与升级指引</h3>
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 32 }}>
+      <DocTable className="tbl card" style={{ overflow: "hidden", marginBottom: 32 }}>
         <thead>
           <tr><th style={{ width: 220 }}>Error Code</th><th style={{ width: 120 }}>HTTP Status</th><th>Description &amp; Resolution / 说明与解决方式</th></tr>
         </thead>
@@ -3438,7 +3443,7 @@ print("Option contracts:", resp_opt.status_code)`}
             <td>Financial statements (Income, Balance Sheet, Cash Flow) require a Premium subscription.</td>
           </tr>
         </tbody>
-      </table>
+      </DocTable>
 
       {/* ── Token API ── */}
       <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>Token API</div>
@@ -3455,7 +3460,7 @@ print("Option contracts:", resp_opt.status_code)`}
         { name: "tier",     type: "string", required: false, desc: "trial | value | standard | premium (default: standard). Basic is retired for new registrations.", zh: "套餐类型：trial | value | standard | premium（默认 standard）" },
         { name: "mode",     type: "string", required: false, desc: "stocks | options — required when tier is value. Determines which data vertical is enabled.", zh: "数据方向：stocks 或 options（仅当 tier 为 value 时必填）" },
       ]} />
-      <pre className="code" style={{ marginBottom: 28 }}>
+      <CodeBlock style={{ marginBottom: 28 }}>
 {`// Request
 { "username": "tonnysun", "phone": "18717931119", "email": "tonny@example.com", "tier": "premium" }
 
@@ -3470,7 +3475,7 @@ print("Option contracts:", resp_opt.status_code)`}
 
 // Error 409 — username already taken
 { "success": false, "message": "该用户名已被使用，请换一个。" }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="post-check-status" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/check-status</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Poll approval status before attempting token generation.
@@ -3481,13 +3486,13 @@ print("Option contracts:", resp_opt.status_code)`}
         { name: "username", type: "string", required: true, desc: "The username submitted at registration", zh: "注册时提交的用户名" },
         { name: "phone",    type: "string", required: true, desc: "The phone number submitted at registration", zh: "注册时提交的手机号" },
       ]} />
-      <pre className="code" style={{ marginBottom: 28 }}>
+      <CodeBlock style={{ marginBottom: 28 }}>
 {`// Request
 { "username": "tonnysun", "phone": "18717931119" }
 
 // Response — status values: "pending" | "approved" | "rejected" | "not_found"
 { "success": true, "status": "pending", "message": "审核中，请耐心等待。" }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="post-generate-token" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/generate-token</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -3499,7 +3504,7 @@ print("Option contracts:", resp_opt.status_code)`}
         { name: "username", type: "string", required: true, desc: "Must match an entry in the approved users database", zh: "必须与已开通数据库中的用户名一致" },
         { name: "phone",    type: "string", required: true, desc: "Must match the phone number on record", zh: "必须与登记在册的手机号一致" },
       ]} />
-      <pre className="code" style={{ marginBottom: 48 }}>
+      <CodeBlock style={{ marginBottom: 48 }}>
 {`// Request
 { "username": "ikkipipi", "phone": "15213285787" }
 
@@ -3513,7 +3518,7 @@ print("Option contracts:", resp_opt.status_code)`}
 
 // Error 401 — credentials not found or not approved
 { "success": false, "message": "User not found or payment pending." }`}
-      </pre>
+      </CodeBlock>
 
       {/* ── REST History ── */}
       <div className="eyebrow" style={{ marginBottom: 10, marginTop: 0 }}>REST History</div>
@@ -3533,13 +3538,13 @@ print("Option contracts:", resp_opt.status_code)`}
         { name: "limit",     type: "integer", required: false, desc: "Bars per page, 1–10000 (default: 10000)", zh: "单页最大返回 K 线路数（1-10000，默认 10000）" },
         { name: "max_pages", type: "integer", required: false, desc: "Max pagination pages (default: 100)", zh: "自动分页拉取的最大页数上限（默认 100）" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/history/bars \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbol":"AAPL","timeframe":"1Day","start":"2024-01-02","end":"2024-01-05","limit":5}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`// Response  (X-Cache: MISS on first call, HIT on repeat)
 {
   "bars": {
@@ -3554,7 +3559,7 @@ print("Option contracts:", resp_opt.status_code)`}
   },
   "pages": 1
 }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="get-post-v1-indices-history" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/indices/history</h2>
       <DocDesc
@@ -3567,11 +3572,11 @@ print("Option contracts:", resp_opt.status_code)`}
         { name: "start",  type: "string", required: true, desc: "Inclusive start date in YYYY-MM-DD format", zh: "起始日期（包含），YYYY-MM-DD 格式" },
         { name: "end",    type: "string", required: true, desc: "Inclusive end date in YYYY-MM-DD format", zh: "截止日期（包含），YYYY-MM-DD 格式" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v1/indices/history?symbol=VIX&start=2024-01-02&end=2024-01-05"`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`// Response
 {
   "schema": "index_history_v1",
@@ -3587,7 +3592,7 @@ print("Option contracts:", resp_opt.status_code)`}
   ],
   "request_id": "..."
 }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="cash-indices-overview" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>QuantConnect 现金指数分钟线 / Cash-indices minute archive</h2>
       <DocDesc
@@ -3613,11 +3618,11 @@ print("Option contracts:", resp_opt.status_code)`}
         { name: "end", type: "date", required: false, desc: "Inclusive UTC date YYYY-MM-DD; defaults to today", zh: "结束 UTC 日期（包含）；默认今天" },
         { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000", zh: "默认 5,000，最大 10,000" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v1/indices/minute?symbol=SPX&start=2026-09-15&end=2026-09-17&limit=3"`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`// Response excerpt
 {
   "schema": "cash_indices_minute_history_v1",
@@ -3629,7 +3634,7 @@ print("Option contracts:", resp_opt.status_code)`}
     { "symbol": "SPX", "ts": "2026-09-15 13:31:00", "open": 7612.82, "high": 7617.26, "low": 7609.95, "close": 7614.18 }
   ]
 }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="get-v1-indices-minute-coverage" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET /v1/indices/minute/coverage</h2>
       <DocDesc
@@ -3637,11 +3642,11 @@ print("Option contracts:", resp_opt.status_code)`}
         en="Return minute-bar totals, UTC bounds, distinct dates and per-symbol coverage. Paid plans only; Free returns 403."
       />
       <EndpointBadge method="GET" path={`${REST_BASE}/v1/indices/minute/coverage`} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v1/indices/minute/coverage"`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`// Response excerpt (verified 2026-09-20)
 {
   "schema": "cash_indices_minute_coverage_v1",
@@ -3649,7 +3654,7 @@ print("Option contracts:", resp_opt.status_code)`}
     "min_ts": "2020-01-02 05:01:00", "max_ts": "2026-09-19 04:00:00" },
   "by_symbol": [ ... ]
 }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="get-post-v1-indices-daily" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/indices/daily</h2>
       <DocDesc
@@ -3663,11 +3668,11 @@ print("Option contracts:", resp_opt.status_code)`}
         { name: "end", type: "date", required: false, desc: "Inclusive YYYY-MM-DD; defaults to today", zh: "结束日期（包含）；默认今天" },
         { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000", zh: "默认 5,000，最大 10,000" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v1/indices/daily?symbol=VIX&start=2026-09-15&end=2026-09-17"`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`// Response excerpt
 {
   "schema": "cash_indices_daily_history_v1",
@@ -3675,7 +3680,7 @@ print("Option contracts:", resp_opt.status_code)`}
     { "symbol": "VIX", "date": "2026-09-15", "open": 16.84, "high": 17.84, "low": 16.84, "close": 17.21, "bars": 405 }
   ]
 }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="get-v1-indices-daily-coverage" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET /v1/indices/daily/coverage</h2>
       <DocDesc
@@ -3683,18 +3688,18 @@ print("Option contracts:", resp_opt.status_code)`}
         en="Return daily-bar totals, date range and per-symbol coverage including average bars. Paid plans only; Free returns 403."
       />
       <EndpointBadge method="GET" path={`${REST_BASE}/v1/indices/daily/coverage`} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v1/indices/daily/coverage"`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 48 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 48 }}>
 {`// Response excerpt (verified 2026-09-20)
 {
   "schema": "cash_indices_daily_coverage_v1",
   "totals": { "rows": "6748", "min_date": "2020-01-02", "max_date": "2026-09-18", "symbols": "4" },
   "by_symbol": [ ... ]
 }`}
-      </pre>
+      </CodeBlock>
 
       
       <h2 id="futures-operator-archive" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>
@@ -3772,11 +3777,11 @@ print("Option contracts:", resp_opt.status_code)`}
       <ParamTable rows={[
         { name: "token", type: "string", required: false, desc: "Bearer token in Authorization header or query param token (must belong to FUTURES_OWNER_IDS).", zh: "认证 Token，可通过 Authorization: Bearer 或 query 传入（必须属于 FUTURES_OWNER_IDS 白名单）" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
   "https://api.leandata.uk/v1/futures/catalog"`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 36 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 36 }}>
 {`// Response excerpt (verified 2026-09-30: 2 queryable roots, exact counts and extents)
 {
   "diagnostic_only": true,
@@ -3809,7 +3814,7 @@ print("Option contracts:", resp_opt.status_code)`}
     }
   ]
 }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="get-v1-futures-history-bars" className="display-title" style={{ fontSize: 28, margin: "24px 0 8px" }}>GET /v1/futures/history/bars</h2>
       <p style={{ fontSize: 14, color: "var(--ink-base)", margin: "0 0 12px", lineHeight: 1.6 }}>
@@ -3827,11 +3832,11 @@ print("Option contracts:", resp_opt.status_code)`}
         { name: "limit", type: "integer", required: false, desc: "Page size between 1 and 5,000; defaults to 1,000.", zh: "单页条数，介于 1 到 5,000 之间，默认 1,000" },
         { name: "cursor", type: "string", required: false, desc: "Opaque HMAC-signed pagination token from previous next_cursor, maximum 1,024 characters. Tampering or generation mismatch returns 400 invalid_cursor.", zh: "上一页返回的不透明 HMAC 签名翻页游标 next_cursor，最多 1,024 字符。篡改或跨世代使用返回 400 invalid_cursor" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
   "https://api.leandata.uk/v1/futures/history/bars?root=CL&start=2026-08-03T00:00:00&end=2026-08-04T00:00:00&clock=source_naive&limit=1"`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 48 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 48 }}>
 {`// Response excerpt (verified 2026-09-30: exact first bar from CL receipt, 18 raw source text columns)
 {
   "diagnostic_only": true,
@@ -3860,7 +3865,7 @@ print("Option contracts:", resp_opt.status_code)`}
   "next_cursor": "<opaque signed next_cursor token>",
   "limit": 1
 }`}
-      </pre>
+      </CodeBlock>
       {/* ── Research Signals ── */}
       <ProviderHero
         id="spectral-overview"
@@ -3941,11 +3946,11 @@ print("Option contracts:", resp_opt.status_code)`}
         en="Provide symbol/sid, or keep an unfiltered cross-section to at most seven inclusive calendar days. If truncated=true, narrow the date window or split by SID. Both Spectral endpoints are currently free with any active token, including Free plans, across the available archive without the free market-data lookback window. Source NULLs and sparse dates are preserved without filling or interpolation."
       />
       <p><a href="/research-data" style={{ color: "var(--accent-ink)" }}>研究数据采购 · Research Data checkout →</a></p>
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v1/signals/spectral-tick-flow?sid=ARNC%20WF6J1S513QZP&start=2020-04-01&end=2020-04-01&limit=10"`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`// Response — both valid HWM seam rows are retained
 {
   "schema": "spectral_tick_flow_history_v1",
@@ -3976,7 +3981,7 @@ print("Option contracts:", resp_opt.status_code)`}
     }
   ]
 }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="get-v1-spectral-tick-flow-coverage" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET /v1/signals/spectral-tick-flow/coverage</h2>
       <DocDesc
@@ -3984,11 +3989,11 @@ print("Option contracts:", resp_opt.status_code)`}
         en="Return total and annual coverage: rows, date bounds, distinct dates, SID/ticker counts, SPY rows, and preserved executionsigned NULLs. As verified on 2026-09-19, the latest view contains 1,436,047 rows across 898 underlying SIDs from 2009-07-30 through 2026-09-18."
       />
       <EndpointBadge method="GET" path={`${REST_BASE}/v1/signals/spectral-tick-flow/coverage`} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v1/signals/spectral-tick-flow/coverage"`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 48 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 48 }}>
 {`// Response excerpt
 {
   "schema": "spectral_tick_flow_coverage_v1",
@@ -4005,7 +4010,7 @@ print("Option contracts:", resp_opt.status_code)`}
   },
   "years": [ ... ]
 }`}
-      </pre>
+      </CodeBlock>
 
       <h3 id="spectral-workflows" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>研究工作流 / Research workflows</h3>
       <ProviderFeatures items={[
@@ -4041,13 +4046,13 @@ print("Option contracts:", resp_opt.status_code)`}
         { name: "include_content",    type: "boolean", required: false, desc: "Include full article body" },
         { name: "exclude_contentless",type: "boolean", required: false, desc: "Skip articles with empty content" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/history/news \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL","start":"2024-01-02","end":"2024-01-03","limit":3}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 48 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 48 }}>
 {`// Response
 {
   "news": [
@@ -4068,7 +4073,7 @@ print("Option contracts:", resp_opt.status_code)`}
   ],
   "pages": 1
 }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="post-v1-stock-history-trade-quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/stock/history/trade_quote</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -4085,13 +4090,13 @@ print("Option contracts:", resp_opt.status_code)`}
         { name: "limit",  type: "integer", required: false, desc: "Max records per leg, 1–10000 (default: 1000)" },
         { name: "feed",   type: "string",  required: false, desc: "sip | iex (default: sip with pro account)" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/stock/history/trade_quote \\
   -H "Authorization: Bearer ***" \\
   -H "Content-Type: application/json" \\
   -d '{"symbol":"AAPL","start":"2026-05-20T13:30:00Z","end":"2026-05-20T13:31:00Z","limit":3}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 48 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 48 }}>
 {`// Response
 {
   "symbol": "AAPL",
@@ -4109,7 +4114,7 @@ print("Option contracts:", resp_opt.status_code)`}
   ],
   "quote_count": 312
 }`}
-      </pre>
+      </CodeBlock>
 
             {/* ── Market selector: US / World ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Market · 市场选择</div>
@@ -4170,7 +4175,7 @@ print("Option contracts:", resp_opt.status_code)`}
         zh="底层行情接入多源专业数据链路，由代理网关统一处理鉴权、多级缓存（热点内存 + 历史海量归档）与并发调度："
         en="Market data is unified behind a high-availability proxy layer handling authentication, multi-tier caching (hot memory + historical archive), rate limiting, and automated upstream routing:"
       />
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
+      <DocTable className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
         <thead><tr><th>Surface</th><th>Route</th><th>Routing behavior</th></tr></thead>
         <tbody>
           {[
@@ -4189,13 +4194,13 @@ print("Option contracts:", resp_opt.status_code)`}
             </tr>
           ))}
         </tbody>
-      </table>
+      </DocTable>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         Successful REST responses are cached server-side.
         Cache keys strip proxy credentials, return <code>X-Cache: DISK_HIT</code> on repeat, and use tiered TTLs: historical 7 days, intraday/latest 60 seconds, snapshots 5 minutes, contracts/lists 1 hour.
       </p>
       <h3 id="standard-rest-examples" style={{ fontSize: 16, fontWeight: 500, margin: "0 0 8px", color: "var(--ink-strong)" }}>Standard REST examples</h3>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`# Latest stock quote (Standard REST)
 curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v2/stocks/quotes/latest?symbols=AAPL&feed=sip"
@@ -4207,7 +4212,7 @@ curl -H "Authorization: Bearer <TOKEN>" \\
 # Historical stock quotes (Standard REST)
 curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v2/stocks/quotes?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&feed=sip"`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="post-v1-options-contracts" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/contracts</h2>
       <DocDesc
@@ -4226,13 +4231,13 @@ curl -H "Authorization: Bearer <TOKEN>" \\
         { name: "type",                type: "string",  required: false, desc: "call | put", zh: "期权类型：call（看涨）或 put（看跌）" },
         { name: "limit",               type: "integer", required: false, desc: "1–10000 (default: 1000)", zh: "返回合约条数上限（1-10000，默认 1000）" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/contracts \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"underlying_symbols":"AAPL","limit":2}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`// Response
 {
   "option_contracts": [
@@ -4256,7 +4261,7 @@ curl -H "Authorization: Bearer <TOKEN>" \\
   ],
   "next_page_token": null
 }`}
-      </pre>
+      </CodeBlock>
 
       <div className="eyebrow" style={{ marginBottom: 6, marginTop: 32, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · History</div>
       <h2 id="post-v1-history-options-bars" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/options/bars</h2>
@@ -4285,14 +4290,14 @@ curl -H "Authorization: Bearer <TOKEN>" \\
         OCC symbol format: <code>{"<ROOT><YYMMDD><C|P><8-digit-strike>"}</code> — strike is in thousandths of a dollar, zero-padded to 8 digits.
         Example: AAPL $200 call expiring 2026-06-20 → <code>AAPL260620C00200000</code>
       </p>
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`// With explicit OCC symbol
 curl -X POST ${REST_BASE}/v1/history/options/bars \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260620C00200000","start":"2025-05-01","end":"2025-05-15","timeframe":"1Min"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`// Response
 {
   "bars": {
@@ -4302,14 +4307,14 @@ curl -X POST ${REST_BASE}/v1/history/options/bars \\
   },
   "pages": 1
 }`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`// Client-side 5-minute resampling (pandas)
 frame["t"] = pd.to_datetime(frame["t"], utc=True)
 bars_5m = (frame.set_index("t").resample("5min")
   .agg({"o":"first","h":"max","l":"min","c":"last","v":"sum","n":"sum"})
   .dropna(subset=["o","h","l","c"]))`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="post-v1-options-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/options/open_interest</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -4331,13 +4336,13 @@ bars_5m = (frame.set_index("t").resample("5min")
         { name: "max_dte",      type: "integer", required: false, desc: "Max days-to-expiry filter" },
         { name: "strike_range", type: "integer", required: false, desc: "ATM ± N strikes filter" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/open_interest \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbol":"AAPL","start":"2025-01-02","end":"2025-01-05","expiration":"2025-04-17","strike":170.0,"right":"call"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`// Response
 {
   "count": 1840,
@@ -4352,7 +4357,7 @@ bars_5m = (frame.set_index("t").resample("5min")
     }
   ]
 }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="post-v1-history-options-eod" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/history/options/eod</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -4374,7 +4379,7 @@ bars_5m = (frame.set_index("t").resample("5min")
         { name: "max_dte",      type: "integer", required: false, desc: "Max days-to-expiry filter" },
         { name: "strike_range", type: "integer", required: false, desc: "ATM ± N strikes filter" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`# POST
 curl -X POST ${REST_BASE}/v1/history/options/eod \\
   -H "Authorization: Bearer <TOKEN>" \\
@@ -4384,8 +4389,8 @@ curl -X POST ${REST_BASE}/v1/history/options/eod \\
 # GET
 curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v1/history/options/eod?symbol=AAPL&start=2025-01-02&end=2025-01-03&expiration=2025-04-17&strike=170.0&right=call"`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 12 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`// Response — each record is one contract on one trading day
 {
   "count": 820,
@@ -4404,9 +4409,9 @@ curl -H "Authorization: Bearer <TOKEN>" \\
     }
   ]
 }`}
-      </pre>
+      </CodeBlock>
       <h3 id="eod-python-example" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Python example — fetch OHLC for near-term calls</h3>
-      <pre className="code" style={{ marginBottom: 48 }}>
+      <CodeBlock style={{ marginBottom: 48 }}>
 {`import requests
 
 resp = requests.post(
@@ -4427,7 +4432,7 @@ for row in data["data"][:5]:
     print(f"  {row['expiration']} {row['strike']}C  "
           f"O={row['open']} H={row['high']} L={row['low']} C={row['close']}  "
           f"vol={row['volume']}")`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="post-v1-history-options-trades" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/options/trades</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -4442,13 +4447,13 @@ for row in data["data"][:5]:
         { name: "limit",     type: "integer", required: false, desc: "1–10000 (default: 1000)" },
         { name: "page_token",type: "string",  required: false, desc: "Pagination token from previous response" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/history/options/trades \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260620C00200000","start":"2025-01-02T09:30:00Z","end":"2025-01-02T16:00:00Z"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`// Response — trades keyed by OCC symbol
 {
   "trades": {
@@ -4458,7 +4463,7 @@ for row in data["data"][:5]:
   },
   "next_page_token": null
 }`}
-      </pre>
+      </CodeBlock>
 
       {/* ── Snapshots ── */}
       <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · Snapshots</div>
@@ -4479,13 +4484,13 @@ for row in data["data"][:5]:
         { name: "feed",    type: "string",  required: false, desc: "opra | indicative (default: opra for pro, indicative otherwise)" },
         { name: "limit",   type: "integer", required: false, desc: "1–1000 (default: 100)" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260620C00200000","feed":"indicative"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`// Response — snapshots keyed by OCC symbol
 {
   "snapshots": {
@@ -4512,7 +4517,7 @@ for row in data["data"][:5]:
   },
   "next_page_token": null
 }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="post-v1-options-snapshots-quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/quote</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -4525,13 +4530,13 @@ for row in data["data"][:5]:
         { name: "feed",    type: "string",  required: false, desc: "opra | indicative (default follows account entitlement)" },
         { name: "limit",   type: "integer", required: false, desc: "1–1000 (default: 100)" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/quote \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260522C00110000","feed":"indicative"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 12 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`// Response
 {
   "snapshots": {
@@ -4544,9 +4549,9 @@ for row in data["data"][:5]:
     }
   }
 }`}
-      </pre>
+      </CodeBlock>
       <h3 id="quote-python-example" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Python example — bid/ask spread</h3>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`import requests
 
 resp = requests.post(
@@ -4558,7 +4563,7 @@ for sym, snap in resp.json()["snapshots"].items():
     q = snap["latestQuote"]
     spread = q["ap"] - q["bp"]
     print(f"{sym}  bid={q['bp']}  ask={q['ap']}  spread={spread:.2f}")`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="post-v1-options-snapshots-trade" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/trade</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -4570,12 +4575,12 @@ for sym, snap in resp.json()["snapshots"].items():
         { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 100 per request)" },
         { name: "feed",    type: "string",  required: false, desc: "opra | indicative (default follows account entitlement)" },
       ]} />
-      <pre className="code" style={{ marginBottom: 40 }}>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/trade \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260522C00110000","feed":"indicative"}'`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="post-v1-options-snapshots-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/open_interest</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -4587,13 +4592,13 @@ for sym, snap in resp.json()["snapshots"].items():
         { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 1000 per request)" },
         { name: "limit",   type: "integer", required: false, desc: "1–1000 (default: 100)" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/open_interest \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"AAPL260522C00110000"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 12 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`// Response
 {
   "snapshots": {
@@ -4605,9 +4610,9 @@ for sym, snap in resp.json()["snapshots"].items():
     }
   }
 }`}
-      </pre>
+      </CodeBlock>
       <h3 id="oi-snapshot-python-example" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Python example — check OI for multiple contracts</h3>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`import requests
 
 symbols = "AAPL260620C00200000,AAPL260620P00200000"
@@ -4619,7 +4624,7 @@ resp = requests.post(
 for sym, snap in resp.json()["snapshots"].items():
     oi = snap["openInterest"]
     print(f"{sym}  OI={oi['oi']}  as_of={oi['t']}")`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="post-v1-options-snapshots-expiry" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/expiry</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -4633,13 +4638,13 @@ for sym, snap in resp.json()["snapshots"].items():
         { name: "expiry",     type: "string", required: true,  desc: "Expiration date YYYY-MM-DD" },
         { name: "feed",       type: "string", required: false, desc: "opra | indicative (default: opra)" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/snapshots/expiry \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"underlying":"AAPL","expiry":"2026-05-22","feed":"indicative"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 12 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`// Response
 {
   "count": 42,
@@ -4648,9 +4653,9 @@ for sym, snap in resp.json()["snapshots"].items():
     "AAPL260522C00110000": { "greeks": {...}, "latestQuote": {...} }
   }
 }`}
-      </pre>
+      </CodeBlock>
       <h3 id="expiry-python-example" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Python example — scan all contracts for a Friday expiry</h3>
-      <pre className="code" style={{ marginBottom: 48 }}>
+      <CodeBlock style={{ marginBottom: 48 }}>
 {`import requests
 
 resp = requests.post(
@@ -4664,7 +4669,7 @@ for sym, snap in data["snapshots"].items():
     g = snap.get("greeks", {})
     q = snap.get("latestQuote", {})
     print(f"  {sym}  delta={g.get('delta','—')}  bid={q.get('bp','—')}  ask={q.get('ap','—')}")`}
-      </pre>
+      </CodeBlock>
 
       {/* ── Direct Options API ── */}
       <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · Direct API</div>
@@ -4675,7 +4680,7 @@ for sym, snap in data["snapshots"].items():
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权原生参数查询接口：支持直接使用标的代码、到期日（YYMMDD）、行权价与权利类型（C/P）组合查询，无需拼接 OCC 字符串。支持 GET 与 POST。</span>
       </p>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/...`} />
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
+      <DocTable className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
         <thead><tr><th>Endpoint</th><th>Required access</th><th>Notes</th></tr></thead>
         <tbody>
           {[
@@ -4702,9 +4707,9 @@ for sym, snap in data["snapshots"].items():
             </tr>
           ))}
         </tbody>
-      </table>
+      </DocTable>
       <h3 id="post-v3-option-history-ohlc" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Historical OHLC example</h3>
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`# GET — query parameters
 curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v3/option/history/ohlc?root=AAPL&exp=260620&strike=200.0&right=C&start_date=20250102&end_date=20250103"
@@ -4714,17 +4719,17 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"root":"AAPL","exp":260620,"strike":200.0,"right":"C","start_date":20250102,"end_date":20250103}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 40 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`// Response
 {
   "ohlc": [
     { "date": 20250102, "open": 14.50, "high": 15.20, "low": 14.10, "close": 14.85, "volume": 320 }
   ]
 }`}
-      </pre>
+      </CodeBlock>
       <h3 id="post-v3-option-snapshot-ohlc" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Snapshot OHLC example</h3>
-      <pre className="code" style={{ marginBottom: 48 }}>
+      <CodeBlock style={{ marginBottom: 48 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v3/option/snapshot/ohlc?root=AAPL&exp=260620&strike=200.0&right=C"
 
@@ -4732,10 +4737,10 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
 {
   "ohlc": { "open": 14.50, "high": 15.20, "low": 14.10, "close": 14.85, "volume": 320 }
 }`}
-      </pre>
+      </CodeBlock>
 
       <h3 id="post-v3-option-at-time-quote" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Quote at time example</h3>
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`# GET — quote at a specific time of day
 curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v3/option/at_time/quote?root=AAPL&exp=260620&strike=200.0&right=C&start_date=20250102&end_date=20250102&time_of_day=14:30:00"
@@ -4745,15 +4750,15 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"root":"AAPL","exp":260620,"strike":200.0,"right":"C","start_date":20250102,"end_date":20250102,"time_of_day":"14:30:00"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 48 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 48 }}>
 {`// Response
 {
   "quotes": [
     { "date": 20250102, "ms_of_day": 52200000, "bid": 14.80, "bid_size": 10, "ask": 14.90, "ask_size": 15 }
   ]
 }`}
-      </pre>
+      </CodeBlock>
 
       {/* ── Crypto ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Crypto Data</div>
@@ -4768,7 +4773,7 @@ curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
         { name: "symbols", type: "string", required: true, desc: "Comma-separated crypto pairs (e.g. BTC/USD,ETH/USD). Single symbol also accepted via query or body." },
         { name: "loc", type: "string", required: false, desc: "Market location identifier in route (default: us)" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`# GET Example (URL encoded pair)
 curl -X GET "${REST_BASE}/v1beta3/crypto/us/snapshots?symbols=BTC%2FUSD" \\
   -H "Authorization: Bearer <TOKEN>"
@@ -4778,8 +4783,8 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"BTC/USD,ETH/USD"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 48 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 48 }}>
 {`// Response
 {
   "snapshots": {
@@ -4830,7 +4835,7 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
     }
   }
 }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="post-v1-crypto-us-latest-orderbooks" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/crypto/us/latest/orderbooks</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -4842,13 +4847,13 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
       <ParamTable rows={[
         { name: "symbols", type: "string", required: true, desc: "Comma-separated crypto pairs (e.g. BTC/USD,ETH/USD)" },
       ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/crypto/us/latest/orderbooks \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{"symbols":"BTC/USD,ETH/USD"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 48 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 48 }}>
 {`// Response
 {
   "orderbooks": {
@@ -4864,7 +4869,7 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
     }
   }
 }`}
-      </pre>
+      </CodeBlock>
 
       {/* ── Admin endpoints ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Admin endpoints</div>
@@ -4877,7 +4882,7 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取管理员面板的会话 Token。密码通过 ADMIN_PASSWORD 环境变量设置。</span>
       </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/admin/login`} />
-      <pre className="code" style={{ marginBottom: 28 }}>
+      <CodeBlock style={{ marginBottom: 28 }}>
 {`// Request
 { "password": "admin123" }
 
@@ -4886,20 +4891,20 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
 
 // Use in subsequent admin requests:
 // X-Admin-Token: a3f9c2...64b`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="get-admin-pending" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET /api/admin/pending</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>List registrations awaiting approval.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>列出待审批的注册申请。</span>
       </p>
       <EndpointBadge method="GET" path={`${TOKEN_BASE}/api/admin/pending`} />
-      <pre className="code" style={{ marginBottom: 28 }}>
+      <CodeBlock style={{ marginBottom: 28 }}>
 {`// Response
 { "success": true, "items": [
   { "id": "61ce4f82-...", "username": "tonnysun", "phone": "18717931119",
     "tier": "premium", "registered_at": "2026-05-19T...", "status": "pending" }
 ]}`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="post-admin-approve" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/admin/approve</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -4908,7 +4913,7 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>批准一条待处理的注册申请；自动写入用户数据库并签发 Token，返回值可直接发给用户。</span>
       </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/admin/approve`} />
-      <pre className="code" style={{ marginBottom: 28 }}>
+      <CodeBlock style={{ marginBottom: 28 }}>
 {`// Request
 { "id": "61ce4f82-8b16-4e7e-be01-282730e53cc8" }
 
@@ -4919,20 +4924,20 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
   "token":  "<TOKEN>",
   "expiry": "2026-06-19T14:15:57.059Z"
 }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="post-admin-reject" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/admin/reject</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Reject a pending registration with an optional reason.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>拒绝一条待处理的注册申请，可附带原因。</span>
       </p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/admin/reject`} />
-      <pre className="code" style={{ marginBottom: 48 }}>
+      <CodeBlock style={{ marginBottom: 48 }}>
 {`// Request
 { "id": "61ce4f82-...", "reason": "信息不完整" }
 
 // Response 200
 { "success": true, "message": "已拒绝 tonnysun。" }`}
-      </pre>
+      </CodeBlock>
 
 
       {/* ── Reference ── */}
@@ -4942,7 +4947,7 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Common HTTP status codes returned by the proxy and when they occur.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>代理返回的常见 HTTP 状态码及其触发场景。</span>
       </p>
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 40 }}>
+      <DocTable className="tbl card" style={{ overflow: "hidden", marginBottom: 40 }}>
         <thead><tr><th style={{ width: 80 }}>Status</th><th>Body</th><th>When</th></tr></thead>
         <tbody>
           {[
@@ -4964,7 +4969,7 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
             </tr>
           ))}
         </tbody>
-      </table>
+      </DocTable>
 
       <h2 id="rate-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Rate limits</h2>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", margin: "0 0 12px", fontSize: 13 }}>
@@ -4975,7 +4980,7 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
         The proxy does not currently enforce the old tier-specific rolling req/min values. Historical REST concurrency is per account and remains held until the response body reaches EOF.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>代理当前不执行旧的套餐级滚动 req/min 数值。历史 REST 并发按账号计算，并持续占用到响应正文读取完毕。</span>
       </p>
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
+      <DocTable className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
           <tr><th style={{ width: 220 }}>Runtime limit</th><th>Enforced value</th><th>Scope</th></tr>
         </thead>
@@ -4993,7 +4998,7 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
             </tr>
           ))}
         </tbody>
-      </table>
+      </DocTable>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
         These are current runtime limits, not capacity guarantees. No plan-specific historical request-size budget is enforced. Service-wide backpressure can return <code>503</code>, and provider-capacity limits can return <code>429</code>.
         <br/><span style={{ color: "var(--ink-soft)" }}>这些是当前运行时限制，不是容量保证；历史请求大小不按套餐单独设预算。服务总背压可能返回 <code>503</code>，数据源容量限制可能返回 <code>429</code>。</span>
@@ -5010,7 +5015,7 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
         <br/>Subjects 按实际投递计数，不按唯一 ticker 去重。例如同时订阅 <code>AAPL trades</code> 和 <code>AAPL quotes</code> 算两个 subjects；同一 subject 在两条连接上订阅也算两次，因为数据会发送两次。不同账号独立计数：按当前准入逻辑，两个付费账号可以各开 100 条 WS；这不代表无限容量 SLA。大规模分发建议仅保留少量上游连接，再通过本地代理转发给多个本地进程。
       </p>
 
-      <pre className="code" style={{ marginBottom: 40 }}>
+      <CodeBlock style={{ marginBottom: 40 }}>
 {`// 429 response body (JSON) — historical REST concurrency
 {
   "error": "historical_concurrency_limit",
@@ -5022,7 +5027,7 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
   "error": "Server overloaded, stream priority active. Retry later."
 }
 // With headers: Retry-After: 5, X-Load: high | critical, X-Priority: stream`}
-      </pre>
+      </CodeBlock>
 
     </div>
   );
@@ -5049,7 +5054,7 @@ function WsUsageBody({ focus }) {
         en="Each channel has a dedicated path. Connect to the appropriate URL, send an auth message with your token, then send subscribe messages. Stocks/options/overnight/boats messages are binary MessagePack; crypto and news channels use JSON."
       />
 
-      <table className="tbl card" style={{ marginBottom: 28, overflow: "hidden" }}>
+      <DocTable className="tbl card" style={{ marginBottom: 28, overflow: "hidden" }}>
         <thead><tr><th>{isZh ? "通道 / Channel" : "Channel"}</th><th>{isZh ? "路径 / Path" : "Path"}</th><th>{isZh ? "格式 / Format" : "Format"}</th><th>Basic</th><th>Trial</th><th>Value</th><th>Standard</th><th>Premium</th></tr></thead>
         <tbody>
           {[
@@ -5072,7 +5077,7 @@ function WsUsageBody({ focus }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </DocTable>
 
       {/* ── Connecting ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Connecting</div>
@@ -5081,11 +5086,11 @@ function WsUsageBody({ focus }) {
         zh="建立 WebSocket 连接后，客户端首先发送一条包含 Token 的 auth 认证动作。鉴权在消息体中完成，无需 HTTP 请求头。"
         en="After opening the WebSocket, send an auth action. Authentication happens in the message body — no HTTP headers are needed."
       />
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`{"action": "auth", "token": "<TOKEN>"}
 {"action": "subscribe", "trades": ["AAPL"], "quotes": ["AAPL"]}`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 12 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`import asyncio, websockets, json, msgpack
 
 async def stream_stocks(token):
@@ -5112,8 +5117,8 @@ async def stream_stocks(token):
                 print(msg)
 
 asyncio.run(stream_stocks("YOUR_TOKEN"))`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 28 }}>
+      </CodeBlock>
+      <CodeBlock style={{ marginBottom: 28 }}>
 {`# For crypto/news channels — same pattern but JSON instead of msgpack
 uri = "${WS_BASE}/stream/news"
 await ws.send(json.dumps({"action": "auth", "token": token}))
@@ -5123,7 +5128,7 @@ await ws.send(json.dumps({
     "action": "subscribe",
     "news": ["AAPL", "*"]    # "*" subscribes to all symbols
 }))`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="heartbeat" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Heartbeat</h2>
       <DocDesc
@@ -5153,13 +5158,13 @@ await ws.send(json.dumps({
         zh="美国主流加密货币实时订单簿与逐笔成交：在 orderbooks 和 trades 列表中传入 BTC/USD、ETH/USD 等交易对。消息为标准 JSON 格式。除 Basic 外所有套餐可用。"
         en="Live US crypto orderbooks and trades. Subscribe using orderbooks and/or trades lists with pairs like BTC/USD. Messages are plain JSON (not msgpack). All tiers except Basic."
       />
-      <pre className="code" style={{ marginBottom: 24 }}>
+      <CodeBlock style={{ marginBottom: 24 }}>
 {`await ws.send(json.dumps({
     "action": "subscribe",
     "orderbooks": ["BTC/USD", "ETH/USD"],
     "trades":     ["BTC/USD"]
 }))`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "实时新闻快讯流 (news)" : "news"}</h2>
       <DocDesc
@@ -5181,7 +5186,7 @@ await ws.send(json.dumps({
         zh="订阅与退订共用相同的数据结构，仅 action 字段不同（subscribe 或 unsubscribe）。支持增量订阅，每次调用会在当前连接已有标的上追加或移除。"
         en="Subscribe and unsubscribe actions share the same shape — only the action field differs. You can update subscriptions incrementally; each call adds or removes the listed symbols."
       />
-      <pre className="code" style={{ marginBottom: 24 }}>
+      <CodeBlock style={{ marginBottom: 24 }}>
 {`// Subscribe
 { "action": "subscribe",   "trades": ["AAPL"], "quotes": ["AAPL", "TSLA"], "bars": [] }
 
@@ -5190,10 +5195,10 @@ await ws.send(json.dumps({
 
 // Subscription confirmation (returned after each subscribe/unsubscribe)
 [{ "T": "subscription", "trades": ["AAPL"], "quotes": ["AAPL","TSLA"], "bars": [] }]`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="trade" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Trade</h2>
-      <pre className="code" style={{ marginBottom: 24 }}>
+      <CodeBlock style={{ marginBottom: 24 }}>
 {`{
   "T": "t",                         // message type: trade
   "S": "AAPL",                      // symbol
@@ -5204,10 +5209,10 @@ await ws.send(json.dumps({
   "c": ["@", "T"],                  // trade conditions
   "z": "C"                          // tape
 }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="quote" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Quote</h2>
-      <pre className="code" style={{ marginBottom: 24 }}>
+      <CodeBlock style={{ marginBottom: 24 }}>
 {`{
   "T":  "q",                         // message type: quote
   "S":  "AAPL",
@@ -5217,10 +5222,10 @@ await ws.send(json.dumps({
   "c":  ["R"],                       // quote conditions
   "z":  "C"
 }`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="bar" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Bar</h2>
-      <pre className="code" style={{ marginBottom: 48 }}>
+      <CodeBlock style={{ marginBottom: 48 }}>
 {`{
   "T":  "b",                         // message type: bar (minute)
   "S":  "AAPL",
@@ -5230,7 +5235,7 @@ await ws.send(json.dumps({
   "n":  843,                         // trade count
   "t":  "2026-05-22T14:08:00Z"       // bar open time
 }`}
-      </pre>
+      </CodeBlock>
 
       {/* ── Operations ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Operations</div>
@@ -5241,7 +5246,7 @@ await ws.send(json.dumps({
         The server may close the connection on overload (<code>code 1013</code>) or policy violation (<code>code 1008</code>).
         Implement exponential backoff. Subscriptions are not persisted — re-auth and re-subscribe after every reconnect.
       </p>
-      <pre className="code" style={{ marginBottom: 28 }}>
+      <CodeBlock style={{ marginBottom: 28 }}>
 {`import asyncio, websockets, json, msgpack
 
 async def with_reconnect(token, uri, handler, backoff=1):
@@ -5258,7 +5263,7 @@ async def with_reconnect(token, uri, handler, backoff=1):
         except (websockets.ConnectionClosed, OSError):
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60)`}
-      </pre>
+      </CodeBlock>
 
       <h2 id="backpressure" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Backpressure</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -5280,7 +5285,7 @@ async def with_reconnect(token, uri, handler, backoff=1):
         Where an endpoint supports both methods, prefer GET for idempotent history reads. Repeated requests can be served by the proxy's hot or archive cache; inspect <code>X-Cache</code> and <code>X-Cache-Tier</code> instead of assuming a specific edge provider.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>对同时支持 GET 与 POST 的端点，幂等历史查询优先使用 GET。重复请求可能命中热缓存或归档缓存，请查看 X-Cache / X-Cache-Tier，不要依赖特定边缘供应商。</span>
       </p>
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`# POST — JSON body
 curl -X POST https://api.leandata.uk/v1/history/bars \\
   -d '{"token":"TOKEN","symbol":"AAPL","start":"2025-01-01","end":"2025-12-31","timeframe":"1Day"}'
@@ -5292,14 +5297,14 @@ curl "https://api.leandata.uk/v1/history/bars?token=TOKEN&symbol=AAPL&start=2025
 # X-Cache: HIT      → served from in-memory hot cache (~1ms)
 # X-Cache: DISK_HIT → served from fast SSD archive (~5-15ms)
 # X-Cache: MISS     → fetched from upstream and cached for next request`}
-      </pre>
+      </CodeBlock>
 
       <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Reuse connections</h3>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Each new HTTPS request pays ~100ms for TCP + TLS handshake. Use a persistent session (HTTP/2 or keep-alive) to amortize this across all requests.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>每个新 HTTPS 请求需约 100ms 用于 TCP + TLS 握手。使用持久连接（HTTP/2 或 keep-alive）可将此开销分摊到所有请求。</span>
       </p>
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CodeBlock style={{ marginBottom: 12 }}>
 {`# Python — use requests.Session for connection reuse
 import requests
 
@@ -5320,14 +5325,14 @@ r2 = session.get("https://api.leandata.uk/v1/history/bars",
 // Node.js: use undici or node-fetch with keepAlive agent
 import { Agent } from 'undici'
 const agent = new Agent({ keepAliveTimeout: 30000 })`}
-      </pre>
+      </CodeBlock>
 
       <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Choose the right endpoint</h3>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Two REST base URLs are available. Use the one that fits your query type.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>提供两个 REST 基础 URL，根据查询类型选择合适的。</span>
       </p>
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
+      <DocTable className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead>
           <tr><th>Base URL</th><th>Best for</th><th>Edge cache TTL</th></tr>
         </thead>
@@ -5343,7 +5348,7 @@ const agent = new Agent({ keepAliveTimeout: 30000 })`}
             <td style={{ fontSize: 12, color: "var(--ink-muted)" }}>60 seconds</td>
           </tr>
         </tbody>
-      </table>
+      </DocTable>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         Both endpoints return identical data and accept the same authentication. The difference is caching duration and upstream routing.
       </p>

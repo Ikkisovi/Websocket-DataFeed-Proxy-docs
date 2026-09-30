@@ -5,6 +5,20 @@ The canonical document is `public/docs/docs-site.jsx`; the root `docs-site.jsx`
 is a compatibility loader. Do not overwrite the compiled HTML entries with the
 older Babel/CDN shells from `240249a37`.
 
+The reading-experience layer uses `public/docs/reading.css` (scoped to
+`.docs-reader`) and `public/docs/code-block.jsx` (compiled into both docs and
+portal bundles). Publish the reading stylesheet before the HTML entries. The
+page generator versions its CSS and JavaScript together. Existing account,
+checkout, announcement and backend files are not part of this overlay.
+
+Run `npm ci --ignore-scripts && npm test` from `proxy-token-site/` and
+`python3 ops/test_deploy_docs_static.py` from the repository root before a
+release. The reading regression checks cover exact full-text copying, denied
+Clipboard API fallback, visible failure feedback, wrap/expand controls,
+keyboard-accessible scroll regions, and Chinese/English switching. Before
+acceptance, also inspect real-browser desktop and mobile rendering: JSDOM
+cannot prove widths, scrolling, font metrics or real clipboard behavior.
+
 The 2026-09-19 host inspection found no installed forced-command site wrapper.
 The existing `ubuntu@100.88.18.95` administrator can use `sudo -n`; an absent
 `deploy-site` command is not evidence that administrator access is unavailable.
