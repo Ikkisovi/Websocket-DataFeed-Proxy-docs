@@ -753,7 +753,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
       {!hideTopbar && <DocsTopbar active={visibleTab} />}
       <div className="docs-hero" style={{ padding: "44px 64px 28px", borderBottom: "1px solid var(--rule)", background: "var(--bg-paper)", position: "relative", overflow: "hidden" }}>
         <div className="eyebrow" style={{ marginBottom: 14 }}>Reference · live docs</div>
-        <h1 className="display-title" style={{ fontSize: 64, margin: "0 0 14px" }}>Stock Options Proxy <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>API</span></h1>
+        <h1 className="display-title" data-no-i18n style={{ fontSize: 64, margin: "0 0 14px" }}>leandata <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>— stock options api</span></h1>
         <p style={{ color: "var(--ink-muted)", maxWidth: 640, fontSize: 15, margin: 0 }}>Real-time US equities, options, crypto and news — one unified token, zero provider configuration. Each documentation topic is published as an independent page.</p>
         <div className="docs-tabs" style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
           <Tab id="proxy" tab={visibleTab} href={DOC_PATHS.marketOverview} label="Proxy API" count="47+ endpoints" />

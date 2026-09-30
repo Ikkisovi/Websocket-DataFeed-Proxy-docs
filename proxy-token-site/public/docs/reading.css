@@ -30,13 +30,13 @@
 .docs-reader .docs-hero { padding: 36px 48px 24px !important; }
 .docs-reader .docs-tabs { margin-inline: -48px !important; padding-inline: 48px !important; }
 .docs-reader .docs-hero h1 {
-  font-family: var(--f-sans);
+  font-family: "Instrument Serif", "Source Serif Pro", Georgia, serif !important;
   font-size: clamp(32px, 4vw, 44px) !important;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.2;
   letter-spacing: -.025em;
 }
-.docs-reader .docs-hero h1 span { font-style: normal !important; }
+.docs-reader .docs-hero h1 span { font-style: italic !important; }
 .docs-reader .docs-hero p { font-size: 16px !important; line-height: 1.75; max-width: 780px !important; }
 .docs-reader .display-title, .docs-reader main h2, .docs-reader main h3, .docs-reader main h4,
 .docs-reader .provider-hero-title {
@@ -87,13 +87,6 @@
 .docs-reader .provider-note { font-size: 15px; line-height: 1.75; }
 .docs-reader .provider-attribution { font-size: 13px; color: var(--ink-muted); }
 .docs-reader .docs-sidenav a, .docs-reader .on-this-page a { line-height: 1.6; }
-
-/* Keep the homepage's display identity; reference headings remain sans-serif. */
-.leandata-home .docs-reader .docs-hero h1 {
-  font-family: "Instrument Serif", "Source Serif Pro", Georgia, serif !important;
-  font-weight: 400;
-}
-.leandata-home .docs-reader .docs-hero h1 span { font-style: italic !important; }
 
 .code-example {
   max-width: 100%;
