@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const siteRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const docsRoot = resolve(siteRoot, "public/docs");
-const assetVersion = "20260930-brand-masthead-v1";
+const assetVersion = "20260930-embedded-reference-v1";
 
 const pages = {
   "": "Leandata API Documentation",

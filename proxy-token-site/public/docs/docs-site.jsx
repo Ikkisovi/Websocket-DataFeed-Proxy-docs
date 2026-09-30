@@ -6,6 +6,7 @@ import React, {
 } from "react";
 import { UsagePage } from "./usage-page.jsx";
 import { CodeBlock } from "./code-block.jsx";
+import { EmbeddedDocsProvider, EmbeddedPagesNavigation, EmbeddedPagesFooter, EmbeddedPageContents, useEmbeddedDocs, projectEmbeddedPages, backToIndex, currentHash } from "./embedded-docs.jsx";
 
 // ── StatusBody component ──
 // Fetches live data from /api/status, /api/uptime, /api/latency, /api/incidents.
@@ -690,7 +691,7 @@ function DocsHome() {
       <div className="eyebrow" style={{ marginBottom: 10 }}>{isZh ? "独立文档页面" : "Independent documentation pages"}</div>
       <h2 className="display-title" style={{ fontSize: 44, margin: "0 0 12px" }}>{isZh ? "选择文档主题" : "Choose a documentation topic"}</h2>
       <p style={{ color: "var(--ink-muted)", fontSize: 15, lineHeight: 1.7, margin: "0 0 26px" }}>
-        {isZh ? "每个主题现在都有独立 URL 和独立内容页，不再跳转到单一长文档中的软锚点。" : "Every topic now has its own URL and focused page instead of a soft anchor into one long document."}
+        {isZh ? "先选择数据类别，再打开栏目内的独立接口子页。目录与阅读区保持在一起，不必在长页面中查找。" : "Choose a data category, then open an individual endpoint inside it. Navigation and content stay together, without searching through a long page."}
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 16 }}>
         {NAV_GROUPS.map((group) => (
@@ -712,9 +713,17 @@ function DocsHome() {
 }
 
 function LeandataLogo() {
+  const tintId = `leandata-brand-tint-${React.useId()}`;
   return (
     <a className="docs-brand-logo" href="/" aria-label="Leandata home" data-no-i18n>
-      <img src="/logo.jpg" alt="Leandata logo" width="1024" height="1024" loading="eager" />
+      <svg width="0" height="0" aria-hidden="true" focusable="false" style={{ position: "absolute" }}>
+        <defs>
+          <filter id={tintId} colorInterpolationFilters="sRGB">
+            <feColorMatrix type="matrix" values="0.85 0.12 0.03 0 0  0.13 0.44 0.43 0 0  0.18 0.34 0.48 0 0  0 0 0 1 0" />
+          </filter>
+        </defs>
+      </svg>
+      <img src="/assets/brand/leandata-mark.png" alt="Leandata logo" width="200" height="200" loading="eager" style={{ filter: `url(#${tintId})` }} />
     </a>
   );
 }
@@ -730,14 +739,14 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
 
   React.useEffect(() => {
     if (normalizeDocsPath(window.location.pathname) !== DOC_PATHS.home) return;
-    const hash = decodeURIComponent(window.location.hash.slice(1));
+    const hash = currentHash();
     const target = legacyDocsPath(hash);
     if (target) window.location.replace(target + (hash ? `#${hash}` : ""));
   }, []);
 
   React.useEffect(() => {
     const scrollToHash = () => {
-      const id = decodeURIComponent(window.location.hash.slice(1));
+      const id = currentHash();
       if (!id) return;
       window.requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: "start" }));
     };
@@ -757,6 +766,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
     : React.createElement(StatusBody);
 
   return (
+    <EmbeddedDocsProvider key={page} enabled={threeColumnPage}>
     <div className="proxy-app docs-reader" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       {!hideTopbar && <DocsTopbar active={visibleTab} />}
       <div className="docs-hero" style={{ padding: "44px 64px 28px", borderBottom: "1px solid var(--rule)", background: "var(--bg-paper)", position: "relative", overflow: "hidden" }}>
@@ -768,9 +778,6 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
               <span className="docs-brand-name">Leandata</span>{" "}
               <span className="docs-product-name">Stock &amp; Options API</span>
             </h1>
-          </div>
-          <div className="docs-brand-meta" aria-label="API access">
-            <span>REST</span><span>WebSocket</span><span><Bilingual en="One token" zh="统一 Token" /></span>
           </div>
         </div>
         <p className="docs-brand-description"><Bilingual en="US equities, options, crypto and news. One token for historical data and real-time streams." zh="美股、期权、加密货币与新闻。一个 Token，连接历史数据与实时行情。" /></p>
@@ -787,10 +794,16 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
       </div>
       <div className={"docs-content-grid" + (threeColumnPage ? " has-3col" : "")} style={{ display: "grid", gridTemplateColumns: threeColumnPage ? "228px minmax(0,1fr) 200px" : "1fr", flex: 1 }}>
         {threeColumnPage && <SideNav tab={tab} page={page} />}
-        <main className={tab === "bulk" ? "bulk-main" : ""} style={{ padding: threeColumnPage ? "40px 44px" : "36px 32px", background: "var(--bg-canvas)", minWidth: 0 }}>{content}</main>
+        <main className={tab === "bulk" ? "bulk-main" : ""} style={{ padding: threeColumnPage ? "40px 44px" : "36px 32px", background: "var(--bg-canvas)", minWidth: 0 }}>
+          {page === "market-cn" && <div className="provider-note"><Bilingual en="CN Data is private beta for explicitly authorized accounts only. It is not included in ordinary plans and is not for sale." zh="中国数据为内测，仅限明确授权的账号本人使用；普通套餐不包含，不可购买。" /></div>}
+          <EmbeddedPagesNavigation />
+          {content}
+          <EmbeddedPagesFooter />
+        </main>
         {threeColumnPage && <OnThisPage tab={tab} page={page} />}
       </div>
     </div>
+    </EmbeddedDocsProvider>
   );
 }
 
@@ -1024,6 +1037,7 @@ const SECTION_ZH_LABELS = {
 };
 
 function SideNav({ tab, page }) {
+  const embedded = useEmbeddedDocs();
   const [activeId, setActiveId] = React.useState("");
   const [query, setQuery] = React.useState("");
   const [expanded, setExpanded] = React.useState({});
@@ -1031,6 +1045,7 @@ function SideNav({ tab, page }) {
   React.useEffect(() => {
     const onHashChange = () => setActiveId(window.location.hash.slice(1));
     window.addEventListener('hashchange', onHashChange);
+    onHashChange();
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => { if(entry.isIntersecting) setActiveId(entry.target.id); });
     }, { rootMargin: '-20% 0px -80% 0px' });
@@ -1134,7 +1149,7 @@ function SideNav({ tab, page }) {
     const hasChildren = s.children && s.children.length > 0;
     const hasItems    = s.items && s.items.length > 0;
     const isParent    = hasChildren || hasItems;
-    const isOpen      = forceOpen || (expanded[s.title] ?? defaultOpen);
+
     const isMono      = s.title.includes("endpoints") || s.title === "Messages";
 
     const BASE_PAD    = 10;
@@ -1163,15 +1178,30 @@ function SideNav({ tab, page }) {
       "financial-scores": "fmp-financial-scores",
     };
     const ID_MAP = {'Morningstar overview': 'morningstar-overview', 'What is PIT?': 'morningstar-pit', 'Deduplication': 'morningstar-processing', 'Morningstar fields': 'morningstar-fields', 'Morningstar history': 'morningstar-history', 'Morningstar coverage': 'morningstar-coverage', 'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'Cash minute archive': 'cash-indices-overview', 'Cash minute history': 'get-post-v1-indices-minute', 'Cash minute coverage': 'get-v1-indices-minute-coverage', 'Cash daily history': 'get-post-v1-indices-daily', 'Cash daily coverage': 'get-v1-indices-daily-coverage', 'Futures operator archive': 'futures-operator-archive', 'Futures catalog': 'get-v1-futures-catalog', 'Futures minute bars': 'get-v1-futures-history-bars', 'Spectral overview': 'spectral-overview', 'Spectral methodology': 'spectral-methodology', 'Spectral processing': 'spectral-processing', 'Spectral fields': 'spectral-fields', 'Spectral history': 'get-post-v1-spectral-tick-flow', 'Spectral coverage': 'get-v1-spectral-tick-flow-coverage', 'Spectral workflows': 'spectral-workflows', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'crypto snapshots': 'get-post-v1beta3-crypto-us-snapshots', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
-    const getId = (label) => tab === "fmp-fundamentals"
+    const getId = (label) => tab === "ws" && label === "Unsubscribe" ? "subscribe" : tab === "fmp-fundamentals"
       ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
       : ID_MAP[label] || slugify(label);
+    const selected = embedded?.active || activeId;
+    const containsSelected = section => (section.items || []).some(item => getId(item) === selected) || (section.children || []).some(containsSelected);
+    const isOpen = forceOpen || containsSelected(s) || (expanded[s.title] ?? defaultOpen);
+    const hrefFor = id => {
+      let path;
+      if (/^fmp-(?:income-statement|balance-sheet-statement|cash-flow-statement|pit-statements)$/.test(id)) path = DOC_PATHS.financialStatements;
+      else if (/^fmp-(?:ratios|ratios-ttm|key-metrics|key-metrics-ttm|income-statement-growth|balance-sheet-statement-growth|cash-flow-statement-growth|financial-growth|enterprise-values|financial-scores)$/.test(id)) path = DOC_PATHS.financialRatios;
+      else if (["fmp-snapshot-boundary", "fmp-future-data-families"].includes(id)) path = DOC_PATHS.financial;
+      else if (tab === "ws" && ["subscribe", "unsubscribe", "trade", "quote", "bar"].includes(id)) path = DOC_PATHS.subscriptions;
+      return path && normalizeDocsPath(window.location.pathname) !== path ? `${path}#${id}` : `#${id}`;
+    };
 
     return (
       <div style={{ marginBottom: hasChildren ? 0 : 8 }}>
         {/* ── header row (chevron right-aligned like the reference) ── */}
         <div
+          role={isParent ? "button" : undefined}
+          tabIndex={isParent ? 0 : undefined}
+          aria-expanded={isParent ? isOpen : undefined}
           onClick={() => isParent && toggle(s.title, isOpen)}
+          onKeyDown={(event) => { if (isParent && ["Enter", " "].includes(event.key)) { event.preventDefault(); toggle(s.title, isOpen); } }}
           style={{
             display: "flex", alignItems: "center",
             padding: "5px 10px 5px " + indent,
@@ -1204,11 +1234,11 @@ function SideNav({ tab, page }) {
                   <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                     {s.items.map((it, j) => (
                       <li key={j}>
-                        <a href={"#" + getId(it)} style={{
+                        <a href={hrefFor(getId(it))} data-doc-id={getId(it)} aria-current={selected === getId(it) ? "page" : undefined} style={{
                           textDecoration: "none", display: "block",
                           padding: "3px 0",
-                          color: activeId === getId(it) ? "var(--ink-strong)" : "var(--ink-muted)",
-                          fontWeight: activeId === getId(it) ? 500 : 400,
+                          color: selected === getId(it) ? "var(--ink-strong)" : "var(--ink-muted)",
+                          fontWeight: selected === getId(it) ? 500 : 400,
                           fontFamily: isMono ? "var(--f-mono)" : "var(--f-sans)",
                           fontSize: isMono ? 12 : 13,
                         }}>{isZh && SECTION_ZH_LABELS[it] ? `${SECTION_ZH_LABELS[it]}` : it}</a>
@@ -1237,6 +1267,7 @@ function SideNav({ tab, page }) {
       fontSize: 13, position: "sticky", top: 0, height: "100vh", overflow: "auto"
     }}>
       <div style={{ padding: "12px 16px 12px 8px", position: "sticky", top: 0, background: "var(--bg-canvas)", zIndex: 2 }}>
+        <a className="reference-nav-index" href={window.location.pathname + window.location.search} onClick={backToIndex}>{embedded?.language === "en" ? "← Endpoints & topics" : "← 接口与主题目录"}</a>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -1263,6 +1294,7 @@ function SideNav({ tab, page }) {
 }
 
 function OnThisPage({ tab, page }) {
+  const embedded = useEmbeddedDocs();
   const [activeId, setActiveId] = React.useState("");
   React.useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
@@ -1311,6 +1343,7 @@ function OnThisPage({ tab, page }) {
       borderLeft: "1px solid var(--rule)",
       background: "var(--bg-canvas)", fontSize: 12.5, position: "sticky", top: 0, height: "100vh", overflow: "auto"
     }}>
+      {embedded ? <EmbeddedPageContents /> : <>
       <div className="eyebrow" style={{ marginBottom: 12, color: "var(--ink-soft)" }}>On this page</div>
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
         {items.map((item, i) => {
@@ -1323,6 +1356,7 @@ function OnThisPage({ tab, page }) {
           );
         })}
       </ul>
+      </>}
 
       <TokenCard />
     </aside>
@@ -1585,7 +1619,7 @@ function ParamTable({ rows }) {
   const lang = useCurrentLanguage();
   const isZh = lang === "zh";
   return (
-    <DocTable className="tbl" style={{ marginBottom: 20, width: "100%", fontSize: 13 }}>
+    <DocTable className="tbl param-table" style={{ marginBottom: 20, width: "100%", fontSize: 13 }}>
       <thead>
         <tr>
           <th style={{ width: 180 }}>{isZh ? "参数名 / Parameter" : "Parameter"}</th>
@@ -2613,6 +2647,7 @@ Content-Type: application/json
 }
 
 function MorningstarFundamentalsBody() {
+  const focusRef = useFocusedDirectChildren(null, "morningstar", [], ["financial-source-selector"]);
   const metrics = [
     ["Valuation / 估值", "market_cap · pe_ratio · pb_ratio · ps_ratio · ev_to_ebitda · dividend_yield · earning_yield"],
     ["Profitability / 盈利能力", "roe · roa · gross_margin · operating_margin · net_margin"],
@@ -2623,7 +2658,7 @@ function MorningstarFundamentalsBody() {
     ["Reference market fields / 辅助行情", "adjusted_price · dollar_volume · volume"],
   ];
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto" }}>
+    <div ref={focusRef} style={{ maxWidth: 860, margin: "0 auto" }}>
       <FinancialSourceSelector active="morningstar" />
 
       <ProviderHero
@@ -3137,6 +3172,7 @@ function CnDataSections() {
 
 function useFocusedDirectChildren(focus, defaultSection, boundaries, alwaysVisibleIds = []) {
   const ref = React.useRef(null);
+  const embedded = useEmbeddedDocs();
   React.useLayoutEffect(() => {
     const root = ref.current;
     if (!root) return;
@@ -3148,7 +3184,8 @@ function useFocusedDirectChildren(focus, defaultSection, boundaries, alwaysVisib
       const alwaysVisible = alwaysVisibleIds.some(containsId);
       child.hidden = Boolean(focus && !alwaysVisible && section !== focus);
     }
-  }, [focus, defaultSection, boundaries, alwaysVisibleIds]);
+    projectEmbeddedPages(root, embedded, alwaysVisibleIds);
+  }, [focus, defaultSection, boundaries, alwaysVisibleIds, embedded]);
   return ref;
 }
 

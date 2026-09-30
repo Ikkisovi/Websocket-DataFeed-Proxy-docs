@@ -10,17 +10,30 @@ The reading-experience layer uses `public/docs/reading.css` (scoped to
 portal bundles). Publish the reading stylesheet before the HTML entries. The
 page generator versions its CSS and JavaScript together. Existing account,
 checkout, announcement and backend files are not part of this overlay.
-The branded masthead reuses the original `public/logo.jpg` through an
-art-directed CSS viewport; the image itself is unchanged. Include that file
-in the hash-bound static manifest whenever publishing the masthead, even if
-its before/after hashes are identical. The display wordmark remains serif;
-reference headings, body copy and code controls keep the reading-layer fonts.
+The branded masthead uses the supplied 200×200 mark at
+`public/assets/brand/leandata-mark.png`. Preserve its source bytes; an inline
+SVG color matrix maps its blue gradient to the site's teal/slate palette while
+preserving white and alpha. Include that asset in the hash-bound manifest.
+The display wordmark is capitalized `Leandata` and remains serif; the subtitle
+is `Stock & Options API`. Reference headings, body copy and code controls keep
+the reading-layer fonts.
+
+`public/docs/embedded-docs.jsx` projects the canonical reference into focused
+endpoint/topic subpages inside 13 existing category URLs. An empty hash opens
+the searchable index; `#<endpoint-id>` selects only that endpoint and its
+examples. Breadcrumbs, previous/next links, the sidebar, nested example links
+and browser history all use the same hash routing. Existing content remains
+React-owned and parameter/example bytes are unchanged. New modules and the
+mark are allowlisted static assets, not new backend routes. Unknown hashes
+show the index with a notice rather than exposing a giant reference table.
 
 Run `npm ci --ignore-scripts && npm test` from `proxy-token-site/` and
 `python3 ops/test_deploy_docs_static.py` from the repository root before a
 release. The reading regression checks cover exact full-text copying, denied
 Clipboard API fallback, visible failure feedback, wrap/expand controls,
-keyboard-accessible scroll regions, and Chinese/English switching. Before
+keyboard-accessible scroll regions, and Chinese/English switching. The subpage
+suite additionally checks all 195 generated endpoint/topic pages, neighboring
+content isolation, direct/nested links, index return and cross-category links. Before
 acceptance, also inspect real-browser desktop and mobile rendering: JSDOM
 cannot prove widths, scrolling, font metrics or real clipboard behavior.
 

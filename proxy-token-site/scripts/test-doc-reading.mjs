@@ -8,12 +8,13 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 40));
 
 async function render(lang = "zh") {
   const dom = new JSDOM('<!doctype html><div id="root"></div>', {
-    url: "https://leandata.uk/docs/market/research-signals/",
+    url: "https://leandata.uk/docs/market/research-signals/#get-post-v1-spectral-tick-flow",
     runScripts: "outside-only",
     pretendToBeVisual: true,
   });
   dom.window.localStorage.setItem("leandata.language", lang);
   dom.window.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
+  dom.window.HTMLElement.prototype.scrollIntoView = function () {};
   dom.window.fetch = async () => ({ ok: false, status: 401, json: async () => ({ components: [] }) });
   dom.window.eval(language);
   dom.window.eval(bundle);
@@ -98,7 +99,10 @@ assert(en.window.document.querySelector(".docs-reader"));
 assert.equal(en.window.document.querySelector('.docs-hero h1').getAttribute('aria-label'), 'Leandata — Stock & Options API');
 assert.equal(en.window.document.querySelector('.docs-brand-name').textContent, 'Leandata');
 assert.equal(en.window.document.querySelector('.docs-product-name').textContent, 'Stock & Options API');
-assert.equal(en.window.document.querySelector('.docs-brand-logo img').getAttribute('src'), '/logo.jpg');
+assert.equal(en.window.document.querySelector('.docs-brand-logo img').getAttribute('src'), '/assets/brand/leandata-mark.png');
+assert(en.window.document.querySelector('.docs-brand-logo img').style.filter.includes('leandata-brand-tint'));
+assert(en.window.document.querySelector('.docs-brand-logo feColorMatrix'));
+assert.equal(en.window.document.querySelector('.docs-brand-meta'), null);
 en.window.LeandataI18n.destroy();
 en.window.close();
 

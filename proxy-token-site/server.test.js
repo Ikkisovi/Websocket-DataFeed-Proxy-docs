@@ -1164,7 +1164,8 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).toContain('financialMorningstar: "/docs/financial/morningstar/"');
     expect(docsSource).toContain('financialRegular: "/docs/financial/regular/"');
     expect(docsSource).toContain('marketStocks: "/docs/market/stocks/"');
-    expect(docsSource).toContain('Every topic now has its own URL and focused page');
+    expect(docsSource).toContain('Choose a data category, then open an individual endpoint inside it.');
+    expect(docsSource).toContain('EmbeddedDocsProvider');
   });
 
   it('documents cash-indices minute and derived daily endpoints', () => {
@@ -1190,9 +1191,9 @@ describe('Registration and bulk product UI contract', () => {
     ];
     for (const page of pages) {
       const html = fs.readFileSync(path.join(__dirname, 'public', 'docs', page, 'index.html'), 'utf8');
-      expect(html).toContain('/assets/docs-page.js?v=20260930-brand-masthead-v1');
-      expect(html).toContain('/docs/tokens.css?v=20260930-brand-masthead-v1');
-      expect(html).toContain('/docs/reading.css?v=20260930-brand-masthead-v1');
+      expect(html).toContain('/assets/docs-page.js?v=20260930-embedded-reference-v1');
+      expect(html).toContain('/docs/tokens.css?v=20260930-embedded-reference-v1');
+      expect(html).toContain('/docs/reading.css?v=20260930-embedded-reference-v1');
       expect(html).toContain('Instrument+Serif');
     }
     expect(docsSource).toContain('href: DOC_PATHS.marketStocks');

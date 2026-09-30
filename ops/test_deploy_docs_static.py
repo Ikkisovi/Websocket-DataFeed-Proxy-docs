@@ -31,6 +31,14 @@ class StaticScopeTests(unittest.TestCase):
         self.assertLess(actual.index('logo.jpg'), actual.index('docs/index.html'))
         self.assertNotIn('server.js', actual)
 
+    def test_embedded_reference_and_supplied_mark_are_scoped(self):
+        names = ['docs/docs-site.jsx', 'assets/docs-page.js', 'assets/token-page.js',
+                 'index.html', 'docs/index.html', 'docs/embedded-docs.jsx',
+                 'assets/brand/leandata-mark.png']
+        actual = scoped_files(self.manifest(names))
+        self.assertLess(actual.index('assets/brand/leandata-mark.png'), actual.index('docs/index.html'))
+        self.assertLess(actual.index('docs/embedded-docs.jsx'), actual.index('docs/index.html'))
+
     def test_full_legacy_manifest_remains_accepted(self):
         self.assertEqual(scoped_files(self.manifest(FILES)), FILES)
 

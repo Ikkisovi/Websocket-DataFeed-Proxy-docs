@@ -39,7 +39,7 @@ FILES = (
     "assets/providers/fmp-data.png", "assets/providers/morningstar.png", "assets/providers/alpaca.png",
     "skills/leandata-market-data/SKILL.md",
     "language.js", "register-page.jsx",
-    "logo.jpg", "docs/code-block.jsx", "docs/reading.css",
+    "logo.jpg", "assets/brand/leandata-mark.png", "docs/code-block.jsx", "docs/embedded-docs.jsx", "docs/reading.css",
     "docs/docs-site.jsx", "docs/tokens.css", "tokens.css", *DOC_PAGE_INDEXES, "index.html",
 )
 

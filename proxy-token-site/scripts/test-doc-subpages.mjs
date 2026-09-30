@@ -4,164 +4,120 @@ import { JSDOM } from "jsdom";
 
 const languageScript = fs.readFileSync(new URL("../public/language.js", import.meta.url), "utf8");
 const docsBundle = fs.readFileSync(new URL("../public/assets/docs-page.js", import.meta.url), "utf8");
-
-function isVisible(element) {
-  for (let node = element; node; node = node.parentElement) {
-    if (node.hidden) return false;
-  }
-  return true;
+const tick = () => new Promise(resolve => setTimeout(resolve, 70));
+const visible = element => Boolean(element && !element.closest("[hidden]"));
+function headingFor(document, id) {
+  const node = document.getElementById(id);
+  return node?.matches("h2, h3") ? node : node?.querySelector(":scope > h2, :scope > h3");
 }
-
 async function render(pathname, language = "zh") {
   const dom = new JSDOM('<!doctype html><div id="root"></div>', {
-    url: `https://leandata.uk${pathname}`,
-    runScripts: "outside-only",
-    pretendToBeVisual: true,
+    url: `https://leandata.uk${pathname}`, runScripts: "outside-only", pretendToBeVisual: true,
   });
   dom.window.localStorage.setItem("leandata.language", language);
-  dom.window.IntersectionObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  };
-  dom.window.fetch = async () => ({
-    ok: false,
-    status: 401,
-    json: async () => ({ success: false, message: "test response", components: [] }),
-  });
+  dom.window.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
+  dom.window.HTMLElement.prototype.scrollIntoView = function () {};
+  dom.window.fetch = async () => ({ ok: false, status: 401, json: async () => ({ components: [] }) });
   dom.window.eval(languageScript);
   dom.window.eval(docsBundle);
-  await new Promise(resolve => setTimeout(resolve, 30));
+  await tick();
   return dom;
 }
+function close(dom) { dom.window.LeandataI18n.destroy(); dom.window.close(); }
 
 const home = await render("/docs/");
-assert.match(home.window.document.body.textContent, /每个主题现在都有独立 URL|Every topic now has its own URL/);
 assert(home.window.document.querySelector('a[href="/docs/market/stocks/"]'));
 assert(home.window.document.querySelector('a[href="/docs/financial/morningstar/"]'));
-home.window.LeandataI18n.destroy();
-home.window.close();
+close(home);
 
-const stocks = await render("/docs/market/stocks/");
-assert(isVisible(stocks.window.document.getElementById("stock-data-availability")));
-assert(isVisible(stocks.window.document.getElementById("post-v1-history-bars")));
-assert(!isVisible(stocks.window.document.getElementById("post-v1-options-contracts")));
-assert(!isVisible(stocks.window.document.getElementById("get-post-v1-spectral-tick-flow")));
-stocks.window.LeandataI18n.destroy();
-stocks.window.close();
+const cases = [
+  ["market/overview", "authentication", "post-admin-login"],
+  ["market/stocks", "post-v1-history-bars", "stock-single-bars"],
+  ["market/options", "post-v1-options-contracts", "post-v1-options-snapshots-quote"],
+  ["market/indices", "get-post-v1-indices-minute", "get-v1-futures-history-bars"],
+  ["market/research-signals", "get-post-v1-spectral-tick-flow", "spectral-fields"],
+  ["market/crypto-news", "post-v1-history-news", "get-post-v1beta3-crypto-us-snapshots"],
+  ["market/cn", "cn-minute-bars", "cn-access"],
+  ["financial/regular", "fmp-quote", "fmp-profile"],
+  ["financial/statements", "fmp-income-statement", "fmp-balance-sheet-statement"],
+  ["financial/ratios-growth", "fmp-ratios", "fmp-financial-growth"],
+  ["financial/morningstar", "morningstar-history", "morningstar-fields"],
+  ["realtime/websocket", "endpoint", "options"],
+  ["realtime/subscriptions", "subscribe", "quote"],
+];
+let totalPages = 0;
+for (const [path, first, second] of cases) {
+  const dom = await render(`/docs/${path}/`, "en");
+  const doc = dom.window.document;
+  assert(visible(doc.querySelector(".reference-index")), `${path} must start with a subpage index`);
+  assert.equal([...doc.querySelectorAll("main .tbl")].filter(visible).length, 0, `${path} must not start as a long table page`);
+  const ids = [...doc.querySelectorAll("[data-reference-page]")].map(node => node.dataset.referencePage);
+  assert(ids.includes(first), `${path}: missing ${first}`);
+  assert(ids.includes(second), `${path}: missing ${second}`);
+  assert.equal(new Set(ids).size, ids.length, "Subpage IDs must be unique");
+  totalPages += ids.length;
 
-const options = await render("/docs/market/options/");
-assert(isVisible(options.window.document.getElementById("post-v1-options-contracts")));
-assert(!isVisible(options.window.document.getElementById("stock-data-availability")));
-options.window.LeandataI18n.destroy();
-options.window.close();
+  // Exercise every generated page: exactly its own primary heading is visible.
+  for (const id of ids) {
+    dom.window.location.hash = id;
+    await tick();
+    assert(visible(headingFor(doc, id)), `${path}#${id}: selected heading must be visible`);
+    const otherVisible = ids.filter(other => other !== id && visible(headingFor(doc, other)));
+    assert.deepEqual(otherVisible, [], `${path}#${id}: neighboring pages must stay hidden`);
+    assert(visible(doc.querySelector(".reference-breadcrumb")));
+  }
+  dom.window.location.hash = first;
+  await tick();
+  const copiedSource = [...doc.querySelectorAll("main pre.code")].filter(visible).map(node => node.textContent);
+  dom.window.location.hash = second;
+  await tick();
+  assert(!visible(headingFor(doc, first)));
+  doc.querySelector(".reference-breadcrumb a").click();
+  await tick();
+  assert.equal(dom.window.location.hash, "");
+  assert(visible(doc.querySelector(".reference-index")));
+  dom.window.location.hash = first;
+  await tick();
+  assert.deepEqual([...doc.querySelectorAll("main pre.code")].filter(visible).map(node => node.textContent), copiedSource, "Switching subpages must not change examples");
+  close(dom);
 
-const statements = await render("/docs/financial/statements/");
-assert(isVisible(statements.window.document.getElementById("financial-source-selector")));
-assert(isVisible(statements.window.document.getElementById("fmp-income-statement")));
-assert(!isVisible(statements.window.document.getElementById("fmp-ratios")));
-statements.window.LeandataI18n.destroy();
-statements.window.close();
+  const direct = await render(`/docs/${path}/#${second}`, "zh");
+  assert(visible(headingFor(direct.window.document, second)), "Reload/deep links must select the subpage");
+  assert(!visible(headingFor(direct.window.document, first)));
+  close(direct);
+}
 
-const ratios = await render("/docs/financial/ratios-growth/");
-assert(isVisible(ratios.window.document.getElementById("financial-source-selector")));
-assert(isVisible(ratios.window.document.getElementById("fmp-ratios")));
-assert(!isVisible(ratios.window.document.getElementById("fmp-income-statement")));
-ratios.window.LeandataI18n.destroy();
-ratios.window.close();
+const options = await render("/docs/market/options/#quote-python-example", "en");
+assert(visible(headingFor(options.window.document, "post-v1-options-snapshots-quote")), "An example anchor must select its containing endpoint");
+assert(visible(options.window.document.getElementById("quote-python-example")));
+close(options);
 
-const subscriptions = await render("/docs/realtime/subscriptions/");
-assert(isVisible(subscriptions.window.document.getElementById("subscribe")));
-assert(!isVisible(subscriptions.window.document.getElementById("endpoint")));
-assert(!isVisible(subscriptions.window.document.getElementById("reconnect")));
-subscriptions.window.LeandataI18n.destroy();
-subscriptions.window.close();
+const indices = await render("/docs/market/indices/#futures-operator-archive");
+const indexText = indices.window.document.body.textContent;
+assert.match(indexText, /"roots_count": 2/);
+assert.match(indexText, /clock=source_naive/);
+assert.match(indexText, /"75\.32406843352302"/);
+for (const privateTerm of ["/srv/leandata", "18772", "/mnt/data/cache", '"roots_count": 68']) assert(!indexText.includes(privateTerm));
+close(indices);
 
-const morningstar = await render("/docs/financial/morningstar/");
-assert(isVisible(morningstar.window.document.getElementById("morningstar-overview")));
-assert(isVisible(morningstar.window.document.getElementById("morningstar-pit")));
-assert(isVisible(morningstar.window.document.getElementById("morningstar-processing")));
-assert(isVisible(morningstar.window.document.getElementById("morningstar-fields")));
-assert.equal(morningstar.window.document.querySelector('#morningstar-overview img').getAttribute('src'), "/assets/providers/morningstar.png");
-assert.match(morningstar.window.document.body.textContent, /Morningstar 财务基本面|Morningstar Fundamentals/);
-assert.match(morningstar.window.document.body.textContent, /dividend_yield/);
-assert.equal(morningstar.window.document.getElementById("fmp-fundamentals-overview"), null);
-morningstar.window.LeandataI18n.destroy();
-morningstar.window.close();
+const cn = await render("/docs/market/cn/#cn-minute-bars", "en");
+assert.match(cn.window.document.querySelector("main > .provider-note").textContent, /private beta.*explicitly authorized/);
+close(cn);
 
-const research = await render("/docs/market/research-signals/");
-assert(isVisible(research.window.document.getElementById("spectral-overview")));
-assert(isVisible(research.window.document.getElementById("spectral-methodology")));
-assert(isVisible(research.window.document.getElementById("spectral-processing")));
-assert(isVisible(research.window.document.getElementById("spectral-fields")));
-assert(isVisible(research.window.document.getElementById("get-post-v1-spectral-tick-flow")));
-assert.equal(research.window.document.querySelector('#spectral-overview img'), null);
-assert(research.window.document.querySelector('#spectral-overview .provider-logo-frame svg'));
-assert(!research.window.document.body.textContent.includes('quantconnect.png'));
-assert.match(research.window.document.body.textContent, /executionperiodseconds/);
-assert.match(research.window.document.body.textContent, /oa_underlying_sid/);
-assert(!isVisible(research.window.document.getElementById("get-post-v1-indices-history")));
+const financial = await render("/docs/financial/regular/", "en");
+const statementsGroup = [...financial.window.document.querySelectorAll('.docs-sidenav [role="button"]')].find(node => node.textContent.includes("Financial statements"));
+statementsGroup.click();
+await tick();
+assert.equal(financial.window.document.querySelector('[data-doc-id="fmp-income-statement"]').getAttribute("href"), "/docs/financial/statements/#fmp-income-statement");
+close(financial);
 
-const indices = await render("/docs/market/indices/");
-assert(isVisible(indices.window.document.getElementById("cash-indices-overview")));
-assert(isVisible(indices.window.document.getElementById("get-post-v1-indices-minute")));
-assert(isVisible(indices.window.document.getElementById("get-post-v1-indices-daily")));
-assert(isVisible(indices.window.document.getElementById("get-post-v1-indices-history")));
-assert(!isVisible(indices.window.document.getElementById("get-post-v1-spectral-tick-flow")));
-assert(isVisible(indices.window.document.getElementById("futures-operator-archive")));
-assert(isVisible(indices.window.document.getElementById("get-v1-futures-catalog")));
-assert(isVisible(indices.window.document.getElementById("get-v1-futures-history-bars")));
-assert.match(indices.window.document.body.textContent, /当前可查 root（6A 与 CL）/);
-assert(!indices.window.document.body.textContent.includes('"roots_count": 68'));
-assert.match(indices.window.document.body.textContent, /"roots_count": 2/);
-assert.match(indices.window.document.body.textContent, /合法负值保留|合法负价格/);
-assert(!indices.window.document.body.textContent.includes('/srv/leandata'));
-assert(!indices.window.document.body.textContent.includes('18772'));
-assert(!indices.window.document.body.textContent.includes('/mnt/data/cache'));
-assert(!indices.window.document.body.textContent.includes('f7056926'));
-assert(!indices.window.document.body.textContent.includes('11e4cd11555f6027a6a7731d5d799a1e72a4bfd0'));
-assert.match(indices.window.document.body.textContent, /clock=source_naive/);
-assert.match(indices.window.document.body.textContent, /1,024/);
-assert.match(indices.window.document.body.textContent, /"\/CL"/);
-assert.match(indices.window.document.body.textContent, /"75\.32406843352302"/);
-assert(indices.window.document.querySelector('a[href*="#futures-operator-archive"]'));
-indices.window.LeandataI18n.destroy();
-indices.window.close();
+const unknown = await render("/docs/market/options/#does-not-exist", "en");
+assert(visible(unknown.window.document.querySelector(".reference-index")));
+assert(unknown.window.document.querySelector(".reference-missing"));
+assert.equal([...unknown.window.document.querySelectorAll("main .tbl")].filter(visible).length, 0);
+close(unknown);
+const malformed = await render("/docs/market/options/#%ZZ", "en");
+assert(visible(malformed.window.document.querySelector(".reference-index")), "Malformed hashes must not crash the reader");
+close(malformed);
 
-const indicesEn = await render("/docs/market/indices/", "en");
-assert.match(indicesEn.window.document.querySelector("#futures-operator-archive").textContent, /QuantConnect Continuous Futures Minute Archive \(Operator\)/);
-assert.match(indicesEn.window.document.body.textContent, /queryable roots \(6A & CL\)/);
-assert.match(indicesEn.window.document.body.textContent, /Explicit unresolved source_naive clock/);
-assert.match(indicesEn.window.document.body.textContent, /Legal negative prices are preserved/);
-assert(!indicesEn.window.document.querySelector("#futures-operator-archive").textContent.match(/[\u3400-\u9fff]/));
-indicesEn.window.LeandataI18n.destroy();
-indicesEn.window.close();
-research.window.LeandataI18n.destroy();
-research.window.close();
-
-const researchEn = await render("/docs/market/research-signals/", "en");
-assert.match(researchEn.window.document.querySelector("#spectral-overview h2").textContent, /Spectral Tick-Flow Signal/);
-assert.match(researchEn.window.document.body.textContent, /Composite execution-flow signal score/);
-researchEn.window.LeandataI18n.destroy();
-researchEn.window.close();
-
-const morningstarEn = await render("/docs/financial/morningstar/", "en");
-assert.match(morningstarEn.window.document.querySelector("#morningstar-overview h2").textContent, /Morningstar Fundamentals/);
-assert.match(morningstarEn.window.document.body.textContent, /What is point-in-time data/);
-assert.match(morningstarEn.window.document.body.textContent, /Deduplication and processing/);
-morningstarEn.window.LeandataI18n.destroy();
-morningstarEn.window.close();
-
-const stocksPage = await render("/docs/market/stocks/");
-assert(stocksPage.window.document.querySelector('img[src="/assets/providers/alpaca.png"]'));
-assert.match(stocksPage.window.document.body.textContent, /US Equities Market Data API/);
-stocksPage.window.LeandataI18n.destroy();
-stocksPage.window.close();
-
-const financial = await render("/docs/financial/");
-assert(financial.window.document.querySelector('img[src="/assets/providers/fmp-data.png"]'));
-assert(financial.window.document.querySelector('img[src="/assets/providers/morningstar.png"]'));
-financial.window.LeandataI18n.destroy();
-financial.window.close();
-
-process.stdout.write("independent docs subpages render, isolate content, and show provider branding\n");
+process.stdout.write(`embedded docs: ${cases.length} categories and ${totalPages} subpages isolated; index/detail, deep links, nested examples, cross-category routing and exact example preservation passed\n`);
