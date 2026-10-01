@@ -90,17 +90,32 @@ function AccountTopbar({ loggedIn, onLogout }) {
 }
 
 function AccountLogin({ onLoggedIn }) {
+  const [loginMode, setLoginMode] = useAccountState("token");
   const [userId, setUserId] = useAccountState("");
   const [phone, setPhone] = useAccountState("");
+  const [token, setToken] = useAccountState("");
+  const [code, setCode] = useAccountState("");
+  const [challengeId, setChallengeId] = useAccountState("");
+  const [countdown, setCountdown] = useAccountState(0);
+  const [sendingCode, setSendingCode] = useAccountState(false);
   const [loading, setLoading] = useAccountState(false);
   const [message, setMessage] = useAccountState("");
 
-  const submit = async event => {
-    event.preventDefault();
+  useAccountEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  const sendLoginCode = async () => {
     setMessage("");
-    setLoading(true);
+    if (!userId.trim() || !phone.trim()) {
+      setMessage("请先输入用户名和手机号。");
+      return;
+    }
+    setSendingCode(true);
     try {
-      await accountRequest("/api/account/login", {
+      const data = await accountRequest("/api/account/login-code", {
         method: "POST",
         body: JSON.stringify({
           credential: {
@@ -109,7 +124,49 @@ function AccountLogin({ onLoggedIn }) {
           },
         }),
       });
+      setChallengeId(data.challenge_id || "");
+      setCountdown(60);
+      setMessage(data.message || "验证码已发送至绑定邮箱。");
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  const submit = async event => {
+    event.preventDefault();
+    setMessage("");
+    setLoading(true);
+    try {
+      const credential = {
+        user_id: userId.trim(),
+        phone: phone.trim(),
+      };
+      if (loginMode === "token") {
+        if (!token.trim()) {
+          throw new Error("请输入账户 API Token。");
+        }
+        credential.token = token.trim();
+      } else {
+        if (!challengeId) {
+          throw new Error("请先点击获取验证码。");
+        }
+        if (!code.trim()) {
+          throw new Error("请输入 6 位邮箱验证码。");
+        }
+        credential.challenge_id = challengeId;
+        credential.code = code.trim();
+      }
+
+      await accountRequest("/api/account/login", {
+        method: "POST",
+        body: JSON.stringify({ credential }),
+      });
       setPhone("");
+      setToken("");
+      setCode("");
+      setChallengeId("");
       await onLoggedIn();
     } catch (error) {
       setMessage(error.message);
@@ -140,9 +197,28 @@ function AccountLogin({ onLoggedIn }) {
         <form className="account-login-card" onSubmit={submit}>
           <div className="eyebrow" style={{ marginBottom: 10 }}>账户登录</div>
           <h2 className="display-title" style={{ fontSize: 36, margin: "0 0 10px" }}>验证账户凭证</h2>
-          <p style={{ color: "var(--ink-muted)", margin: "0 0 28px" }}>
-            注册时的用户名和手机号共同构成唯一登录凭证。
+          <p style={{ color: "var(--ink-muted)", margin: "0 0 24px" }}>
+            使用当前 API Token 或向绑定邮箱发送一次性验证码进行登录。
           </p>
+
+          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+            <button
+              type="button"
+              className={`btn ${loginMode === "token" ? "primary" : "ghost"}`}
+              onClick={() => { setLoginMode("token"); setMessage(""); }}
+              style={{ flex: 1, justifyContent: "center", padding: "8px 12px", fontSize: 13 }}
+            >
+              Token 登录
+            </button>
+            <button
+              type="button"
+              className={`btn ${loginMode === "email_code" ? "primary" : "ghost"}`}
+              onClick={() => { setLoginMode("email_code"); setMessage(""); }}
+              style={{ flex: 1, justifyContent: "center", padding: "8px 12px", fontSize: 13 }}
+            >
+              邮箱验证码
+            </button>
+          </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
@@ -168,6 +244,45 @@ function AccountLogin({ onLoggedIn }) {
                 required
               />
             </div>
+
+            {loginMode === "token" ? (
+              <div>
+                <label className="label">当前 API Token</label>
+                <input
+                  className="input mono"
+                  type="password"
+                  autoComplete="current-password"
+                  value={token}
+                  onChange={event => setToken(event.target.value)}
+                  placeholder="输入账户当前 API Token"
+                  required
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="label">邮箱验证码</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    className="input mono"
+                    value={code}
+                    onChange={event => setCode(event.target.value)}
+                    placeholder="6 位数字验证码"
+                    maxLength={6}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={sendingCode || countdown > 0}
+                    onClick={sendLoginCode}
+                    style={{ whiteSpace: "nowrap", padding: "8px 14px", fontSize: 13 }}
+                  >
+                    {countdown > 0 ? `${countdown}s 后重试` : sendingCode ? "发送中…" : "获取验证码"}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <button className="btn primary" disabled={loading} style={{ justifyContent: "center", padding: 12 }}>
               {loading ? "验证中…" : "进入账户管理 →"}
             </button>

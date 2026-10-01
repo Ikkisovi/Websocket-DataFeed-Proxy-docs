@@ -1032,6 +1032,9 @@
         </svg>
         同步
       </button>
+      <button class="btn ghost" id="btn-admin-logout" onclick="adminLogout()" title="退出登录">
+        退出
+      </button>
     </div>
   </div>
 
@@ -1495,18 +1498,40 @@
         body: JSON.stringify({ password: pw })
       });
       const data = await resp.json();
+      if (resp.status === 429) {
+        err.textContent = data.message || '登录失败过多，请稍后重试。';
+        err.style.display = 'block';
+        return;
+      }
       if (data.success) {
         adminToken = data.token;
         document.getElementById('login-overlay').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         loadData();
       } else {
+        err.textContent = data.message || '密码错误。';
         err.style.display = 'block';
       }
     } catch {
       err.textContent = '连接失败，请检查网络。';
       err.style.display = 'block';
     }
+  }
+
+  async function adminLogout() {
+    try {
+      if (adminToken) {
+        await fetch('/api/admin/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken }
+        });
+      }
+    } catch (_) {}
+    adminToken = '';
+    const pwInput = document.getElementById('admin-password');
+    if (pwInput) pwInput.value = '';
+    document.getElementById('app').classList.add('hidden');
+    document.getElementById('login-overlay').classList.remove('hidden');
   }
 
   /* ── Tabs ── */
@@ -1612,55 +1637,173 @@
 
   function renderList(id, items, showActions) {
     const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = '';
     if (!items.length) {
-      el.innerHTML = '<div class="empty">暂无记录</div>';
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = '暂无记录';
+      el.appendChild(empty);
       return;
     }
-    el.innerHTML = items.map(item => {
+
+    for (const item of items) {
       const tier = item.tier || item.role || '';
       const time = item.registered_at
         ? new Date(item.registered_at).toLocaleString('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })
         : '—';
       const status = item.status || 'pending';
 
-      const actionsBtns = showActions ? `
-        <div class="card-actions" id="actions-${item.id}">
-          <button class="btn approve" onclick="startApprove('${item.id}')">批准</button>
-          <button class="btn reject"  onclick="toggleReject('${item.id}')">拒绝</button>
-          <div class="reject-row" id="reject-row-${item.id}">
-            <input class="input" type="text" id="reject-reason-${item.id}" placeholder="拒绝原因（可选）"
-              onkeydown="if(event.key==='Enter')confirmReject('${item.id}')">
-            <button class="btn reject" onclick="confirmReject('${item.id}')">确认拒绝</button>
-            <button class="btn ghost"  onclick="toggleReject('${item.id}')">取消</button>
-          </div>
-          <div class="token-result" id="token-result-${item.id}"></div>
-        </div>` : '';
+      const card = document.createElement('div');
+      card.className = 'user-card';
+      if (item.id) card.id = `card-${item.id}`;
 
-      const rejectReason = item.reject_reason
-        ? `<span><span class="meta-label">原因</span>${item.reject_reason}</span>` : '';
+      // Top bar
+      const cardTop = document.createElement('div');
+      cardTop.className = 'card-top';
 
-      return `
-        <div class="user-card" id="card-${item.id}">
-          <div class="card-top">
-            <span class="card-username"><a class="user-link" onclick="openUser360('${escHtml(item.account_id || item.username || '').replace(/'/g, "\\'")}')">${escHtml(item.username || '—')}</a></span>
-            <div class="card-badges">
-              <span class="tier ${tier}">${tierLabel(tier)}</span>
-              ${!showActions ? `<span class="status-chip ${status}">${statusLabel(status)}</span>` : ''}
-            </div>
-          </div>
-          <div class="card-meta">
-            <span><span class="meta-label">手机</span><span class="mono">${escHtml(item.phone || '—')}</span></span>
-            ${item.email ? `<span><span class="meta-label">邮箱</span><a class="mono" href="mailto:${encodeURIComponent(item.email)}">${escHtml(item.email)}</a></span>` : ''}
-            <span><span class="meta-label">注册</span>${time}</span>
-            ${rejectReason}
-          </div>
-          ${actionsBtns}
-        </div>`;
-    }).join('');
+      const cardUsername = document.createElement('span');
+      cardUsername.className = 'card-username';
+      const userLink = document.createElement('a');
+      userLink.className = 'user-link';
+      userLink.textContent = item.username || '—';
+      const targetUser = item.account_id || item.username || '';
+      userLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        openUser360(targetUser);
+      });
+      cardUsername.appendChild(userLink);
+      cardTop.appendChild(cardUsername);
+
+      const cardBadges = document.createElement('div');
+      cardBadges.className = 'card-badges';
+      const tierSpan = document.createElement('span');
+      tierSpan.className = `tier ${tier}`;
+      tierSpan.textContent = tierLabel(tier);
+      cardBadges.appendChild(tierSpan);
+
+      if (!showActions) {
+        const statusSpan = document.createElement('span');
+        statusSpan.className = `status-chip ${status}`;
+        statusSpan.textContent = statusLabel(status);
+        cardBadges.appendChild(statusSpan);
+      }
+      cardTop.appendChild(cardBadges);
+      card.appendChild(cardTop);
+
+      // Meta
+      const cardMeta = document.createElement('div');
+      cardMeta.className = 'card-meta';
+
+      const phoneSpan = document.createElement('span');
+      const phoneLabel = document.createElement('span');
+      phoneLabel.className = 'meta-label';
+      phoneLabel.textContent = '手机';
+      const phoneVal = document.createElement('span');
+      phoneVal.className = 'mono';
+      phoneVal.textContent = item.phone || '—';
+      phoneSpan.appendChild(phoneLabel);
+      phoneSpan.appendChild(phoneVal);
+      cardMeta.appendChild(phoneSpan);
+
+      if (item.email) {
+        const emailSpan = document.createElement('span');
+        const emailLabel = document.createElement('span');
+        emailLabel.className = 'meta-label';
+        emailLabel.textContent = '邮箱';
+        const emailLink = document.createElement('a');
+        emailLink.className = 'mono';
+        emailLink.href = `mailto:${encodeURIComponent(item.email)}`;
+        emailLink.textContent = item.email;
+        emailSpan.appendChild(emailLabel);
+        emailSpan.appendChild(emailLink);
+        cardMeta.appendChild(emailSpan);
+      }
+
+      const regSpan = document.createElement('span');
+      const regLabel = document.createElement('span');
+      regLabel.className = 'meta-label';
+      regLabel.textContent = '注册';
+      regSpan.appendChild(regLabel);
+      regSpan.appendChild(document.createTextNode(time));
+      cardMeta.appendChild(regSpan);
+
+      if (item.reject_reason) {
+        const rejSpan = document.createElement('span');
+        const rejLabel = document.createElement('span');
+        rejLabel.className = 'meta-label';
+        rejLabel.textContent = '原因';
+        rejSpan.appendChild(rejLabel);
+        rejSpan.appendChild(document.createTextNode(item.reject_reason));
+        cardMeta.appendChild(rejSpan);
+      }
+      card.appendChild(cardMeta);
+
+      // Actions
+      if (showActions) {
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'card-actions';
+        if (item.id) actionsDiv.id = `actions-${item.id}`;
+
+        const approveBtn = document.createElement('button');
+        approveBtn.className = 'btn approve';
+        approveBtn.textContent = '批准';
+        approveBtn.addEventListener('click', () => startApprove(item.id));
+        actionsDiv.appendChild(approveBtn);
+
+        const rejectBtn = document.createElement('button');
+        rejectBtn.className = 'btn reject';
+        rejectBtn.textContent = '拒绝';
+        rejectBtn.addEventListener('click', () => toggleReject(item.id));
+        actionsDiv.appendChild(rejectBtn);
+
+        const rejectRow = document.createElement('div');
+        rejectRow.className = 'reject-row';
+        if (item.id) rejectRow.id = `reject-row-${item.id}`;
+
+        const rejectInput = document.createElement('input');
+        rejectInput.className = 'input';
+        rejectInput.type = 'text';
+        if (item.id) rejectInput.id = `reject-reason-${item.id}`;
+        rejectInput.placeholder = '拒绝原因（可选）';
+        rejectInput.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') confirmReject(item.id);
+        });
+        rejectRow.appendChild(rejectInput);
+
+        const confirmRejectBtn = document.createElement('button');
+        confirmRejectBtn.className = 'btn reject';
+        confirmRejectBtn.textContent = '确认拒绝';
+        confirmRejectBtn.addEventListener('click', () => confirmReject(item.id));
+        rejectRow.appendChild(confirmRejectBtn);
+
+        const cancelRejectBtn = document.createElement('button');
+        cancelRejectBtn.className = 'btn ghost';
+        cancelRejectBtn.textContent = '取消';
+        cancelRejectBtn.addEventListener('click', () => toggleReject(item.id));
+        rejectRow.appendChild(cancelRejectBtn);
+
+        actionsDiv.appendChild(rejectRow);
+
+        const tokenResult = document.createElement('div');
+        tokenResult.className = 'token-result';
+        if (item.id) tokenResult.id = `token-result-${item.id}`;
+        actionsDiv.appendChild(tokenResult);
+
+        card.appendChild(actionsDiv);
+      }
+
+      el.appendChild(card);
+    }
   }
 
   function escHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   /* ── Usage monitoring ── */
@@ -1933,7 +2076,7 @@
       + ((access.byte_window_truncated || usage.byte_window_truncated) ? ' · 读取窗口已截断' : '');
 
     const topRows = (data.top_source_ips || []).map(row =>
-      `<button class="route-chip" type="button" title="${escHtml(row.value)}" onclick="document.getElementById('attribution-source-ip').value='${escHtml(row.value)}';loadAttribution()">${escHtml(shortFingerprint(row.value))} × ${Number(row.count || 0).toLocaleString()}${row.errors ? ` · ${row.errors} err` : ''}</button>`).join('');
+      `<button class="route-chip" type="button" title="${escHtml(row.value)}" data-action="filter-attribution-ip" data-value="${escHtml(row.value)}">${escHtml(shortFingerprint(row.value))} × ${Number(row.count || 0).toLocaleString()}${row.errors ? ` · ${row.errors} err` : ''}</button>`).join('');
     top.innerHTML = topRows || '<span class="log-note">该筛选窗口内没有来源 IP</span>';
 
     const rows = data.recent_events || [];
@@ -1985,10 +2128,10 @@
         <tbody>
           ${items.map(it => `
             <tr>
-              <td><strong><a class=\"user-link\" onclick=\"openUser360('${escHtml(it.account_id || it.username || '').replace(/'/g, "\\'")}')\">${escHtml(it.username || it.account_id || '—')}</a></strong>${it.type === 'renewal' ? ' <span class=\"log-note\">续费</span>' : ''}</td>
+              <td><strong><a class="user-link" data-action="open-user-360" data-user-id="${escHtml(it.account_id || it.username || '')}">${escHtml(it.username || it.account_id || '—')}</a></strong>${it.type === 'renewal' ? ' <span class="log-note">续费</span>' : ''}</td>
               <td>${roleBadge(it.role || it.tier)}</td>
-              <td class=\"mono\">${escHtml(it.phone || '—')}</td>
-              <td class=\"mono\">${escHtml(it.email || '—')}</td>
+              <td class="mono">${escHtml(it.phone || '—')}</td>
+              <td class="mono">${escHtml(it.email || '—')}</td>
               <td>${fmtTime(it.registered_at)}</td>
               <td>${registrationStatusChip(it.status)}</td>
               <td>${it.expires_at ? fmtTime(it.expires_at) : '—'}</td>
@@ -2051,7 +2194,7 @@
         </tr></thead>
         <tbody>
           ${displayed.map(u => `
-            <tr class="u-row" onclick="openUser360('${escHtml(u.user_id).replace(/'/g, "\\'")}')">
+            <tr class="u-row" data-action="open-user-360" data-user-id="${escHtml(u.user_id)}">
               <td class="mono"><strong><a class="user-link">${escHtml(u.user_id)}</a></strong></td>
               <td>${(u.roles || []).map(r => roleBadge(r)).join(' ')}</td>
               <td class="num">${(u.requests_today_utc || 0).toLocaleString()}</td>
@@ -2122,9 +2265,9 @@
 
     panel.innerHTML = `
       <div class="usage-section-head" style="margin-bottom:4px">
-        <div class="usage-section-title mono" style="font-family:var(--f-mono);font-size:16px"><a class="user-link" onclick="openUser360('${escHtml(d.user_id).replace(/'/g, "\\'")}')">${escHtml(d.user_id)}</a></div>
+        <div class="usage-section-title mono" style="font-family:var(--f-mono);font-size:16px"><a class="user-link" data-action="open-user-360" data-user-id="${escHtml(d.user_id)}">${escHtml(d.user_id)}</a></div>
         <div style="display:flex;gap:8px;">
-          <button class="btn" type="button" onclick="openUser360('${escHtml(d.user_id).replace(/'/g, "\\'")}')">打开 User 360 单页</button>
+          <button class="btn" type="button" data-action="open-user-360" data-user-id="${escHtml(d.user_id)}">打开 User 360 单页</button>
           <button class="btn ghost" type="button" onclick="document.getElementById('usage-detail').classList.add('hidden')">✕ 关闭</button>
         </div>
       </div>
@@ -2169,7 +2312,7 @@
       box.innerHTML = data.items.map(u => `
         <div class="user-card">
           <div class="card-top">
-            <span class="card-username"><a class="user-link" onclick="openUser360('${escHtml(u.user_id).replace(/'/g, "\\'")}')">${escHtml(u.username || u.user_id)}</a></span>
+            <span class="card-username"><a class="user-link" data-action="open-user-360" data-user-id="${escHtml(u.user_id)}">${escHtml(u.username || u.user_id)}</a></span>
             <div class="card-badges">${roleBadge(u.role || u.tier, u.expires_at)}</div>
           </div>
           <div class="card-meta">
@@ -2183,7 +2326,7 @@
             <span><span class="meta-label">来源</span><span class="mono">${escHtml((u.sources || []).join(', '))}</span></span>
           </div>
           <div class="card-actions">
-            <button class="btn ghost" onclick="openUser360('${escHtml(u.user_id).replace(/'/g, "\\'")}')">查看用户全景</button>
+            <button class="btn ghost" type="button" data-action="open-user-360" data-user-id="${escHtml(u.user_id)}">查看用户全景</button>
           </div>
         </div>`).join('');
     } catch (e) {
@@ -2315,7 +2458,7 @@
         : '';
 
       return `
-        <article class="bulk-order-card" id="bulk-card-${order.id}">
+        <article class="bulk-order-card" id="bulk-card-${escHtml(order.id)}">
           <div class="bulk-order-head">
             <div>
               <div class="card-username">${escHtml(order.username || '—')}</div>
@@ -2358,18 +2501,18 @@
           <div class="bulk-order-section">
             <span class="field-label">报价与处理</span>
             <div class="bulk-admin-controls">
-              <input id="bulk-price-${order.id}" class="input" type="number" min="0" step="0.01"
+              <input id="bulk-price-${escHtml(order.id)}" class="input" type="number" min="0" step="0.01"
                 value="${order.quoted_price ?? ''}" placeholder="报价 CNY">
-              <input id="bulk-gb-${order.id}" class="input" type="number" min="0" step="0.001"
+              <input id="bulk-gb-${escHtml(order.id)}" class="input" type="number" min="0" step="0.001"
                 value="${order.actual_raw_bytes !== undefined ? Number(order.actual_raw_bytes) / 1000000000 : ''}" placeholder="实际 raw GB">
-              <input id="bulk-note-${order.id}" class="input" type="text" maxlength="1000"
+              <input id="bulk-note-${escHtml(order.id)}" class="input" type="text" maxlength="1000"
                 value="${escHtml(order.admin_note || '')}" placeholder="内部备注 / 联系结果">
             </div>
             <div class="bulk-admin-actions">
-              <button class="btn approve" type="button" onclick="updateBulkOrder('${order.id}', 'approved')">标记已报价 / 已联系</button>
-              <button class="btn primary" type="button" onclick="updateBulkOrder('${order.id}', 'fulfilled')">标记已交付</button>
-              <button class="btn reject" type="button" onclick="updateBulkOrder('${order.id}', 'rejected')">拒绝</button>
-              ${status !== 'pending' ? `<button class="btn ghost" type="button" onclick="updateBulkOrder('${order.id}', 'pending')">恢复待处理</button>` : ''}
+              <button class="btn approve" type="button" data-action="update-bulk-order" data-order-id="${escHtml(order.id)}" data-status="approved">标记已报价 / 已联系</button>
+              <button class="btn primary" type="button" data-action="update-bulk-order" data-order-id="${escHtml(order.id)}" data-status="fulfilled">标记已交付</button>
+              <button class="btn reject" type="button" data-action="update-bulk-order" data-order-id="${escHtml(order.id)}" data-status="rejected">拒绝</button>
+              ${status !== 'pending' ? `<button class="btn ghost" type="button" data-action="update-bulk-order" data-order-id="${escHtml(order.id)}" data-status="pending">恢复待处理</button>` : ''}
             </div>
           </div>
         </article>`;
@@ -2909,7 +3052,7 @@
 
       const previewPills = seg.users.slice(0, 10).map(u => `
         <span class="user-pill">
-          <a class="user-link" onclick="openUser360('${escHtml(u.user_id).replace(/'/g, "\\'")}')">${escHtml(u.username || u.user_id)}</a>
+          <a class="user-link" data-action="open-user-360" data-user-id="${escHtml(u.user_id)}">${escHtml(u.username || u.user_id)}</a>
           ${u.role ? roleBadge(u.role, u.expires_at) : ''}
         </span>`).join('');
 
@@ -3014,7 +3157,7 @@
               <tr>
                 <td class="mono">${fmtTime(o.created_at)}</td>
                 <td>
-                  <strong><a class="user-link" onclick="openUser360('${escHtml(o.user_id).replace(/'/g, "\\'")}')">${escHtml(o.username || o.user_id)}</a></strong>
+                  <strong><a class="user-link" data-action="open-user-360" data-user-id="${escHtml(o.user_id)}">${escHtml(o.username || o.user_id)}</a></strong>
                   ${o.current_role ? roleBadge(o.current_role) : ''}
                 </td>
                 <td>
@@ -3032,7 +3175,7 @@
                 </td>
                 <td>${daysText}</td>
                 <td>
-                  <button class="btn ghost" style="padding:3px 7px;font-size:11px;" onclick="openUser360('${escHtml(o.user_id).replace(/'/g, "\\'")}')">User 360</button>
+                  <button class="btn ghost" style="padding:3px 7px;font-size:11px;" type="button" data-action="open-user-360" data-user-id="${escHtml(o.user_id)}">User 360</button>
                 </td>
               </tr>
             `;
@@ -3147,8 +3290,8 @@
           ${p.days_remaining !== null ? `<span class="stat-chip">${p.days_remaining > 0 ? `剩余 ${p.days_remaining} 天` : '<span style="color:var(--danger)">已过期</span>'}</span>` : ''}
         </div>
         <div style="display:flex;gap:8px;">
-          <button class="btn" type="button" onclick="composeEmailToUser('${escHtml(p.email || '')}', '${escHtml(p.username || p.user_id)}')">发送邮件</button>
-          <button class="btn ghost" type="button" onclick="openUser360('${escHtml(p.user_id).replace(/'/g, "\\'")}')">刷新画像</button>
+          <button class="btn" type="button" data-action="compose-email" data-email="${escHtml(p.email || '')}" data-name="${escHtml(p.username || p.user_id)}">发送邮件</button>
+          <button class="btn ghost" type="button" data-action="open-user-360" data-user-id="${escHtml(p.user_id)}">刷新画像</button>
         </div>
       </div>
 
@@ -3192,9 +3335,9 @@
             <div class="user360-card-title">快捷管理操作 (Admin Actions)</div>
             <div class="log-note" style="margin-bottom:8px;">直接为该用户延期或调整角色：</div>
             <div style="display:flex;gap:6px;margin-bottom:10px;">
-              <button class="btn ghost" type="button" onclick="quickExtendUser('${escHtml(p.user_id).replace(/'/g, "\\'")}', 30)">+30 天</button>
-              <button class="btn ghost" type="button" onclick="quickExtendUser('${escHtml(p.user_id).replace(/'/g, "\\'")}', 90)">+90 天</button>
-              <button class="btn ghost" type="button" onclick="quickExtendUser('${escHtml(p.user_id).replace(/'/g, "\\'")}', 365)">+1 年</button>
+              <button class="btn ghost" type="button" data-action="quick-extend" data-user-id="${escHtml(p.user_id)}" data-days="30">+30 天</button>
+              <button class="btn ghost" type="button" data-action="quick-extend" data-user-id="${escHtml(p.user_id)}" data-days="90">+90 天</button>
+              <button class="btn ghost" type="button" data-action="quick-extend" data-user-id="${escHtml(p.user_id)}" data-days="365">+1 年</button>
             </div>
             <div style="display:flex;gap:6px;align-items:center;">
               <select id="user360-role-select" class="input" style="flex:1;">
@@ -3203,7 +3346,7 @@
                 <option value="standard" ${p.role==='standard'?'selected':''}>Standard</option>
                 <option value="premium" ${p.role==='premium'?'selected':''}>Premium</option>
               </select>
-              <button class="btn" type="button" onclick="quickSetUserRole('${escHtml(p.user_id).replace(/'/g, "\\'")}')">调整角色</button>
+              <button class="btn" type="button" data-action="quick-set-role" data-user-id="${escHtml(p.user_id)}">调整角色</button>
             </div>
           </div>
 
@@ -3344,6 +3487,42 @@
       btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" stroke-linecap="round"/><polyline points="2,3 2,6 5,6" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14,10 14,13 11,13" stroke-linecap="round" stroke-linejoin="round"/></svg> 同步`;
     }
   }
+
+  /* ── Delegated event listener for safe data-action handlers ── */
+  document.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (action === 'open-user-360') {
+      event.preventDefault();
+      const userId = btn.dataset.userId;
+      if (userId) openUser360(userId);
+    } else if (action === 'compose-email') {
+      event.preventDefault();
+      composeEmailToUser(btn.dataset.email || '', btn.dataset.name || '');
+    } else if (action === 'quick-extend') {
+      event.preventDefault();
+      const userId = btn.dataset.userId;
+      const days = Number(btn.dataset.days || 30);
+      if (userId) quickExtendUser(userId, days);
+    } else if (action === 'quick-set-role') {
+      event.preventDefault();
+      const userId = btn.dataset.userId;
+      if (userId) quickSetUserRole(userId);
+    } else if (action === 'update-bulk-order') {
+      event.preventDefault();
+      const orderId = btn.dataset.orderId;
+      const status = btn.dataset.status;
+      if (orderId && status) updateBulkOrder(orderId, status);
+    } else if (action === 'filter-attribution-ip') {
+      event.preventDefault();
+      const ip = btn.dataset.value;
+      if (ip) {
+        document.getElementById('attribution-source-ip').value = ip;
+        loadAttribution();
+      }
+    }
+  });
 </script>
 </body>
 </html>

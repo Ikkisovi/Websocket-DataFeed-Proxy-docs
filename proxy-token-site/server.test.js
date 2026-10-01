@@ -44,8 +44,12 @@ const {
   app,
   TIERS,
   computeExpiry,
+  createAccountSession,
   getLastTestVerificationEmail,
   clearTestVerificationEmails,
+  getLastTestAccountLoginEmail,
+  clearTestAccountLoginEmails,
+  __clearLoginRateLimitsForTest,
   __resetUsageAggregatorForTest,
   __refreshUsageAggregatorForTest,
   __setUsageAggregatorTestHooks
@@ -82,7 +86,9 @@ describe('Research data checkout', () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify([{ username: 'research-user', phone: '13800009999', tier: 'free' }]));
     const registry = { users: [{ user_id: 'research-user', token: 'research-test-token', role: 'free', expires_at: '2099-01-01T00:00:00Z' }] };
     fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify(registry));
-    const login = await request(app).post('/api/account/login').send({ credential: { user_id: 'research-user', phone: '13800009999' } });
+    const login = await request(app).post('/api/account/login').send({
+      credential: { user_id: 'research-user', phone: '13800009999', token: 'research-test-token' }
+    });
     expect(login.status).toBe(200);
     const cookie = login.headers['set-cookie'][0].split(';')[0];
     const checkout = body => request(app).post('/api/research-data/checkout').set('Cookie', cookie).send(body);
@@ -591,7 +597,7 @@ describe('POST /api/register', () => {
     expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users).toHaveLength(1);
   });
 
-  it('matches the full identity tuple, not username alone', async () => {
+  it('rejects registration if identity exists with a different email', async () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
       username: ' legacy-user ',
       phone: '123',
@@ -604,7 +610,7 @@ describe('POST /api/register', () => {
       email: 'legacy-user@example.com',
       tier: 'free'
     });
-    expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(409);
   });
 
   it('is idempotent for an exact identity and separates same usernames with other tuple values', async () => {
@@ -1311,7 +1317,7 @@ describe('Product updates and account-scoped feedback', () => {
   it('persists feedback and only returns it to the logged-in user', async () => {
     const account = seedFeedbackAccount();
     const login = await request(app).post('/api/account/login').send({
-      credential: { user_id: account.userId, phone: account.phone },
+      credential: { user_id: account.userId, phone: account.phone, token: account.token },
       email: account.email
     });
     const cookie = login.headers['set-cookie'][0].split(';')[0];
@@ -1420,7 +1426,8 @@ describe('Payment bundles and automatic fulfillment', () => {
       .send({
         credential: {
           user_id: account.userId,
-          phone: account.phone
+          phone: account.phone,
+          token: account.token
         },
         email: account.email
       });
@@ -2187,7 +2194,8 @@ describe('Account portal', () => {
       .send({
         credential: {
           user_id: account.userId,
-          phone: account.phone
+          phone: account.phone,
+          token: account.token
         },
         email: account.email
       });
@@ -2200,6 +2208,7 @@ describe('Account portal', () => {
     const missing = await request(app).post('/api/account/login').send({
       user_id: account.userId,
       phone: account.phone,
+      token: account.token,
       email: account.email
     });
     expect(missing.statusCode).toBe(400);
@@ -2210,7 +2219,8 @@ describe('Account portal', () => {
       .send({
         credential: {
           user_id: account.userId,
-          phone: 'wrong-phone'
+          phone: 'wrong-phone',
+          token: account.token
         },
         email: account.email
       });
@@ -2237,9 +2247,17 @@ describe('Account portal', () => {
       .post('/api/account/login')
       .set('x-forwarded-for', '198.51.100.223')
       .send({
-        credential: { user_id: account.userId }
+        credential: { user_id: account.userId, token: account.token }
       });
     expect(invalid.statusCode).toBe(400);
+
+    const identityOnly = await request(app)
+      .post('/api/account/login')
+      .set('x-forwarded-for', '198.51.100.223')
+      .send({
+        credential: { user_id: account.userId, phone: account.phone }
+      });
+    expect(identityOnly.statusCode).toBe(400);
   });
 
   it('ignores optional email metadata during login', async () => {
@@ -2250,7 +2268,8 @@ describe('Account portal', () => {
       .send({
         credential: {
           user_id: account.userId,
-          phone: account.phone
+          phone: account.phone,
+          token: account.token
         },
         email: 'attacker@example.com'
       });
@@ -2283,21 +2302,23 @@ describe('Account portal', () => {
         .send({
           credential: {
             user_id: account.userId,
-            phone: account.phone
+            phone: account.phone,
+            token: account.token
           },
           email: account.email
         });
       expect(login.statusCode).toBe(200);
     }
 
-    for (let attempt = 0; attempt < 8; attempt += 1) {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
       const failure = await request(app)
         .post('/api/account/login')
         .set('x-forwarded-for', '198.51.100.222')
         .send({
           credential: {
             user_id: account.userId,
-            phone: 'wrong-phone'
+            phone: 'wrong-phone',
+            token: account.token
           },
           email: account.email
         });
@@ -2309,7 +2330,8 @@ describe('Account portal', () => {
       .send({
         credential: {
           user_id: account.userId,
-          phone: 'wrong-phone'
+          phone: 'wrong-phone',
+          token: account.token
         },
         email: account.email
       });
@@ -2879,7 +2901,17 @@ describe('POST /api/generate-token', () => {
       permissions: TIERS.premium.permissions
     }]));
 
-    const res = await request(app).post('/api/generate-token').send({ username: 'gentest', phone: '555' });
+    // Identity-only without proof is rejected (403)
+    const unproven = await request(app).post('/api/generate-token').send({ username: 'gentest', phone: '555' });
+    expect(unproven.statusCode).toBe(403);
+    expect(unproven.body.error).toBe('account_authentication_required');
+
+    // With ownership proof (active session), token is generated
+    const sessionId = createAccountSession('gentest');
+    const res = await request(app)
+      .post('/api/generate-token')
+      .set('Cookie', `leandata_account_session=${sessionId}`)
+      .send({ username: 'gentest', phone: '555' });
     expect(res.body.success).toBe(true);
     expect(res.body.token).toBeDefined();
     expect(res.body.role).toBe('premium');
@@ -2895,7 +2927,11 @@ describe('POST /api/generate-token', () => {
       permissions: TIERS.basic.permissions
     }]));
 
-    const res = await request(app).post('/api/generate-token').send({ username: 'synctest', phone: '777' });
+    const sessionId = createAccountSession('synctest');
+    const res = await request(app)
+      .post('/api/generate-token')
+      .set('Cookie', `leandata_account_session=${sessionId}`)
+      .send({ username: 'synctest', phone: '777' });
     expect(res.body.success).toBe(true);
     // syncOk should be present (true if SCP succeeded, false if it failed)
     expect(res.body).toHaveProperty('syncOk');
@@ -2908,7 +2944,11 @@ describe('POST /api/generate-token', () => {
       permissions: TIERS.premium.permissions
     }]));
 
-    await request(app).post('/api/generate-token').send({ username: 'formattest', phone: '888' });
+    const sessionId = createAccountSession('formattest');
+    await request(app)
+      .post('/api/generate-token')
+      .set('Cookie', `leandata_account_session=${sessionId}`)
+      .send({ username: 'formattest', phone: '888' });
 
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const user = proxy.users.find(u => u.user_id === 'formattest');
@@ -2926,19 +2966,28 @@ describe('POST /api/generate-token', () => {
     expect(user).not.toHaveProperty('tier');
   });
 
-  it('returns existing token without re-registering', async () => {
+  it('enforces ownership proof for existing token and closes old token-return bypass', async () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
       username: 'existing', phone: '999', email: 'existing@example.com', role: 'standard', tier: 'standard',
       permissions: TIERS.standard.permissions
     }]));
 
-    // First call generates token
-    const res1 = await request(app).post('/api/generate-token').send({ username: 'existing', phone: '999' });
+    // First call with ownership proof generates token
+    const sessionId = createAccountSession('existing');
+    const res1 = await request(app)
+      .post('/api/generate-token')
+      .set('Cookie', `leandata_account_session=${sessionId}`)
+      .send({ username: 'existing', phone: '999' });
     expect(res1.body.success).toBe(true);
     const firstToken = res1.body.token;
 
-    // Second call returns existing token
-    const res2 = await request(app).post('/api/generate-token').send({ username: 'existing', phone: '999' });
+    // Second call without ownership proof fails (closing old token-return bypass)
+    const bypass = await request(app).post('/api/generate-token').send({ username: 'existing', phone: '999' });
+    expect(bypass.statusCode).toBe(403);
+    expect(bypass.body.token).toBeUndefined();
+
+    // Calling with correct current token succeeds
+    const res2 = await request(app).post('/api/generate-token').send({ username: 'existing', phone: '999', token: firstToken });
     expect(res2.body.success).toBe(true);
     expect(res2.body.token).toBe(firstToken);
     expect(res2.body.message).toMatch(/已存在/);
@@ -2958,7 +3007,11 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
       permissions: TIERS.premium.permissions
     }]));
 
-    await request(app).post('/api/generate-token').send({ username: 'fmtcheck', phone: '111' });
+    const sessionId = createAccountSession('fmtcheck');
+    await request(app)
+      .post('/api/generate-token')
+      .set('Cookie', `leandata_account_session=${sessionId}`)
+      .send({ username: 'fmtcheck', phone: '111' });
 
     const raw = fs.readFileSync(TEST_PROXY_FILE, 'utf8');
     const parsed = JSON.parse(raw);
@@ -2976,7 +3029,11 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
       permissions: TIERS.basic.permissions
     }]));
 
-    await request(app).post('/api/generate-token').send({ username: 'idcheck', phone: '222' });
+    const sessionId = createAccountSession('idcheck');
+    await request(app)
+      .post('/api/generate-token')
+      .set('Cookie', `leandata_account_session=${sessionId}`)
+      .send({ username: 'idcheck', phone: '222' });
 
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const user = proxy.users[proxy.users.length - 1];
@@ -2993,7 +3050,11 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
       permissions: TIERS.standard.permissions
     }]));
 
-    const res = await request(app).post('/api/generate-token').send({ username: 'tokenchk', phone: '333' });
+    const sessionId = createAccountSession('tokenchk');
+    const res = await request(app)
+      .post('/api/generate-token')
+      .set('Cookie', `leandata_account_session=${sessionId}`)
+      .send({ username: 'tokenchk', phone: '333' });
 
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const user = proxy.users.find(u => u.user_id === 'tokenchk');
@@ -3009,7 +3070,11 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
       permissions: TIERS.trial.permissions
     }]));
 
-    await request(app).post('/api/generate-token').send({ username: 'expcheck', phone: '444' });
+    const sessionId = createAccountSession('expcheck');
+    await request(app)
+      .post('/api/generate-token')
+      .set('Cookie', `leandata_account_session=${sessionId}`)
+      .send({ username: 'expcheck', phone: '444' });
 
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const user = proxy.users.find(u => u.user_id === 'expcheck');
@@ -4325,5 +4390,919 @@ describe('Admin usage monitoring API', () => {
     const newExp = Date.parse(proxyUser.expires_at);
     const oldExp = Date.parse(initialExpiry);
     expect(newExp - oldExp).toBeCloseTo(30 * 86400000, -3);
+  });
+});
+
+describe('Portal security repair (20261001)', () => {
+  const { JSDOM } = require('jsdom');
+  const ADMIN_HTML_PATH = path.join(__dirname, 'public/admin.html');
+
+  describe('1. XSS elimination in admin renderList', () => {
+    it('keeps hostile identifiers inert in real usage, profile, audience, bulk and attribution renderers', () => {
+      const dom = new JSDOM(fs.readFileSync(ADMIN_HTML_PATH, 'utf8'), { runScripts: 'dangerously' });
+      const win = dom.window;
+      const hostile = `x');window.XSS_EXECUTED=true;//\" onclick=\"window.XSS_EXECUTED=true\"><img src=x onerror=\"window.XSS_EXECUTED=true\">`;
+      const calls = [];
+      win.openUser360 = id => calls.push(['open', id]);
+      win.composeEmailToUser = (email, name) => calls.push(['email', email, name]);
+      win.quickExtendUser = (id, days) => calls.push(['extend', id, days]);
+      win.quickSetUserRole = id => calls.push(['role', id]);
+      win.updateBulkOrder = (id, status) => calls.push(['bulk', id, status]);
+      win.loadAttribution = () => calls.push(['attribution']);
+      win.XSS_EXECUTED = false;
+      win.renderUsageRecent([{account_id: hostile, username: hostile}]);
+      win.renderUsageTable([{user_id: hostile, roles: ['standard']}]);
+      win.renderUserDetail({user_id: hostile});
+      win.renderAudienceSegments([{name: 'test', count: 1, users: [{user_id: hostile, username: hostile}]}]);
+      win.renderUser360({profile: {user_id: hostile, username: hostile, email: hostile, role: 'standard'}});
+      win.eval(`bulkState.orders = ${JSON.stringify([{id: hostile, username: hostile, status: 'pending'}])}; renderBulkOrders();`);
+      win.renderAttribution({top_source_ips: [{value: hostile, count: 1}]});
+      for (const button of win.document.querySelectorAll('[data-action]')) button.click();
+      expect(calls.filter(c => c[0] === 'open').length).toBeGreaterThanOrEqual(5);
+      expect(calls).toContainEqual(['email', hostile, hostile]);
+      expect(calls).toContainEqual(['extend', hostile, 90]);
+      expect(calls).toContainEqual(['role', hostile]);
+      expect(calls).toContainEqual(['bulk', hostile, 'approved']);
+      expect(calls).toContainEqual(['attribution']);
+      expect(win.document.getElementById('attribution-source-ip').value).toBe(hostile);
+      expect(win.document.querySelectorAll('img').length).toBe(0);
+      expect(win.XSS_EXECUTED).toBe(false);
+      dom.window.close();
+    });
+
+    it('safely renders hostile usernames with textContent/createElement and leaves script markers unset', () => {
+      const html = fs.readFileSync(ADMIN_HTML_PATH, 'utf8');
+      const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true });
+      const win = dom.window;
+
+      win.XSS_MARKER_INLINE = false;
+      win.XSS_MARKER_IMG = false;
+      win.XSS_MARKER_PAYLOAD = false;
+      let openedUser = null;
+      win.openUser360 = (userId) => {
+        openedUser = userId;
+      };
+
+      const hostileItems = [
+        {
+          id: 'hostile-1',
+          username: '<script>window.XSS_MARKER_INLINE=true</script><img src=x onerror="window.XSS_MARKER_IMG=true">',
+          phone: '13800001111',
+          account_id: 'hostile-acc-1\');window.XSS_MARKER_PAYLOAD=true;//',
+          role: 'standard',
+          tier: 'standard',
+          status: 'pending'
+        }
+      ];
+
+      win.renderList('list-pending', hostileItems, true);
+
+      // Verify no scripts ran
+      expect(win.XSS_MARKER_INLINE).toBe(false);
+      expect(win.XSS_MARKER_IMG).toBe(false);
+      expect(win.XSS_MARKER_PAYLOAD).toBe(false);
+
+      const card = win.document.getElementById('card-hostile-1');
+      expect(card).not.toBeNull();
+      const userLink = card.querySelector('.user-link');
+      expect(userLink).not.toBeNull();
+
+      // No inline onclick attribute
+      expect(userLink.getAttribute('onclick')).toBeNull();
+
+      // textContent is raw string without HTML interpretation
+      expect(userLink.textContent).toBe(hostileItems[0].username);
+
+      // Trigger the event listener
+      userLink.click();
+      expect(openedUser).toBe(hostileItems[0].account_id);
+      expect(win.XSS_MARKER_PAYLOAD).toBe(false);
+
+      dom.window.close();
+    });
+
+    it('uses delegated real event listener with escaped data attributes for all user-derived actions', () => {
+      const html = fs.readFileSync(ADMIN_HTML_PATH, 'utf8');
+
+      // Assert no vulnerable inline onclick interpolations exist for user-derived handlers
+      expect(html).not.toMatch(/onclick=["'][^"']*openUser360/);
+      expect(html).not.toMatch(/onclick=["'][^"']*quickExtendUser/);
+      expect(html).not.toMatch(/onclick=["'][^"']*quickSetUserRole/);
+      expect(html).not.toMatch(/onclick=["'][^"']*composeEmailToUser/);
+      expect(html).not.toMatch(/onclick=["'][^"']*updateBulkOrder/);
+
+      const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true });
+      const win = dom.window;
+
+      let calledUser = null;
+      let extendedUser = null;
+      let extendedDays = null;
+      let roleUser = null;
+      let emailUser = null;
+
+      win.openUser360 = (uid) => { calledUser = uid; };
+      win.quickExtendUser = (uid, days) => { extendedUser = uid; extendedDays = days; };
+      win.quickSetUserRole = (uid) => { roleUser = uid; };
+      win.composeEmailToUser = (email, name) => { emailUser = { email, name }; };
+
+      // Create buttons with hostile data attributes
+      const container = win.document.createElement('div');
+      const hostileId = 'evil" onclick="alert(1)" data-x="';
+      container.innerHTML = `
+        <button id="btn-u360" data-action="open-user-360" data-user-id="${win.escHtml(hostileId)}">Open</button>
+        <button id="btn-extend" data-action="quick-extend" data-user-id="${win.escHtml(hostileId)}" data-days="90">Extend</button>
+        <button id="btn-role" data-action="quick-set-role" data-user-id="${win.escHtml(hostileId)}">Role</button>
+        <button id="btn-mail" data-action="compose-email" data-email="test@example.com" data-name="${win.escHtml(hostileId)}">Mail</button>
+      `;
+      win.document.body.appendChild(container);
+
+      // Click each button to verify delegated listener dispatches cleanly
+      win.document.getElementById('btn-u360').click();
+      expect(calledUser).toBe(hostileId);
+
+      win.document.getElementById('btn-extend').click();
+      expect(extendedUser).toBe(hostileId);
+      expect(extendedDays).toBe(90);
+
+      win.document.getElementById('btn-role').click();
+      expect(roleUser).toBe(hostileId);
+
+      win.document.getElementById('btn-mail').click();
+      expect(emailUser).toEqual({ email: 'test@example.com', name: hostileId });
+
+      dom.window.close();
+    });
+  });
+
+  describe('2. Account login authentication hardening (Token secret & Email OTP)', () => {
+    const secAccount = {
+      username: 'hardening-user',
+      phone: '13911112222',
+      email: 'hardening@example.com',
+      token: 'secret-token-hardening-xyz',
+      role: 'standard',
+      tier: 'standard',
+      expires_at: new Date(Date.now() + 86400000).toISOString()
+    };
+
+    beforeEach(() => {
+      if (__clearLoginRateLimitsForTest) __clearLoginRateLimitsForTest();
+      clearTestAccountLoginEmails();
+      clearTestVerificationEmails();
+      fs.writeFileSync(USERS_FILE, JSON.stringify([{
+        username: secAccount.username,
+        phone: secAccount.phone,
+        email: secAccount.email,
+        role: secAccount.role,
+        tier: secAccount.tier,
+        expires_at: secAccount.expires_at
+      }], null, 2));
+      fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({
+        users: [{
+          user_id: secAccount.username,
+          token: secAccount.token,
+          role: secAccount.role,
+          email: secAccount.email,
+          expires_at: secAccount.expires_at
+        }]
+      }, null, 2));
+    });
+
+    it('rejects identity-only login without token or OTP code', async () => {
+      const res = await request(app)
+        .post('/api/account/login')
+        .send({
+          credential: {
+            user_id: secAccount.username,
+            phone: secAccount.phone
+          }
+        });
+      expect(res.statusCode).toBe(400);
+      expect(res.body.message).toContain('请提供 API Token 或邮箱验证码');
+    });
+
+    it('authenticates with correct current account API token secret', async () => {
+      const res = await request(app)
+        .post('/api/account/login')
+        .send({
+          credential: {
+            user_id: secAccount.username,
+            phone: secAccount.phone,
+            token: secAccount.token
+          }
+        });
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['set-cookie']?.[0]).toMatch(/^leandata_account_session=/);
+      expect(res.body.success).toBe(true);
+      expect(res.body.account.user_id).toBe(secAccount.username);
+    });
+
+    it('rejects incorrect account API token secret with 401', async () => {
+      const res = await request(app)
+        .post('/api/account/login')
+        .send({
+          credential: {
+            user_id: secAccount.username,
+            phone: secAccount.phone,
+            token: 'wrong-token-value'
+          }
+        });
+      expect(res.statusCode).toBe(401);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('allows expired account to log in with valid token for renewal', async () => {
+      const expiredPast = new Date(Date.now() - 86400000).toISOString();
+      fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({
+        users: [{
+          user_id: secAccount.username,
+          token: secAccount.token,
+          role: secAccount.role,
+          email: secAccount.email,
+          expires_at: expiredPast
+        }]
+      }, null, 2));
+
+      const login = await request(app)
+        .post('/api/account/login')
+        .send({
+          credential: {
+            user_id: secAccount.username,
+            phone: secAccount.phone,
+            token: secAccount.token
+          }
+        });
+      expect(login.statusCode).toBe(200);
+      const cookie = login.headers['set-cookie']?.[0]?.split(';')[0];
+
+      const overview = await request(app)
+        .get('/api/account/overview')
+        .set('Cookie', cookie);
+      expect(overview.statusCode).toBe(200);
+      expect(overview.body.account.days_remaining).toBe(0);
+      expect(overview.body.account.expiry).toBe(expiredPast);
+    });
+
+    it('returns identical generic success shape without leaking account existence, and hits IP limiter on invalid requests', async () => {
+      const testIp = '198.51.100.199';
+
+      // 1. Unknown user receives exact same 202 success shape and message
+      const resUnknown = await request(app)
+        .post('/api/account/login-code')
+        .set('x-forwarded-for', testIp)
+        .send({
+          credential: {
+            user_id: 'non-existent-user',
+            phone: '13800000000'
+          }
+        });
+      expect(resUnknown.statusCode).toBe(202);
+      expect(resUnknown.body).toEqual({
+        success: true,
+        challenge_id: expect.any(String),
+        expires_in: expect.any(Number),
+        message: '验证码已发送到绑定邮箱。'
+      });
+      expect(getLastTestAccountLoginEmail()).toBeNull();
+
+      // 2. Account with no email receives same 202 success shape
+      fs.writeFileSync(USERS_FILE, JSON.stringify([{
+        username: 'no-email-user',
+        phone: '13800000001',
+        role: 'standard',
+        tier: 'standard'
+      }], null, 2));
+      fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({
+        users: [{
+          user_id: 'no-email-user',
+          token: 'token-no-email',
+          role: 'standard'
+        }]
+      }, null, 2));
+
+      const resNoEmail = await request(app)
+        .post('/api/account/login-code')
+        .set('x-forwarded-for', testIp)
+        .send({
+          credential: {
+            user_id: 'no-email-user',
+            phone: '13800000001'
+          }
+        });
+      expect(resNoEmail.statusCode).toBe(202);
+      expect(resNoEmail.body).toEqual({
+        success: true,
+        challenge_id: expect.any(String),
+        expires_in: expect.any(Number),
+        message: '验证码已发送到绑定邮箱。'
+      });
+      expect(getLastTestAccountLoginEmail()).toBeNull();
+
+      // 3. Repeated invalid requests hit the IP send limiter too (IP limit is 10)
+      for (let i = 2; i < 10; i++) {
+        const loopRes = await request(app)
+          .post('/api/account/login-code')
+          .set('x-forwarded-for', testIp)
+          .send({
+            credential: {
+              user_id: `unknown-probe-${i}`,
+              phone: '13800000000'
+            }
+          });
+        expect(loopRes.statusCode).toBe(202);
+      }
+
+      const blockedRes = await request(app)
+        .post('/api/account/login-code')
+        .set('x-forwarded-for', testIp)
+        .send({
+          credential: {
+            user_id: 'unknown-probe-11',
+            phone: '13800000000'
+          }
+        });
+      expect(blockedRes.statusCode).toBe(429);
+      expect(blockedRes.headers['retry-after']).toBeDefined();
+    });
+
+    it('HTML-escapes accountUsername in login verification email', async () => {
+      const hostileUsername = '<script>alert("xss")</script>';
+      fs.writeFileSync(USERS_FILE, JSON.stringify([{
+        username: hostileUsername,
+        phone: '13812345678',
+        email: 'escape-test@example.com',
+        role: 'standard',
+        tier: 'standard'
+      }], null, 2));
+      fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({
+        users: [{
+          user_id: hostileUsername,
+          token: 'token-escape-test',
+          role: 'standard',
+          email: 'escape-test@example.com'
+        }]
+      }, null, 2));
+
+      const sendRes = await request(app)
+        .post('/api/account/login-code')
+        .send({
+          credential: {
+            user_id: hostileUsername,
+            phone: '13812345678'
+          }
+        });
+      expect(sendRes.statusCode).toBe(202);
+
+      const email = getLastTestAccountLoginEmail();
+      expect(email).not.toBeNull();
+      expect(email.html).toContain('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+      expect(email.html).not.toContain('<script>alert');
+    });
+
+    it('sends login challenge OTP to registered email and enforces OTP lifecycle', async () => {
+      // 1. Request code
+      const sendRes = await request(app)
+        .post('/api/account/login-code')
+        .set('x-forwarded-for', '198.51.100.150')
+        .send({
+          credential: {
+            user_id: secAccount.username,
+            phone: secAccount.phone
+          }
+        });
+      expect(sendRes.statusCode).toBe(202);
+      expect(sendRes.body.challenge_id).toBeDefined();
+      expect(sendRes.body.expires_in).toBeLessThanOrEqual(600);
+
+      const challengeId = sendRes.body.challenge_id;
+      const sentEmail = getLastTestAccountLoginEmail();
+      expect(sentEmail).not.toBeNull();
+      expect(sentEmail.email).toBe(secAccount.email);
+      expect(sentEmail.code).toMatch(/^\d{6}$/);
+      expect(getLastTestVerificationEmail()).toBeNull(); // isolated from registration mail
+
+      // 2. Cooldown prevents immediate re-request
+      const cooldownRes = await request(app)
+        .post('/api/account/login-code')
+        .set('x-forwarded-for', '198.51.100.150')
+        .send({
+          credential: {
+            user_id: secAccount.username,
+            phone: secAccount.phone
+          }
+        });
+      expect(cooldownRes.statusCode).toBe(429);
+      expect(cooldownRes.headers['retry-after']).toBeDefined();
+
+      // 3. Login fails with missing challenge ID
+      const missingIdRes = await request(app)
+        .post('/api/account/login')
+        .send({
+          credential: {
+            user_id: secAccount.username,
+            phone: secAccount.phone,
+            code: sentEmail.code
+          }
+        });
+      expect(missingIdRes.statusCode).toBe(400);
+
+      // 4. Login fails with wrong OTP code
+      const wrongCodeRes = await request(app)
+        .post('/api/account/login')
+        .send({
+          credential: {
+            user_id: secAccount.username,
+            phone: secAccount.phone,
+            challenge_id: challengeId,
+            code: '999999'
+          }
+        });
+      expect(wrongCodeRes.statusCode).toBe(400);
+
+      // 5. Successful login with correct OTP code
+      const validLogin = await request(app)
+        .post('/api/account/login')
+        .send({
+          credential: {
+            user_id: secAccount.username,
+            phone: secAccount.phone,
+            challenge_id: challengeId,
+            code: sentEmail.code
+          }
+        });
+      expect(validLogin.statusCode).toBe(200);
+      expect(validLogin.headers['set-cookie']?.[0]).toMatch(/^leandata_account_session=/);
+
+      // 6. Reusing consumed OTP challenge fails
+      const reuseRes = await request(app)
+        .post('/api/account/login')
+        .send({
+          credential: {
+            user_id: secAccount.username,
+            phone: secAccount.phone,
+            challenge_id: challengeId,
+            code: sentEmail.code
+          }
+        });
+      expect(reuseRes.statusCode).toBe(400);
+    });
+
+    it('locks OTP challenge after 5 incorrect guesses', async () => {
+      const sendRes = await request(app)
+        .post('/api/account/login-code')
+        .set('x-forwarded-for', '198.51.100.151')
+        .send({
+          credential: {
+            user_id: secAccount.username,
+            phone: secAccount.phone
+          }
+        });
+      const challengeId = sendRes.body.challenge_id;
+      const sentEmail = getLastTestAccountLoginEmail();
+
+      for (let i = 0; i < 5; i++) {
+        const failRes = await request(app)
+          .post('/api/account/login')
+          .set('x-forwarded-for', `198.51.100.${160 + i}`)
+          .send({
+            credential: {
+              user_id: secAccount.username,
+              phone: secAccount.phone,
+              challenge_id: challengeId,
+              code: '000000'
+            }
+          });
+        expect(failRes.statusCode).toBe(400);
+      }
+
+      // 6th attempt with correct code fails because challenge was locked/deleted
+      const lateRes = await request(app)
+        .post('/api/account/login')
+        .set('x-forwarded-for', '198.51.100.170')
+        .send({
+          credential: {
+            user_id: secAccount.username,
+            phone: secAccount.phone,
+            challenge_id: challengeId,
+            code: sentEmail.code
+          }
+        });
+      expect(lateRes.statusCode).toBe(400);
+    });
+  });
+
+  describe('3. Token return audit and existing account protection', () => {
+    it('prevents arbitrary newly verified email from recovering or overwriting existing account', async () => {
+      const victim = {
+        username: 'victim-user',
+        phone: '13888888888',
+        email: 'victim@real.com',
+        token: 'victim-super-secret-token',
+        role: 'standard',
+        tier: 'standard'
+      };
+      fs.writeFileSync(USERS_FILE, JSON.stringify([victim], null, 2));
+      fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({
+        users: [{
+          user_id: victim.username,
+          token: victim.token,
+          role: victim.role,
+          email: victim.email
+        }]
+      }, null, 2));
+
+      // Attacker gets verification code for attacker@evil.com
+      const sendRes = await request(app)
+        .post('/api/register/request-code')
+        .send({ email: 'attacker@evil.com' });
+      expect(sendRes.statusCode).toBe(202);
+      const attackerChallengeId = sendRes.body.challenge_id;
+      const attackerEmail = getLastTestVerificationEmail();
+      expect(attackerEmail.email).toBe('attacker@evil.com');
+
+      // Attacker tries to register with victim username + phone
+      const hijackRes = await request(app)
+        .post('/api/register')
+        .send({
+          username: victim.username,
+          phone: victim.phone,
+          email: 'attacker@evil.com',
+          verification_id: attackerChallengeId,
+          verification_code: attackerEmail.code,
+          tier: 'free'
+        });
+      expect(hijackRes.statusCode).toBe(409);
+      expect(hijackRes.body.token).toBeUndefined();
+
+      // Ensure victim email was not silently overwritten
+      const storedUsers = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+      const storedVictim = storedUsers.find(u => u.username === victim.username);
+      expect(storedVictim.email).toBe(victim.email);
+    });
+
+    it('closes old token-return bypass in generate-token for identity-only requests, and allows approved no-proxy owner to generate via OTP', async () => {
+      const user = {
+        username: 'gentoken-victim',
+        phone: '13777777777',
+        email: 'gentoken@example.com',
+        role: 'standard',
+        tier: 'standard'
+      };
+      fs.writeFileSync(USERS_FILE, JSON.stringify([user], null, 2));
+      fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({ users: [] }, null, 2));
+
+      // 1. Initial generation with identity-only is rejected (403)
+      const unprovenGen = await request(app)
+        .post('/api/generate-token')
+        .send({ username: user.username, phone: user.phone });
+      expect(unprovenGen.statusCode).toBe(403);
+      expect(unprovenGen.body.error).toBe('account_authentication_required');
+
+      // 2. Approved local owner without proxy record requests OTP challenge
+      const sendRes = await request(app)
+        .post('/api/account/login-code')
+        .send({ credential: { user_id: user.username, phone: user.phone } });
+      expect(sendRes.statusCode).toBe(202);
+      const challengeId = sendRes.body.challenge_id;
+      const sentEmail = getLastTestAccountLoginEmail();
+      expect(sentEmail).not.toBeNull();
+      expect(sentEmail.email).toBe(user.email);
+
+      // 3. Approved owner creates initial token using the OTP challenge
+      const genWithOtp = await request(app)
+        .post('/api/generate-token')
+        .send({
+          username: user.username,
+          phone: user.phone,
+          challenge_id: challengeId,
+          code: sentEmail.code
+        });
+      expect(genWithOtp.statusCode).toBe(200);
+      const issuedToken = genWithOtp.body.token;
+      expect(issuedToken).toBeDefined();
+
+      // 4. Subsequent call with identity-only fails (old token-return bypass closed!)
+      const gen2 = await request(app)
+        .post('/api/generate-token')
+        .send({ username: user.username, phone: user.phone });
+      expect(gen2.statusCode).toBe(403);
+      expect(gen2.body.token).toBeUndefined();
+      expect(gen2.body.error).toBe('account_authentication_required');
+
+      // 5. Subsequent call with correct current token succeeds
+      const gen3 = await request(app)
+        .post('/api/generate-token')
+        .send({ username: user.username, phone: user.phone, token: issuedToken });
+      expect(gen3.statusCode).toBe(200);
+      expect(gen3.body.token).toBe(issuedToken);
+
+      // 6. Account login still denies identity-only
+      const idOnlyLogin = await request(app)
+        .post('/api/account/login')
+        .send({ credential: { user_id: user.username, phone: user.phone } });
+      expect(idOnlyLogin.statusCode).toBe(400);
+    });
+
+    it('requires ownership proof when token is absent or expired, and prevents silent email updates', async () => {
+      const user = {
+        username: 'unissued-approved-user',
+        phone: '13666666666',
+        email: 'unissued@example.com',
+        role: 'standard',
+        tier: 'standard'
+      };
+      fs.writeFileSync(USERS_FILE, JSON.stringify([user], null, 2));
+      fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({ users: [] }, null, 2));
+
+      // 1. Token absent: identity-only request fails with 403
+      const absentIdentityOnly = await request(app)
+        .post('/api/generate-token')
+        .send({ username: user.username, phone: user.phone, email: 'attacker@bad.com' });
+      expect(absentIdentityOnly.statusCode).toBe(403);
+      expect(absentIdentityOnly.body.error).toBe('account_authentication_required');
+
+      // Email was not overwritten by unproven request
+      expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0].email).toBe('unissued@example.com');
+
+      // 2. Token absent: with ownership proof (OTP challenge), token is generated
+      const sendRes = await request(app)
+        .post('/api/account/login-code')
+        .send({ credential: { user_id: user.username, phone: user.phone } });
+      expect(sendRes.statusCode).toBe(202);
+      const challengeId = sendRes.body.challenge_id;
+      const sentEmail = getLastTestAccountLoginEmail();
+      expect(sentEmail.email).toBe('unissued@example.com');
+
+      const absentWithProof = await request(app)
+        .post('/api/generate-token')
+        .send({
+          username: user.username,
+          phone: user.phone,
+          challenge_id: challengeId,
+          code: sentEmail.code
+        });
+      expect(absentWithProof.statusCode).toBe(200);
+      expect(absentWithProof.body.token).toBeDefined();
+      const newlyIssuedToken = absentWithProof.body.token;
+
+      // 3. Token expired: identity-only fails with 403
+      const expiredPast = new Date(Date.now() - 86400000).toISOString();
+      const proxyData = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+      proxyData.users[0].expires_at = expiredPast;
+      fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify(proxyData, null, 2));
+
+      const expiredIdentityOnly = await request(app)
+        .post('/api/generate-token')
+        .send({ username: user.username, phone: user.phone });
+      expect(expiredIdentityOnly.statusCode).toBe(403);
+
+      // Token expired: with session proof, token is returned
+      const sessionId = createAccountSession(user.username);
+      const expiredWithSession = await request(app)
+        .post('/api/generate-token')
+        .set('Cookie', `leandata_account_session=${sessionId}`)
+        .send({ username: user.username, phone: user.phone });
+      expect(expiredWithSession.statusCode).toBe(200);
+      expect(expiredWithSession.body.token).toBe(newlyIssuedToken);
+    });
+
+    it('enforces shared OTP 5-attempt limit across both login and generate-token', async () => {
+      const user = {
+        username: 'shared-otp-user',
+        phone: '13555555555',
+        email: 'shared@example.com',
+        role: 'standard',
+        tier: 'standard'
+      };
+      fs.writeFileSync(USERS_FILE, JSON.stringify([user], null, 2));
+      fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({
+        users: [{
+          user_id: user.username,
+          token: 'shared-token-secret-123',
+          role: 'standard',
+          email: user.email
+        }]
+      }, null, 2));
+
+      const sendRes = await request(app)
+        .post('/api/account/login-code')
+        .send({ credential: { user_id: user.username, phone: user.phone } });
+      const challengeId = sendRes.body.challenge_id;
+      const sentEmail = getLastTestAccountLoginEmail();
+
+      // 2 wrong attempts on /api/account/login
+      for (let i = 0; i < 2; i++) {
+        const res = await request(app)
+          .post('/api/account/login')
+          .send({ credential: { user_id: user.username, phone: user.phone, challenge_id: challengeId, code: '000000' } });
+        expect(res.statusCode).toBe(400);
+      }
+
+      // 3 wrong attempts on /api/generate-token (total = 5)
+      for (let i = 0; i < 3; i++) {
+        const res = await request(app)
+          .post('/api/generate-token')
+          .send({ username: user.username, phone: user.phone, challenge_id: challengeId, code: '000000' });
+        expect(res.statusCode).toBe(403);
+      }
+
+      // Challenge is now locked/consumed; attempting with the correct code fails
+      const lateLogin = await request(app)
+        .post('/api/account/login')
+        .send({ credential: { user_id: user.username, phone: user.phone, challenge_id: challengeId, code: sentEmail.code } });
+      expect(lateLogin.statusCode).toBe(400);
+
+      const lateGen = await request(app)
+        .post('/api/generate-token')
+        .send({ username: user.username, phone: user.phone, challenge_id: challengeId, code: sentEmail.code });
+      expect(lateGen.statusCode).toBe(403);
+    });
+
+    it('has exactly one verifyAccountOwnershipProof declaration in server.js calling verifyAccountOtpChallenge', () => {
+      const serverSource = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
+      const declarations = serverSource.match(/function\s+verifyAccountOwnershipProof\s*\(/g);
+      expect(declarations).not.toBeNull();
+      expect(declarations.length).toBe(1);
+      expect(serverSource).toContain('verifyAccountOtpChallenge(challengeId, accountId, otpCode)');
+    });
+
+    it('bounds throttle map size and ensures active victim throttles are never evicted by flood', async () => {
+      const victim = {
+        username: 'victim-throttle',
+        phone: '13999990000',
+        email: 'victim-throttle@example.com',
+        token: 'token-victim-throttle',
+        role: 'standard',
+        tier: 'standard'
+      };
+      fs.writeFileSync(USERS_FILE, JSON.stringify([victim], null, 2));
+      fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({
+        users: [{
+          user_id: victim.username,
+          token: victim.token,
+          role: victim.role,
+          email: victim.email
+        }]
+      }, null, 2));
+
+      // Lock out victim with 8 failures
+      for (let i = 0; i < 8; i++) {
+        await request(app)
+          .post('/api/account/login')
+          .set('x-forwarded-for', `198.51.100.${10 + i}`)
+          .send({
+            credential: {
+              user_id: victim.username,
+              phone: victim.phone,
+              token: 'wrong-token'
+            }
+          });
+      }
+
+      // Verify victim is throttled (429)
+      const throttledCheck = await request(app)
+        .post('/api/account/login')
+        .set('x-forwarded-for', '198.51.100.30')
+        .send({
+          credential: {
+            user_id: victim.username,
+            phone: victim.phone,
+            token: victim.token
+          }
+        });
+      expect(throttledCheck.statusCode).toBe(429);
+
+      // Flood server with requests for distinct keys from different IPs
+      for (let i = 0; i < 20; i++) {
+        await request(app)
+          .post('/api/account/login-code')
+          .set('x-forwarded-for', `203.0.113.${(i % 250) + 1}`)
+          .send({
+            credential: {
+              user_id: `flooder-${i}`,
+              phone: `1380000${String(i).padStart(4, '0')}`
+            }
+          });
+      }
+
+      // Victim throttle MUST still be active and not evicted
+      const victimStillThrottled = await request(app)
+        .post('/api/account/login')
+        .set('x-forwarded-for', '198.51.100.31')
+        .send({
+          credential: {
+            user_id: victim.username,
+            phone: victim.phone,
+            token: victim.token
+          }
+        });
+      expect(victimStillThrottled.statusCode).toBe(429);
+    });
+
+    it('validates XFF via net.isIP and ignores malformed IP values', async () => {
+      const malformedRes = await request(app)
+        .post('/api/account/login')
+        .set('x-forwarded-for', 'not-a-valid-ip-address')
+        .send({
+          credential: {
+            user_id: 'sec-user',
+            phone: '13911112222'
+          }
+        });
+      expect(malformedRes.statusCode).toBe(400);
+    });
+  });
+
+  describe('4. Admin security, rate limiting, session TTL, and logout', () => {
+    it('enforces constant-time admin password check and rate limits 5 failures per IP', async () => {
+      const testIp = '198.51.100.240';
+      for (let i = 0; i < 5; i++) {
+        const fail = await request(app)
+          .post('/api/admin/login')
+          .set('x-forwarded-for', testIp)
+          .send({ password: 'wrong-admin-pass' });
+        expect(fail.statusCode).toBe(401);
+      }
+
+      const blocked = await request(app)
+        .post('/api/admin/login')
+        .set('x-forwarded-for', testIp)
+        .send({ password: 'wrong-admin-pass' });
+      expect(blocked.statusCode).toBe(429);
+      expect(blocked.headers['retry-after']).toBeDefined();
+    });
+
+    it('manages admin session life: success, logout revocation, idle and absolute TTL', async () => {
+      const loginRes = await request(app)
+        .post('/api/admin/login')
+        .set('x-forwarded-for', '198.51.100.245')
+        .send({ password: 'admin123' });
+      expect(loginRes.statusCode).toBe(200);
+      const adminToken = loginRes.body.token;
+      expect(adminToken).toBeDefined();
+
+      // Admin request works
+      const pendingRes = await request(app)
+        .get('/api/admin/pending')
+        .set('x-admin-token', adminToken);
+      expect(pendingRes.statusCode).toBe(200);
+
+      // Logout revokes session
+      const logoutRes = await request(app)
+        .post('/api/admin/logout')
+        .set('x-admin-token', adminToken);
+      expect(logoutRes.statusCode).toBe(200);
+
+      // Subsequent admin request rejected
+      const revokedRes = await request(app)
+        .get('/api/admin/pending')
+        .set('x-admin-token', adminToken);
+      expect(revokedRes.statusCode).toBe(401);
+
+      // Session timeouts
+      const login2 = await request(app)
+        .post('/api/admin/login')
+        .set('x-forwarded-for', '198.51.100.246')
+        .send({ password: 'admin123' });
+      const token2 = login2.body.token;
+
+      // Simulate 31 minutes idle
+      const realNow = Date.now;
+      jest.spyOn(Date, 'now').mockReturnValue(realNow() + 31 * 60 * 1000);
+      const idleRes = await request(app)
+        .get('/api/admin/pending')
+        .set('x-admin-token', token2);
+      expect(idleRes.statusCode).toBe(401);
+      expect(idleRes.body.message).toContain('idle timeout');
+
+      // Login again for absolute timeout test
+      jest.spyOn(Date, 'now').mockRestore();
+      const login3 = await request(app)
+        .post('/api/admin/login')
+        .set('x-forwarded-for', '198.51.100.247')
+        .send({ password: 'admin123' });
+      const token3 = login3.body.token;
+
+      // Simulate 8.5 hours
+      jest.spyOn(Date, 'now').mockReturnValue(realNow() + 8.5 * 3600 * 1000);
+      const absRes = await request(app)
+        .get('/api/admin/pending')
+        .set('x-admin-token', token3);
+      expect(absRes.statusCode).toBe(401);
+      expect(absRes.body.message).toContain('absolute timeout');
+      jest.spyOn(Date, 'now').mockRestore();
+    });
+  });
+
+  describe('5. Malformed cookie safety and production error handling', () => {
+    it('silently ignores malformed cookies without throwing or leaking stack trace', async () => {
+      const res = await request(app)
+        .get('/api/account/session')
+        .set('Cookie', 'leandata_account_session=%E0%A4%A; malformed=%ZZ');
+      expect(res.statusCode).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(JSON.stringify(res.body)).not.toContain('URIError');
+      expect(JSON.stringify(res.body)).not.toContain('at ');
+    });
   });
 });

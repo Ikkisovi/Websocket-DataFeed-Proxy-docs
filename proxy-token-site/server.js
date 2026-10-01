@@ -406,19 +406,41 @@ app.post('/api/research-data/checkout', requireAccount, (req, res) => {
   });
 });
 
-// --- In-memory admin sessions ---
-const adminSessions = new Set();
+// --- In-memory admin sessions and rate limiting maps ---
+const adminSessions = new Map();
+const ADMIN_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+const ADMIN_ABSOLUTE_TIMEOUT_MS = 8 * 60 * 60 * 1000;
+const MAX_ADMIN_SESSIONS = 500;
+
+const adminLoginIpAttempts = new Map();
+let adminLoginGlobalAttempts = [];
+const ADMIN_LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const ADMIN_LOGIN_IP_MAX = 5;
+const ADMIN_LOGIN_GLOBAL_MAX = 50;
+
 const accountSessions = new Map();
 const accountLoginAttempts = new Map();
+const accountLoginCodeSendAttempts = new Map();
+const accountLoginChallenges = new Map();
 const paymentFulfillmentLocks = new Map();
 const productFeedbackAttempts = new Map();
+const testAccountLoginEmails = [];
+
 const ACCOUNT_SESSION_COOKIE = 'leandata_account_session';
 const ACCOUNT_SESSION_TTL_MS = Math.max(
   15 * 60 * 1000,
   Math.min(Number(process.env.ACCOUNT_SESSION_TTL_MS) || 8 * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000)
 );
 const ACCOUNT_LOGIN_WINDOW_MS = 15 * 60 * 1000;
-const ACCOUNT_LOGIN_MAX_ATTEMPTS = 8;
+const ACCOUNT_LOGIN_IP_MAX_ATTEMPTS = 10;
+const ACCOUNT_LOGIN_ACCOUNT_MAX_ATTEMPTS = 8;
+
+const ACCOUNT_LOGIN_CODE_WINDOW_MS = 15 * 60 * 1000;
+const ACCOUNT_LOGIN_CODE_IP_MAX = 10;
+const ACCOUNT_LOGIN_CODE_ACCOUNT_MAX = 5;
+const ACCOUNT_LOGIN_CODE_COOLDOWN_MS = 60 * 1000;
+const ACCOUNT_LOGIN_CODE_TTL_MS = 10 * 60 * 1000;
+const ACCOUNT_LOGIN_CODE_MAX_ATTEMPTS = 5;
 
 // --- Helpers ---
 // Serialize admin user mutations without letting one failure poison the queue.
@@ -480,9 +502,237 @@ function verificationCodeHash(challengeId, code) {
     .digest('hex');
 }
 
+const EPHEMERAL_LOGIN_HMAC_SECRET = crypto.randomBytes(32).toString('hex');
+
+function getLoginHmacSecret() {
+  return emailSetting('EMAIL_VERIFY_SECRET') || EPHEMERAL_LOGIN_HMAC_SECRET;
+}
+
+function isLoopbackIp(ip) {
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
+
+function getTrustedProxyIps() {
+  const envVal = process.env.TRUSTED_PROXY_IPS || '';
+  const ips = new Set();
+  for (const part of envVal.split(',')) {
+    const trimmed = part.trim();
+    if (trimmed && net.isIP(trimmed)) {
+      ips.add(trimmed);
+    }
+  }
+  return ips;
+}
+
+function normalizeIp(ip) {
+  if (!ip || typeof ip !== 'string') return '';
+  const trimmed = ip.trim();
+  if (trimmed.startsWith('::ffff:')) {
+    const v4 = trimmed.slice(7);
+    if (net.isIP(v4) === 4) return v4;
+  }
+  return net.isIP(trimmed) ? trimmed : '';
+}
+
+function getClientIp(req) {
+  const rawPeer = req.socket?.remoteAddress || '';
+  const peer = normalizeIp(rawPeer);
+  const trustedProxies = getTrustedProxyIps();
+  const isTrustedPeer = isLoopbackIp(peer) || (peer && trustedProxies.has(peer));
+
+  if (isTrustedPeer && req.headers['x-forwarded-for']) {
+    const raw = String(req.headers['x-forwarded-for']);
+    const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+    const last = parts[parts.length - 1];
+    const normalizedLast = normalizeIp(last);
+    if (normalizedLast) {
+      return normalizedLast;
+    }
+  }
+  return peer || 'unknown';
+}
+
+const OVERFLOW_BUCKET_KEY = '__overflow__';
+
+function pruneMapEntries(map, windowMs) {
+  const now = Date.now();
+  for (const [key, value] of map.entries()) {
+    if (Array.isArray(value)) {
+      const remaining = value.filter(ts => now - ts < windowMs);
+      if (remaining.length === 0 && key !== OVERFLOW_BUCKET_KEY) map.delete(key);
+      else map.set(key, remaining);
+    } else if (value && typeof value === 'object') {
+      const exp = typeof value.expires_at === 'number'
+        ? value.expires_at
+        : (value.expires_at ? new Date(value.expires_at).getTime() : null);
+      if (exp && now > exp) map.delete(key);
+    }
+  }
+}
+
+function getBoundedAttempts(map, key, windowMs, maxKeys = 2000) {
+  const now = Date.now();
+  const existing = map.get(key);
+  if (existing) {
+    const recent = existing.filter(ts => now - ts < windowMs);
+    map.set(key, recent);
+    return recent;
+  }
+  if (map.size >= maxKeys - (map.has(OVERFLOW_BUCKET_KEY) ? 0 : 1)) {
+    const overflow = map.get(OVERFLOW_BUCKET_KEY) || [];
+    const recentOverflow = overflow.filter(ts => now - ts < windowMs);
+    map.set(OVERFLOW_BUCKET_KEY, recentOverflow);
+    return recentOverflow;
+  }
+  return [];
+}
+
+function recordBoundedAttempt(map, key, windowMs, maxKeys = 2000) {
+  const now = Date.now();
+  let targetKey = key;
+  if (!map.has(key)) {
+    pruneMapEntries(map, windowMs);
+    if (!map.has(key) && map.size >= maxKeys - (map.has(OVERFLOW_BUCKET_KEY) ? 0 : 1)) {
+      targetKey = OVERFLOW_BUCKET_KEY;
+    }
+  }
+  const existing = (map.get(targetKey) || []).filter(ts => now - ts < windowMs);
+  existing.push(now);
+  map.set(targetKey, existing);
+}
+
+function loginChallengeCodeHash(challengeId, purpose, accountId, code) {
+  const secret = getLoginHmacSecret();
+  return crypto
+    .createHmac('sha256', secret)
+    .update(`${challengeId}:${purpose}:${accountId}:${code}`, 'utf8')
+    .digest('hex');
+}
+
+function cleanLoginChallenges() {
+  const now = Date.now();
+  for (const [id, challenge] of accountLoginChallenges.entries()) {
+    if (now > challenge.expires_at || challenge.consumed || challenge.attempts >= challenge.max_attempts) {
+      accountLoginChallenges.delete(id);
+    }
+  }
+}
+
+function verifyAccountOtpChallenge(challengeId, accountId, otpCode) {
+  if (!challengeId || !otpCode) {
+    return { ok: false, error: 'missing_challenge', message: '缺少验证码 ID 或验证码。' };
+  }
+  cleanLoginChallenges();
+  const challenge = accountLoginChallenges.get(challengeId);
+  if (!challenge) {
+    return { ok: false, error: 'invalid_or_expired', message: '验证码无效或已过期，请重新获取。' };
+  }
+  if (challenge.consumed) {
+    return { ok: false, error: 'already_consumed', message: '验证码已使用，请重新获取。' };
+  }
+  if (challenge.account_id !== accountId) {
+    return { ok: false, error: 'account_mismatch', message: '验证码与当前账户不匹配。' };
+  }
+  if (challenge.purpose !== 'account_login') {
+    return { ok: false, error: 'purpose_mismatch', message: '验证码用途不匹配。' };
+  }
+  if (Date.now() > challenge.expires_at) {
+    accountLoginChallenges.delete(challengeId);
+    return { ok: false, error: 'expired', message: '验证码已过期，请重新获取。' };
+  }
+
+  challenge.attempts = Number(challenge.attempts || 0) + 1;
+  if (challenge.attempts > challenge.max_attempts) {
+    accountLoginChallenges.delete(challengeId);
+    return { ok: false, error: 'too_many_attempts', message: '验证码尝试次数过多，请重新获取。' };
+  }
+
+  const expectedHash = loginChallengeCodeHash(challengeId, challenge.purpose, challenge.account_id, String(otpCode).trim());
+  if (!safeEqual(challenge.code_hash, expectedHash)) {
+    if (challenge.attempts >= challenge.max_attempts) {
+      accountLoginChallenges.delete(challengeId);
+      return { ok: false, error: 'too_many_attempts', message: '验证码错误次数过多，请重新获取。' };
+    }
+    return { ok: false, error: 'invalid_code', message: '验证码错误，请重试。' };
+  }
+
+  challenge.consumed = true;
+  accountLoginChallenges.delete(challengeId);
+  return { ok: true };
+}
+
+function verifyAccountOwnershipProof(req, accountId, existingToken = null) {
+  const session = resolveAccountSession(req);
+  if (session && session.session.user_id === accountId) {
+    return { ok: true, method: 'session' };
+  }
+
+  const callerToken = req.body?.token || req.headers['x-account-token'];
+  if (callerToken && existingToken && safeEqual(callerToken, existingToken)) {
+    return { ok: true, method: 'token' };
+  }
+
+  const challengeId = req.body?.challenge_id || req.body?.verification_id;
+  const otpCode = req.body?.code || req.body?.verification_code;
+  if (challengeId || otpCode) {
+    const verified = verifyAccountOtpChallenge(challengeId, accountId, otpCode);
+    if (verified.ok) {
+      return { ok: true, method: 'otp' };
+    }
+    return { ok: false, error: verified.error, message: verified.message };
+  }
+
+  return { ok: false, error: 'proof_missing', message: '该账户需要所有权证明（当前 Token、已登录 Session 或邮箱验证码）以查看或签发 Token。' };
+}
+
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+async function sendAccountLoginEmail(email, code, accountUsername) {
+  const safeUsername = escapeHtml(accountUsername);
+  const subject = '[Leandata] 账户登录验证码';
+  const text = `您好 ${accountUsername}：\n\n您正在登录 Leandata 账户管理中心。\n\n您的验证码是：${code}\n\n该验证码 10 分钟内有效，最多可尝试 5 次。若非本人操作，请忽略此邮件。`;
+  const html = `<div style="font-family:sans-serif;max-width:540px;margin:auto;padding:24px;border:1px solid #e0e0e0;border-radius:8px;">
+    <h2 style="margin:0 0 16px;color:#111;">账户登录验证码</h2>
+    <p style="color:#444;font-size:14px;line-height:1.6;">您好 <strong>${safeUsername}</strong>：</p>
+    <p style="color:#444;font-size:14px;line-height:1.6;">您正在登录 Leandata 账户管理中心。请在登录界面输入以下验证码：</p>
+    <div style="margin:24px 0;padding:16px;background:#f5f7fa;border-radius:6px;font-size:28px;font-weight:bold;letter-spacing:4px;font-family:monospace;text-align:center;color:#0f52ba;">${code}</div>
+    <p style="color:#666;font-size:13px;line-height:1.5;">验证码在 10 分钟内有效，最多允许尝试 5 次。为了账户安全，切勿将验证码泄露给他人。<br>若非本人操作，请忽略此邮件。</p>
+  </div>`;
+
+  if (emailSetting('EMAIL_TEST_MODE') === 'memory' || process.env.NODE_ENV === 'test') {
+    testAccountLoginEmails.push({
+      email,
+      code,
+      subject,
+      text,
+      html,
+      sent_at: new Date().toISOString()
+    });
+    return { messageId: `test-login-${testAccountLoginEmails.length}` };
+  }
+
+  const config = emailSmtpConfig();
+  if (!config) throw new Error('SMTP email configuration is incomplete');
+  return sendSmtpMail({ config, to: email, subject, text, html });
+}
+
+function getLastTestAccountLoginEmail() {
+  return testAccountLoginEmails[testAccountLoginEmails.length - 1] || null;
+}
+
+function clearTestAccountLoginEmails() {
+  testAccountLoginEmails.length = 0;
+}
+
 function verificationRequestKey(req, email) {
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  const address = forwarded || req.socket?.remoteAddress || 'unknown';
+  const address = getClientIp(req);
   return `${email}:${address}`;
 }
 
@@ -1032,22 +1282,80 @@ function publicPaymentOrder(order) {
   };
 }
 
+function cleanAdminSessions() {
+  const now = Date.now();
+  for (const [token, session] of adminSessions.entries()) {
+    if (now - session.created_at >= ADMIN_ABSOLUTE_TIMEOUT_MS || now - session.last_active_at >= ADMIN_IDLE_TIMEOUT_MS) {
+      adminSessions.delete(token);
+    }
+  }
+}
+
 function requireAdmin(req, res, next) {
   const token = req.headers['x-admin-token'];
-  if (!token || !adminSessions.has(token)) {
+  if (!token || typeof token !== 'string') {
     return res.status(401).json({ success: false, message: 'Admin auth required.' });
   }
+  const session = adminSessions.get(token);
+  if (!session) {
+    return res.status(401).json({ success: false, message: 'Admin auth required.' });
+  }
+  const now = Date.now();
+  if (now - session.created_at >= ADMIN_ABSOLUTE_TIMEOUT_MS) {
+    adminSessions.delete(token);
+    return res.status(401).json({ success: false, message: 'Admin session expired (absolute timeout).' });
+  }
+  if (now - session.last_active_at >= ADMIN_IDLE_TIMEOUT_MS) {
+    adminSessions.delete(token);
+    return res.status(401).json({ success: false, message: 'Admin session expired (idle timeout).' });
+  }
+  session.last_active_at = now;
   next();
+}
+
+function checkAdminLoginAllowed(req) {
+  const ip = getClientIp(req);
+  const now = Date.now();
+  adminLoginGlobalAttempts = adminLoginGlobalAttempts.filter(ts => now - ts < ADMIN_LOGIN_WINDOW_MS);
+  if (adminLoginGlobalAttempts.length >= ADMIN_LOGIN_GLOBAL_MAX) {
+    const retryAfter = Math.max(1, Math.ceil((adminLoginGlobalAttempts[0] + ADMIN_LOGIN_WINDOW_MS - now) / 1000));
+    return { allowed: false, retryAfter };
+  }
+  const ipAttempts = getBoundedAttempts(adminLoginIpAttempts, ip, ADMIN_LOGIN_WINDOW_MS, 1000);
+  if (ipAttempts.length >= ADMIN_LOGIN_IP_MAX) {
+    const retryAfter = Math.max(1, Math.ceil((ipAttempts[0] + ADMIN_LOGIN_WINDOW_MS - now) / 1000));
+    return { allowed: false, retryAfter };
+  }
+  return { allowed: true, retryAfter: 0 };
+}
+
+function recordAdminLoginFailure(req) {
+  const ip = getClientIp(req);
+  const now = Date.now();
+  adminLoginGlobalAttempts.push(now);
+  recordBoundedAttempt(adminLoginIpAttempts, ip, ADMIN_LOGIN_WINDOW_MS, 1000);
+}
+
+function clearAdminLoginFailures(req) {
+  const ip = getClientIp(req);
+  adminLoginIpAttempts.delete(ip);
 }
 
 function parseCookies(req) {
   const cookies = {};
-  for (const part of String(req.headers.cookie || '').split(';')) {
+  const cookieHeader = req?.headers?.cookie;
+  if (!cookieHeader || typeof cookieHeader !== 'string') return cookies;
+  for (const part of cookieHeader.split(';')) {
     const index = part.indexOf('=');
     if (index <= 0) continue;
     const key = part.slice(0, index).trim();
-    const value = part.slice(index + 1).trim();
-    if (key) cookies[key] = decodeURIComponent(value);
+    const rawValue = part.slice(index + 1).trim();
+    if (!key) continue;
+    try {
+      cookies[key] = decodeURIComponent(rawValue);
+    } catch {
+      // Malformed cookie ignored without stack leakage
+    }
   }
   return cookies;
 }
@@ -1068,37 +1376,81 @@ function clearAccountSessionCookie(res) {
 }
 
 function safeEqual(left, right) {
-  const a = Buffer.from(String(left || ''), 'utf8');
-  const b = Buffer.from(String(right || ''), 'utf8');
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  const a = crypto.createHash('sha256').update(String(left || ''), 'utf8').digest();
+  const b = crypto.createHash('sha256').update(String(right || ''), 'utf8').digest();
+  return crypto.timingSafeEqual(a, b);
 }
 
-function accountLoginKey(req) {
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  return forwarded || req.socket?.remoteAddress || 'unknown';
+function accountLoginAllowed(req, accountId = null) {
+  const ip = getClientIp(req);
+  const ipAttempts = getBoundedAttempts(accountLoginAttempts, `ip:${ip}`, ACCOUNT_LOGIN_WINDOW_MS, 3000);
+  if (ipAttempts.length >= ACCOUNT_LOGIN_IP_MAX_ATTEMPTS) {
+    return false;
+  }
+
+  if (accountId) {
+    const accountAttempts = getBoundedAttempts(accountLoginAttempts, `acc:${accountId}`, ACCOUNT_LOGIN_WINDOW_MS, 3000);
+    if (accountAttempts.length >= ACCOUNT_LOGIN_ACCOUNT_MAX_ATTEMPTS) {
+      return false;
+    }
+  }
+  return true;
 }
 
-function accountLoginAllowed(req) {
-  const key = accountLoginKey(req);
+function recordAccountLoginFailure(req, accountId = null) {
+  const ip = getClientIp(req);
+  recordBoundedAttempt(accountLoginAttempts, `ip:${ip}`, ACCOUNT_LOGIN_WINDOW_MS, 3000);
+  if (accountId) {
+    recordBoundedAttempt(accountLoginAttempts, `acc:${accountId}`, ACCOUNT_LOGIN_WINDOW_MS, 3000);
+  }
+}
+
+function clearAccountLoginFailures(req, accountId = null) {
+  const ip = getClientIp(req);
+  accountLoginAttempts.delete(`ip:${ip}`);
+  if (accountId) {
+    accountLoginAttempts.delete(`acc:${accountId}`);
+  }
+}
+
+function checkAccountLoginCodeIpRate(req) {
+  const ip = getClientIp(req);
   const now = Date.now();
-  const previous = accountLoginAttempts.get(key) || [];
-  const recent = previous.filter(timestamp => now - timestamp < ACCOUNT_LOGIN_WINDOW_MS);
-  accountLoginAttempts.set(key, recent);
-  return recent.length < ACCOUNT_LOGIN_MAX_ATTEMPTS;
+  const ipAttempts = getBoundedAttempts(accountLoginCodeSendAttempts, `ip:${ip}`, ACCOUNT_LOGIN_CODE_WINDOW_MS, 3000);
+  if (ipAttempts.length >= ACCOUNT_LOGIN_CODE_IP_MAX) {
+    const retryAfter = Math.max(1, Math.ceil((ipAttempts[0] + ACCOUNT_LOGIN_CODE_WINDOW_MS - now) / 1000));
+    return { allowed: false, retryAfter };
+  }
+  return { allowed: true, retryAfter: 0 };
 }
 
-function recordAccountLoginFailure(req) {
-  const key = accountLoginKey(req);
+function checkAccountLoginCodeAccountRate(req, accountId) {
   const now = Date.now();
-  const previous = accountLoginAttempts.get(key) || [];
-  accountLoginAttempts.set(
-    key,
-    [...previous.filter(timestamp => now - timestamp < ACCOUNT_LOGIN_WINDOW_MS), now]
-  );
+  const accountAttempts = getBoundedAttempts(accountLoginCodeSendAttempts, `acc:${accountId}`, ACCOUNT_LOGIN_CODE_WINDOW_MS, 3000);
+
+  if (accountAttempts.length > 0) {
+    const lastSent = accountAttempts[accountAttempts.length - 1];
+    if (now - lastSent < ACCOUNT_LOGIN_CODE_COOLDOWN_MS) {
+      const retryAfter = Math.max(1, Math.ceil((lastSent + ACCOUNT_LOGIN_CODE_COOLDOWN_MS - now) / 1000));
+      return { allowed: false, retryAfter };
+    }
+  }
+
+  if (accountAttempts.length >= ACCOUNT_LOGIN_CODE_ACCOUNT_MAX) {
+    const retryAfter = Math.max(1, Math.ceil((accountAttempts[0] + ACCOUNT_LOGIN_CODE_WINDOW_MS - now) / 1000));
+    return { allowed: false, retryAfter };
+  }
+
+  return { allowed: true, retryAfter: 0 };
 }
 
-function clearAccountLoginFailures(req) {
-  accountLoginAttempts.delete(accountLoginKey(req));
+function recordAccountLoginCodeIpSent(req) {
+  const ip = getClientIp(req);
+  recordBoundedAttempt(accountLoginCodeSendAttempts, `ip:${ip}`, ACCOUNT_LOGIN_CODE_WINDOW_MS, 3000);
+}
+
+function recordAccountLoginCodeAccountSent(req, accountId) {
+  recordBoundedAttempt(accountLoginCodeSendAttempts, `acc:${accountId}`, ACCOUNT_LOGIN_CODE_WINDOW_MS, 3000);
 }
 
 function findLocalAccount(userId) {
@@ -3557,19 +3909,16 @@ app.post('/api/register', async (req, res) => {
   const proxyUsers = Array.isArray(proxyData.users) ? proxyData.users : [];
   const existingUser = users.find(user => sameAccountIdentity(user, identity));
   if (existingUser) {
+    const storedEmail = existingUser.email ? normalizeEmail(existingUser.email) : null;
+    if (!storedEmail || storedEmail !== cleanEmail) {
+      return res.status(409).json({
+        success: false,
+        message: '账户信息已被使用或无效，请直接登录。'
+      });
+    }
+
     const proxyUser = proxyUsers.find(user => user.user_id === accountRegistryId(existingUser));
     if (proxyUser?.token) {
-      if (!existingUser.email) {
-        existingUser.email = cleanEmail;
-        existingUser.email_verified = true;
-        existingUser.email_verified_at = challenge.verified_at;
-        writeJSONAtomic(USERS_FILE, users);
-        if (proxyUser && !proxyUser.email) {
-          proxyUser.email = cleanEmail;
-          proxyUser.email_verified = true;
-          writeProxyUsersAndSyncAsync(proxyData);
-        }
-      }
       const tierId = existingUser.tier || proxyUser.role || 'free';
       return res.json({
         success: true,
@@ -3869,28 +4218,145 @@ app.use('/api/account', (_req, res, next) => {
   next();
 });
 
-app.post('/api/account/login', (req, res) => {
-  if (!accountLoginAllowed(req)) {
-    return res.status(429).json({ success: false, message: '登录尝试过多，请 15 分钟后重试。' });
-  }
-  const credential = req.body?.credential;
-  const username = String(credential?.user_id || '').trim();
-  const phone = String(credential?.phone || '').trim();
+app.post('/api/account/login-code', async (req, res) => {
+  const credential = req.body?.credential || req.body || {};
+  const username = String(credential.user_id || credential.username || '').trim();
+  const phone = String(credential.phone || '').trim();
+
   if (!username || !phone || username.length > 128 || phone.length > 64) {
     return res.status(400).json({ success: false, message: '请提供用户名和手机号。' });
   }
+
+  // 1. IP rate limit check FIRST — invalid requests hit the IP send limiter too
+  const ipRate = checkAccountLoginCodeIpRate(req);
+  if (!ipRate.allowed) {
+    res.setHeader('Retry-After', String(ipRate.retryAfter));
+    return res.status(429).json({
+      success: false,
+      message: '验证码发送过于频繁，请稍后重试。',
+      retry_after: ipRate.retryAfter
+    });
+  }
+
+  recordAccountLoginCodeIpSent(req);
 
   const identity = canonicalAccountIdentity({ username, phone });
   const localMatches = findLocalAccountByIdentity(identity);
   const localUser = localMatches.length === 1 ? localMatches[0] : null;
   const accountId = localUser ? accountRegistryId(localUser) : '';
   const proxyUser = accountId ? findProxyAccount(accountId) : null;
-  if (!localUser || !proxyUser || !proxyUser.token) {
-    recordAccountLoginFailure(req);
-    return res.status(401).json({ success: false, message: '用户名或手机号不匹配。' });
+  const targetEmail = localUser?.email || proxyUser?.email || null;
+
+  // Unknown account or missing/invalid email: return the exact same success shape/message as valid target
+  if (!localUser || !targetEmail || !isValidEmail(targetEmail)) {
+    return res.status(202).json({
+      success: true,
+      challenge_id: crypto.randomUUID(),
+      expires_in: Math.floor(ACCOUNT_LOGIN_CODE_TTL_MS / 1000),
+      message: '验证码已发送到绑定邮箱。'
+    });
   }
 
-  clearAccountLoginFailures(req);
+  // 2. Per-account rate limiting and cooldown
+  const accountRate = checkAccountLoginCodeAccountRate(req, accountId);
+  if (!accountRate.allowed) {
+    res.setHeader('Retry-After', String(accountRate.retryAfter));
+    return res.status(429).json({
+      success: false,
+      message: '验证码发送过于频繁，请稍后重试。',
+      retry_after: accountRate.retryAfter
+    });
+  }
+
+  cleanLoginChallenges();
+  if (accountLoginChallenges.size >= 1000) {
+    const oldestKey = accountLoginChallenges.keys().next().value;
+    if (oldestKey) accountLoginChallenges.delete(oldestKey);
+  }
+
+  const challengeId = crypto.randomUUID();
+  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+  const now = Date.now();
+  const challenge = {
+    id: challengeId,
+    account_id: accountId,
+    purpose: 'account_login',
+    email: targetEmail,
+    code_hash: loginChallengeCodeHash(challengeId, 'account_login', accountId, code),
+    attempts: 0,
+    max_attempts: ACCOUNT_LOGIN_CODE_MAX_ATTEMPTS,
+    created_at: now,
+    expires_at: now + ACCOUNT_LOGIN_CODE_TTL_MS,
+    consumed: false
+  };
+
+  accountLoginChallenges.set(challengeId, challenge);
+  recordAccountLoginCodeAccountSent(req, accountId);
+
+  try {
+    await sendAccountLoginEmail(targetEmail, code, localUser.username || username);
+  } catch (err) {
+    accountLoginChallenges.delete(challengeId);
+    console.error('Account login email send error:', err.message);
+    return res.status(502).json({ success: false, message: '验证码邮件发送失败，请稍后重试。' });
+  }
+
+  return res.status(202).json({
+    success: true,
+    challenge_id: challengeId,
+    expires_in: Math.floor(ACCOUNT_LOGIN_CODE_TTL_MS / 1000),
+    message: '验证码已发送到绑定邮箱。'
+  });
+});
+
+app.post('/api/account/login', (req, res) => {
+  const credential = req.body?.credential;
+  const username = String(credential?.user_id || credential?.username || '').trim();
+  const phone = String(credential?.phone || '').trim();
+  const tokenSecret = String(credential?.token || '').trim();
+  const challengeId = String(credential?.challenge_id || credential?.verification_id || '').trim();
+  const otpCode = String(credential?.code || credential?.verification_code || credential?.login_code || '').trim();
+
+  if (!username || !phone || username.length > 128 || phone.length > 64) {
+    return res.status(400).json({ success: false, message: '请提供用户名和手机号。' });
+  }
+
+  if (!tokenSecret && !otpCode) {
+    return res.status(400).json({
+      success: false,
+      message: '请提供 API Token 或邮箱验证码以验证身份。'
+    });
+  }
+
+  const identity = canonicalAccountIdentity({ username, phone });
+  const localMatches = findLocalAccountByIdentity(identity);
+  const localUser = localMatches.length === 1 ? localMatches[0] : null;
+  const accountId = localUser ? accountRegistryId(localUser) : '';
+
+  if (!accountLoginAllowed(req, accountId || null)) {
+    return res.status(429).json({ success: false, message: '登录尝试过多，请 15 分钟后重试。' });
+  }
+
+  const proxyUser = accountId ? findProxyAccount(accountId) : null;
+  if (!localUser || !proxyUser || !proxyUser.token) {
+    recordAccountLoginFailure(req, accountId || null);
+    return res.status(401).json({ success: false, message: '用户名、手机号或验证凭据不匹配。' });
+  }
+
+  if (tokenSecret) {
+    if (!safeEqual(tokenSecret, proxyUser.token)) {
+      recordAccountLoginFailure(req, accountId);
+      return res.status(401).json({ success: false, message: '用户名、手机号或验证凭据不匹配。' });
+    }
+  } else {
+    const verified = verifyAccountOtpChallenge(challengeId, accountId, otpCode);
+    if (!verified.ok) {
+      recordAccountLoginFailure(req, accountId);
+      return res.status(400).json({ success: false, message: verified.message });
+    }
+  }
+
+  clearAccountLoginFailures(req, accountId);
   const sessionId = createAccountSession(accountId);
   setAccountSessionCookie(res, sessionId);
   return res.json({
@@ -4288,9 +4754,18 @@ app.post('/api/check-status', (req, res) => {
 });
 
 // ============================================================
-// ADMIN: Login
+// ADMIN: Login & Logout
 // ============================================================
 app.post('/api/admin/login', (req, res) => {
+  const rateLimit = checkAdminLoginAllowed(req);
+  if (!rateLimit.allowed) {
+    res.setHeader('Retry-After', String(rateLimit.retryAfter));
+    return res.status(429).json({
+      success: false,
+      message: '登录失败过多，请稍后重试。'
+    });
+  }
+
   const adminPassword = configuredAdminPassword();
   if (!adminPassword) {
     return res.status(503).json({
@@ -4299,13 +4774,34 @@ app.post('/api/admin/login', (req, res) => {
       message: 'Admin authentication is not configured on this host.'
     });
   }
-  const { password } = req.body;
-  if (password !== adminPassword) {
+  const { password } = req.body || {};
+  if (!password || !safeEqual(password, adminPassword)) {
+    recordAdminLoginFailure(req);
     return res.status(401).json({ success: false, message: '密码错误。' });
   }
+
+  clearAdminLoginFailures(req);
+  cleanAdminSessions();
+  if (adminSessions.size >= MAX_ADMIN_SESSIONS) {
+    const oldestKey = adminSessions.keys().next().value;
+    if (oldestKey) adminSessions.delete(oldestKey);
+  }
+
   const token = crypto.randomBytes(32).toString('hex');
-  adminSessions.add(token);
+  const now = Date.now();
+  adminSessions.set(token, {
+    created_at: now,
+    last_active_at: now
+  });
   return res.json({ success: true, token });
+});
+
+app.post('/api/admin/logout', (req, res) => {
+  const token = req.headers['x-admin-token'] || req.body?.token;
+  if (token && typeof token === 'string' && adminSessions.has(token)) {
+    adminSessions.delete(token);
+  }
+  return res.json({ success: true, message: '已安全退出登录。' });
 });
 
 // ============================================================
@@ -6903,7 +7399,7 @@ app.get('/api/admin/attribution', requireAdmin, async (req, res) => {
 // ORIGINAL: Generate token (for approved users)
 // ============================================================
 app.post('/api/generate-token', async (req, res) => {
-  const { username, phone } = req.body;
+  const { username, phone } = req.body || {};
 
   if (!username || !phone) {
     return res.status(400).json({ success: false, message: 'Username and phone are required.' });
@@ -6925,8 +7421,29 @@ app.post('/api/generate-token', async (req, res) => {
     if (!proxyData.users) proxyData.users = [];
 
     const accountId = accountRegistryId(validCustomer);
+
+    // Apply login/verification rate limits to generate-token as well
+    if (!accountLoginAllowed(req, accountId || null)) {
+      return res.status(429).json({ success: false, message: '登录或验证尝试过多，请 15 分钟后重试。' });
+    }
+
     const existing = proxyData.users.find(u => u.user_id === accountId);
-    if (existing) {
+    const existingToken = existing?.token || null;
+
+    // A known approved local account still needs ownership proof before any new token issue, return, or renewal
+    const proof = verifyAccountOwnershipProof(req, accountId, existingToken);
+    if (!proof.ok) {
+      recordAccountLoginFailure(req, accountId);
+      return res.status(403).json({
+        success: false,
+        error: 'account_authentication_required',
+        message: proof.message || '该账户需要所有权证明（当前 Token、已登录 Session 或邮箱验证码）以查看或签发 Token。'
+      });
+    }
+
+    clearAccountLoginFailures(req, accountId);
+
+    if (existingToken) {
       const tier = validCustomer.tier || existing.role;
       return res.json({
         success: true,
@@ -6939,7 +7456,7 @@ app.post('/api/generate-token', async (req, res) => {
       });
     }
 
-    // Look up tier config from the stored tier or fall back to role
+    // Token is absent: issue new token for the approved user
     const tierConfig = TIERS[validCustomer.tier] || TIERS[validCustomer.role] || TIERS.premium;
     const perms = resolvePermissions(tierConfig, validCustomer.mode);
     const token = crypto.randomUUID();
@@ -7679,6 +8196,16 @@ app.post('/api/survey/fmp', (req, res) => {
   }
 });
 
+// Generic error handler to avoid stack leakage
+app.use((err, _req, res, _next) => {
+  if (res.headersSent) return;
+  const status = typeof err?.status === 'number' ? err.status : (typeof err?.statusCode === 'number' ? err.statusCode : 500);
+  res.status(status).json({
+    success: false,
+    message: status === 400 ? (err.message || '请求无效。') : '服务器繁忙，请稍后重试。'
+  });
+});
+
 // Auto-log startup incident
 addIncident('Token Portal', 'resolved', 'Service restart', `token-site server started on port ${PORT}`);
 
@@ -7699,9 +8226,19 @@ module.exports = {
   computeExpiry,
   readJSON,
   writeJSON,
+  createAccountSession,
   safePaperUserId,
   getLastTestVerificationEmail,
   clearTestVerificationEmails,
+  getLastTestAccountLoginEmail,
+  clearTestAccountLoginEmails,
+  __clearLoginRateLimitsForTest: () => {
+    accountLoginAttempts.clear();
+    accountLoginCodeSendAttempts.clear();
+    accountLoginChallenges.clear();
+    adminLoginIpAttempts.clear();
+    adminLoginGlobalAttempts = [];
+  },
   PROXY_USERS_FILE,
   EC2_HOST,
   EC2_USERS_PATH,
