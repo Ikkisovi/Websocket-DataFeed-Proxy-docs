@@ -130,7 +130,11 @@ compose_args=(
 )
 IFS=':' read -r -a compose_files <<<"$compose_files_value"
 for compose_file in "${compose_files[@]}"; do
-  compose_path="$runtime_service_dir/$compose_file"
+  if [[ "$compose_file" == /* ]]; then
+    compose_path="$compose_file"
+  else
+    compose_path="$runtime_service_dir/$compose_file"
+  fi
   if [[ ! -f "$compose_path" ]]; then
     printf 'runtime Compose file is unavailable: %s\n' "$compose_path" >&2
     exit 2

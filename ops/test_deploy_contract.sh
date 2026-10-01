@@ -32,6 +32,7 @@ ln -s "$tmp_dir/runtime-release" "$tmp_dir/current"
 : >"$tmp_dir/runtime.env"
 : >"$tmp_dir/archive.env"
 : >"$tmp_dir/reconciliation.env"
+printf 'services: {}\n' >"$tmp_dir/host-only.compose.yml"
 
 git -C "$source_repo" init -q
 git -C "$source_repo" config user.name "CI Contract"
@@ -61,7 +62,7 @@ LEANDATA_SITE_DIR=$site_dir
 LEANDATA_DATA_ROOT=$tmp_dir/data
 LEANDATA_CURRENT_LINK=$tmp_dir/current
 LEANDATA_COMPOSE_PROJECT=leandata-site-contract
-LEANDATA_COMPOSE_FILES=docker-compose.aliyun.yml:docker-compose.aliyun.archive.yml:docker-compose.aliyun.logging.yml
+LEANDATA_COMPOSE_FILES=docker-compose.aliyun.yml:docker-compose.aliyun.archive.yml:docker-compose.aliyun.logging.yml:$tmp_dir/host-only.compose.yml
 EOF
 mkdir -p "$tmp_dir/data"
 

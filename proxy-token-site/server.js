@@ -6066,6 +6066,14 @@ const usageAggregator = (() => {
         if (result && result.event) recentEvents.push(result.event);
         consumed = newline + 1;
       }
+      // Enforce the existing recent-event limit while reading, not only after
+      // the full log has been parsed. Counters still include every record.
+      if (recentEvents.length > USAGE_MAX_RECENT_EVENTS) {
+        recentEvents.splice(0, recentEvents.length - USAGE_MAX_RECENT_EVENTS);
+      }
+      if (testHooks && typeof testHooks.afterScanChunk === 'function') {
+        await testHooks.afterScanChunk({ recentEventCount: recentEvents.length });
+      }
       pending = buffer.subarray(consumed);
       pendingStart += consumed;
       // Only newline-terminated records advance the offset. A final fragment is

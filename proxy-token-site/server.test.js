@@ -4025,6 +4025,42 @@ describe('Admin usage monitoring API', () => {
     expect(freeRow.requests_today_utc).toBe(3);
   });
 
+  test('bounds recent events during full and incremental scans without dropping counters', async () => {
+    const count = 18000;
+    const timestamp = new Date().toISOString();
+    const batch = Array.from({ length: count }, (_, i) => JSON.stringify(usageEvent({
+      user_id: 'bounded_user', request_id: `bounded-${i}`, timestamp
+    }))).join('\n') + '\n';
+    fs.writeFileSync(USAGE_LOG, batch);
+    let chunks = 0;
+    let peakRecentEvents = 0;
+    __setUsageAggregatorTestHooks({
+      afterScanChunk: ({ recentEventCount }) => {
+        chunks += 1;
+        peakRecentEvents = Math.max(peakRecentEvents, recentEventCount);
+      }
+    });
+
+    let res = await overview();
+    expect(res.statusCode).toBe(200);
+    expect(res.body.log_coverage.retained_events).toBe(count);
+    expect(res.body.users.find(row => row.user_id === 'bounded_user').requests_today_utc).toBe(count);
+
+    fs.appendFileSync(USAGE_LOG, batch);
+    await __refreshUsageAggregatorForTest();
+    res = await overview();
+    expect(res.body.log_coverage.retained_events).toBe(count * 2);
+    expect(res.body.users.find(row => row.user_id === 'bounded_user').requests_today_utc).toBe(count * 2);
+    expect(chunks).toBeGreaterThan(1);
+    expect(peakRecentEvents).toBe(5000);
+    const detail = await request(app)
+      .get('/api/admin/usage/user?id=bounded_user')
+      .set('x-admin-token', adminToken);
+    expect(detail.statusCode).toBe(200);
+    expect(detail.body.recent_events).toHaveLength(20);
+    expect(detail.body.top_routes[0].count).toBe(count * 2);
+  });
+
   test('does not consume an unterminated EOF fragment and ingests it once after its newline arrives', async () => {
     const first = usageEvent({ user_id: 'partial_first', timestamp: new Date().toISOString() });
     const second = usageEvent({ user_id: 'partial_second', timestamp: new Date().toISOString() });
