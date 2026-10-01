@@ -4,10 +4,10 @@ import { fileURLToPath } from "node:url";
 
 const siteRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const docsRoot = resolve(siteRoot, "public/docs");
-const assetVersion = "20260930-embedded-reference-v1";
+const assetVersion = "20260930-leandata-brand-case-v1";
 
 const pages = {
-  "": "Leandata API Documentation",
+  "": "LeanData API Documentation",
   "market/overview": "Market API Overview & Authentication",
   "market/stocks": "US Stock Market Data API",
   "market/options": "Options Market Data API",
@@ -23,8 +23,8 @@ const pages = {
   "bulk/download": "Bulk Data Download",
   "realtime/websocket": "WebSocket Realtime API",
   "realtime/subscriptions": "WebSocket Subscriptions & Messages",
-  "status": "Leandata Service Status",
-  "usage": "Leandata Usage Statistics",
+  "status": "LeanData Service Status",
+  "usage": "LeanData Usage Statistics",
 };
 
 function html(title) {
@@ -33,7 +33,7 @@ function html(title) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${title} — Leandata Docs</title>
+<title>${title} — LeanData Docs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">

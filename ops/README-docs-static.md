@@ -14,7 +14,7 @@ The branded masthead uses the supplied 200×200 mark at
 `public/assets/brand/leandata-mark.png`. Preserve its source bytes; an inline
 SVG color matrix maps its blue gradient to the site's teal/slate palette while
 preserving white and alpha. Include that asset in the hash-bound manifest.
-The display wordmark is capitalized `Leandata` and remains serif; the subtitle
+The display wordmark is capitalized `LeanData` and remains serif; the subtitle
 is `Stock & Options API`. Reference headings, body copy and code controls keep
 the reading-layer fonts.
 

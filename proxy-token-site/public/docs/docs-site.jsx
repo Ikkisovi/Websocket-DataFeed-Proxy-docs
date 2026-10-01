@@ -715,7 +715,7 @@ function DocsHome() {
 function LeandataLogo() {
   const tintId = `leandata-brand-tint-${React.useId()}`;
   return (
-    <a className="docs-brand-logo" href="/" aria-label="Leandata home" data-no-i18n>
+    <a className="docs-brand-logo" href="/" aria-label="LeanData home" data-no-i18n>
       <svg width="0" height="0" aria-hidden="true" focusable="false" style={{ position: "absolute" }}>
         <defs>
           <filter id={tintId} colorInterpolationFilters="sRGB">
@@ -723,7 +723,7 @@ function LeandataLogo() {
           </filter>
         </defs>
       </svg>
-      <img src="/assets/brand/leandata-mark.png" alt="Leandata logo" width="200" height="200" loading="eager" style={{ filter: `url(#${tintId})` }} />
+      <img src="/assets/brand/leandata-mark.png" alt="LeanData logo" width="200" height="200" loading="eager" style={{ filter: `url(#${tintId})` }} />
     </a>
   );
 }
@@ -774,8 +774,8 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
           <LeandataLogo />
           <div className="docs-brand-type">
             <div className="docs-brand-eyebrow"><Bilingual en="Developer Documentation" zh="开发者文档" /></div>
-            <h1 className="display-title docs-brand-title" aria-label="Leandata — Stock & Options API" data-no-i18n>
-              <span className="docs-brand-name">Leandata</span>{" "}
+            <h1 className="display-title docs-brand-title" aria-label="LeanData — Stock & Options API" data-no-i18n>
+              <span className="docs-brand-name">LeanData</span>{" "}
               <span className="docs-product-name">Stock &amp; Options API</span>
             </h1>
           </div>
