@@ -14,6 +14,7 @@ const entries = [
   "docs-page",
   "gpu-index-page",
   "site-announcements",
+  "chart-page",
 ];
 const assetsDir = resolve(siteRoot, "public/assets");
 
@@ -28,8 +29,8 @@ const clientBuilds = await Promise.all(entries.map(name => build({
   target: ["es2020"],
   jsx: "transform",
   minify: true,
-  legalComments: name === "site-announcements" ? "eof" : "none",
-  metafile: name === "site-announcements",
+  legalComments: ["site-announcements", "chart-page"].includes(name) ? "eof" : "none",
+  metafile: ["site-announcements", "chart-page"].includes(name),
 })));
 
 // The commit-pinned portal release ships server.js and public/. Bundle the
@@ -46,10 +47,16 @@ const serverBuild = await build({
   metafile: true,
 });
 
+await build({
+  entryPoints: [resolve(siteRoot, 'shared/chart-proxy.cjs')],
+  outfile: resolve(assetsDir, 'chart-proxy.cjs'),
+  bundle: true, platform: 'node', format: 'cjs', target: ['node22'], minify: true,
+});
+
 // Keep licenses for the exact dependency files that were bundled, including
 // nested package versions, rather than relying on minifier comment retention.
 const packageDirs = new Set();
-for (const result of [...clientBuilds.filter(result => result.metafile), serverBuild]) {
+for (const result of [...clientBuilds.filter((result, i) => entries[i] === 'site-announcements'), serverBuild]) {
   for (const input of Object.keys(result.metafile.inputs)) {
     if (!input.includes('node_modules/')) continue;
     let directory = dirname(resolve(input));
@@ -76,5 +83,14 @@ for (const directory of [...packageDirs].sort()) {
 }
 await mkdir(resolve(siteRoot, 'public/vendor'), { recursive: true });
 await writeFile(resolve(siteRoot, 'public/vendor/announcement-licenses.txt'), notices.join('\n\n========================================\n\n'));
+
+const chartNotices = [];
+for (const name of ['lightweight-charts', 'fancy-canvas', '@msgpack/msgpack']) {
+  const directory = resolve(siteRoot, 'node_modules', name);
+  const pkg = JSON.parse(await readFile(resolve(directory, 'package.json'), 'utf8'));
+  const files = (await readdir(directory)).filter(name => /^(?:licen[cs]e|notice)(?:\.(?:md|txt))?$/i.test(name));
+  for (const file of files) chartNotices.push(`${pkg.name} ${pkg.version}\n${await readFile(resolve(directory, file), 'utf8')}`);
+}
+await writeFile(resolve(siteRoot, 'public/vendor/chart-licenses.txt'), chartNotices.join('\n\n========================================\n\n'));
 
 await import("./build-doc-pages.mjs");

@@ -29,6 +29,7 @@ docs_contract:
     - bash -n ops/gitlab_deploy_aws.sh ops/leandata_site_forced_deploy.sh ops/deploy_site_commit_pinned.sh
     - bash ops/test_deploy_contract.sh
     - python3 -B -m unittest discover -s ops -p 'test_email_site_announcement.py' -v
+    - python3 -B -m unittest discover -s ops -p 'test_deploy_chart_site.py' -v
     - python3 -B -m unittest discover -s ops -p 'test_deploy_docs_static.py' -v
   after_script:
     - rm -f /tmp/leandata-docs-root.js /tmp/leandata-docs-nested.js /tmp/leandata-account-page.js /tmp/leandata-register-page.js /tmp/leandata-checkout-page.js /tmp/leandata-token-page.js

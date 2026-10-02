@@ -345,6 +345,8 @@ function Dashboard({ data, refreshError }) {
           <span aria-hidden="true">/</span>
           <a href="/docs/">文档 Docs</a>
           <span aria-hidden="true">/</span>
+          <a href="/chart/">行情图表 Market chart</a>
+          <span aria-hidden="true">/</span>
           <span className="here">另类数据 / Alternative data · GPU index</span>
         </nav>
         <section className="gpu-index-hero">

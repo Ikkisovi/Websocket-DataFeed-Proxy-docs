@@ -70,6 +70,7 @@ function AccountTopbar({ loggedIn, onLogout }) {
       <div className="divider"></div>
       <div className="nav">
         <a href="/">Proxy API</a>
+        <a href="/chart/">行情图表</a>
         <a href="/docs/">Docs</a>
         <a href="/register">新用户注册</a>
         <a href="/account" className="active">账户管理</a>
