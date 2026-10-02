@@ -84,6 +84,7 @@ function TokenTopbar({ portalOpen, setPortalOpen }) {
       </div>
       <div className="divider"></div>
       <div className="nav">
+        <a href="/chart/" style={{ cursor: "pointer" }}>行情图表</a>
         <a href="/docs/" style={{ cursor: "pointer" }}>文档</a>
         <a href="/docs/#status" style={{ cursor: "pointer" }}>状态</a>
         <a href="/docs/#usage" style={{ cursor: "pointer" }}>用量</a>

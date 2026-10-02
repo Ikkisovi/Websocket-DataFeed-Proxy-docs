@@ -18,6 +18,7 @@
     "更新与留言 — Leandata": "Updates and feedback — Leandata",
 
     "账户管理": "Account",
+    "行情图表": "Market chart",
     "研究数据采购": "Research Data",
     "研究数据采购 →": "Research Data →",
     "继续研究数据采购 →": "Continue to Research Data →",

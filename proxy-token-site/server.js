@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const crypto = require('crypto');
 const { cleanAnnouncementHtml, announcementText, announcementParagraph, escapeAnnouncementText, announcementEmailHtml } = require('./public/assets/announcement-sanitize.cjs');
+const { createChartHistoryHandler } = require('./public/assets/chart-proxy.cjs');
 const fs = require('fs');
 const net = require('net');
 const path = require('path');
@@ -72,6 +73,8 @@ app.use((req, res, next) => {
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/api/chart/bars', createChartHistoryHandler());
 
 // Clean URL routes (no .html suffix needed)
 app.get('/updates', (req, res) => res.sendFile(path.join(__dirname, 'public', 'updates.html')));
