@@ -50,6 +50,18 @@ def copy_in_place(source, target):
     target.chmod(0o644)
 
 
+def compose_file(path):
+    candidate = Path(path)
+    if candidate.is_file():
+        return str(candidate)
+    # Long-lived containers may retain labels naming a cleaned old release.
+    assert candidate.is_relative_to('/srv/leandata/releases')
+    assert candidate.name in {'docker-compose.aliyun.yml', 'docker-compose.aliyun.archive.yml'}
+    active = Path('/srv/leandata/current/services/leandata-v2') / candidate.name
+    assert active.is_file(), 'active runtime Compose file is unavailable'
+    return str(active)
+
+
 def verify_health():
     item = json.loads(run('docker', 'inspect', CONTAINER))[0]
     address = next(network['IPAddress'] for network in item['NetworkSettings']['Networks'].values() if network['IPAddress'])
@@ -86,7 +98,7 @@ def deploy(release, manifest_path, apply):
         assert sha(SITE / name) == expected, name
     labels = ui['Config']['Labels']
     compose = ['docker', 'compose', '-p', labels['com.docker.compose.project']]
-    configs = labels['com.docker.compose.project.config_files'].split(',')
+    configs = [compose_file(path) for path in labels['com.docker.compose.project.config_files'].split(',')]
     for path in configs:
         compose += ['-f', path]
     for path in labels.get('com.docker.compose.project.environment_file', '').split(','):

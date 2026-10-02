@@ -66,6 +66,16 @@ class ChartReleaseTests(unittest.TestCase):
         self.assertEqual((self.site / 'server.js').read_text(), 'old-server.js')
         self.assertFalse((self.release / 'rollback').exists())
 
+    def test_removed_release_uses_only_allowlisted_current_compose_file(self):
+        old = '/srv/leandata/releases/old/services/leandata-v2/docker-compose.aliyun.yml'
+        with patch.object(module.Path, 'is_file', side_effect=[False, True]):
+            self.assertEqual(module.compose_file(old), '/srv/leandata/current/services/leandata-v2/docker-compose.aliyun.yml')
+        with patch.object(module.Path, 'is_file', return_value=False):
+            with self.assertRaises(AssertionError):
+                module.compose_file('/etc/unrelated-missing.yml')
+            with self.assertRaises(AssertionError):
+                module.compose_file('/srv/leandata/releases/old/unrelated.yml')
+
     def test_drift_rejected_before_mutation(self):
         (self.site / 'server.js').write_text('another release')
         with self.assertRaises(AssertionError):
