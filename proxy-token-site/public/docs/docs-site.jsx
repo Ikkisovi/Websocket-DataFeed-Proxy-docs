@@ -4,6 +4,8 @@ import React, {
   useRef as useStatusRef,
   useState as useStatusState,
 } from "react";
+import { DOC_PATHS, NAV_GROUPS, DOC_PAGE_CONFIG, DOC_PAGE_BY_PATH, DOC_ARTICLES, SECTION_ZH_LABELS, getDocSections, docSectionId, docArticlePath, resolveLegacyDocPath } from "./doc-navigation.mjs";
+import { DocContent, CodeRail, DocsSearch, TopicLinks, CopyCode, textOf } from "./doc-components.jsx";
 import { UsagePage } from "./usage-page.jsx";
 
 // ── StatusBody component ──
@@ -488,169 +490,22 @@ function UptimeBlock({ label, data }) {
 
 const { useState } = React;
 
-const DOC_PATHS = {
-  home: "/docs/",
-  marketOverview: "/docs/market/overview/",
-  marketStocks: "/docs/market/stocks/",
-  marketOptions: "/docs/market/options/",
-  marketIndices: "/docs/market/indices/",
-  marketResearch: "/docs/market/research-signals/",
-  marketCryptoNews: "/docs/market/crypto-news/",
-  marketCn: "/docs/market/cn/",
-  financial: "/docs/financial/",
-  financialRegular: "/docs/financial/regular/",
-  financialMorningstar: "/docs/financial/morningstar/",
-  financialStatements: "/docs/financial/statements/",
-  financialRatios: "/docs/financial/ratios-growth/",
-  bulk: "/docs/bulk/download/",
-  websocket: "/docs/realtime/websocket/",
-  subscriptions: "/docs/realtime/subscriptions/",
-  status: "/docs/status/",
-  usage: "/docs/usage/",
-};
-
-const NAV_GROUPS = [
-  {
-    key: "market",
-    label: "行情数据", en: "Market data",
-    match: ["proxy"],
-    mainTab: "proxy",
-    items: [
-      { label: "总览与认证", en: "Overview & authentication", desc: "Overview · Auth · Tiers", href: DOC_PATHS.marketOverview },
-      { label: "股票行情", en: "Stock data", desc: "Bars · Quotes · Trades", href: DOC_PATHS.marketStocks },
-      { label: "期权行情", en: "Options data", desc: "Contracts · Snapshots · OI", href: DOC_PATHS.marketOptions },
-      { label: "指数行情", en: "Index data", desc: "SPX · VIX · DJX · XSP", href: DOC_PATHS.marketIndices },
-      { label: "研究信号", en: "Research signals", desc: "Spectral Tick-Flow · SID", href: DOC_PATHS.marketResearch },
-      { label: "加密与新闻", en: "Crypto & news", desc: "Snapshots · Orderbooks · News", href: DOC_PATHS.marketCryptoNews },
-      { label: "中国数据·内测", en: "CN Data · Private beta", desc: "CN archive · /v1/cn/*", href: DOC_PATHS.marketCn },
-    ],
-  },
-  {
-    key: "financial",
-    label: "财务数据", en: "Financial data",
-    match: ["fmp", "fmp-fundamentals", "morningstar"],
-    mainTab: "fmp",
-    items: [
-      { label: "选择数据源", en: "Choose source", desc: "Regular / FMP · Morningstar", href: DOC_PATHS.financial },
-      { label: "Regular / FMP", en: "Regular / FMP", desc: "50+ standard endpoints", href: DOC_PATHS.financialRegular },
-      { label: "Morningstar", en: "Morningstar", desc: "Daily wide fundamentals", href: DOC_PATHS.financialMorningstar },
-      { label: "财务三表", en: "Financial statements", desc: "Income · Balance · Cashflow", href: DOC_PATHS.financialStatements },
-      { label: "比率与增长", en: "Ratios & growth", desc: "Ratios · Growth", href: DOC_PATHS.financialRatios },
-    ],
-  },
-  {
-    key: "batch",
-    label: "批量与实时", en: "Bulk & realtime",
-    match: ["bulk", "ws"],
-    mainTab: "bulk",
-    items: [
-      { label: "批量下载", en: "Bulk download", desc: "¥50 / 50GB snapshot", href: DOC_PATHS.bulk },
-      { label: "WS 使用指南", en: "WS guide", desc: "6 channels", href: DOC_PATHS.websocket },
-      { label: "订阅与消息", en: "Subscriptions & messages", desc: "Subscribe · Shapes", href: DOC_PATHS.subscriptions },
-    ],
-  },
-  {
-    key: "ops",
-    label: "状态与用量", en: "Status & usage",
-    match: ["status", "usage"],
-    mainTab: "status",
-    items: [
-      { label: "服务状态", en: "Service status", desc: "Live · Latency · Uptime", href: DOC_PATHS.status },
-      { label: "用量统计", en: "Usage", desc: "30d · Token stats", href: DOC_PATHS.usage },
-      { label: "产品更新", en: "Product updates", desc: "Changelog", href: "/updates" },
-    ],
-  },
-];
-
-function DocsTopbar({ active = "proxy" }) {
+function DocsTopbar({ active = "proxy", onMenu, menuOpen }) {
   const isZh = useCurrentLanguage() === "zh";
   const Toggle = window.LanguageToggle;
-  const [openMenu, setOpenMenu] = React.useState(null);
   return (
-    <div className="topbar docs-topbar" onMouseLeave={() => setOpenMenu(null)}>
-      <a className="brand" href={DOC_PATHS.home} style={{ textDecoration: "none", color: "inherit" }}>
-        <span className="dot"></span>
-        <span><strong>{isZh ? "数据接口文档" : "Proxy Docs"}</strong></span>
-      </a>
-      <div className="divider"></div>
-      <div className="nav">
-        {NAV_GROUPS.map((g) => {
-          const isActive = g.match.includes(active);
-          const isOpen = openMenu === g.key;
-          return (
-            <div key={g.key} className="nav-group" style={{ position: "relative" }} onMouseEnter={() => setOpenMenu(g.key)}>
-              <button
-                type="button" aria-expanded={isOpen}
-                onKeyDown={(event) => { if (event.key === "Escape") setOpenMenu(null); }}
-                className={isActive ? "active" : ""}
-                style={{ cursor: "pointer", border: 0, background: "transparent", font: "inherit", color: "inherit", padding: "8px 10px" }}
-                onClick={() => {
-                  setOpenMenu(g.key);
-                }}
-              >
-                {isZh ? g.label : g.en}
-                <span style={{ display: "inline-block", marginLeft: 5, fontSize: 10, color: "var(--ink-soft)", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>&#9662;</span>
-              </button>
-              {isOpen && (
-                <div className="nav-group-panel" style={{
-                  position: "absolute", top: "calc(100% + 6px)", left: 0, minWidth: 248,
-                  background: "var(--bg-paper)", border: "1px solid var(--rule)", borderRadius: 10,
-                  boxShadow: "0 12px 32px rgba(26,24,21,.14)", padding: 6, zIndex: 50,
-                }}>
-                  {g.items.map((it, idx) => (
-                    <a
-                      key={idx}
-                      href={it.href}
-                      style={{ display: "flex", flexDirection: "column", gap: 1, padding: "8px 10px", borderRadius: 6, cursor: "pointer" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-sunken)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                      onClick={() => setOpenMenu(null)}
-                    >
-                      <span style={{ fontSize: 13, color: "var(--ink-strong)", fontWeight: 500 }}>{isZh ? it.label : it.en}</span>
-                      <span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{it.desc}</span>
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        <a href="/alternative-data/">{isZh ? "另类数据" : "Alternative data"}</a>
-        <a href="/research-data">{isZh ? "研究数据采购" : "Research Data"}</a>
-      </div>
-      <div className="spacer"></div>
+    <header className="topbar docs-topbar">
+      <button type="button" className="docs-menu-button" onClick={onMenu} aria-expanded={menuOpen} aria-controls="docs-navigation" aria-label="Toggle documentation navigation">☰</button>
+      <a className="brand" href={DOC_PATHS.home}><span className="dot" /><strong>Lean Data</strong><span className="docs-brand-caption">Docs</span></a>
+      <DocsSearch isZh={isZh} />
       <div className="meta">
+        <a href="/research-data">{isZh ? "研究数据" : "Research data"}</a>
         {Toggle ? <Toggle /> : null}
-        <a href="/" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }}>Token portal →</a>
+        <a href="/" className="btn ghost">{isZh ? "获取 Token" : "Get a token"} ↗</a>
       </div>
-    </div>
+    </header>
   );
 }
-
-const DOC_PAGE_CONFIG = {
-  home: { path: DOC_PATHS.home, tab: "home" },
-  "market-overview": { path: DOC_PATHS.marketOverview, tab: "proxy", focus: "overview" },
-  "market-stocks": { path: DOC_PATHS.marketStocks, tab: "proxy", focus: "stocks" },
-  "market-options": { path: DOC_PATHS.marketOptions, tab: "proxy", focus: "options" },
-  "market-indices": { path: DOC_PATHS.marketIndices, tab: "proxy", focus: "indices" },
-  "market-research": { path: DOC_PATHS.marketResearch, tab: "proxy", focus: "research" },
-  "market-crypto-news": { path: DOC_PATHS.marketCryptoNews, tab: "proxy", focus: "crypto-news" },
-  "market-cn": { path: DOC_PATHS.marketCn, tab: "proxy", focus: "cn" },
-  financial: { path: DOC_PATHS.financial, tab: "fmp" },
-  "financial-regular": { path: DOC_PATHS.financialRegular, tab: "fmp-fundamentals" },
-  "financial-morningstar": { path: DOC_PATHS.financialMorningstar, tab: "morningstar" },
-  "financial-statements": { path: DOC_PATHS.financialStatements, tab: "fmp-fundamentals", focus: "statements" },
-  "financial-ratios": { path: DOC_PATHS.financialRatios, tab: "fmp-fundamentals", focus: "ratios" },
-  bulk: { path: DOC_PATHS.bulk, tab: "bulk" },
-  websocket: { path: DOC_PATHS.websocket, tab: "ws" },
-  subscriptions: { path: DOC_PATHS.subscriptions, tab: "ws", focus: "subscriptions" },
-  status: { path: DOC_PATHS.status, tab: "status" },
-  usage: { path: DOC_PATHS.usage, tab: "usage" },
-};
-
-const DOC_PAGE_BY_PATH = Object.fromEntries(
-  Object.entries(DOC_PAGE_CONFIG).map(([page, config]) => [config.path, page])
-);
 
 function normalizeDocsPath(pathname) {
   if (pathname === "/docs" || pathname === "/docs/index.html") return DOC_PATHS.home;
@@ -658,36 +513,14 @@ function normalizeDocsPath(pathname) {
   return pathname.endsWith("/") ? pathname : pathname + "/";
 }
 
-function legacyDocsPath(hash) {
-  if (!hash) return null;
-  if (hash === "fmp" || hash === "financial-source-selector" || hash.startsWith("fmp-data-")) return DOC_PATHS.financial;
-  if (hash === "morningstar" || hash.startsWith("morningstar-")) return DOC_PATHS.financialMorningstar;
-  if (["fmp-income-statement", "fmp-balance-sheet-statement", "fmp-cash-flow-statement", "fmp-pit-statements"].includes(hash)) return DOC_PATHS.financialStatements;
-  if (hash.startsWith("fmp-ratio") || hash.startsWith("fmp-key-metric") || hash.includes("growth") || hash === "fmp-enterprise-values" || hash === "fmp-financial-scores") return DOC_PATHS.financialRatios;
-  if (hash.startsWith("fmp-")) return DOC_PATHS.financialRegular;
-  if (hash.startsWith("cn-")) return DOC_PATHS.marketCn;
-  if (hash.includes("spectral")) return DOC_PATHS.marketResearch;
-  if (hash.includes("indices-history")) return DOC_PATHS.marketIndices;
-  if (hash.includes("options") || hash.startsWith("post-v3-option") || hash === "provider-fallback-cache") return DOC_PATHS.marketOptions;
-  if (hash.includes("crypto") || hash.includes("history-news")) return DOC_PATHS.marketCryptoNews;
-  if (["endpoint", "auth-message", "heartbeat", "stocks", "options", "crypto", "news", "overnight", "reconnect", "backpressure", "ws"].includes(hash)) return DOC_PATHS.websocket;
-  if (["subscribe", "unsubscribe", "trade", "quote", "bar"].includes(hash)) return DOC_PATHS.subscriptions;
-  if (hash.startsWith("stock-") || hash.includes("history-bars") || hash.includes("trade-quote")) return DOC_PATHS.marketStocks;
-  if (["proxy", "authentication", "overview", "tiers-permissions", "free-plan-usage", "post-register", "post-check-status", "post-generate-token", "error-codes", "rate-limits"].includes(hash)) return DOC_PATHS.marketOverview;
-  if (hash === "bulk") return DOC_PATHS.bulk;
-  if (hash === "status") return DOC_PATHS.status;
-  if (hash === "usage") return DOC_PATHS.usage;
-  return null;
-}
-
 function DocsHome() {
   const isZh = useCurrentLanguage() === "zh";
   return (
     <div style={{ maxWidth: 980, margin: "0 auto" }}>
-      <div className="eyebrow" style={{ marginBottom: 10 }}>{isZh ? "独立文档页面" : "Independent documentation pages"}</div>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>{isZh ? "Lean Data 开发者文档" : "Lean Data developer documentation"}</div>
       <h2 className="display-title" style={{ fontSize: 44, margin: "0 0 12px" }}>{isZh ? "选择文档主题" : "Choose a documentation topic"}</h2>
       <p style={{ color: "var(--ink-muted)", fontSize: 15, lineHeight: 1.7, margin: "0 0 26px" }}>
-        {isZh ? "每个主题现在都有独立 URL 和独立内容页，不再跳转到单一长文档中的软锚点。" : "Every topic now has its own URL and focused page instead of a soft anchor into one long document."}
+        {isZh ? "查找接口、了解参数，并复制请求示例。使用一个统一 Token 访问行情、财务数据和实时数据流。" : "Find an endpoint, explore its parameters, and copy a request example. Access market data, fundamentals, and realtime streams with one unified token."}
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 16 }}>
         {NAV_GROUPS.map((group) => (
@@ -710,63 +543,77 @@ function DocsHome() {
 
 function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
   const pathname = typeof window === "undefined" ? DOC_PATHS.home : normalizeDocsPath(window.location.pathname);
+  const article = DOC_ARTICLES[pathname];
   const fallbackPage = initialTab === "fmp" ? "financial" : initialTab === "ws" ? "websocket" : "home";
-  const page = DOC_PAGE_BY_PATH[pathname] || (hideTopbar ? fallbackPage : "home");
+  const page = article?.page || DOC_PAGE_BY_PATH[pathname] || (hideTopbar ? fallbackPage : "home");
   const config = DOC_PAGE_CONFIG[page];
   const tab = config.tab;
-  const visibleTab = tab === "fmp-fundamentals" || tab === "morningstar" ? "fmp" : tab;
-  const threeColumnPage = ["proxy", "ws", "fmp-fundamentals", "morningstar"].includes(tab);
+  const isZh = useCurrentLanguage() === "zh";
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const mainRef = React.useRef(null);
+  React.useEffect(() => {
+    const closeMenu = event => { if (event.key === "Escape") setMenuOpen(false); };
+    window.addEventListener("keydown", closeMenu);
+    return () => window.removeEventListener("keydown", closeMenu);
+  }, []);
+  const referencePage = ["proxy", "ws", "fmp-fundamentals", "morningstar"].includes(tab);
+  const topic = NAV_GROUPS.flatMap(group => group.items).find(item => item.href === config.path);
+  const title = article ? (isZh ? SECTION_ZH_LABELS[article.label] || article.label : article.label) : topic ? (isZh ? topic.label : topic.en) : "Documentation";
 
   React.useEffect(() => {
-    if (normalizeDocsPath(window.location.pathname) !== DOC_PATHS.home) return;
-    const hash = decodeURIComponent(window.location.hash.slice(1));
-    const target = legacyDocsPath(hash);
-    if (target) window.location.replace(target + (hash ? `#${hash}` : ""));
-  }, []);
+    if (hideTopbar || article) return;
+    let hash;
+    try { hash = decodeURIComponent(window.location.hash.slice(1)); } catch { return; }
+    const target = resolveLegacyDocPath(pathname, hash);
+    if (target && target !== pathname) window.location.replace(target + `#${encodeURIComponent(hash)}`);
+  }, [pathname, page, hideTopbar, article]);
 
   React.useEffect(() => {
     const scrollToHash = () => {
-      const id = decodeURIComponent(window.location.hash.slice(1));
-      if (!id) return;
-      window.requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: "start" }));
+      let id;
+      try { id = decodeURIComponent(window.location.hash.slice(1)); } catch { return; }
+      if (id) window.requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView?.({ block: "start" }));
     };
     scrollToHash();
     window.addEventListener("hashchange", scrollToHash);
     return () => window.removeEventListener("hashchange", scrollToHash);
   }, [page]);
 
+  const bodyProps = { focus: config.focus, articleId: article?.id };
+  const sourceOverview = article && ["fmp-snapshot-boundary", "fmp-future-data-families"].includes(article.id);
   const content = page === "home" ? <DocsHome />
-    : config.tab === "proxy" ? <ProxyApiBody focus={config.focus} />
-    : page === "financial" ? <FmpDataOverview />
-    : config.tab === "fmp-fundamentals" ? <FmpFundamentalsBody focus={config.focus} />
-    : config.tab === "morningstar" ? <MorningstarFundamentalsBody />
+    : sourceOverview || page === "financial" ? <FmpDataOverview articleId={article?.id} />
+    : config.tab === "proxy" ? <ProxyApiBody {...bodyProps} />
+    : config.tab === "fmp-fundamentals" ? <FmpFundamentalsBody {...bodyProps} />
+    : config.tab === "morningstar" ? <MorningstarFundamentalsBody articleId={article?.id} />
     : page === "bulk" ? <BulkOrderBody />
-    : config.tab === "ws" ? <WsUsageBody focus={config.focus} />
-    : page === "usage" ? (typeof UsagePage !== "undefined" ? React.createElement(UsagePage) : React.createElement("div", null, "Loading usage…"))
-    : React.createElement(StatusBody);
+    : config.tab === "ws" ? <WsUsageBody {...bodyProps} />
+    : page === "usage" ? <UsagePage /> : <StatusBody />;
 
   return (
-    <div className="proxy-app" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      {!hideTopbar && <DocsTopbar active={visibleTab} />}
-      <div className="docs-hero" style={{ padding: "44px 64px 28px", borderBottom: "1px solid var(--rule)", background: "var(--bg-paper)", position: "relative", overflow: "hidden" }}>
-        <div className="eyebrow" style={{ marginBottom: 14 }}>Reference · live docs</div>
-        <h1 className="display-title" style={{ fontSize: 64, margin: "0 0 14px" }}>Stock Options Proxy <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>API</span></h1>
-        <p style={{ color: "var(--ink-muted)", maxWidth: 640, fontSize: 15, margin: 0 }}>Real-time US equities, options, crypto and news — one unified token, zero provider configuration. Each documentation topic is published as an independent page.</p>
-        <div className="docs-tabs" style={{ marginTop: 32, display: "flex", gap: 0, borderBottom: "1px solid var(--rule)", marginInline: -64, paddingInline: 64 }}>
-          <Tab id="proxy" tab={visibleTab} href={DOC_PATHS.marketOverview} label="Proxy API" count="47+ endpoints" />
-          <Tab id="fmp" tab={visibleTab} href={DOC_PATHS.financial} label="Financial data" count="2 sources" />
-          <Tab id="bulk" tab={visibleTab} href={DOC_PATHS.bulk} label="Bulk Download" count="¥50 / 50GB" />
-          <Tab id="ws" tab={visibleTab} href={DOC_PATHS.websocket} label="WS usage" count="6 channels" />
-          <Tab id="status" tab={visibleTab} href={DOC_PATHS.status} label="Status" count="live" />
-          <Tab id="usage" tab={visibleTab} href={DOC_PATHS.usage} label="Usage" count="my stats" />
-          <div style={{ flex: 1 }}></div>
-          <div className="docs-last-sync" style={{ alignSelf: "flex-end", paddingBottom: 10, color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>last sync · 2026-09-19 · public REST / RT / WSS</div>
+    <div className={`proxy-app docs-reference${hideTopbar ? " docs-embedded" : ""}`}>
+      {!hideTopbar && <div className="docs-header">
+        <DocsTopbar active={tab} onMenu={() => setMenuOpen(open => !open)} menuOpen={menuOpen} />
+        <nav className="docs-category-bar" aria-label="Documentation categories">
+          <a href={DOC_PATHS.home} aria-current={page === "home" ? "page" : undefined}>{isZh ? "文档首页" : "Documentation"}</a>
+          {NAV_GROUPS.map(group => <a key={group.key} href={group.items[0].href} aria-current={group.match.includes(tab) ? "page" : undefined}>{isZh ? group.label : group.en}</a>)}
+          <a href="/alternative-data/">{isZh ? "另类数据" : "Alternative data"}</a>
+        </nav>
+      </div>}
+      <div className={`docs-content-grid docs-reference-grid${referencePage ? " has-code-rail" : ""}${menuOpen ? " menu-open" : ""}`}>
+        <div id="docs-navigation" className="docs-navigation" role="navigation" aria-label="Documentation navigation">
+          <TopicLinks page={page} isZh={isZh}>{referencePage && <SideNav tab={tab} page={page} />}</TopicLinks>
         </div>
-      </div>
-      <div className={"docs-content-grid" + (threeColumnPage ? " has-3col" : "")} style={{ display: "grid", gridTemplateColumns: threeColumnPage ? "228px minmax(0,1fr) 200px" : "1fr", flex: 1 }}>
-        {threeColumnPage && <SideNav tab={tab} page={page} />}
-        <main className={tab === "bulk" ? "bulk-main" : ""} style={{ padding: threeColumnPage ? "40px 44px" : "36px 32px", background: "var(--bg-canvas)", minWidth: 0 }}>{content}</main>
-        {threeColumnPage && <OnThisPage tab={tab} page={page} />}
+        <main ref={mainRef} className={`docs-main${article ? " docs-article" : ""}${tab === "bulk" ? " bulk-main" : ""}`}>
+          {page !== "home" && <nav className="docs-breadcrumb" aria-label="Breadcrumb">
+            <a href={DOC_PATHS.home}>{isZh ? "文档" : "Docs"}</a><span>/</span>
+            <a href={config.path}>{isZh ? topic?.label : topic?.en}</a>
+            {article && <><span>/</span><span aria-current="page">{title}</span></>}
+          </nav>}
+          {article && <div className="doc-article-heading"><div>{article.group}</div><h1>{title}</h1></div>}
+          {content}
+        </main>
+        {referencePage && <CodeRail page={page} articleId={article?.id} mainRef={mainRef} />}
       </div>
     </div>
   );
@@ -776,241 +623,17 @@ function slugify(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-function Tab({ id, tab, href, label, count }) {
-  const active = tab === id;
-  return (
-    <a href={href} style={{ background: "transparent", border: "none", padding: "12px 0", marginRight: 28, cursor: "pointer", textDecoration: "none", fontFamily: "var(--f-sans)", fontSize: 14, fontWeight: 500, color: active ? "var(--ink-strong)" : "var(--ink-muted)", borderBottom: `2px solid ${active ? "var(--ink-strong)" : "transparent"}`, marginBottom: -1, display: "flex", alignItems: "baseline", gap: 8 }}>
-      {label}<span style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)", fontWeight: 400 }}>{count}</span>
-    </a>
-  );
-}
-
-const SECTION_ZH_LABELS = {
-  "Market · US / World": "市场 · 美国 / 世界",
-  "US market": "美国市场",
-  "World · CN 中国数据": "世界 · 中国数据",
-  "Getting started": "入门指南",
-  "Overview": "概览与架构",
-  "Authentication": "身份鉴权",
-  "Tiers & permissions": "套餐与权限",
-  "Free plan usage": "Free 计划指引",
-  "Token API": "Token 账户接口",
-  "register": "注册接口",
-  "check-status": "查询状态",
-  "generate-token": "获取 Token",
-  "REST History": "REST 历史行情",
-  "history/bars": "历史 K 线",
-  "history/news": "历史新闻",
-  "stock trade+quote": "逐笔成交与报价",
-  "Index Data": "指数数据",
-  "index history": "指数日线历史",
-  "Cash minute archive": "现金指数分钟归档",
-  "Cash minute history": "分钟线历史",
-  "Cash minute coverage": "分钟线覆盖范围",
-  "Cash daily history": "派生日线历史",
-  "Cash daily coverage": "派生日线覆盖范围",
-  "Research Signals": "研究信号",
-  "Spectral overview": "Spectral 概览",
-  "Spectral methodology": "Spectral 方法解读",
-  "Spectral processing": "Spectral 去重与版本处理",
-  "Spectral fields": "Spectral 字段字典",
-  "Spectral history": "Spectral 历史信号",
-  "Spectral coverage": "Spectral 覆盖范围",
-  "Spectral workflows": "Spectral 研究工作流",
-  "Stock Data": "股票数据",
-  "overview": "数据概览",
-  "Multi-symbol": "多股票批量",
-  "auctions": "集合竞价",
-  "multi bars": "批量历史 K 线",
-  "multi latest bars": "批量最新 K 线",
-  "multi quotes": "批量逐笔报价",
-  "multi latest quotes": "批量最新报价",
-  "multi snapshots": "批量综合快照",
-  "multi trades": "批量逐笔成交",
-  "multi latest trades": "批量最新成交",
-  "Metadata": "元数据字典",
-  "condition codes": "成交条件代码",
-  "exchange codes": "交易所代码",
-  "Single symbol": "单只股票",
-  "single bars": "单股历史 K 线",
-  "single latest bar": "单股最新 K 线",
-  "single quotes": "单股逐笔报价",
-  "single latest quote": "单股最新报价",
-  "single snapshot": "单股综合快照",
-  "single trades": "单股逐笔成交",
-  "single latest trade": "单股最新成交",
-  "Options Data": "期权数据",
-  "routing model": "路由与多级缓存",
-  "contracts": "期权合约列表",
-  "Snapshots": "期权快照",
-  "snapshots": "全链快照与 Greeks",
-  "quote": "最新报价快照",
-  "snapshot trade": "最新成交快照",
-  "open interest": "未平仓量快照",
-  "expiry": "按到期日快照",
-  "snapshot ohlc": "快照 OHLC",
-  "Options history": "期权历史",
-  "bars": "历史分钟 K 线",
-  "eod": "日终结算数据",
-  "history open interest": "历史未平仓量",
-  "trades": "历史逐笔成交",
-  "history ohlc": "历史 OHLC",
-  "Direct API": "原生接口",
-  "direct endpoints": "高频原生接口",
-  "Crypto Data": "加密货币",
-  "crypto snapshots": "实时多维快照",
-  "orderbooks": "实时订单簿",
-  "Admin endpoints": "管理后台接口",
-  "login": "管理员登录",
-  "pending": "待审核列表",
-  "approve": "审批开通",
-  "reject": "拒绝申请",
-  "Reference": "参考说明",
-  "Error codes": "错误代码",
-  "Rate limits": "并发与限流",
-  "Financial data API": "财务数据 API",
-  "Morningstar fundamentals": "Morningstar 财务数据",
-  "Morningstar overview": "Morningstar 概览",
-  "What is PIT?": "什么是 PIT？",
-  "Deduplication": "去重与数据处理",
-  "Morningstar fields": "Morningstar 字段字典",
-  "Morningstar history": "Morningstar 历史快照",
-  "Morningstar coverage": "Morningstar 覆盖范围",
-  "Financial data overview": "财务数据概览",
-  "Request contract": "请求规范",
-  "Response metadata": "响应元数据",
-  "Market history": "市场历史",
-  "historical-price-eod/full": "日终历史价格全量",
-  "Market snapshots": "市场快照",
-  "quote-short": "简版报价",
-  "aftermarket-quote": "盘后报价",
-  "aftermarket-trade": "盘后成交",
-  "stock-price-change": "价格涨跌幅",
-  "market-capitalization": "当前市值",
-  "historical-market-capitalization": "历史市值",
-  "batch-quote": "批量报价",
-  "batch-quote-short": "批量简版报价",
-  "batch-aftermarket-quote": "批量盘后报价",
-  "batch-aftermarket-trade": "批量盘后成交",
-  "market-capitalization-batch": "批量市值",
-  "Company reference": "公司资料与基本面",
-  "profile": "公司资料",
-  "stock-peers": "同行公司",
-  "key-executives": "核心高管",
-  "company-notes": "公司备忘录",
-  "financial-reports-dates": "财报发布日期",
-  "employee-count": "员工人数",
-  "historical-employee-count": "历史员工人数",
-  "shares-float": "流通股本",
-  "shares-float-all": "全量流通股本",
-  "dividends": "历史分红",
-  "splits": "历史拆股",
-  "Financial statements": "财务三大报表",
-  "income-statement": "利润表 (Income Statement)",
-  "balance-sheet-statement": "资产负债表 (Balance Sheet)",
-  "cash-flow-statement": "现金流量表 (Cash Flow)",
-  "PIT statements": "时点财报 (Point-in-Time)",
-  "Ratios & metrics": "财务比率与指标",
-  "ratios": "财务比率 (Ratios)",
-  "ratios-ttm": "TTM 财务比率",
-  "key-metrics": "关键指标 (Key Metrics)",
-  "key-metrics-ttm": "TTM 关键指标",
-  "Growth & valuation": "增长与估值",
-  "income-statement-growth": "收入增长分析",
-  "balance-sheet-statement-growth": "资产负债增长",
-  "cash-flow-statement-growth": "现金流增长",
-  "financial-growth": "综合财务增长",
-  "enterprise-values": "企业价值 (EV)",
-  "financial-scores": "财务健康评分",
-  "Research & valuation": "深度研究与评级",
-  "analyst-estimates": "分析师一致预测",
-  "price-target-summary": "目标价汇总",
-  "price-target-consensus": "目标价共识",
-  "discounted-cash-flow": "DCF 现金流折现估值",
-  "custom-discounted-cash-flow": "自定义 DCF 估值",
-  "levered-discounted-cash-flow": "杠杆 DCF 估值",
-  "custom-levered-discounted-cash-flow": "自定义杠杆 DCF",
-  "owner-earnings": "所有者收益",
-  "earnings": "历史收益数据",
-  "grades": "分析师评级",
-  "grades-consensus": "评级共识",
-  "grades-historical": "历史评级变动",
-  "ratings-snapshot": "综合评分快照",
-  "ratings-historical": "历史评分记录",
-  "Revenue & directories": "营收细分与代码目录",
-  "revenue-geographic-segmentation": "按地区营收细分",
-  "revenue-product-segmentation": "按产品营收细分",
-  "available-countries": "支持国家列表",
-  "available-exchanges": "支持交易所列表",
-  "available-industries": "支持行业列表",
-  "available-sectors": "支持板块列表",
-  "cik-list": "CIK 代码列表",
-  "delisted-companies": "已退市公司列表",
-  "financial-statement-symbol-list": "财报股票代码列表",
-  "stock-list": "全部美股列表",
-  "symbol-change": "代码变更历史",
-  "Coverage": "覆盖范围说明",
-  "Snapshot boundary": "快照更新边界",
-  "Future data families": "即将推出数据族",
-  "Connecting": "连接与认证",
-  "Endpoint": "连接端点",
-  "Auth message": "认证消息格式",
-  "Heartbeat": "心跳保活机制",
-  "Channels": "数据通道",
-  "stocks": "美股实时流 (stocks)",
-  "options": "期权实时流 (options)",
-  "boats": "大宗暗盘流 (boats)",
-  "overnight": "夜盘交易流 (overnight)",
-  "crypto": "加密货币流 (crypto)",
-  "news": "新闻快讯流 (news)",
-  "Messages": "交互消息格式",
-  "Subscribe": "订阅消息 (Subscribe)",
-  "Unsubscribe": "退订消息 (Unsubscribe)",
-  "Trade": "逐笔成交帧 (Trade)",
-  "Quote": "逐笔报价帧 (Quote)",
-  "Bar": "分钟 K 线帧 (Bar)",
-  "Operations": "高级运维",
-  "Reconnect": "断线重连与退避",
-  "Backpressure": "背压与流控机制",
-  "System": "系统架构",
-  "Components": "核心组件",
-  "Latency": "延迟时延",
-  "Metrics history": "历史指标",
-  "Uptime": "90 天在线率",
-  "Incidents": "故障与维护记录",
-  "Methodology": "统计方法论",
-  "CN Data overview": "CN Data 总览",
-  "Daily bars": "日线",
-  "Minute bars": "分钟线",
-  "Valuation": "估值",
-  "Membership": "成分与会话",
-  "Fundamentals": "财务报表",
-  "ETF data": "ETF 数据",
-  "ETF minutes": "ETF 分钟线",
-  "Options": "期权",
-  "Funds": "基金",
-  "Reserved routes": "预留路由",
-  "Catalog": "目录",
-  "Shareholders": "股东持仓",
-  "Money flow": "资金流",
-  "Billboard": "龙虎榜",
-  "Access & scope": "权限与范围"
-};
-
 function SideNav({ tab, page }) {
-  const [activeId, setActiveId] = React.useState("");
+  const article = DOC_ARTICLES[normalizeDocsPath(window.location.pathname)];
+  const activeId = article?.id || "";
   const [query, setQuery] = React.useState("");
   const [expanded, setExpanded] = React.useState({});
-  React.useEffect(() => { setQuery(""); setExpanded({}); }, [tab]);
-  React.useEffect(() => {
-    const onHashChange = () => setActiveId(window.location.hash.slice(1));
-    window.addEventListener('hashchange', onHashChange);
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => { if(entry.isIntersecting) setActiveId(entry.target.id); });
-    }, { rootMargin: '-20% 0px -80% 0px' });
-    setTimeout(() => document.querySelectorAll('h2[id], h3[id]').forEach(h => observer.observe(h)), 500);
-    return () => { window.removeEventListener('hashchange', onHashChange); observer.disconnect(); };
-  }, [tab]);
+  React.useEffect(() => { setQuery(""); setExpanded({}); }, [tab, page]);
+  React.useLayoutEffect(() => {
+    const navigation = document.getElementById("docs-navigation");
+    const active = navigation?.querySelector('.doc-leaf[aria-current="page"]');
+    if (active) navigation.scrollTop += active.getBoundingClientRect().top - navigation.getBoundingClientRect().top - 80;
+  }, [activeId]);
 
   const toggle = (title, open) => setExpanded(prev => ({ ...prev, [title]: !open }));
 
@@ -1027,72 +650,7 @@ function SideNav({ tab, page }) {
   };
   const visibleSections = (tabSections) => tabSections.map(filterSection).filter((sec) => sec);
 
-  const sections = tab === "proxy" ? [
-    { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions", "Free plan usage"] },
-    { title: "Token API", items: ["register", "check-status", "generate-token"] },
-    { title: "REST History", items: ["history/bars", "history/news", "stock trade+quote"] },
-    { title: "Index Data", items: ["index history", "Cash minute archive", "Cash minute history", "Cash minute coverage", "Cash daily history", "Cash daily coverage"] },
-    { title: "Research Signals", items: ["Spectral overview", "Spectral methodology", "Spectral processing", "Spectral fields", "Spectral history", "Spectral coverage", "Spectral workflows"] },
-    { title: "Stock Data", items: ["Market · US / World"], children: [
-      { title: "US market", items: ["overview"], children: [
-        { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
-        { title: "Metadata", items: ["condition codes", "exchange codes"] },
-        { title: "Single symbol", items: ["single bars", "single latest bar", "single quotes", "single latest quote", "single snapshot", "single trades", "single latest trade"] },
-      ]},
-      { title: "World · CN 中国数据", items: ["CN Data overview", "Daily bars", "Minute bars", "Valuation", "Membership", "Reference", "Fundamentals", "ETF data", "ETF minutes", "Options", "Funds", "Shareholders", "Reserved routes", "Catalog", "Access & scope"] },
-    ]},
-    { title: "Options Data", items: ["routing model", "contracts"], children: [
-      { title: "Snapshots", items: ["snapshots", "quote", "snapshot trade", "open interest", "expiry", "snapshot ohlc"] },
-      { title: "Options history", items: ["bars", "eod", "history open interest", "trades", "history ohlc"] },
-      { title: "Direct API", items: ["direct endpoints"] },
-    ]},
-    { title: "Crypto Data", items: ["crypto snapshots", "orderbooks"] },
-    { title: "Admin endpoints", items: ["login", "pending", "approve", "reject"] },
-    { title: "Reference", items: ["Error codes", "Rate limits"] },
-  ] : tab === "morningstar" ? [
-    { title: "Morningstar fundamentals", items: ["Morningstar overview", "What is PIT?", "Deduplication", "Morningstar fields", "Morningstar history", "Morningstar coverage"] },
-  ] : tab === "fmp-fundamentals" ? [
-    { title: "Financial data API", items: ["Financial data overview", "Request contract", "Response metadata"] },
-    { title: "Market history", items: ["historical-price-eod/full"] },
-    { title: "Market snapshots", items: ["quote", "quote-short", "aftermarket-quote", "aftermarket-trade", "stock-price-change", "market-capitalization", "historical-market-capitalization", "batch-quote", "batch-quote-short", "batch-aftermarket-quote", "batch-aftermarket-trade", "market-capitalization-batch"] },
-    { title: "Company reference", items: ["profile", "stock-peers", "key-executives", "company-notes", "financial-reports-dates", "employee-count", "historical-employee-count", "shares-float", "shares-float-all", "dividends", "splits"] },
-    { title: "Financial statements", items: ["income-statement", "balance-sheet-statement", "cash-flow-statement", "PIT statements"] },
-    { title: "Ratios & metrics", items: ["ratios", "ratios-ttm", "key-metrics", "key-metrics-ttm"] },
-    { title: "Growth & valuation", items: ["income-statement-growth", "balance-sheet-statement-growth", "cash-flow-statement-growth", "financial-growth", "enterprise-values", "financial-scores"] },
-    { title: "Research & valuation", items: ["analyst-estimates", "price-target-summary", "price-target-consensus", "discounted-cash-flow", "custom-discounted-cash-flow", "levered-discounted-cash-flow", "custom-levered-discounted-cash-flow", "owner-earnings", "earnings", "grades", "grades-consensus", "grades-historical", "ratings-snapshot", "ratings-historical"] },
-    { title: "Revenue & directories", items: ["revenue-geographic-segmentation", "revenue-product-segmentation", "available-countries", "available-exchanges", "available-industries", "available-sectors", "cik-list", "delisted-companies", "financial-statement-symbol-list", "stock-list", "symbol-change"] },
-    { title: "Coverage", items: ["Snapshot boundary", "Future data families"] },
-  ] : tab === "ws" ? [
-    { title: "Connecting", items: ["Endpoint", "Auth message", "Heartbeat"] },
-    { title: "Channels", items: ["stocks", "options", "crypto", "news", "overnight"] },
-    { title: "Messages", items: ["Subscribe", "Unsubscribe", "Trade", "Quote", "Bar"] },
-    { title: "Operations", items: ["Reconnect", "Backpressure"] },
-  ] : [
-    { title: "System", items: ["Overview", "Components", "Latency"] },
-    { title: "Metrics history", items: ["Uptime", "Incidents", "Methodology"] },
-  ];
-
-  const pageSections = {
-    "market-overview": sections.filter((section) => ["Getting started", "Token API", "Admin endpoints", "Reference"].includes(section.title)),
-    "market-stocks": [
-      { title: "REST History", items: ["history/bars", "stock trade+quote"] },
-      { title: "Stock Data", items: ["Market · US / World"], children: [{ title: "US market", items: ["overview"], children: [
-        { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
-        { title: "Metadata", items: ["condition codes", "exchange codes"] },
-        { title: "Single symbol", items: ["single bars", "single latest bar", "single quotes", "single latest quote", "single snapshot", "single trades", "single latest trade"] },
-      ]}]},
-    ],
-    "market-options": sections.filter((section) => section.title === "Options Data"),
-    "market-indices": sections.filter((section) => section.title === "Index Data"),
-    "market-research": sections.filter((section) => section.title === "Research Signals"),
-    "market-crypto-news": [{ title: "REST History", items: ["history/news"] }, ...sections.filter((section) => section.title === "Crypto Data")],
-    "market-cn": [{ title: "World · CN 中国数据", items: ["CN Data overview", "Daily bars", "Minute bars", "Valuation", "Membership", "Reference", "Fundamentals", "ETF data", "ETF minutes", "Options", "Funds", "Shareholders", "Reserved routes", "Catalog", "Access & scope"] }],
-    "financial-statements": sections.filter((section) => section.title === "Financial statements"),
-    "financial-ratios": sections.filter((section) => ["Ratios & metrics", "Growth & valuation"].includes(section.title)),
-    subscriptions: sections.filter((section) => section.title === "Messages"),
-  };
-  const scopedSections = pageSections[page] || sections;
-
+  const scopedSections = getDocSections(tab, page);
   function Chevron({ open }) {
     return (
       <svg width="10" height="10" viewBox="0 0 10 10" style={{ transition: 'transform 0.2s', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', marginLeft: 'auto', opacity: 0.5 }}>
@@ -1107,7 +665,8 @@ function SideNav({ tab, page }) {
     const hasChildren = s.children && s.children.length > 0;
     const hasItems    = s.items && s.items.length > 0;
     const isParent    = hasChildren || hasItems;
-    const isOpen      = forceOpen || (expanded[s.title] ?? defaultOpen);
+    const containsActive = section => (section.items || []).some(label => docSectionId(tab, label) === activeId) || (section.children || []).some(containsActive);
+    const isOpen = forceOpen || (expanded[s.title] ?? (defaultOpen || containsActive(s)));
     const isMono      = s.title.includes("endpoints") || s.title === "Messages";
 
     const BASE_PAD    = 10;
@@ -1115,35 +674,12 @@ function SideNav({ tab, page }) {
     const indent      = BASE_PAD + depth * INDENT_STEP;
 
     // Map sidebar labels to actual document IDs
-    const FMP_ID_MAP = {
-      "Financial data overview": "fmp-fundamentals-overview",
-      "Request contract": "fmp-request-contract",
-      "Response metadata": "fmp-response-metadata",
-      "historical-price-eod/full": "fmp-historical-price-eod",
-      "income-statement": "fmp-income-statement",
-      "balance-sheet-statement": "fmp-balance-sheet-statement",
-      "cash-flow-statement": "fmp-cash-flow-statement",
-      "PIT statements": "fmp-pit-statements",
-      "ratios": "fmp-ratios",
-      "ratios-ttm": "fmp-ratios-ttm",
-      "key-metrics": "fmp-key-metrics",
-      "key-metrics-ttm": "fmp-key-metrics-ttm",
-      "income-statement-growth": "fmp-income-statement-growth",
-      "balance-sheet-statement-growth": "fmp-balance-sheet-statement-growth",
-      "cash-flow-statement-growth": "fmp-cash-flow-statement-growth",
-      "financial-growth": "fmp-financial-growth",
-      "enterprise-values": "fmp-enterprise-values",
-      "financial-scores": "fmp-financial-scores",
-    };
-    const ID_MAP = {'Morningstar overview': 'morningstar-overview', 'What is PIT?': 'morningstar-pit', 'Deduplication': 'morningstar-processing', 'Morningstar fields': 'morningstar-fields', 'Morningstar history': 'morningstar-history', 'Morningstar coverage': 'morningstar-coverage', 'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'Cash minute archive': 'cash-indices-overview', 'Cash minute history': 'get-post-v1-indices-minute', 'Cash minute coverage': 'get-v1-indices-minute-coverage', 'Cash daily history': 'get-post-v1-indices-daily', 'Cash daily coverage': 'get-v1-indices-daily-coverage', 'Spectral overview': 'spectral-overview', 'Spectral methodology': 'spectral-methodology', 'Spectral processing': 'spectral-processing', 'Spectral fields': 'spectral-fields', 'Spectral history': 'get-post-v1-spectral-tick-flow', 'Spectral coverage': 'get-v1-spectral-tick-flow-coverage', 'Spectral workflows': 'spectral-workflows', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-direct-value', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-direct-value', 'direct endpoints': 'post-v3-option-direct-value', 'crypto snapshots': 'get-post-v1beta3-crypto-us-snapshots', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
-    const getId = (label) => tab === "fmp-fundamentals"
-      ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
-      : ID_MAP[label] || slugify(label);
+    const getId = label => docSectionId(tab, label);
 
     return (
       <div style={{ marginBottom: hasChildren ? 0 : 8 }}>
         {/* ── header row (chevron right-aligned like the reference) ── */}
-        <div
+        <button type="button" className="doc-nav-section" aria-expanded={isOpen}
           onClick={() => isParent && toggle(s.title, isOpen)}
           style={{
             display: "flex", alignItems: "center",
@@ -1159,7 +695,7 @@ function SideNav({ tab, page }) {
         >
           <span style={{ flex: 1 }}>{isZh ? (SECTION_ZH_LABELS[s.title] ? `${SECTION_ZH_LABELS[s.title]}` : s.title) : s.title}</span>
           {isParent && <Chevron open={isOpen} />}
-        </div>
+        </button>
 
         {/* ── children + guide lines ── */}
         {isOpen && (
@@ -1177,7 +713,7 @@ function SideNav({ tab, page }) {
                   <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                     {s.items.map((it, j) => (
                       <li key={j}>
-                        <a href={"#" + getId(it)} style={{
+                        <a href={docArticlePath(page, getId(it))} aria-current={activeId === getId(it) ? "page" : undefined} className={activeId === getId(it) ? "doc-leaf active" : "doc-leaf"} style={{
                           textDecoration: "none", display: "block",
                           padding: "3px 0",
                           color: activeId === getId(it) ? "var(--ink-strong)" : "var(--ink-muted)",
@@ -1207,7 +743,7 @@ function SideNav({ tab, page }) {
       padding: "8px 0 32px 24px",
       borderRight: "1px solid var(--rule)",
       background: "var(--bg-canvas)",
-      fontSize: 13, position: "sticky", top: 0, height: "100vh", overflow: "auto"
+      fontSize: 13
     }}>
       <div style={{ padding: "12px 16px 12px 8px", position: "sticky", top: 0, background: "var(--bg-canvas)", zIndex: 2 }}>
         <input
@@ -1235,156 +771,6 @@ function SideNav({ tab, page }) {
   );
 }
 
-function OnThisPage({ tab, page }) {
-  const [activeId, setActiveId] = React.useState("");
-  React.useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => { if(entry.isIntersecting) setActiveId(entry.target.id); });
-    }, { rootMargin: '-20% 0px -80% 0px' });
-    setTimeout(() => document.querySelectorAll('h2[id], h3[id]').forEach(h => observer.observe(h)), 500);
-    return () => observer.disconnect();
-  }, [tab, page]);
-  const pageItems = {
-    "market-overview": [["Overview", "overview"], ["Authentication", "authentication"], ["Tiers", "tiers-permissions"], ["Free plan", "free-plan-usage"]],
-    "market-stocks": [["History bars", "post-v1-history-bars"], ["Trade + quote", "post-v1-stock-history-trade-quote"], ["US equities", "stock-data-availability"]],
-    "market-options": [["Routing", "provider-fallback-cache"], ["Contracts", "post-v1-options-contracts"], ["Snapshots", "post-v1-options-snapshots"], ["Direct API", "post-v3-option-direct-value"]],
-    "market-indices": [["Index history", "get-post-v1-indices-history"], ["Cash minute archive", "cash-indices-overview"], ["Minute history", "get-post-v1-indices-minute"], ["Minute coverage", "get-v1-indices-minute-coverage"], ["Daily history", "get-post-v1-indices-daily"], ["Daily coverage", "get-v1-indices-daily-coverage"]],
-    "market-research": [["Overview", "spectral-overview"], ["Methodology", "spectral-methodology"], ["Deduplication", "spectral-processing"], ["Fields", "spectral-fields"], ["History API", "get-post-v1-spectral-tick-flow"], ["Coverage API", "get-v1-spectral-tick-flow-coverage"], ["Workflows", "spectral-workflows"]],
-    "market-crypto-news": [["News history", "post-v1-history-news"], ["Crypto snapshots", "get-post-v1beta3-crypto-us-snapshots"], ["Orderbooks", "post-v1-crypto-us-latest-orderbooks"]],
-    "market-cn": [["CN overview", "cn-data-overview"], ["Catalog", "cn-catalog"], ["Access", "cn-access"]],
-    "financial-statements": [["Income statement", "fmp-income-statement"], ["Balance sheet", "fmp-balance-sheet-statement"], ["Cash flow", "fmp-cash-flow-statement"], ["PIT statements", "fmp-pit-statements"]],
-    "financial-ratios": [["Ratios", "fmp-ratios"], ["Key metrics", "fmp-key-metrics"], ["Growth", "fmp-financial-growth"], ["Enterprise value", "fmp-enterprise-values"]],
-    subscriptions: [["Subscribe", "subscribe"], ["Unsubscribe", "unsubscribe"], ["Trade", "trade"], ["Quote", "quote"], ["Bar", "bar"]],
-  };
-  const items = pageItems[page] || (tab === "proxy"
-    ? [["Overview", "overview"]]
-    : tab === "morningstar"
-    ? [
-      ["Morningstar overview", "morningstar-overview"],
-      ["What is PIT?", "morningstar-pit"],
-      ["Deduplication", "morningstar-processing"],
-      ["Field dictionary", "morningstar-fields"],
-      ["History endpoint", "morningstar-history"],
-      ["Coverage endpoint", "morningstar-coverage"],
-    ]
-    : tab === "fmp-fundamentals"
-    ? [
-      ["Financial data overview", "fmp-fundamentals-overview"],
-      ["Request examples", "fmp-request-examples"],
-      ["Endpoint sections", "fmp-endpoint-subsections"],
-      ["Request contract", "fmp-request-contract"],
-      ["Response metadata", "fmp-response-metadata"],
-    ]
-    : tab === "ws"
-    ? ["Connect", "Authenticate", "Subscribe", "Message shapes", "Reconnect"]
-    : ["Overview", "Components", "Latency", "Uptime", "Incidents"]);
-  return (
-    <aside className="on-this-page" style={{
-      padding: "40px 20px",
-      borderLeft: "1px solid var(--rule)",
-      background: "var(--bg-canvas)", fontSize: 12.5, position: "sticky", top: 0, height: "100vh", overflow: "auto"
-    }}>
-      <div className="eyebrow" style={{ marginBottom: 12, color: "var(--ink-soft)" }}>On this page</div>
-      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-        {items.map((item, i) => {
-          const label = Array.isArray(item) ? item[0] : item;
-          const id = Array.isArray(item) ? item[1] : slugify(item);
-          return (
-          <li key={i}>
-            <a href={"#" + id} style={{textDecoration: "none",  color: activeId === id ? "var(--ink-strong)" : "var(--ink-muted)" }}>{label}</a>
-          </li>
-          );
-        })}
-      </ul>
-
-      <TokenCard />
-    </aside>
-  );
-}
-
-function TokenCard() {
-  const [user, setUser] = React.useState("");
-  const [phone, setPhone] = React.useState("");
-  const [loading, setLoading] = React.useState(false);
-  const [errorMsg, setErrorMsg] = React.useState("");
-  const [tokenData, setTokenData] = React.useState(null);
-
-  const handleGenerate = async () => {
-    if (!user || !phone) { setErrorMsg("Please enter both fields."); return; }
-    setLoading(true); setErrorMsg(""); setTokenData(null);
-    try {
-      const res = await fetch('/api/generate-token', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: user, phone })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setTokenData({ token: data.token, expiry: new Date(data.expiry).toLocaleString(), role: data.role || "standard" });
-      } else { setErrorMsg(data.message); }
-    } catch (e) { setErrorMsg("Network error."); }
-    finally { setLoading(false); }
-  };
-
-  const handleCopy = () => { navigator.clipboard.writeText(tokenData.token); };
-
-  return (
-    <div style={{ marginTop: 28, padding: 14, borderRadius: 8, background: "var(--bg-paper)", border: "1px solid var(--rule)" }}>
-      <div className="eyebrow" style={{ marginBottom: 8, color: "var(--ink-soft)" }}>Generate token</div>
-      {!tokenData ? (
-        <>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <input className="input mono" placeholder="Username" value={user} onChange={e => setUser(e.target.value)}
-              style={{ fontSize: 12, padding: "8px 10px" }} />
-            <input className="input mono" placeholder="Phone" value={phone} onChange={e => setPhone(e.target.value)}
-              style={{ fontSize: 12, padding: "8px 10px" }} />
-            <button className="btn" onClick={handleGenerate} disabled={loading}
-              style={{ width: "100%", justifyContent: "center", fontSize: 12, padding: "8px 10px" }}>
-              {loading ? "..." : "Generate →"}
-            </button>
-          </div>
-          {errorMsg && <p style={{ margin: "8px 0 0", color: "#d9534f", fontSize: 11 }}>{errorMsg}</p>}
-          <div style={{ marginTop: 12, fontSize: 11, color: "var(--ink-muted)", display: "flex", justifyContent: "space-between" }}>
-            <span>New user?</span>
-            <a href="/register" style={{ color: "var(--accent-ink)", textDecoration: "none" }}>Register →</a>
-          </div>
-        </>
-      ) : (
-        <>
-          <div style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-rule)", borderRadius: 6, padding: "6px 10px", fontSize: 11, color: "var(--accent-ink)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--ok)" }}></span>
-            Token issued
-          </div>
-          <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
-            <input className="input mono" readOnly value={tokenData.token} style={{ fontSize: 10, flex: 1, padding: "6px 8px" }} />
-            <button className="btn" style={{ padding: "0 10px", fontSize: 11 }} onClick={handleCopy}>Copy</button>
-          </div>
-          <div style={{ marginTop: 8, fontSize: 11, color: "var(--ink-muted)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span>Expires</span><span style={{ fontFamily: "var(--f-mono)" }}>{tokenData.expiry}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-              <span>Role</span><span className={"tier " + tokenData.role}>{tokenData.role}</span>
-            </div>
-          </div>
-          <button className="btn ghost" onClick={() => { setTokenData(null); setUser(""); setPhone(""); }}
-            style={{ width: "100%", justifyContent: "center", fontSize: 11, padding: "6px", marginTop: 8 }}>
-            Generate another
-          </button>
-        </>
-      )}
-
-      <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--rule)", fontSize: 11, color: "var(--ink-muted)", lineHeight: 1.55 }}>
-        <div style={{ color: "var(--ink-strong)", fontWeight: 600, marginBottom: 2 }}>Leandata Technologies Ltd.</div>
-        <div>700 W Georgia St, Vancouver, BC V7Y 1B6, Canada</div>
-        <div style={{ marginTop: 3, fontFamily: "var(--f-mono)", fontSize: 10.5 }}>
-          <a href="https://leandata.uk" style={{ color: "var(--accent-ink)", textDecoration: "none" }}>leandata.uk</a>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Stable public endpoints. Origin routing can move during failover.
 const REST_BASE  = "https://api.leandata.uk";
 const RT_BASE    = "https://rt-api.leandata.uk";
 const TOKEN_BASE = "https://leandata.uk";
@@ -1816,10 +1202,10 @@ function StockEndpointSection({ endpoint }) {
       {endpoint.params.length > 0 ? <ParamTable rows={endpoint.params} /> : (
         <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 20px" }}>{isZh ? "无需必填查询参数。" : "No query parameters are required."}</p>
       )}
-      <pre className="code" style={{ marginBottom: 12 }}>
+      <CopyCode className="code" style={{ marginBottom: 12 }}>
 {`curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}${endpoint.examplePath}"`}
-      </pre>
+      </CopyCode>
     </section>
   );
 }
@@ -2181,7 +1567,7 @@ function FinancialSourceSelector({ active }) {
   );
 }
 
-function FmpDataOverview() {
+function FmpDataOverview({ articleId } = {}) {
   const panel = {
     background: "var(--bg-paper)",
     border: "1px solid var(--rule)",
@@ -2189,8 +1575,8 @@ function FmpDataOverview() {
     padding: "18px 20px",
   };
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto" }}>
-      <FinancialSourceSelector active="" />
+    <DocContent articleId={articleId} style={{ maxWidth: 860, margin: "0 auto" }}>
+      <FinancialSourceSelector docAlwaysVisible active="" />
       <ProviderHero
         id="fmp-data-overview"
         provider="fmp"
@@ -2236,11 +1622,18 @@ function FmpDataOverview() {
         <br/><br/>
         We're expanding coverage to include: analyst estimates, institutional holdings, ETF holdings, and more. Contact us with your specific data needs.
       </p>
-    </div>
+    </DocContent>
   );
 }
 
 function FmpEndpointSection({ id, route, title, params, note }) {
+  const fields = textOf(params);
+  const query = new URLSearchParams();
+  if (/\bsymbols\b/.test(fields)) query.set("symbols", "AAPL,MSFT");
+  else if (/\bsymbol\b/.test(fields)) query.set("symbol", "AAPL");
+  if (/\bfrom\b/.test(fields)) query.set("from", "2026-06-01");
+  if (/\bto\b/.test(fields)) query.set("to", "2026-06-05");
+  const example = `curl "${REST_BASE}${route}${query.size ? "?" + query.toString() : ""}" \\\n  -H "Authorization: Bearer <TOKEN>"`;
   return (
     <section style={{ padding: "20px 0", borderTop: "1px solid var(--rule)" }}>
       <h3 id={id} className="display-title" style={{ fontSize: 25, margin: "0 0 7px" }}>{title}</h3>
@@ -2249,6 +1642,7 @@ function FmpEndpointSection({ id, route, title, params, note }) {
         <code>GET</code> or <code>POST</code> with <code>Authorization: Bearer TOKEN</code>. Parameters: {params}.
       </p>
       <p style={{ color: "var(--ink-soft)", fontSize: 13, lineHeight: 1.55, margin: 0 }}>{note}</p>
+      {route.startsWith("/stable/") && <CopyCode className="code">{example}</CopyCode>}
     </section>
   );
 }
@@ -2259,7 +1653,7 @@ const FMP_FOCUS_BOUNDARIES = [
   ["fmp-market-reference", "regular"],
 ];
 
-function FmpFundamentalsBody({ focus }) {
+function FmpFundamentalsBody({ focus, articleId }) {
   const panel = {
     background: "var(--bg-paper)",
     border: "1px solid var(--rule)",
@@ -2317,11 +1711,10 @@ function FmpFundamentalsBody({ focus }) {
     ["/stable/stock-list", "股票目录 / Stock list", "optional limit", "获取数据覆盖的所有股票列表。List of all covered stocks."],
     ["/stable/symbol-change", "Ticker 变更 / Symbol change", "optional limit", "获取股票代码历史变更记录（如公司更名）。Historical ticker symbol changes (e.g., company renamings)."],
   ];
-  const focusRef = useFocusedDirectChildren(focus, "regular", FMP_FOCUS_BOUNDARIES, ["financial-source-selector"]);
 
   return (
-    <div ref={focusRef} style={{ maxWidth: 860, margin: "0 auto" }}>
-      <FinancialSourceSelector active="regular" />
+    <DocContent articleId={articleId} focus={focus} defaultSection="regular" boundaries={FMP_FOCUS_BOUNDARIES} style={{ maxWidth: 860, margin: "0 auto" }}>
+      <FinancialSourceSelector docAlwaysVisible active="regular" />
       <ProviderHero
         id="fmp-fundamentals-overview"
         provider="fmp"
@@ -2577,11 +1970,11 @@ Content-Type: application/json
         <strong style={{ color: "var(--accent-ink)" }}>使用提示 / Usage Tip</strong>
         <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> 只需使用您的 Leandata token，无需额外的数据供应商密钥。如需查询特定历史版本，保存对应的 <code>as_of</code> 时间和 <code>package_sha256</code> 标识符。<br/>Use your Leandata token only; no additional data-vendor key is required. To reproduce a specific version, save its <code>as_of</code> timestamp and <code>package_sha256</code> identifier.</span>
       </div>
-    </div>
+    </DocContent>
   );
 }
 
-function MorningstarFundamentalsBody() {
+function MorningstarFundamentalsBody({ articleId } = {}) {
   const metrics = [
     ["Valuation / 估值", "market_cap · pe_ratio · pb_ratio · ps_ratio · ev_to_ebitda · dividend_yield · earning_yield"],
     ["Profitability / 盈利能力", "roe · roa · gross_margin · operating_margin · net_margin"],
@@ -2592,8 +1985,8 @@ function MorningstarFundamentalsBody() {
     ["Reference market fields / 辅助行情", "adjusted_price · dollar_volume · volume"],
   ];
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto" }}>
-      <FinancialSourceSelector active="morningstar" />
+    <DocContent articleId={articleId} style={{ maxWidth: 860, margin: "0 auto" }}>
+      <FinancialSourceSelector docAlwaysVisible active="morningstar" />
 
       <ProviderHero
         id="morningstar-overview"
@@ -2782,7 +2175,7 @@ X-Request-Id: <uuid>`}</pre>
         <br/>数据源为 Morningstar US Fundamentals。Morningstar 名称及标识归其权利人所有。Leandata 不将本数据集表述为 Morningstar 完整股票池或经认证的严格 PIT 数据。
         <br/><a href="https://www.quantconnect.com/data/morning-star-us-fundamentals" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>Official dataset disclosure / 官方数据披露 ↗</a>
       </div>
-    </div>
+    </DocContent>
   );
 }
 
@@ -2832,7 +2225,7 @@ function CnEndpoint({ id, title, method, path, source, params, example, en, zh }
   );
 }
 
-function CnDataSections() {
+function CnDataSections({ articleId } = {}) {
   const isZh = useCurrentLanguage() === "zh";
   const families = [
     ["cn-daily-bars", "Daily 日线"],
@@ -2851,7 +2244,7 @@ function CnDataSections() {
     ["cn-access", "Access 权限"],
   ];
   return (
-    <div>
+    <DocContent articleId={articleId}>
       <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>CN Data · private beta · live</div>
       <h2 id="cn-data-overview" className="display-title" style={{ fontSize: 32, margin: "0 0 8px" }}>{isZh ? "CN Data 中国数据（内测已上线）" : "CN Data (private beta · live)"}</h2>
       <div style={{ border: "1px solid var(--accent-rule)", background: "var(--accent-soft)", borderRadius: 8, padding: "12px 16px", margin: "0 0 20px", fontSize: 13, lineHeight: 1.65 }}>
@@ -3100,25 +2493,8 @@ function CnDataSections() {
         CN Data uses your existing unified token with explicit account authorization (own account only). It is not included in ordinary plans; price TBD and checkout offers no purchase.
         <br/>中国数据沿用现有 Token，须明确授权账号本人使用；普通套餐默认不包含；价格待定，结账页不提供购买。
       </p>
-    </div>
+    </DocContent>
   );
-}
-
-function useFocusedDirectChildren(focus, defaultSection, boundaries, alwaysVisibleIds = []) {
-  const ref = React.useRef(null);
-  React.useLayoutEffect(() => {
-    const root = ref.current;
-    if (!root) return;
-    let section = defaultSection;
-    for (const child of Array.from(root.children)) {
-      const containsId = (id) => child.id === id || child.querySelector(`[id="${id}"]`);
-      const boundary = boundaries.find(([id]) => containsId(id));
-      if (boundary) section = boundary[1];
-      const alwaysVisible = alwaysVisibleIds.some(containsId);
-      child.hidden = Boolean(focus && !alwaysVisible && section !== focus);
-    }
-  }, [focus, defaultSection, boundaries, alwaysVisibleIds]);
-  return ref;
 }
 
 const PROXY_FOCUS_BOUNDARIES = [
@@ -3139,12 +2515,11 @@ const PROXY_FOCUS_BOUNDARIES = [
   ["post-admin-login", "overview"],
 ];
 
-function ProxyApiBody({ focus }) {
+function ProxyApiBody({ focus, articleId }) {
   const lang = useCurrentLanguage();
   const isZh = lang === "zh";
-  const focusRef = useFocusedDirectChildren(focus, "overview", PROXY_FOCUS_BOUNDARIES);
   return (
-    <div ref={focusRef} style={{ maxWidth: 760 }}>
+    <DocContent articleId={articleId} focus={focus} defaultSection="overview" boundaries={PROXY_FOCUS_BOUNDARIES} style={{ maxWidth: 760 }}>
 
       {/* ── Getting started ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Getting started</div>
@@ -3297,7 +2672,7 @@ Authorization: Bearer <TOKEN>
         <br/>Basic 可以访问全部可用历史数据，不设 Basic 专属的日期跨度、symbol 数或页数预算。请求仍受上游限制和 proxy 运行时控制影响，包括历史并发、QPS、超时和过载背压。Bulk Download 是单独的一次性交付产品，不是解锁旧日期的必要条件。
       </p>
 
-      <CnDataSections />
+      <CnDataSections id="cn-data-overview" articleId={articleId?.startsWith("cn-") ? articleId : undefined} />
 
       {/* ── Free Plan Usage & Quickstart ── */}
       <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>Free Plan Guide</div>
@@ -4851,7 +4226,7 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
 // With headers: Retry-After: 5, X-Load: high | critical, X-Priority: stream`}
       </pre>
 
-    </div>
+    </DocContent>
   );
 }
 
@@ -4860,15 +4235,14 @@ const WS_FOCUS_BOUNDARIES = [
   ["reconnect", "guide"],
 ];
 
-function WsUsageBody({ focus }) {
+function WsUsageBody({ focus, articleId }) {
   const lang = useCurrentLanguage();
   const isZh = lang === "zh";
   const H3 = ({ children }) => (
     <h3 style={{ fontFamily: "var(--f-sans)", fontWeight: 500, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--ink-muted)", margin: "32px 0 12px" }}>{children}</h3>
   );
-  const focusRef = useFocusedDirectChildren(focus, "guide", WS_FOCUS_BOUNDARIES);
   return (
-    <div ref={focusRef} style={{ maxWidth: 760 }}>
+    <DocContent articleId={articleId} focus={focus} defaultSection="guide" boundaries={WS_FOCUS_BOUNDARIES} style={{ maxWidth: 760 }}>
       <div className="eyebrow" style={{ marginBottom: 10 }}>{isZh ? "实时数据流" : "Realtime"}</div>
       <h2 id="endpoint" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>{isZh ? "WebSocket 连接与实时数据流" : "WebSocket connection"}</h2>
       <DocDesc
@@ -5018,6 +4392,10 @@ await ws.send(json.dumps({
 // Subscription confirmation (returned after each subscribe/unsubscribe)
 [{ "T": "subscription", "trades": ["AAPL"], "quotes": ["AAPL","TSLA"], "bars": [] }]`}
       </pre>
+
+      <h2 id="unsubscribe" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "退订 (Unsubscribe)" : "Unsubscribe"}</h2>
+      <DocDesc zh="将 action 设为 unsubscribe，只移除消息中指定的标的。其他已有订阅保持有效。" en="Set action to unsubscribe to remove the listed symbols from the current connection's subscriptions." />
+      <pre className="code">{`{ "action": "unsubscribe", "trades": ["AAPL"], "quotes": [], "bars": [] }`}</pre>
 
       <h2 id="trade" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Trade</h2>
       <pre className="code" style={{ marginBottom: 24 }}>
@@ -5174,7 +4552,7 @@ const agent = new Agent({ keepAliveTimeout: 30000 })`}
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         Both endpoints return identical data and accept the same authentication. The difference is caching duration and upstream routing.
       </p>
-    </div>
+    </DocContent>
   );
 }
 

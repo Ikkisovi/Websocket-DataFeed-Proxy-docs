@@ -1,10 +1,11 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DOC_ARTICLES } from "../public/docs/doc-navigation.mjs";
 
 const siteRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const docsRoot = resolve(siteRoot, "public/docs");
-const assetVersion = "20260920-banner-removed";
+const assetVersion = "20261001-article-docs";
 
 const pages = {
   "": "Leandata API Documentation",
@@ -27,6 +28,24 @@ const pages = {
   "usage": "Leandata Usage Statistics",
 };
 
+for (const article of Object.values(DOC_ARTICLES)) {
+  pages[article.path.slice("/docs/".length).replace(/\/$/, "")] = article.label;
+}
+
+// Publish exactly the routes bundled into the reader, with a fixed deploy allowlist.
+const articleIndexes = Object.keys(DOC_ARTICLES).sort().map(path => {
+  if (!/^\/docs\/(?:[a-z0-9-]+\/)+$/.test(path)) throw new Error(`Invalid article path: ${path}`);
+  return path.slice(1) + "index.html";
+});
+const deployScript = resolve(siteRoot, "../ops/deploy_docs_static.py");
+const deploySource = await readFile(deployScript, "utf8");
+const marker = /# BEGIN GENERATED ARTICLE FILES[\s\S]*?# END GENERATED ARTICLE FILES/;
+if (!marker.test(deploySource)) throw new Error("Deployment article allowlist marker missing");
+await writeFile(deployScript, deploySource.replace(marker,
+  "# BEGIN GENERATED ARTICLE FILES\nDOC_ARTICLE_INDEXES = (\n"
+  + articleIndexes.map(path => `    ${JSON.stringify(path)},`).join("\n")
+  + "\n)\n# END GENERATED ARTICLE FILES"));
+
 function html(title) {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -37,9 +56,10 @@ function html(title) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/docs/tokens.css?v=20260920-banner-removed">
+<link rel="stylesheet" href="/docs/tokens.css?v=${assetVersion}">
+<link rel="stylesheet" href="/docs/doc-layout.css?v=${assetVersion}">
 <style>
-  html, body { margin: 0; padding: 0; height: 100%; background: #f0eee9; }
+  html, body { margin: 0; padding: 0; height: 100%; background: #fff; }
   body { font-family: "IBM Plex Sans", system-ui, sans-serif; }
   #root { height: 100%; }
 </style>
