@@ -496,7 +496,7 @@ function DocsTopbar({ active = "proxy", onMenu, menuOpen }) {
   return (
     <header className="topbar docs-topbar">
       <button type="button" className="docs-menu-button" onClick={onMenu} aria-expanded={menuOpen} aria-controls="docs-navigation" aria-label="Toggle documentation navigation">☰</button>
-      <a className="brand" href={DOC_PATHS.home}><span className="dot" /><strong>Lean Data</strong><span className="docs-brand-caption">Docs</span></a>
+      <a className="brand" href={DOC_PATHS.home}><span className="dot" /><strong>LeanData</strong><span className="docs-brand-caption">Docs</span></a>
       <DocsSearch isZh={isZh} />
       <div className="meta">
         <a href="/research-data">{isZh ? "研究数据" : "Research data"}</a>
