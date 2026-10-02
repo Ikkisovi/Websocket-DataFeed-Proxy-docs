@@ -1059,6 +1059,10 @@ describe('Registration and bulk product UI contract', () => {
     path.join(__dirname, 'public', 'docs', 'docs-site.jsx'),
     'utf8'
   );
+  const docsNavigationSource = fs.readFileSync(
+    path.join(__dirname, 'public', 'docs', 'doc-navigation.mjs'),
+    'utf8'
+  );
   const rootDocsSource = fs.readFileSync(
     path.join(__dirname, 'public', 'docs-site.jsx'),
     'utf8'
@@ -1167,10 +1171,10 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).toContain('not certified strict point-in-time');
     expect(docsSource).toContain('source daily fill-forward is preserved; API performs no filling');
     expect(docsSource).toContain('morningstar_premium_required');
-    expect(docsSource).toContain('financialMorningstar: "/docs/financial/morningstar/"');
-    expect(docsSource).toContain('financialRegular: "/docs/financial/regular/"');
-    expect(docsSource).toContain('marketStocks: "/docs/market/stocks/"');
-    expect(docsSource).toContain('Every topic now has its own URL and focused page');
+    expect(docsNavigationSource).toContain('financialMorningstar: "/docs/financial/morningstar/"');
+    expect(docsNavigationSource).toContain('financialRegular: "/docs/financial/regular/"');
+    expect(docsNavigationSource).toContain('marketStocks: "/docs/market/stocks/"');
+    expect(docsSource).toContain('Find an endpoint, explore its parameters, and copy a request example');
   });
 
   it('documents cash-indices minute and derived daily endpoints', () => {
@@ -1196,11 +1200,11 @@ describe('Registration and bulk product UI contract', () => {
     ];
     for (const page of pages) {
       const html = fs.readFileSync(path.join(__dirname, 'public', 'docs', page, 'index.html'), 'utf8');
-      expect(html).toContain('/assets/docs-page.js?v=20260920-banner-removed');
-      expect(html).toContain('/docs/tokens.css?v=20260920-banner-removed');
+      expect(html).toContain('/assets/docs-page.js?v=20261001-article-docs');
+      expect(html).toContain('/docs/tokens.css?v=20261001-article-docs');
     }
-    expect(docsSource).toContain('href: DOC_PATHS.marketStocks');
-    expect(docsSource).toContain('href: DOC_PATHS.financialMorningstar');
+    expect(docsNavigationSource).toContain('href: DOC_PATHS.marketStocks');
+    expect(docsNavigationSource).toContain('href: DOC_PATHS.financialMorningstar');
     expect(docsSource).not.toContain('href={it.href || "#"');
   });
 
@@ -3856,20 +3860,24 @@ describe('Admin usage monitoring API', () => {
   let adminToken;
 
   const USAGE_LOG = path.join(TEST_DIR, 'usage-monitor.jsonl');
+  const todayEventTimestamp = hoursAgo => new Date(Math.max(
+    Date.now() - hoursAgo * 3600000,
+    Date.parse(new Date().toISOString().slice(0, 10) + 'T00:00:00Z')
+  )).toISOString();
   const USAGE_EVENTS = [
     {
       event: 'http_request', request_id: 'r1', route: '/v1/history/bars', method: 'POST',
       user_id: 'usage_free_a', user_role: 'free', status: 200, cache_status: 'HIT',
       data_source: 'hot_cache', upstream_provider: 'alpaca', bytes_in: 10,
       bytes_out_hint: 1000, latency_ms: 5, error: null,
-      timestamp: new Date(Date.now() - 3600000).toISOString()
+      timestamp: todayEventTimestamp(1)
     },
     {
       event: 'http_request', request_id: 'r2', route: '/v1/history/bars', method: 'POST',
       user_id: 'usage_free_a', user_role: 'free', status: 429, cache_status: 'MISS',
       data_source: 'upstream', upstream_provider: 'alpaca', bytes_in: 10,
       bytes_out_hint: 50, latency_ms: 5, error: 'rate_limited',
-      timestamp: new Date(Date.now() - 7200000).toISOString()
+      timestamp: todayEventTimestamp(2)
     },
     {
       event: 'ws_session', user_id: 'usage_premium_b', user_role: 'premium', mode: 'stocks',

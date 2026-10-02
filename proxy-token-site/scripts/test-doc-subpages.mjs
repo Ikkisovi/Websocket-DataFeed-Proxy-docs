@@ -6,6 +6,7 @@ const languageScript = fs.readFileSync(new URL("../public/language.js", import.m
 const docsBundle = fs.readFileSync(new URL("../public/assets/docs-page.js", import.meta.url), "utf8");
 
 function isVisible(element) {
+  if (!element) return false;
   for (let node = element; node; node = node.parentElement) {
     if (node.hidden) return false;
   }
@@ -36,7 +37,7 @@ async function render(pathname, language = "zh") {
 }
 
 const home = await render("/docs/");
-assert.match(home.window.document.body.textContent, /每个主题现在都有独立 URL|Every topic now has its own URL/);
+assert.match(home.window.document.body.textContent, /查找接口、了解参数|Find an endpoint/);
 assert(home.window.document.querySelector('a[href="/docs/market/stocks/"]'));
 assert(home.window.document.querySelector('a[href="/docs/financial/morningstar/"]'));
 home.window.LeandataI18n.destroy();

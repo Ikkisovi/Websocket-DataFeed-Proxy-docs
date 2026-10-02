@@ -21,6 +21,9 @@ It does not add SSH keys, broaden sudo rules, or enable CI runners.
    compiled bundles, provider logo assets, shared styles/source, root entries, and
    independent docs-page `index.html` files—plus that reviewed script from the committed Git archive into
    `/srv/leandata/site-releases/docs-nav/<full-commit>`.
+   `build-doc-pages.mjs` keeps the article-page allowlist in that script aligned
+   with the reader's route catalogue. Include the three shared article-reader
+   files (`doc-navigation.mjs`, `doc-components.jsx`, `doc-layout.css`).
 5. Write a private deployment manifest with `commit`, a `files` mapping of each
    allowlisted relative path to its `before` and `after` SHA-256, and `dependencies`
    mapping unchanged `token-page.jsx`, `language.js`, `docs/usage-page.jsx` and
@@ -45,5 +48,6 @@ files and removes newly created page files. A repeated apply fails closed.
    from `deployment.json`, which records only host/container acceptance.
 
 If public acceptance fails, restore the prior allowlisted files from `<release>/rollback`
-in place and verify the baseline hashes. Never change the backend runtime pointer,
+in place with the same helper's `--rollback` option, then verify the baseline hashes.
+Rollback refuses to overwrite a later release or modified live files. Never change the backend runtime pointer,
 replace the public directory, or deploy the older server as part of this workflow.
