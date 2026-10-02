@@ -98,6 +98,13 @@ class ChartReleaseTests(unittest.TestCase):
         self.assertFalse((self.site / 'public/chart/index.html').exists())
         self.assertEqual(json.loads((self.release / 'deployment.json').read_text())['status'], 'rolled_back')
 
+    def test_static_followup_does_not_restart_portal(self):
+        (self.source / 'server.js').write_bytes((self.site / 'server.js').read_bytes())
+        self.manifest['files']['server.js']['after'] = self.manifest['files']['server.js']['before']
+        self.manifest_path.write_text(json.dumps(self.manifest))
+        module.deploy(self.release, self.manifest_path, True)
+        self.assertFalse(any(call.args[0][:2] == ['docker', 'restart'] for call in module.subprocess.run.call_args_list))
+
 
 if __name__ == '__main__':
     unittest.main()

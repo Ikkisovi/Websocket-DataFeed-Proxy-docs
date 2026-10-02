@@ -451,7 +451,10 @@ export function GpuIndexPage() {
     return () => { cancelled = true; clearInterval(timer); };
   }, []);
 
-  if (state.loading && !state.data) return <div className="gpu-index-state"><div className="gpu-index-state-card"><h1>Reading the tape…</h1><p>正在读取 GPU 价格历史。</p></div></div>;
-  if (state.error && !state.data) return <div className="gpu-index-state"><div className="gpu-index-state-card"><h1>Index unavailable</h1><p>{state.error}</p></div></div>;
+  if (!state.data) return <div className="gpu-index-state"><div className="gpu-index-state-card">
+    <nav className="gpu-index-crumbs" aria-label="Site navigation"><a href="/">首页 Home</a><span>/</span><a href="/chart/">行情图表 Market chart</a><span>/</span><a href="/docs/">文档 Docs</a></nav>
+    <h1>{state.loading ? 'Reading the tape…' : 'Index unavailable'}</h1>
+    <p>{state.loading ? '正在读取 GPU 价格历史。' : 'GPU 价格历史暂时不可用，请稍后再试。'}</p>
+  </div></div>;
   return <Dashboard data={state.data} refreshError={state.error} />;
 }

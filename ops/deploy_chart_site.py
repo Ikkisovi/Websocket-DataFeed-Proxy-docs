@@ -112,6 +112,8 @@ def deploy(release, manifest_path, apply):
     registry = SITE / 'remote_proxy/users.json'
     registry_hash = sha(registry)
     runtime = str(Path('/srv/leandata/current').resolve())
+    changed = [name for name in FILES if manifest['files'][name]['before'] != manifest['files'][name]['after']]
+    server_changed = 'server.js' in changed
     if not apply:
         print('Chart overlay preflight passed; live files unchanged.')
         return
@@ -124,11 +126,12 @@ def deploy(release, manifest_path, apply):
             shutil.copy2(SITE / name, target)
     for index, path in enumerate(configs):
         shutil.copy2(path, backup / f'compose-{index}')
-    receipt = {**manifest, 'runtime': runtime, 'protected_before': state(before), 'public_inode': public_inode, 'server_inode': server_inode, 'registry_before': registry_hash}
+    receipt = {**manifest, 'changed_files': changed, 'runtime': runtime, 'protected_before': state(before), 'public_inode': public_inode, 'server_inode': server_inode, 'registry_before': registry_hash}
     try:
-        for name in FILES:
+        for name in changed:
             copy_in_place(source / name, SITE / name)
-        subprocess.run(['docker', 'restart', '--time', '15', CONTAINER], check=True, stdout=subprocess.DEVNULL)
+        if server_changed:
+            subprocess.run(['docker', 'restart', '--time', '15', CONTAINER], check=True, stdout=subprocess.DEVNULL)
         verify_health()
         for name in FILES:
             expected = manifest['files'][name]['after']
@@ -139,14 +142,18 @@ def deploy(release, manifest_path, apply):
         assert public_inode == (SITE / 'public').stat().st_ino
         assert server_inode == (SITE / 'server.js').stat().st_ino
         assert runtime == str(Path('/srv/leandata/current').resolve())
+        if not server_changed:
+            assert ui['Id'] == after[CONTAINER]['Id']
+            assert ui['State']['StartedAt'] == after[CONTAINER]['State']['StartedAt']
         receipt.update(status='host_container_verified_public_acceptance_pending', protected_after=state(after), registry_after=sha(registry), portal_started_at=after[CONTAINER]['State']['StartedAt'])
     except BaseException:
-        for name in FILES:
+        for name in changed:
             if (backup / name).is_file():
                 copy_in_place(backup / name, SITE / name)
             elif (SITE / name).exists():
                 (SITE / name).unlink()
-        subprocess.run(['docker', 'restart', '--time', '15', CONTAINER], check=True, stdout=subprocess.DEVNULL)
+        if server_changed:
+            subprocess.run(['docker', 'restart', '--time', '15', CONTAINER], check=True, stdout=subprocess.DEVNULL)
         verify_health()
         receipt['status'] = 'rolled_back'
         raise
