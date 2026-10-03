@@ -29,9 +29,12 @@ Run with the validated OpenAlice host Python:
 
 The publisher validates storage residency and transfers one aggregate JSON via
 SSH, checks the returned SHA-256, and replaces only
-`/srv/leandata-servarica-production/s4-direct-20261003-v1/edge/portal/public/alternative-data/gpu-index.json`
-atomically on ServaRICA using the pinned operator SSH configuration. PHX is no
-longer a public-site publication target.
+`/srv/leandata-site-public/public/alternative-data/gpu-index.json` atomically on
+PHX. The existing publication operator owns only this aggregate directory.
+ServaRICA forwards public static website requests over verified private mTLS;
+PHX serves the static framework/docs and aggregate feed read-only. Account and
+Token APIs keep their sole dynamic writer on ServaRICA. Never restart the retired
+PHX Token portal to restore static pages.
 A validation or transfer failure retains the previously published feed; the page
 marks stale observations after six hours plus a 30-minute capture allowance.
 
@@ -40,10 +43,11 @@ Install the publisher and exporter from a clean commit archive under
 release, and install `ops/systemd/leandata-gpu-publisher.{service,timer}` as user
 units. The timer checks every ten minutes and retries failed publications after
 two minutes, capped at three starts in ten minutes. This does not change upstream
-capture frequency. The edge UI mounts the aggregate directory read-only at
-`/app/public/alternative-data`; seed its `index.html` from the admitted image
-before adding that mount. The directory itself must retain its inode during
-publication and must be included in the portal storage mount and backup policy.
+capture frequency. PHX Caddy mounts the full public directory read-only at
+`/srv/site-public`. This directory must retain its inode during publication and
+static updates. Its initial static files are an exact inventory/hash-bound copy
+of the admitted website image; each later static release must replace files in
+place and keep runtime `alternative-data/gpu-index.json` intact.
 Runtime JSON is gitignored and must survive static-site
 releases, or be republished immediately afterward. No capture-root mount or
 collector key belongs on the cloud host.
