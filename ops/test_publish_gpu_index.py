@@ -17,7 +17,7 @@ class PublicationTests(unittest.TestCase):
             (root / 'index.html').write_text('admitted page')
             feed = root / 'gpu-index.json'
             feed.write_bytes(b'previous')
-            writer = REMOTE_WRITER.replace('/srv/leandata-servarica-production/s4-direct-20261003-v1/edge/portal/public/alternative-data', temporary)
+            writer = REMOTE_WRITER.replace('/srv/leandata-site-public/public/alternative-data', temporary)
             for invalid in [{'schema_version': 1, 'captures': []},
                             {'schema_version': 1, 'captures': [{}], 'warnings': ['bad']}]:
                 result = subprocess.run([sys.executable, '-c', writer], input=json.dumps(invalid).encode(), capture_output=True)

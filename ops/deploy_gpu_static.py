@@ -19,8 +19,7 @@ FILES = [
 REMOTE = r'''
 import hashlib,json,os,pathlib,shutil,sys,datetime
 stage=pathlib.Path(sys.argv[1]);manifest=json.loads((stage/'manifest.json').read_text())
-root=pathlib.Path('/srv/leandata/proxy-token-site');public_inode=(root/'public').stat().st_ino
-registry=root/'remote_proxy/users.json';registry_hash=hashlib.sha256(registry.read_bytes()).hexdigest()
+root=pathlib.Path('/srv/leandata-site-public');public_inode=(root/'public').stat().st_ino
 backup=stage/'rollback';backup.mkdir(exist_ok=False)
 changed=[]
 try:
@@ -37,10 +36,9 @@ try:
     import pwd
     operator=pwd.getpwnam('ubuntu');os.chown(root/'public/alternative-data',operator.pw_uid,operator.pw_gid)
     assert (root/'public').stat().st_ino==public_inode
-    assert hashlib.sha256(registry.read_bytes()).hexdigest()==registry_hash
-    manifest.update({'deployed_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'public_inode_preserved':True,'registry_unchanged':True})
+    manifest.update({'deployed_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'public_inode_preserved':True,'static_only':True})
     (stage/'deployment-receipt.json').write_text(json.dumps(manifest,indent=2)+'\n')
-    print(json.dumps({'commit':manifest['commit'],'files':len(changed),'registry_unchanged':True,'public_inode_preserved':True}))
+    print(json.dumps({'commit':manifest['commit'],'files':len(changed),'static_only':True,'public_inode_preserved':True}))
 except Exception:
     for rel in reversed(changed):
         target=root/rel;previous=backup/rel
