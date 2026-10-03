@@ -18,7 +18,8 @@ if len(payload)>8*1024*1024: raise SystemExit('feed exceeds size limit')
 data=json.loads(payload)
 if data.get('schema_version')!=1 or not data.get('captures') or data.get('warnings'):
     raise SystemExit('invalid aggregate feed')
-root=pathlib.Path('/srv/leandata/proxy-token-site/public/alternative-data')
+root=pathlib.Path('/srv/leandata-servarica-production/s4-direct-20261003-v1/edge/portal/public/alternative-data')
+if root.is_symlink(): raise SystemExit('aggregate directory must not be a symlink')
 if not (root/'index.html').is_file(): raise SystemExit('alternative data page is not deployed')
 fd,name=tempfile.mkstemp(prefix='.gpu-index-',dir=root)
 try:
@@ -35,8 +36,9 @@ finally:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path('/home/ikkipipi/openalice/data/quant-research/market-indices/vastai-gpu'))
-    parser.add_argument('--ssh-target', default='ubuntu@100.88.18.95')
-    parser.add_argument('--ssh-key', type=Path, default=Path('/home/ikkipipi/下载/lol.pem'))
+    parser.add_argument('--ssh-target', default='leandata-servarica')
+    parser.add_argument('--ssh-config', type=Path, default=Path.home()/'.config/leandata/hosts/servarica-38.49.217.12/ssh_config')
+    parser.add_argument('--ssh-key', type=Path, help='Optional explicit operator key override')
     parser.add_argument('--state-dir', type=Path, default=Path.home()/'.local/state/leandata-gpu-publisher')
     parser.add_argument('--output', type=Path, help='Write a local preview instead of publishing')
     args = parser.parse_args()
@@ -63,7 +65,9 @@ def main():
             finally:
                 if os.path.exists(name):os.unlink(name)
         else:
-            command=['ssh','-o','BatchMode=yes','-o','ConnectTimeout=15','-o','IdentitiesOnly=yes','-i',str(args.ssh_key),args.ssh_target,'python3 -c '+shlex.quote(REMOTE_WRITER)]
+            command=['ssh','-F',str(args.ssh_config),'-o','BatchMode=yes','-o','ConnectTimeout=15','-o','IdentitiesOnly=yes']
+            if args.ssh_key: command.extend(['-i',str(args.ssh_key)])
+            command.extend([args.ssh_target,'python3 -c '+shlex.quote(REMOTE_WRITER)])
             remote=subprocess.run(command,input=payload,capture_output=True,timeout=60,check=True)
             if remote.stdout.decode().strip()!=digest:raise RuntimeError('remote hash mismatch')
         receipt={'sha256':digest,'latest_slot':data['latest_slot'],'capture_count':data['capture_count'],'formal_capture_count':data['formal_capture_count'],'generated_at':data['generated_at'],'destination':'local-preview' if args.output else 'leandata.uk/alternative-data/gpu-index.json'}

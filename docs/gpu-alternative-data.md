@@ -29,16 +29,22 @@ Run with the validated OpenAlice host Python:
 
 The publisher validates storage residency and transfers one aggregate JSON via
 SSH, checks the returned SHA-256, and replaces only
-`/srv/leandata/proxy-token-site/public/alternative-data/gpu-index.json` atomically.
+`/srv/leandata-servarica-production/s4-direct-20261003-v1/edge/portal/public/alternative-data/gpu-index.json`
+atomically on ServaRICA using the pinned operator SSH configuration. PHX is no
+longer a public-site publication target.
 A validation or transfer failure retains the previously published feed; the page
 marks stale observations after six hours plus a 30-minute capture allowance.
 
 Install the publisher and exporter from a clean commit archive under
 `~/.local/share/leandata-gpu-publisher/releases/<sha>/`, point `current` to that
 release, and install `ops/systemd/leandata-gpu-publisher.{service,timer}` as user
-units. The timer checks every ten minutes; this does not change upstream capture
-frequency. The new `public/alternative-data` directory alone is writable by the
-verified SSH operator. Runtime JSON is gitignored and must survive static-site
+units. The timer checks every ten minutes and retries failed publications after
+two minutes, capped at three starts in ten minutes. This does not change upstream
+capture frequency. The edge UI mounts the aggregate directory read-only at
+`/app/public/alternative-data`; seed its `index.html` from the admitted image
+before adding that mount. The directory itself must retain its inode during
+publication and must be included in the portal storage mount and backup policy.
+Runtime JSON is gitignored and must survive static-site
 releases, or be republished immediately afterward. No capture-root mount or
 collector key belongs on the cloud host.
 
