@@ -3937,25 +3937,33 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
       </pre>
 
       <h3 id="post-v3-option-at-time-quote" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Quote at time example</h3>
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
+        Last NBBO per contract at one millisecond of the day. Prefer the whole-chain form below over per-contract loops: one request per underlying per day.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>返回某日指定时刻每张合约的最新买卖盘。整链一次取回，一天一标的只需一次请求，不要逐合约循环。</span>
+      </p>
       <pre className="code" style={{ marginBottom: 12 }}>
-{`# GET — quote at a specific time of day
+{`# GET — single contract at a specific time of day
 curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v3/option/at_time/quote?root=AAPL&exp=260620&strike=200.0&right=C&start_date=20250102&end_date=20250102&time_of_day=14:30:00"
 
-# POST — JSON body
-curl -X POST ${REST_BASE}/v3/option/at_time/quote \\
-  -H "Authorization: Bearer <TOKEN>" \\
-  -H "Content-Type: application/json" \\
-  -d '{"root":"AAPL","exp":260620,"strike":200.0,"right":"C","start_date":20250102,"end_date":20250102,"time_of_day":"14:30:00"}'`}
+# GET — whole chain: one request per underlying per day
+curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v3/option/at_time/quote?symbol=AAPL&expiration=*&strike=*&right=both&date=20250102&time=15:55:00"`}
       </pre>
-      <pre className="code" style={{ marginBottom: 48 }}>
-{`// Response
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`// Response (whole-chain form returns one row per contract)
 {
-  "quotes": [
-    { "date": 20250102, "ms_of_day": 52200000, "bid": 14.80, "bid_size": 10, "ask": 14.90, "ask_size": 15 }
+  "endpoint": "/v3/option/at_time/quote",
+  "count": 760,
+  "data": [
+    { "symbol": "AAPL", "expiration": "2024-11-08", "strike": 220.0, "right": "PUT", "timestamp": "2024-11-04T15:55:00.000-05:00", "price": 1.25 }
   ]
 }`}
       </pre>
+      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 48px" }}>
+        Rules: <code>time</code> is ET; <code>date</code> is shorthand for the same-day range, and wildcard queries accept a single session only — split multi-day ranges day by day. Enumerate with <code>/v3/option/list/contracts/quote</code> before blind-pulling. Limits: 3 concurrent historical requests per user, 5 req/s, 45 s timeout; back off on <code>429</code>/<code>502</code> and checkpoint client-side so runs resume.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>规则：time 为美东时间；date 等同于当日区间；通配只接受单日，多年区间请逐天拆分。盲拉前先用合约列表枚举。限流：每用户 3 并发、5 请求/秒、45 秒超时；遇到 429/502 请退避重试，客户端做好断点续传。</span>
+      </p>
 
       {/* ── Crypto ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Crypto Data</div>

@@ -158,6 +158,7 @@ DOC_ARTICLE_INDEXES = (
     "docs/market/options/post-v1-options-snapshots-quote/index.html",
     "docs/market/options/post-v1-options-snapshots-trade/index.html",
     "docs/market/options/post-v1-options-snapshots/index.html",
+    "docs/market/options/post-v3-option-at-time-quote/index.html",
     "docs/market/options/post-v3-option-direct-value/index.html",
     "docs/market/options/post-v3-option-history-ohlc/index.html",
     "docs/market/options/post-v3-option-snapshot-ohlc/index.html",
