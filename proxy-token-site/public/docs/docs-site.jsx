@@ -2960,15 +2960,39 @@ print("Option contracts:", resp_opt.status_code)`}
 
       <h2 id="cash-indices-overview" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>QuantConnect 现金指数分钟线 / Cash-indices minute archive</h2>
       <DocDesc
-        zh="十二个现金指数的 1 分钟 OHLC 归档（2020-01-02 起，无 volume 列，源端本来就没有）：SPX、NDX、VIX、DJI、VIX3M、VIX6M、RUT、DXY、TNX、VVIX、SKEW、VXN。时间戳统一为 UTC：SPX/VIX/DJI/VIX3M/VIX6M/RUT/TNX/VVIX/SKEW/VXN 按 America/Chicago 会话，NDX/DXY 按 America/New_York 会话（DXY 近 24 小时、每日 17:00–18:00 ET 休市，节假日全天休市）。提前收市日与稀疏日 bar 较少，缺失 bar 原样保留不填补。日度版仅覆盖 SPX/NDX/VIX/DJI（由分钟线按交易所时区派生：open 取首 bar，close 取尾 bar）；其余八个标的为分钟线专用，日度请客户端自行 resample。四个新接口均为 Paid plan，Free 返回 403 cash_indices_paid_plan_required。"
-        en="1-minute OHLC archive for twelve cash indices since 2020-01-02 (no volume column exists at the source): SPX, NDX, VIX, DJI, VIX3M, VIX6M, RUT, DXY, TNX, VVIX, SKEW and VXN. Timestamps are UTC normalized from exchange-local sessions: SPX/VIX/DJI/VIX3M/VIX6M/RUT/TNX/VVIX/SKEW/VXN in America/Chicago, NDX/DXY in America/New_York (DXY trades near-24h with a 17:00-18:00 ET break and is closed on holidays). Early-close and sparse days carry fewer bars; missing bars are preserved, never filled. The derived daily version covers only SPX/NDX/VIX/DJI (open is the first bar, close the last bar, bucketed in listing-exchange time); the other eight symbols are minute-only, resample client-side for daily bars. All four endpoints require a paid plan; Free returns 403 cash_indices_paid_plan_required."
+        zh="十二个现金指数的 1 分钟 OHLC 归档，源端无 volume 列。起 2020-01-02，时间戳统一为 UTC。下面四个接口均为 Paid plan，Free 返回 403 cash_indices_paid_plan_required。"
+        en="1-minute OHLC archive for twelve cash indices since 2020-01-02 (no volume column exists at the source). Timestamps are UTC. All four endpoints below require a paid plan; Free returns 403 cash_indices_paid_plan_required."
       />
+      <ul style={{ fontSize: 14, lineHeight: 1.8, color: "var(--ink-muted)", margin: "0 0 16px", paddingLeft: 20 }}>
+        <li><strong style={{ color: "var(--ink-strong)" }}>覆盖 12 个标的 / 12 symbols</strong>：SPX、NDX、VIX、DJI、VIX3M、VIX6M、RUT、DXY、TNX、VVIX、SKEW、VXN。<br/><span>SPX, NDX, VIX, DJI, VIX3M, VIX6M, RUT, DXY, TNX, VVIX, SKEW and VXN.</span></li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>会话映射 / Session mapping</strong>：SPX/VIX/DJI/VIX3M/VIX6M/RUT/TNX/VVIX/SKEW/VXN 按 America/Chicago，NDX/DXY 按 America/New_York；DXY 近 24 小时交易，每日 17:00–18:00 ET 休市，节假日全天休市。<br/><span>SPX/VIX/DJI/VIX3M/VIX6M/RUT/TNX/VVIX/SKEW/VXN follow America/Chicago, NDX/DXY follow America/New_York; DXY trades near-24h with a daily 17:00–18:00 ET break and is closed on holidays.</span></li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>缺失处理 / Gaps</strong>：提前收市与稀疏日 bar 较少，缺失 bar 原样保留、不填补。<br/><span>Early-close and sparse days carry fewer bars; missing bars are preserved, never filled.</span></li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>日度派生 / Derived daily</strong>：仅 SPX/NDX/VIX/DJI（交易所时区切分，open 取首 bar、close 取尾 bar）；其余八个标的为分钟线专用，日度请客户端自行 resample，请求它们返回 400 invalid_symbol。<br/><span>Only SPX/NDX/VIX/DJI (bucketed in listing-exchange time; open is the first bar, close the last). The other eight symbols are minute-only: resample client-side, requesting them returns 400 invalid_symbol.</span></li>
+      </ul>
       <ProviderStats items={[
-        ["9,741,555", "minute bars (UTC)", "分钟 bar（UTC）"],
-        ["6,748", "derived daily bars (4 symbols)", "派生日线（4 标的）"],
+        ["9,741,555", "minute bars (UTC, as of 2026-09-20)", "分钟 bar（UTC，截至 2026-09-20）"],
+        ["6,748", "derived daily bars (4 symbols, as of 2026-09-20)", "派生日线（4 标的，截至 2026-09-20）"],
         ["2,420", "distinct UTC dates (DXY near-24h)", "不同 UTC 日期（含 DXY 近 24 小时）"],
         ["2020 → 2026", "archive window", "归档区间"],
       ]} />
+      <h3 style={{ fontSize: 17, margin: "0 0 8px", color: "var(--ink-strong)" }}>快速示例 / Quickstart</h3>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`import requests
+
+TOKEN = "<TOKEN>"  # Paid plan required; Free returns 403
+resp = requests.get(
+    "https://api.leandata.uk/v1/indices/daily",
+    params={"symbols": "SPX,NDX", "start": "2026-09-15", "end": "2026-09-17"},
+    headers={"Authorization": f"Bearer {TOKEN}"},
+    timeout=30,
+)
+resp.raise_for_status()
+for row in resp.json()["rows"]:
+    print(row["symbol"], row["date"], row["close"], f'({row["bars"]} bars)')`}      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`# Expected shape (one row per symbol-date)
+{ "symbol": "VIX", "date": "2026-09-15", "open": 16.84, "high": 17.84,
+  "low": 16.84, "close": 17.21, "bars": 405 }  # bars = minute bars behind the day`}      </pre>
 
       <h2 id="get-post-v1-indices-minute" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/indices/minute</h2>
       <DocDesc
