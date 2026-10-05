@@ -398,7 +398,9 @@ function getDocSections(tab, page) {
         { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
         { title: "Metadata", items: ["condition codes", "exchange codes"] },
         { title: "Single symbol", items: ["single bars", "single latest bar", "single quotes", "single latest quote", "single snapshot", "single trades", "single latest trade"] },
-      ]}]},
+      ]},
+      // Cross-page entry: sidebar leaf resolves to the dedicated CN route.
+      { title: "World · CN 中国数据", items: ["CN Data overview"] }]},
     ],
     "market-options": sections.filter((section) => section.title === "Options Data"),
     "market-indices": sections.filter((section) => section.title === "Index Data"),
@@ -426,6 +428,9 @@ for (const [page, config] of Object.entries(DOC_PAGE_CONFIG)) {
   if (!["proxy", "ws", "fmp-fundamentals", "morningstar"].includes(config.tab)) continue;
   for (const item of flattenSections(getDocSections(config.tab, page))) {
     const id = docSectionId(config.tab, item.label);
+    // cn-* sidebar entries outside market-cn are cross-page links: they must
+    // not mint a second local article route.
+    if (id.startsWith("cn-") && page !== "market-cn") continue;
     const path = `${config.path}${id}/`;
     DOC_ARTICLES[path] ||= { ...config, path, page, id, label: item.label, group: item.group };
   }
@@ -433,7 +438,12 @@ for (const [page, config] of Object.entries(DOC_PAGE_CONFIG)) {
 
 function docArticlePath(page, id) {
   const path = `${DOC_PAGE_CONFIG[page].path}${id}/`;
-  return DOC_ARTICLES[path] ? path : DOC_PAGE_CONFIG[page].path;
+  if (DOC_ARTICLES[path]) return path;
+  // Cross-page sidebar entries (e.g. CN overview listed under market-stocks)
+  // resolve to the article's own route instead of falling back to this page.
+  const foreign = Object.values(DOC_ARTICLES).find(article => article.id === id);
+  if (foreign) return foreign.path;
+  return DOC_PAGE_CONFIG[page].path;
 }
 
 function legacyDocsPath(hash) {
