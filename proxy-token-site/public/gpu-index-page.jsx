@@ -350,7 +350,6 @@ function Dashboard({ data, refreshError }) {
             <div className="gpu-index-eyebrow">另类数据 / Alternative data · GPU rental market · 6-hour tape</div>
             <h1 className="gpu-index-title">GPU Rental <em>Index</em></h1>
             <p className="gpu-index-subtitle">按物理机器去重，以纳入样本的可租 GPU 容量（included eligible capacity）加权，而非全市场。图表用 p10–p90 清理极值尺度；均价、供给和原始报价统计仍纳入全部报价（all offers），尾部报价保留用于审计。</p>
-            <p style={{ margin: "16px 0 0" }}><a className="btn" href="/chart/" style={{ textDecoration: "none" }}>打开行情图表 / Open market chart →</a></p>
           </div>
           <div className="gpu-index-meta">
             <div className="gpu-index-meta-row"><span>Last slot</span><span>{data.latest_slot ? timeLabel(data.latest_slot, true) : "—"}</span></div>
