@@ -596,7 +596,19 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
         <DocsTopbar active={tab} onMenu={() => setMenuOpen(open => !open)} menuOpen={menuOpen} />
         <nav className="docs-category-bar" aria-label="Documentation categories">
           <a href={DOC_PATHS.home} aria-current={page === "home" ? "page" : undefined}>{isZh ? "文档首页" : "Documentation"}</a>
-          {NAV_GROUPS.map(group => <a key={group.key} href={group.items[0].href} aria-current={group.match.includes(tab) ? "page" : undefined}>{isZh ? group.label : group.en}</a>)}
+          {NAV_GROUPS.map(group => (
+            <div key={group.key} className="docs-cat-group">
+              <a href={group.items[0].href} aria-current={group.match.includes(tab) ? "page" : undefined}>{isZh ? group.label : group.en}</a>
+              <div className="docs-cat-panel" role="menu" aria-label={isZh ? group.label : group.en}>
+                {group.items.map(item => (
+                  <a key={item.href} href={item.href} role="menuitem">
+                    <strong>{isZh ? item.label : item.en}</strong>
+                    <small>{item.desc}</small>
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
           <a href="/alternative-data/">{isZh ? "另类数据" : "Alternative data"}</a>
         </nav>
       </div>}
