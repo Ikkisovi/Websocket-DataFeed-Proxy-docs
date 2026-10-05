@@ -527,7 +527,7 @@ function DocsHome() {
           <section key={group.key} className="card" style={{ padding: 18 }}>
             <h3 style={{ margin: "0 0 12px", fontSize: 19 }}>{isZh ? group.label : group.en}</h3>
             <div style={{ display: "grid", gap: 8 }}>
-              {group.items.filter((item) => !item.entryHidden).map((item) => (
+              {group.items.map((item) => (
                 <a key={item.href} href={item.href} style={{ textDecoration: "none", padding: "9px 10px", borderRadius: 7, border: "1px solid var(--rule)", background: "var(--bg-paper)" }}>
                   <strong style={{ display: "block", color: "var(--ink-strong)", fontSize: 13 }}>{isZh ? item.label : item.en}</strong>
                   <span style={{ color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>{item.desc}</span>
