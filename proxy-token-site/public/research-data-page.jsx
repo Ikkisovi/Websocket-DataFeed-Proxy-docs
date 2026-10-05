@@ -94,12 +94,12 @@ export function ResearchDataPage() {
           <div className="research-section-heading"><h2 id="research-catalog-title">{t("可用数据", "Available data")}</h2><span>{products ? `${products.length} ${t("项产品", "product")}` : "…"}</span></div>
           {!products && !error && <p role="status">{t("正在加载数据产品…", "Loading data products…")}</p>}
           {products?.map(item => <label key={item.id} className={`card research-product ${selected === item.id ? "selected" : ""}`}>
-            <div className="research-product-top"><span className="eyebrow">{t("日频研究信号", "DAILY RESEARCH SIGNAL")}</span><input type="radio" name="product" aria-label={item.name} value={item.id} checked={selected === item.id} onChange={() => { setSelected(item.id); setReceipt(null); }} /></div>
+            <div className="research-product-top"><span className="eyebrow">{item.id === "cn-data" ? t("中国A股归档", "CN EQUITY ARCHIVE") : t("日频研究信号", "DAILY RESEARCH SIGNAL")}</span><input type="radio" name="product" aria-label={item.name} value={item.id} checked={selected === item.id} onChange={() => { setSelected(item.id); setReceipt(null); }} /></div>
             <h3 className="display-title">{item.name}</h3>
-            <p className="research-description">{t("探索股票成交订单流的周期结构。按历史 SPY 成分与稳定 SID 查询日频信号，保留源数据的稀疏日期与空值。", "Explore periodic structure in equity trading flow. Query daily signals by historical SPY membership and stable SID, with source gaps and nulls preserved.")}</p>
-            <div className="research-tags"><span>{t("日频", "Daily")}</span><span>10 {t("个信号字段", "signal fields")}</span><span>{t("历史归档", "Historical archive")}</span></div>
+            <p className="research-description">{item.id === "cn-data" ? t("中国A股日线、分钟线、估值、成分与会话归档。盘后批量更新，无实时推送；付款成功后自动开通。", "Archived CN A-share daily, minute, valuation, membership and session data. Post-close batch updates, no realtime feed; auto-provisioned after payment.") : t("探索股票成交订单流的周期结构。按历史 SPY 成分与稳定 SID 查询日频信号，保留源数据的稀疏日期与空值。", "Explore periodic structure in equity trading flow. Query daily signals by historical SPY membership and stable SID, with source gaps and nulls preserved.")}</p>
+            <div className="research-tags">{item.id === "cn-data" ? <><span>{t("月付", "Monthly")}</span><span>{t("历史归档", "Historical archive")}</span><span>{t("自动开通", "Auto-provisioned")}</span></> : <><span>{t("日频", "Daily")}</span><span>10 {t("个信号字段", "signal fields")}</span><span>{t("历史归档", "Historical archive")}</span></>}</div>
             <div className="research-endpoints">{item.endpoints.map(endpoint => <code key={endpoint}>{endpoint}</code>)}</div>
-            <div className="research-product-bottom"><strong>{item.amount_minor === 0 ? t("当前免费", "Currently free") : t("单独定价", "Separate pricing")}</strong><a href={item.docs_url}>{t("查看字段与覆盖范围", "Fields & coverage")} ↗</a></div>
+            <div className="research-product-bottom"><strong>{item.amount_minor === 0 ? t("当前免费", "Currently free") : new Intl.NumberFormat(language === "en" ? "en-US" : "zh-CN", { style: "currency", currency: item.currency }).format(item.amount_minor / 100) + t(" / 月", " / mo")}</strong><a href={item.docs_url}>{t("查看字段与覆盖范围", "Fields & coverage")} ↗</a></div>
           </label>)}
           <div className="research-details"><h3>{t("一次接入，开始研究", "Connect and start researching")}</h3><ol>
             <li>{t("注册免费账户，或使用现有账户登录。", "Create a free account or sign in with your existing account.")}</li>
@@ -112,7 +112,7 @@ export function ResearchDataPage() {
           <h2 className="display-title" id="research-checkout-title">{t("采购明细", "Your selection")}</h2>
           <div className="research-line"><span>{product?.name || "—"}</span><strong>{money}</strong></div>
           <div className="research-line research-total"><span>{t("本次应付", "Total due")}</span><strong>{money}</strong></div>
-          <p className="research-payment-note">{free ? t("无需付款 · 无自动续费", "No payment · No automatic renewal") : t("请选择可用产品。", "Select an available product.")}</p>
+          <p className="research-payment-note">{free ? t("无需付款 · 无自动续费", "No payment · No automatic renewal") : product ? t("按公布价格结算 · 结账后自动开通", "Billed at the published price · auto-provisioned after payment") : t("请选择可用产品。", "Select an available product.")}</p>
           {receipt ? <div className="research-success" role="status">
             <span className="research-success-mark" aria-hidden="true">✓</span>
             <h3>{t("免费访问已确认", "Free access confirmed")}</h3>
@@ -125,7 +125,11 @@ export function ResearchDataPage() {
               <button className="btn ghost" type="button" onClick={loadSession}>{t("重试", "Retry")}</button>
             </div> : account ? <form onSubmit={checkout}>
               <p className="research-account">{t("已登录", "Signed in")}: {account.user_id}</p>
-              <button className="btn accent research-button" type="submit" disabled={!free || busy}>{busy ? t("正在确认…", "Confirming…") : t("确认免费访问", "Confirm free access")}{!busy && " →"}</button>
+              {free
+                ? <button className="btn accent research-button" type="submit" disabled={busy}>{busy ? t("正在确认…", "Confirming…") : t("确认免费访问", "Confirm free access")}{!busy && " →"}</button>
+                : product?.checkout_hint
+                  ? <a className="btn accent research-button" href={product.checkout_hint}>{t("前往结账购买", "Continue to checkout")} →</a>
+                  : <button className="btn accent research-button" type="submit" disabled>{t("确认免费访问", "Confirm free access")} →</button>}
             </form> : <div>
               <a className="btn accent research-button" href="/account?next=research-data">{t("登录并继续", "Sign in to continue")} →</a>
               <a className="research-secondary" href="/register?next=research-data">{t("没有账户？免费注册", "New here? Create a free account")}</a>

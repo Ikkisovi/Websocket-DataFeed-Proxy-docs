@@ -276,6 +276,17 @@ const TIERS = {
       rest: { stocks_history: true, options_history: true, options_contracts: true, options_snapshots: true, options_snapshots_expiry: true, crypto_orderbooks: true, admin_token_lookup: false, news_history: true }
     }
   },
+  // Standalone CN archive plan (中国A股归档数据). Archive reads only:
+  // no realtime WebSocket and no US market-data flags. The CN gateway
+  // grants /v1/cn/* off role === 'china' via the synced registry.
+  china: {
+    role: 'china',
+    expiryDays: 30,
+    permissions: {
+      ws: { stocks: false, options: false, overnight: false, crypto: false, news: false, boats: false, test: false },
+      rest: { stocks_history: false, options_history: false, options_contracts: false, options_snapshots: false, options_snapshots_expiry: false, crypto_orderbooks: false, admin_token_lookup: false, news_history: false, cn_archive: true }
+    }
+  },
   // Internal load-test tier — short expiry, high per-user limits. Marked
   // with test_user:true so the warmer/analytics filter these out of audit.
   test: {
@@ -293,13 +304,15 @@ const PAYMENT_MONTHLY_PRICES_CNY_FEN = {
   basic: 6000,
   value: 7000,
   standard: 10000,
-  premium: 15000
+  premium: 15000,
+  china: 7000
 };
 const STRIPE_MONTHLY_PRICES_MINOR = {
   basic: { CAD: 1200, USD: 1000 },
   value: { CAD: 1400, USD: 1167 },
   standard: { CAD: 2000, USD: 1667 },
-  premium: { CAD: 3000, USD: 2500 }
+  premium: { CAD: 3000, USD: 2500 },
+  china: { CAD: 1400, USD: 1167 }
 };
 
 const PAYMENT_PLAN_DETAILS = {
@@ -324,6 +337,11 @@ const PAYMENT_PLAN_DETAILS = {
     name: 'Premium',
     summary: '完整数据权限与最高容量',
     features: ['全部实时 WebSocket 通道', '完整 REST 数据范围', 'WS 按当前运行时 subject 限制', '包含 crypto 与 news 数据']
+  },
+  china: {
+    name: 'China',
+    summary: '中国A股归档数据（独立套餐）',
+    features: ['中国A股日线 / 分钟线 / 估值 / 成分与会话', '归档接口 /v1/cn/*（ThinkCentre 隧道读取）', '盘后批量归档，无实时推送', '付款成功后自动开通，无需人工审核']
   }
 };
 
@@ -373,6 +391,21 @@ const RESEARCH_PRODUCTS = Object.freeze({
     authentication_required: true,
     docs_url: '/docs/market/research-signals/',
     endpoints: ['/v1/signals/spectral-tick-flow', '/v1/signals/spectral-tick-flow/coverage']
+  }),
+  // CN archive data as a paid research product. Purchase and automatic
+  // fulfillment reuse the market-data checkout flow (China plan bundles);
+  // this catalog entry only advertises it with a fixed monthly price.
+  'cn-data': Object.freeze({
+    id: 'cn-data',
+    name: 'CN Data 中国数据',
+    status: 'live',
+    amount_minor: 7000,
+    currency: 'CNY',
+    payment_required: true,
+    authentication_required: true,
+    docs_url: '/docs/market/cn/',
+    endpoints: ['/v1/cn', '/v1/cn/*'],
+    checkout_hint: '/checkout?tier=china'
   })
 });
 
@@ -1790,13 +1823,13 @@ function paymentBundleAllowedForContext(bundle, context) {
   if (context.kind === 'registration') {
     return bundle.renewal_only !== true;
   }
-  return ['basic', 'value', 'standard', 'premium'].includes(bundle.tier);
+  return ['basic', 'value', 'standard', 'premium', 'china'].includes(bundle.tier);
 }
 
 function checkoutPlansForContext(context) {
   const allowedTiers = context.kind === 'registration'
-    ? ['value', 'standard', 'premium']
-    : ['basic', 'value', 'standard', 'premium'];
+    ? ['value', 'standard', 'premium', 'china']
+    : ['basic', 'value', 'standard', 'premium', 'china'];
   return allowedTiers.map(tier => {
     const details = PAYMENT_PLAN_DETAILS[tier];
     return {

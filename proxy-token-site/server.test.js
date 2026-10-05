@@ -77,6 +77,10 @@ describe('Research data checkout', () => {
     expect(catalog.body.products).toEqual([expect.objectContaining({
       id: 'spectral-tick-flow', amount_minor: 0, status: 'free',
       payment_required: false, authentication_required: true
+    }), expect.objectContaining({
+      id: 'cn-data', amount_minor: 7000, currency: 'CNY', status: 'live',
+      payment_required: true, authentication_required: true,
+      docs_url: '/docs/market/cn/', checkout_hint: '/checkout?tier=china'
     })]);
   });
 
@@ -96,6 +100,11 @@ describe('Research data checkout', () => {
     for (const product_id of ['standard-1m', '__proto__', 'constructor', ['spectral-tick-flow'], null]) {
       expect((await checkout({ product_id })).status).toBe(400);
     }
+    // Paid research products stay fail-closed here: purchase goes through
+    // the market-data checkout flow (China plan), never this endpoint.
+    const paid = await checkout({ product_id: 'cn-data' });
+    expect(paid.status).toBe(409);
+    expect(paid.body).toMatchObject({ success: false, code: 'payment_required' });
     for (let attempt = 0; attempt < 2; attempt++) {
       const result = await checkout({
         product_id: 'spectral-tick-flow', amount_minor: 9999, role: 'premium', payment_method: 'stripe_card'

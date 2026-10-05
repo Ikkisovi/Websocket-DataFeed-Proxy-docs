@@ -2191,9 +2191,9 @@ X-Request-Id: <uuid>`}</pre>
   );
 }
 
-// ── CN Data 中国数据 (private beta · live) ────────────────────────────
+// ── CN Data 中国数据 (live) ───────────────────────────────────────────
 // Bilingual surface for the live /v1/cn archive endpoints.
-// Private beta: explicit per-account allowlist, own account only; no vendor names appear here.
+// Live product: China plan (¥70/mo) auto-provisions access, own account only; no vendor names appear here.
 function CnSourceChip({ source }) {
   const map = {
     available: { bg: "var(--ok-soft)", fg: "var(--ok)", en: "available · live", zh: "可用·已上线" },
@@ -2208,11 +2208,11 @@ function CnSourceChip({ source }) {
   );
 }
 
-function CnPrivateBetaBadge() {
+function CnLiveBadge() {
   const isZh = useCurrentLanguage() === "zh";
   return (
     <span style={{ padding: "2px 7px", background: "var(--bg-canvas)", border: "1px solid var(--rule-strong)", color: "var(--ink-muted)", fontFamily: "var(--f-mono)", fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", borderRadius: 3, fontWeight: 600 }}>
-      {isZh ? "内测已上线" : "private beta · live"}
+      {isZh ? "已上线" : "live"}
     </span>
   );
 }
@@ -2222,7 +2222,7 @@ function CnEndpoint({ id, title, method, path, source, params, example, en, zh }
     <div style={{ marginBottom: 36 }}>
       <h3 id={id} className="display-title" style={{ fontSize: 22, margin: "0 0 8px" }}>{title}</h3>
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
-        <CnPrivateBetaBadge />
+        <CnLiveBadge />
         <CnSourceChip source={source} />
       </div>
       <EndpointBadge method={method} path={path} />
@@ -2230,8 +2230,8 @@ function CnEndpoint({ id, title, method, path, source, params, example, en, zh }
       <ParamTable rows={params} />
       <pre className="code" style={{ marginBottom: 8 }}>{example}</pre>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: 0 }}>
-        Accounts without CN Data access receive <code>403</code> for <code>/v1/cn/*</code>; CN Data requires explicit account authorization.
-        <br/>未获得中国数据授权的账号请求 <code>/v1/cn/*</code> 返回 <code>403</code>；需要单独开通账号权限，普通套餐不自动包含。
+        Accounts without CN Data access receive <code>403</code> for <code>/v1/cn/*</code>; access is auto-provisioned by the China plan (¥70/mo).
+        <br/>未开通中国数据的账号请求 <code>/v1/cn/*</code> 返回 <code>403</code>；购买 China 套餐（¥70/月）后自动开通，普通套餐不自动包含。
       </p>
     </div>
   );
@@ -2257,12 +2257,12 @@ function CnDataSections({ articleId } = {}) {
   ];
   return (
     <DocContent articleId={articleId}>
-      <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>CN Data · private beta · live</div>
-      <h2 id="cn-data-overview" className="display-title" style={{ fontSize: 32, margin: "0 0 8px" }}>{isZh ? "CN Data 中国数据（内测已上线）" : "CN Data (private beta · live)"}</h2>
+      <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>CN Data · live</div>
+      <h2 id="cn-data-overview" className="display-title" style={{ fontSize: 32, margin: "0 0 8px" }}>{isZh ? "CN Data 中国数据（已上线）" : "CN Data (live)"}</h2>
       <div style={{ border: "1px solid var(--accent-rule)", background: "var(--accent-soft)", borderRadius: 8, padding: "12px 16px", margin: "0 0 20px", fontSize: 13, lineHeight: 1.65 }}>
-        <strong style={{ color: "var(--accent-ink)" }}>{isZh ? "内测已上线 · 单独授权 · 暂不销售" : "Private beta live · explicit account access · not for sale"}</strong>
-        <br/>归档接口以 <code style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>/v1/cn/*</code> 为前缀，仅限明确授权的账号本人使用（exact allowlist，own account only）。价格待定（TBD），结账页不提供购买按钮，普通套餐默认不包含。
-        <br/><span style={{ color: "var(--ink-muted)" }}>Live archive endpoints under <code style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>/v1/cn/*</code> for explicitly allowlisted accounts only (own account). Price TBD, no purchase button on checkout, not included in ordinary plans; explicit account authorization required.</span>
+        <strong style={{ color: "var(--accent-ink)" }}>{isZh ? "已上线 · ¥70/月 · 付款自动开通" : "Live · ¥70/mo · auto-provisioned after payment"}</strong>
+        <br/>归档接口以 <code style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>/v1/cn/*</code> 为前缀。China 为独立套餐（¥70/月），在<a href="/research-data">研究数据采购</a>或结账页选择 China 套餐并完成支付后，账号本人自动获得访问权限（own account only）；普通套餐默认不包含。
+        <br/><span style={{ color: "var(--ink-muted)" }}>Live archive endpoints under <code style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>/v1/cn/*</code>. China is a standalone plan (¥70/mo): pick it on <a href="/research-data">research-data procurement</a> or checkout and access is auto-provisioned on your own account after payment; not included in ordinary plans.</span>
       </div>
       <DocDesc
         zh="CN Data 提供中国 A 股归档切片：25 个可用数据路由（含 ETF 分钟线 /v1/cn/etf/minute/bars）加目录接口 /v1/cn/catalog。响应携带 coverage=archived_slice：行数为已归档记录数，不是全市场完整覆盖；原始发布时间不代表已验证的时点可用性。日期边界均为包含式；fq 仅支持 archived（原样返回归档价格，不做复权转换），没有 frequency 参数。GET 与 POST 均可调用。"
@@ -2443,7 +2443,7 @@ function CnDataSections({ articleId } = {}) {
       <div style={{ marginBottom: 36 }}>
         <h3 id="cn-unavailable" className="display-title" style={{ fontSize: 22, margin: "0 0 8px" }}>{isZh ? "预留路由 / Reserved routes" : "Reserved routes"}</h3>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
-          <CnPrivateBetaBadge />
+          <CnLiveBadge />
           <CnSourceChip source="unavailable" />
         </div>
         <DocDesc
@@ -2466,10 +2466,10 @@ function CnDataSections({ articleId } = {}) {
   -H "Authorization: Bearer <TOKEN>"`}
       />
 
-      <h2 id="cn-access" className="display-title" style={{ fontSize: 28, margin: "40px 0 12px" }}>{isZh ? "权限与范围（内测已上线）" : "Access & scope (live private beta)"}</h2>
+      <h2 id="cn-access" className="display-title" style={{ fontSize: 28, margin: "40px 0 12px" }}>{isZh ? "权限与范围（已上线）" : "Access & scope (live)"}</h2>
       <DocDesc
-        zh="内测已上线：普通套餐默认不包含（含 Premium），需明确授权账号本人（单独授权）。结账页不提供购买，价格待定（TBD）。"
-        en="Live private beta: not included in ordinary plans (including Premium) by default; access requires explicit account authorization (own account only). Checkout offers no purchase; price TBD."
+        zh="已上线：普通套餐默认不包含（含 Premium）。China 独立套餐 ¥70/月，付款成功后自动开通账号本人权限；切换套餐会替换账号权限（与现有续费语义一致）。归档为盘后批量更新，无实时推送。"
+        en="Live: not included in ordinary plans (including Premium) by default. The standalone China plan (¥70/mo) auto-provisions access on your own account after payment; switching plans replaces account permissions (same renewal semantics as other tiers). Archive updates are post-close batches; no realtime feed."
       />
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
         <thead><tr><th>Method</th><th>Endpoint</th><th>Family</th><th>Source</th><th>Status</th></tr></thead>
@@ -2483,7 +2483,7 @@ function CnDataSections({ articleId } = {}) {
                 <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{path}</td>
                 <td style={{ fontSize: 12 }}>{family}</td>
                 <td style={{ fontSize: 12 }}><CnSourceChip source={source} /></td>
-                <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>private beta · live</td>
+                <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>live</td>
               </tr>
             );
           })}
@@ -2496,14 +2496,19 @@ function CnDataSections({ articleId } = {}) {
             <tr key={plan}>
               <td style={{ fontSize: 12 }}>{plan}</td>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>not included</td>
-              <td style={{ fontSize: 12 }}>403 unless explicitly authorized</td>
+              <td style={{ fontSize: 12 }}>403 without a China plan</td>
             </tr>
           ))}
+          <tr>
+            <td style={{ fontSize: 12 }}>China (¥70/mo)</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>included · auto-provisioned</td>
+            <td style={{ fontSize: 12 }}>200 with valid China-plan token</td>
+          </tr>
         </tbody>
       </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
-        CN Data uses your existing unified token with explicit account authorization (own account only). It is not included in ordinary plans; price TBD and checkout offers no purchase.
-        <br/>中国数据沿用现有 Token，须明确授权账号本人使用；普通套餐默认不包含；价格待定，结账页不提供购买。
+        CN Data uses your existing unified token. It is not included in ordinary plans; the China plan (¥70/mo) auto-provisions access after payment.
+        <br/>中国数据沿用现有 Token；普通套餐默认不包含；China 套餐（¥70/月）付款后自动开通。
       </p>
     </DocContent>
   );
@@ -2651,13 +2656,13 @@ Authorization: Bearer <TOKEN>
             <td style={{ fontSize: 12 }}>All REST endpoints including crypto orderbooks</td>
           </tr>
           <tr>
-            <td><span className="tier china">China · 内测</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>TBD · 待定</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>private beta · live</td>
+            <td><span className="tier china">China</span></td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥70 / 月 · live</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>live</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontSize: 12 }}>CN Data 中国数据 · live /v1/cn/* · private beta · no purchase; explicit account authorization required（入口见「选择市场」→ 世界/中国；entry via Choose your market → World · CN）</td>
+            <td style={{ fontSize: 12 }}>CN Data 中国数据 · live /v1/cn/* · 付款自动开通；独立套餐，不含美股数据（入口见「选择市场」→ 世界/中国；entry via Choose your market → World · CN）</td>
           </tr>
         </tbody>
       </table>
@@ -3344,8 +3349,8 @@ for row in resp.json()["rows"]:
       <h2 id="market-us-world" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Choose your market · 选择市场</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 16px" }}>
         US stock routes are available subject to plan permissions and feed coverage. World coverage starts with CN archive
-        slices under <code>/v1/cn/*</code> (private beta · explicit account authorization, ordinary plans excluded).
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>美股接口受套餐权限和行情覆盖范围约束；世界覆盖从中国 A 股归档（内测、单独授权）开始。</span>
+        slices under <code>/v1/cn/*</code> (live · China plan ¥70/mo, ordinary plans excluded).
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>美股接口受套餐权限和行情覆盖范围约束；世界覆盖从中国 A 股归档（已上线 · China 套餐 ¥70/月）开始。</span>
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 40 }}>
         <a href={DOC_PATHS.marketStocks} style={{ textDecoration: "none", border: "1px solid var(--rule)", borderRadius: 10, padding: "14px 16px", background: "var(--bg-paper)" }}>
@@ -3353,8 +3358,8 @@ for row in resp.json()["rows"]:
           <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>/v2/stocks/* · US market data →</div>
         </a>
         <a href={DOC_PATHS.marketCn} style={{ textDecoration: "none", border: "1px solid var(--accent-rule)", borderRadius: 10, padding: "14px 16px", background: "var(--accent-soft)" }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--accent-ink)", marginBottom: 4 }}>世界/中国 World · CN <span style={{ fontFamily: "var(--f-mono)", fontSize: 10, border: "1px solid var(--rule-strong)", borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>内测 beta</span></div>
-          <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>/v1/cn/* · archive slice · explicit auth →</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--accent-ink)", marginBottom: 4 }}>世界/中国 World · CN <span style={{ fontFamily: "var(--f-mono)", fontSize: 10, border: "1px solid var(--rule-strong)", borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>¥70/月</span></div>
+          <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>/v1/cn/* · archive slice · auto-provisioned →</div>
         </a>
       </div>
 
