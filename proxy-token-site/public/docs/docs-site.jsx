@@ -496,7 +496,7 @@ function DocsTopbar({ active = "proxy", onMenu, menuOpen }) {
   return (
     <header className="topbar docs-topbar">
       <button type="button" className="docs-menu-button" onClick={onMenu} aria-expanded={menuOpen} aria-controls="docs-navigation" aria-label="Toggle documentation navigation">☰</button>
-      <a className="brand" href={DOC_PATHS.home}><span className="dot" /><strong>LeanData</strong><span className="docs-brand-caption">Docs</span></a>
+      <a className="brand" href="/"><span className="dot" /><strong>LeanData</strong><span className="docs-brand-caption">Docs</span></a>
       <DocsSearch isZh={isZh} />
       <div className="meta">
         <a href="/research-data">{isZh ? "研究数据" : "Research data"}</a>
@@ -596,14 +596,26 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
         <DocsTopbar active={tab} onMenu={() => setMenuOpen(open => !open)} menuOpen={menuOpen} />
         <nav className="docs-category-bar" aria-label="Documentation categories">
           <a href={DOC_PATHS.home} aria-current={page === "home" ? "page" : undefined}>{isZh ? "文档首页" : "Documentation"}</a>
-          {NAV_GROUPS.map(group => <a key={group.key} href={group.items[0].href} aria-current={group.match.includes(tab) ? "page" : undefined}>{isZh ? group.label : group.en}</a>)}
+          {NAV_GROUPS.map(group => (
+            <div key={group.key} className="docs-cat-group">
+              <a href={group.items[0].href} aria-current={group.match.includes(tab) ? "page" : undefined}>{isZh ? group.label : group.en}</a>
+              <div className="docs-cat-panel" role="menu" aria-label={isZh ? group.label : group.en}>
+                {group.items.map(item => (
+                  <a key={item.href} href={item.href} role="menuitem">
+                    <strong>{isZh ? item.label : item.en}</strong>
+                    <small>{item.desc}</small>
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
           <a href="/alternative-data/">{isZh ? "另类数据" : "Alternative data"}</a>
         </nav>
       </div>}
-      <div className={`docs-content-grid docs-reference-grid${referencePage ? " has-code-rail" : ""}${menuOpen ? " menu-open" : ""}`}>
-        <div id="docs-navigation" className="docs-navigation" role="navigation" aria-label="Documentation navigation">
-          <TopicLinks page={page} isZh={isZh}>{referencePage && <SideNav tab={tab} page={page} />}</TopicLinks>
-        </div>
+      <div className={`docs-content-grid docs-reference-grid${referencePage ? " has-code-rail" : " no-nav"}${menuOpen ? " menu-open" : ""}`}>
+        {referencePage && <div id="docs-navigation" className="docs-navigation" role="navigation" aria-label="Documentation navigation">
+          <TopicLinks page={page} isZh={isZh}><SideNav tab={tab} page={page} /></TopicLinks>
+        </div>}
         <main ref={mainRef} className={`docs-main${article ? " docs-article" : ""}${tab === "bulk" ? " bulk-main" : ""}`}>
           {page !== "home" && <nav className="docs-breadcrumb" aria-label="Breadcrumb">
             <a href={DOC_PATHS.home}>{isZh ? "文档" : "Docs"}</a><span>/</span>
@@ -2179,9 +2191,9 @@ X-Request-Id: <uuid>`}</pre>
   );
 }
 
-// ── CN Data 中国数据 (private beta · live) ────────────────────────────
+// ── CN Data 中国数据 (live) ───────────────────────────────────────────
 // Bilingual surface for the live /v1/cn archive endpoints.
-// Private beta: explicit per-account allowlist, own account only; no vendor names appear here.
+// Live product: China plan (¥70/mo) auto-provisions access, own account only; no vendor names appear here.
 function CnSourceChip({ source }) {
   const map = {
     available: { bg: "var(--ok-soft)", fg: "var(--ok)", en: "available · live", zh: "可用·已上线" },
@@ -2196,11 +2208,11 @@ function CnSourceChip({ source }) {
   );
 }
 
-function CnPrivateBetaBadge() {
+function CnLiveBadge() {
   const isZh = useCurrentLanguage() === "zh";
   return (
     <span style={{ padding: "2px 7px", background: "var(--bg-canvas)", border: "1px solid var(--rule-strong)", color: "var(--ink-muted)", fontFamily: "var(--f-mono)", fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", borderRadius: 3, fontWeight: 600 }}>
-      {isZh ? "内测已上线" : "private beta · live"}
+      {isZh ? "已上线" : "live"}
     </span>
   );
 }
@@ -2210,7 +2222,7 @@ function CnEndpoint({ id, title, method, path, source, params, example, en, zh }
     <div style={{ marginBottom: 36 }}>
       <h3 id={id} className="display-title" style={{ fontSize: 22, margin: "0 0 8px" }}>{title}</h3>
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
-        <CnPrivateBetaBadge />
+        <CnLiveBadge />
         <CnSourceChip source={source} />
       </div>
       <EndpointBadge method={method} path={path} />
@@ -2218,8 +2230,8 @@ function CnEndpoint({ id, title, method, path, source, params, example, en, zh }
       <ParamTable rows={params} />
       <pre className="code" style={{ marginBottom: 8 }}>{example}</pre>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: 0 }}>
-        Accounts without CN Data access receive <code>403</code> for <code>/v1/cn/*</code>; CN Data requires explicit account authorization.
-        <br/>未获得中国数据授权的账号请求 <code>/v1/cn/*</code> 返回 <code>403</code>；需要单独开通账号权限，普通套餐不自动包含。
+        Accounts without CN Data access receive <code>403</code> for <code>/v1/cn/*</code>; access is auto-provisioned by the China plan (¥70/mo).
+        <br/>未开通中国数据的账号请求 <code>/v1/cn/*</code> 返回 <code>403</code>；购买 China 套餐（¥70/月）后自动开通，普通套餐不自动包含。
       </p>
     </div>
   );
@@ -2245,12 +2257,12 @@ function CnDataSections({ articleId } = {}) {
   ];
   return (
     <DocContent articleId={articleId}>
-      <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>CN Data · private beta · live</div>
-      <h2 id="cn-data-overview" className="display-title" style={{ fontSize: 32, margin: "0 0 8px" }}>{isZh ? "CN Data 中国数据（内测已上线）" : "CN Data (private beta · live)"}</h2>
+      <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>CN Data · live</div>
+      <h2 id="cn-data-overview" className="display-title" style={{ fontSize: 32, margin: "0 0 8px" }}>{isZh ? "CN Data 中国数据（已上线）" : "CN Data (live)"}</h2>
       <div style={{ border: "1px solid var(--accent-rule)", background: "var(--accent-soft)", borderRadius: 8, padding: "12px 16px", margin: "0 0 20px", fontSize: 13, lineHeight: 1.65 }}>
-        <strong style={{ color: "var(--accent-ink)" }}>{isZh ? "内测已上线 · 单独授权 · 暂不销售" : "Private beta live · explicit account access · not for sale"}</strong>
-        <br/>归档接口以 <code style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>/v1/cn/*</code> 为前缀，仅限明确授权的账号本人使用（exact allowlist，own account only）。价格待定（TBD），结账页不提供购买按钮，普通套餐默认不包含。
-        <br/><span style={{ color: "var(--ink-muted)" }}>Live archive endpoints under <code style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>/v1/cn/*</code> for explicitly allowlisted accounts only (own account). Price TBD, no purchase button on checkout, not included in ordinary plans; explicit account authorization required.</span>
+        <strong style={{ color: "var(--accent-ink)" }}>{isZh ? "已上线 · ¥70/月 · 付款自动开通" : "Live · ¥70/mo · auto-provisioned after payment"}</strong>
+        <br/>归档接口以 <code style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>/v1/cn/*</code> 为前缀。China 为独立套餐（¥70/月），在<a href="/research-data">研究数据采购</a>或结账页选择 China 套餐并完成支付后，账号本人自动获得访问权限（own account only）；普通套餐默认不包含。
+        <br/><span style={{ color: "var(--ink-muted)" }}>Live archive endpoints under <code style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>/v1/cn/*</code>. China is a standalone plan (¥70/mo): pick it on <a href="/research-data">research-data procurement</a> or checkout and access is auto-provisioned on your own account after payment; not included in ordinary plans.</span>
       </div>
       <DocDesc
         zh="CN Data 提供中国 A 股归档切片：25 个可用数据路由（含 ETF 分钟线 /v1/cn/etf/minute/bars）加目录接口 /v1/cn/catalog。响应携带 coverage=archived_slice：行数为已归档记录数，不是全市场完整覆盖；原始发布时间不代表已验证的时点可用性。日期边界均为包含式；fq 仅支持 archived（原样返回归档价格，不做复权转换），没有 frequency 参数。GET 与 POST 均可调用。"
@@ -2431,7 +2443,7 @@ function CnDataSections({ articleId } = {}) {
       <div style={{ marginBottom: 36 }}>
         <h3 id="cn-unavailable" className="display-title" style={{ fontSize: 22, margin: "0 0 8px" }}>{isZh ? "预留路由 / Reserved routes" : "Reserved routes"}</h3>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
-          <CnPrivateBetaBadge />
+          <CnLiveBadge />
           <CnSourceChip source="unavailable" />
         </div>
         <DocDesc
@@ -2454,10 +2466,10 @@ function CnDataSections({ articleId } = {}) {
   -H "Authorization: Bearer <TOKEN>"`}
       />
 
-      <h2 id="cn-access" className="display-title" style={{ fontSize: 28, margin: "40px 0 12px" }}>{isZh ? "权限与范围（内测已上线）" : "Access & scope (live private beta)"}</h2>
+      <h2 id="cn-access" className="display-title" style={{ fontSize: 28, margin: "40px 0 12px" }}>{isZh ? "权限与范围（已上线）" : "Access & scope (live)"}</h2>
       <DocDesc
-        zh="内测已上线：普通套餐默认不包含（含 Premium），需明确授权账号本人（单独授权）。结账页不提供购买，价格待定（TBD）。"
-        en="Live private beta: not included in ordinary plans (including Premium) by default; access requires explicit account authorization (own account only). Checkout offers no purchase; price TBD."
+        zh="已上线：普通套餐默认不包含（含 Premium）。China 独立套餐 ¥70/月，付款成功后自动开通账号本人权限；切换套餐会替换账号权限（与现有续费语义一致）。归档为盘后批量更新，无实时推送。"
+        en="Live: not included in ordinary plans (including Premium) by default. The standalone China plan (¥70/mo) auto-provisions access on your own account after payment; switching plans replaces account permissions (same renewal semantics as other tiers). Archive updates are post-close batches; no realtime feed."
       />
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
         <thead><tr><th>Method</th><th>Endpoint</th><th>Family</th><th>Source</th><th>Status</th></tr></thead>
@@ -2471,7 +2483,7 @@ function CnDataSections({ articleId } = {}) {
                 <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{path}</td>
                 <td style={{ fontSize: 12 }}>{family}</td>
                 <td style={{ fontSize: 12 }}><CnSourceChip source={source} /></td>
-                <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>private beta · live</td>
+                <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>live</td>
               </tr>
             );
           })}
@@ -2484,14 +2496,19 @@ function CnDataSections({ articleId } = {}) {
             <tr key={plan}>
               <td style={{ fontSize: 12 }}>{plan}</td>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>not included</td>
-              <td style={{ fontSize: 12 }}>403 unless explicitly authorized</td>
+              <td style={{ fontSize: 12 }}>403 without a China plan</td>
             </tr>
           ))}
+          <tr>
+            <td style={{ fontSize: 12 }}>China (¥70/mo)</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>included · auto-provisioned</td>
+            <td style={{ fontSize: 12 }}>200 with valid China-plan token</td>
+          </tr>
         </tbody>
       </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
-        CN Data uses your existing unified token with explicit account authorization (own account only). It is not included in ordinary plans; price TBD and checkout offers no purchase.
-        <br/>中国数据沿用现有 Token，须明确授权账号本人使用；普通套餐默认不包含；价格待定，结账页不提供购买。
+        CN Data uses your existing unified token. It is not included in ordinary plans; the China plan (¥70/mo) auto-provisions access after payment.
+        <br/>中国数据沿用现有 Token；普通套餐默认不包含；China 套餐（¥70/月）付款后自动开通。
       </p>
     </DocContent>
   );
@@ -2543,16 +2560,6 @@ function ProxyApiBody({ focus, articleId }) {
         All data surfaces accept the same token. Origin hosts and cache tiers may move during failover, so clients should never pin a raw server IP.
         <br/><span style={{ color: "var(--ink-soft)" }}>历史 REST、实时 REST 与 WebSocket 均使用稳定域名和同一 Token。故障切换时源站与缓存层可能调整，客户端不应绑定裸 IP。</span>
       </div>
-      <a href={DOC_PATHS.marketCn} style={{ textDecoration: "none" }}>
-        <div style={{ border: "1px solid var(--accent-rule)", background: "var(--accent-soft)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13, display: "flex", gap: 12, alignItems: "center" }}>
-          <span style={{ padding: "2px 8px", borderRadius: 999, background: "var(--accent-ink)", color: "var(--ink-inverse)", fontFamily: "var(--f-mono)", fontSize: 10, fontWeight: 700, letterSpacing: ".08em", whiteSpace: "nowrap" }}>PRIVATE BETA · LIVE · 内测已上线</span>
-          <span style={{ color: "var(--ink-base)" }}>
-            <strong>CN Data 中国数据</strong> — China A-share archive endpoints (daily, minute, valuation, reference, ETF minute bars, options, funds). Private beta live · explicit allowlist (own account only) · not for sale.
-            <br/><span style={{ color: "var(--ink-muted)" }}>中国 A 股归档接口，仅限明确授权的账号本人使用，不可购买。点击查看已上线的接口、参数与权限说明。</span>
-          </span>
-        </div>
-      </a>
-
       <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>{isZh ? "身份鉴权 (Authentication)" : "Authentication"}</h2>
       <DocDesc
         zh="所有数据接口（REST 和 WS）都需要 UUID Token。推荐通过 HTTP Authorization 请求头传递，也支持在 POST JSON 请求体中传递："
@@ -2649,13 +2656,13 @@ Authorization: Bearer <TOKEN>
             <td style={{ fontSize: 12 }}>All REST endpoints including crypto orderbooks</td>
           </tr>
           <tr>
-            <td><span className="tier china">China · 内测</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>TBD · 待定</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>private beta · live</td>
+            <td><span className="tier china">China</span></td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥70 / 月 · live</td>
+            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>live</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontSize: 12 }}><a href={DOC_PATHS.marketCn}>CN Data 中国数据</a> · live /v1/cn/* · private beta · no purchase; explicit account authorization required</td>
+            <td style={{ fontSize: 12 }}>CN Data 中国数据 · live /v1/cn/* · 付款自动开通；独立套餐，不含美股数据（入口见「选择市场」→ 世界/中国；entry via Choose your market → World · CN）</td>
           </tr>
         </tbody>
       </table>
@@ -2672,7 +2679,7 @@ Authorization: Bearer <TOKEN>
         <br/>Basic 可以访问全部可用历史数据，不设 Basic 专属的日期跨度、symbol 数或页数预算。请求仍受上游限制和 proxy 运行时控制影响，包括历史并发、QPS、超时和过载背压。Bulk Download 是单独的一次性交付产品，不是解锁旧日期的必要条件。
       </p>
 
-      <CnDataSections id="cn-data-overview" articleId={articleId?.startsWith("cn-") ? articleId : undefined} />
+      {(focus === "cn" || articleId?.startsWith("cn-")) && <CnDataSections id="cn-data-overview" articleId={articleId?.startsWith("cn-") ? articleId : undefined} />}
 
       {/* ── Free Plan Usage & Quickstart ── */}
       <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>Free Plan Guide</div>
@@ -2958,15 +2965,39 @@ print("Option contracts:", resp_opt.status_code)`}
 
       <h2 id="cash-indices-overview" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>QuantConnect 现金指数分钟线 / Cash-indices minute archive</h2>
       <DocDesc
-        zh="十二个现金指数的 1 分钟 OHLC 归档（2020-01-02 起，无 volume 列，源端本来就没有）：SPX、NDX、VIX、DJI、VIX3M、VIX6M、RUT、DXY、TNX、VVIX、SKEW、VXN。时间戳统一为 UTC：SPX/VIX/DJI/VIX3M/VIX6M/RUT/TNX/VVIX/SKEW/VXN 按 America/Chicago 会话，NDX/DXY 按 America/New_York 会话（DXY 近 24 小时、每日 17:00–18:00 ET 休市，节假日全天休市）。提前收市日与稀疏日 bar 较少，缺失 bar 原样保留不填补。日度版仅覆盖 SPX/NDX/VIX/DJI（由分钟线按交易所时区派生：open 取首 bar，close 取尾 bar）；其余八个标的为分钟线专用，日度请客户端自行 resample。四个新接口均为 Paid plan，Free 返回 403 cash_indices_paid_plan_required。"
-        en="1-minute OHLC archive for twelve cash indices since 2020-01-02 (no volume column exists at the source): SPX, NDX, VIX, DJI, VIX3M, VIX6M, RUT, DXY, TNX, VVIX, SKEW and VXN. Timestamps are UTC normalized from exchange-local sessions: SPX/VIX/DJI/VIX3M/VIX6M/RUT/TNX/VVIX/SKEW/VXN in America/Chicago, NDX/DXY in America/New_York (DXY trades near-24h with a 17:00-18:00 ET break and is closed on holidays). Early-close and sparse days carry fewer bars; missing bars are preserved, never filled. The derived daily version covers only SPX/NDX/VIX/DJI (open is the first bar, close the last bar, bucketed in listing-exchange time); the other eight symbols are minute-only, resample client-side for daily bars. All four endpoints require a paid plan; Free returns 403 cash_indices_paid_plan_required."
+        zh="十二个现金指数的 1 分钟 OHLC 归档，源端无 volume 列。起 2020-01-02，时间戳统一为 UTC。下面四个接口均为 Paid plan，Free 返回 403 cash_indices_paid_plan_required。"
+        en="1-minute OHLC archive for twelve cash indices since 2020-01-02 (no volume column exists at the source). Timestamps are UTC. All four endpoints below require a paid plan; Free returns 403 cash_indices_paid_plan_required."
       />
+      <ul style={{ fontSize: 14, lineHeight: 1.8, color: "var(--ink-muted)", margin: "0 0 16px", paddingLeft: 20 }}>
+        <li><strong style={{ color: "var(--ink-strong)" }}>覆盖 12 个标的 / 12 symbols</strong>：SPX、NDX、VIX、DJI、VIX3M、VIX6M、RUT、DXY、TNX、VVIX、SKEW、VXN。<br/><span>SPX, NDX, VIX, DJI, VIX3M, VIX6M, RUT, DXY, TNX, VVIX, SKEW and VXN.</span></li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>会话映射 / Session mapping</strong>：SPX/VIX/DJI/VIX3M/VIX6M/RUT/TNX/VVIX/SKEW/VXN 按 America/Chicago，NDX/DXY 按 America/New_York；DXY 近 24 小时交易，每日 17:00–18:00 ET 休市，节假日全天休市。<br/><span>SPX/VIX/DJI/VIX3M/VIX6M/RUT/TNX/VVIX/SKEW/VXN follow America/Chicago, NDX/DXY follow America/New_York; DXY trades near-24h with a daily 17:00–18:00 ET break and is closed on holidays.</span></li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>缺失处理 / Gaps</strong>：提前收市与稀疏日 bar 较少，缺失 bar 原样保留、不填补。<br/><span>Early-close and sparse days carry fewer bars; missing bars are preserved, never filled.</span></li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>日度派生 / Derived daily</strong>：仅 SPX/NDX/VIX/DJI（交易所时区切分，open 取首 bar、close 取尾 bar）；其余八个标的为分钟线专用，日度请客户端自行 resample，请求它们返回 400 invalid_symbol。<br/><span>Only SPX/NDX/VIX/DJI (bucketed in listing-exchange time; open is the first bar, close the last). The other eight symbols are minute-only: resample client-side, requesting them returns 400 invalid_symbol.</span></li>
+      </ul>
       <ProviderStats items={[
-        ["9,741,555", "minute bars (UTC)", "分钟 bar（UTC）"],
-        ["6,748", "derived daily bars (4 symbols)", "派生日线（4 标的）"],
+        ["9,741,555", "minute bars (UTC, as of 2026-09-20)", "分钟 bar（UTC，截至 2026-09-20）"],
+        ["6,748", "derived daily bars (4 symbols, as of 2026-09-20)", "派生日线（4 标的，截至 2026-09-20）"],
         ["2,420", "distinct UTC dates (DXY near-24h)", "不同 UTC 日期（含 DXY 近 24 小时）"],
         ["2020 → 2026", "archive window", "归档区间"],
       ]} />
+      <h3 style={{ fontSize: 17, margin: "0 0 8px", color: "var(--ink-strong)" }}>快速示例 / Quickstart</h3>
+      <pre className="code" style={{ marginBottom: 12 }}>
+{`import requests
+
+TOKEN = "<TOKEN>"  # Paid plan required; Free returns 403
+resp = requests.get(
+    "https://api.leandata.uk/v1/indices/daily",
+    params={"symbols": "SPX,NDX", "start": "2026-09-15", "end": "2026-09-17"},
+    headers={"Authorization": f"Bearer {TOKEN}"},
+    timeout=30,
+)
+resp.raise_for_status()
+for row in resp.json()["rows"]:
+    print(row["symbol"], row["date"], row["close"], f'({row["bars"]} bars)')`}      </pre>
+      <pre className="code" style={{ marginBottom: 40 }}>
+{`# Expected shape (one row per symbol-date)
+{ "symbol": "VIX", "date": "2026-09-15", "open": 16.84, "high": 17.84,
+  "low": 16.84, "close": 17.21, "bars": 405 }  # bars = minute bars behind the day`}      </pre>
 
       <h2 id="get-post-v1-indices-minute" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v1/indices/minute</h2>
       <DocDesc
@@ -3318,8 +3349,8 @@ print("Option contracts:", resp_opt.status_code)`}
       <h2 id="market-us-world" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Choose your market · 选择市场</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 16px" }}>
         US stock routes are available subject to plan permissions and feed coverage. World coverage starts with CN archive
-        slices under <code>/v1/cn/*</code> (private beta · explicit account authorization, ordinary plans excluded).
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>美股接口受套餐权限和行情覆盖范围约束；世界覆盖从中国 A 股归档（内测、单独授权）开始。</span>
+        slices under <code>/v1/cn/*</code> (live · China plan ¥70/mo, ordinary plans excluded).
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>美股接口受套餐权限和行情覆盖范围约束；世界覆盖从中国 A 股归档（已上线 · China 套餐 ¥70/月）开始。</span>
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 40 }}>
         <a href={DOC_PATHS.marketStocks} style={{ textDecoration: "none", border: "1px solid var(--rule)", borderRadius: 10, padding: "14px 16px", background: "var(--bg-paper)" }}>
@@ -3327,8 +3358,8 @@ print("Option contracts:", resp_opt.status_code)`}
           <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>/v2/stocks/* · US market data →</div>
         </a>
         <a href={DOC_PATHS.marketCn} style={{ textDecoration: "none", border: "1px solid var(--accent-rule)", borderRadius: 10, padding: "14px 16px", background: "var(--accent-soft)" }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--accent-ink)", marginBottom: 4 }}>世界/中国 World · CN <span style={{ fontFamily: "var(--f-mono)", fontSize: 10, border: "1px solid var(--rule-strong)", borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>内测 beta</span></div>
-          <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>/v1/cn/* · archive slice · explicit auth →</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--accent-ink)", marginBottom: 4 }}>世界/中国 World · CN <span style={{ fontFamily: "var(--f-mono)", fontSize: 10, border: "1px solid var(--rule-strong)", borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>¥70/月</span></div>
+          <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>/v1/cn/* · archive slice · auto-provisioned →</div>
         </a>
       </div>
 

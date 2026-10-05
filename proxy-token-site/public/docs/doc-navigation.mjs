@@ -34,7 +34,7 @@ const NAV_GROUPS = [
       { label: "指数行情", en: "Index data", desc: "SPX · VIX · DJX · XSP", href: DOC_PATHS.marketIndices },
       { label: "研究信号", en: "Research signals", desc: "Spectral Tick-Flow · SID", href: DOC_PATHS.marketResearch },
       { label: "加密与新闻", en: "Crypto & news", desc: "Snapshots · Orderbooks · News", href: DOC_PATHS.marketCryptoNews },
-      { label: "中国数据·内测", en: "CN Data · Private beta", desc: "CN archive · /v1/cn/*", href: DOC_PATHS.marketCn },
+      { label: "中国数据", en: "CN Data", desc: "CN archive · /v1/cn/* · ¥70/月", href: DOC_PATHS.marketCn },
     ],
   },
   {
@@ -391,14 +391,16 @@ function getDocSections(tab, page) {
   ];
 
   const pageSections = {
-    "market-overview": sections.filter((section) => ["Getting started", "Token API", "Admin endpoints", "Reference"].includes(section.title)),
+    "market-overview": sections.filter((section) => ["Getting started", "Token API", "Stock Data", "Admin endpoints", "Reference"].includes(section.title)).map((section) => section.title === "Stock Data" ? { ...section, linksOnly: true } : section),
     "market-stocks": [
       { title: "REST History", items: ["history/bars", "stock trade+quote"] },
       { title: "Stock Data", items: ["Market · US / World"], children: [{ title: "US market", items: ["overview"], children: [
         { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
         { title: "Metadata", items: ["condition codes", "exchange codes"] },
         { title: "Single symbol", items: ["single bars", "single latest bar", "single quotes", "single latest quote", "single snapshot", "single trades", "single latest trade"] },
-      ]}]},
+      ]},
+      // Cross-page entry: sidebar leaf resolves to the dedicated CN route.
+      { title: "World · CN 中国数据", items: ["CN Data overview"] }]},
     ],
     "market-options": sections.filter((section) => section.title === "Options Data"),
     "market-indices": sections.filter((section) => section.title === "Index Data"),
@@ -421,11 +423,23 @@ function flattenSections(sections) {
   ]);
 }
 
+// Sidebar mirror groups (linksOnly) are visible navigation that must never
+// mint article routes; their leaves resolve cross-page via docArticlePath.
+function articleItems(sections) {
+  return (sections || []).flatMap(section => section.linksOnly
+    ? []
+    : [...(section.items || []).map(label => ({ label, group: section.title })),
+      ...articleItems(section.children || [])]);
+}
+
 const DOC_ARTICLES = {};
 for (const [page, config] of Object.entries(DOC_PAGE_CONFIG)) {
   if (!["proxy", "ws", "fmp-fundamentals", "morningstar"].includes(config.tab)) continue;
-  for (const item of flattenSections(getDocSections(config.tab, page))) {
+  for (const item of articleItems(getDocSections(config.tab, page))) {
     const id = docSectionId(config.tab, item.label);
+    // cn-* sidebar entries outside market-cn are cross-page links: they must
+    // not mint a second local article route.
+    if (id.startsWith("cn-") && page !== "market-cn") continue;
     const path = `${config.path}${id}/`;
     DOC_ARTICLES[path] ||= { ...config, path, page, id, label: item.label, group: item.group };
   }
@@ -433,7 +447,12 @@ for (const [page, config] of Object.entries(DOC_PAGE_CONFIG)) {
 
 function docArticlePath(page, id) {
   const path = `${DOC_PAGE_CONFIG[page].path}${id}/`;
-  return DOC_ARTICLES[path] ? path : DOC_PAGE_CONFIG[page].path;
+  if (DOC_ARTICLES[path]) return path;
+  // Cross-page sidebar entries (e.g. CN overview listed under market-stocks)
+  // resolve to the article's own route instead of falling back to this page.
+  const foreign = Object.values(DOC_ARTICLES).find(article => article.id === id);
+  if (foreign) return foreign.path;
+  return DOC_PAGE_CONFIG[page].path;
 }
 
 function legacyDocsPath(hash) {

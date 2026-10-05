@@ -343,10 +343,6 @@ function Dashboard({ data, refreshError }) {
         <nav className="gpu-index-crumbs" aria-label="Breadcrumb">
           <a href="/">首页 Home</a>
           <span aria-hidden="true">/</span>
-          <a href="/docs/">文档 Docs</a>
-          <span aria-hidden="true">/</span>
-          <a href="/chart/">行情图表 Market chart</a>
-          <span aria-hidden="true">/</span>
           <span className="here">另类数据 / Alternative data · GPU index</span>
         </nav>
         <section className="gpu-index-hero">
@@ -452,7 +448,7 @@ export function GpuIndexPage() {
   }, []);
 
   if (!state.data) return <div className="gpu-index-state"><div className="gpu-index-state-card">
-    <nav className="gpu-index-crumbs" aria-label="Site navigation"><a href="/">首页 Home</a><span>/</span><a href="/chart/">行情图表 Market chart</a><span>/</span><a href="/docs/">文档 Docs</a></nav>
+    <nav className="gpu-index-crumbs" aria-label="Breadcrumb"><a href="/">首页 Home</a><span>/</span><span className="here">另类数据 / Alternative data · GPU index</span></nav>
     <h1>{state.loading ? 'Reading the tape…' : 'Index unavailable'}</h1>
     <p>{state.loading ? '正在读取 GPU 价格历史。' : 'GPU 价格历史暂时不可用，请稍后再试。'}</p>
   </div></div>;
