@@ -600,10 +600,10 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
           <a href="/alternative-data/">{isZh ? "另类数据" : "Alternative data"}</a>
         </nav>
       </div>}
-      <div className={`docs-content-grid docs-reference-grid${referencePage ? " has-code-rail" : ""}${menuOpen ? " menu-open" : ""}`}>
-        <div id="docs-navigation" className="docs-navigation" role="navigation" aria-label="Documentation navigation">
-          <TopicLinks page={page} isZh={isZh}>{referencePage && <SideNav tab={tab} page={page} />}</TopicLinks>
-        </div>
+      <div className={`docs-content-grid docs-reference-grid${referencePage ? " has-code-rail" : " no-nav"}${menuOpen ? " menu-open" : ""}`}>
+        {referencePage && <div id="docs-navigation" className="docs-navigation" role="navigation" aria-label="Documentation navigation">
+          <TopicLinks page={page} isZh={isZh}><SideNav tab={tab} page={page} /></TopicLinks>
+        </div>}
         <main ref={mainRef} className={`docs-main${article ? " docs-article" : ""}${tab === "bulk" ? " bulk-main" : ""}`}>
           {page !== "home" && <nav className="docs-breadcrumb" aria-label="Breadcrumb">
             <a href={DOC_PATHS.home}>{isZh ? "文档" : "Docs"}</a><span>/</span>

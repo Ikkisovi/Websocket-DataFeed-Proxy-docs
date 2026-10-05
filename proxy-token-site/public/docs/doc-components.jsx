@@ -147,21 +147,13 @@ function DocsSearch({ isZh = true }) {
   </div>;
 }
 
-function TopicLinks({ page, children, isZh = true }) {
-  // Dedicated CN route keeps a contextual sidebar: CN tree only, no
-  // permanent cross-topic shortcut blocks.
-  if (page === "market-cn") return <div className="doc-topics">{children}</div>;
-  return <div className="doc-topics">
-    {NAV_GROUPS.map(group => <div key={group.key} className="doc-topic-group">
-      <span>{isZh ? group.label : group.en}</span>
-      {group.items.filter(item => item.href.startsWith("/docs/")).map(item => <React.Fragment key={item.href}>
-        <a href={item.href} aria-current={DOC_PAGE_CONFIG[page]?.path === item.href ? "location" : undefined}>
-          {isZh ? item.label : item.en}
-        </a>
-        {DOC_PAGE_CONFIG[page]?.path === item.href && children}
-      </React.Fragment>)}
-    </div>)}
-  </div>;
+function TopicLinks({ page, children }) {
+  // Sidebar shows only the contextual section tree on every page. Cross-topic
+  // shortcuts live in the top category bar and the docs-home cards, so they
+  // are intentionally not rendered here. `children` is the SideNav tree for
+  // the current page, anchored here to preserve sidebar placement.
+  void page;
+  return <div className="doc-topics">{children}</div>;
 }
 
 function HighlightedCode({ code }) {
