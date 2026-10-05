@@ -34,7 +34,10 @@ const NAV_GROUPS = [
       { label: "指数行情", en: "Index data", desc: "SPX · VIX · DJX · XSP", href: DOC_PATHS.marketIndices },
       { label: "研究信号", en: "Research signals", desc: "Spectral Tick-Flow · SID", href: DOC_PATHS.marketResearch },
       { label: "加密与新闻", en: "Crypto & news", desc: "Snapshots · Orderbooks · News", href: DOC_PATHS.marketCryptoNews },
-      { label: "中国数据·内测", en: "CN Data · Private beta", desc: "CN archive · /v1/cn/*", href: DOC_PATHS.marketCn },
+      // Single-entry anchor: reachable only via the in-page Market selector card.
+      // entryHidden keeps it out of every visible link list while preserving
+      // sidebar placement, breadcrumb titles and legacy-hash resolution.
+      { label: "中国数据·内测", en: "CN Data · Private beta", desc: "CN archive · /v1/cn/*", href: DOC_PATHS.marketCn, entryHidden: true },
     ],
   },
   {

@@ -527,7 +527,7 @@ function DocsHome() {
           <section key={group.key} className="card" style={{ padding: 18 }}>
             <h3 style={{ margin: "0 0 12px", fontSize: 19 }}>{isZh ? group.label : group.en}</h3>
             <div style={{ display: "grid", gap: 8 }}>
-              {group.items.map((item) => (
+              {group.items.filter((item) => !item.entryHidden).map((item) => (
                 <a key={item.href} href={item.href} style={{ textDecoration: "none", padding: "9px 10px", borderRadius: 7, border: "1px solid var(--rule)", background: "var(--bg-paper)" }}>
                   <strong style={{ display: "block", color: "var(--ink-strong)", fontSize: 13 }}>{isZh ? item.label : item.en}</strong>
                   <span style={{ color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>{item.desc}</span>
@@ -2543,16 +2543,6 @@ function ProxyApiBody({ focus, articleId }) {
         All data surfaces accept the same token. Origin hosts and cache tiers may move during failover, so clients should never pin a raw server IP.
         <br/><span style={{ color: "var(--ink-soft)" }}>历史 REST、实时 REST 与 WebSocket 均使用稳定域名和同一 Token。故障切换时源站与缓存层可能调整，客户端不应绑定裸 IP。</span>
       </div>
-      <a href={DOC_PATHS.marketCn} style={{ textDecoration: "none" }}>
-        <div style={{ border: "1px solid var(--accent-rule)", background: "var(--accent-soft)", borderRadius: 8, padding: "12px 16px", margin: "0 0 24px", fontSize: 13, display: "flex", gap: 12, alignItems: "center" }}>
-          <span style={{ padding: "2px 8px", borderRadius: 999, background: "var(--accent-ink)", color: "var(--ink-inverse)", fontFamily: "var(--f-mono)", fontSize: 10, fontWeight: 700, letterSpacing: ".08em", whiteSpace: "nowrap" }}>PRIVATE BETA · LIVE · 内测已上线</span>
-          <span style={{ color: "var(--ink-base)" }}>
-            <strong>CN Data 中国数据</strong> — China A-share archive endpoints (daily, minute, valuation, reference, ETF minute bars, options, funds). Private beta live · explicit allowlist (own account only) · not for sale.
-            <br/><span style={{ color: "var(--ink-muted)" }}>中国 A 股归档接口，仅限明确授权的账号本人使用，不可购买。点击查看已上线的接口、参数与权限说明。</span>
-          </span>
-        </div>
-      </a>
-
       <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>{isZh ? "身份鉴权 (Authentication)" : "Authentication"}</h2>
       <DocDesc
         zh="所有数据接口（REST 和 WS）都需要 UUID Token。推荐通过 HTTP Authorization 请求头传递，也支持在 POST JSON 请求体中传递："
@@ -2655,7 +2645,7 @@ Authorization: Bearer <TOKEN>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontSize: 12 }}><a href={DOC_PATHS.marketCn}>CN Data 中国数据</a> · live /v1/cn/* · private beta · no purchase; explicit account authorization required</td>
+            <td style={{ fontSize: 12 }}>CN Data 中国数据 · live /v1/cn/* · private beta · no purchase; explicit account authorization required（入口见「选择市场」→ 世界/中国；entry via Choose your market → World · CN）</td>
           </tr>
         </tbody>
       </table>
@@ -2672,7 +2662,7 @@ Authorization: Bearer <TOKEN>
         <br/>Basic 可以访问全部可用历史数据，不设 Basic 专属的日期跨度、symbol 数或页数预算。请求仍受上游限制和 proxy 运行时控制影响，包括历史并发、QPS、超时和过载背压。Bulk Download 是单独的一次性交付产品，不是解锁旧日期的必要条件。
       </p>
 
-      <CnDataSections id="cn-data-overview" articleId={articleId?.startsWith("cn-") ? articleId : undefined} />
+      {(focus === "cn" || articleId?.startsWith("cn-")) && <CnDataSections id="cn-data-overview" articleId={articleId?.startsWith("cn-") ? articleId : undefined} />}
 
       {/* ── Free Plan Usage & Quickstart ── */}
       <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>Free Plan Guide</div>

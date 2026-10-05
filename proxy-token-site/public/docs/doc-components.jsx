@@ -151,12 +151,16 @@ function TopicLinks({ page, children, isZh = true }) {
   return <div className="doc-topics">
     {NAV_GROUPS.map(group => <div key={group.key} className="doc-topic-group">
       <span>{isZh ? group.label : group.en}</span>
-      {group.items.filter(item => item.href.startsWith("/docs/")).map(item => <React.Fragment key={item.href}>
-        <a href={item.href} aria-current={DOC_PAGE_CONFIG[page]?.path === item.href ? "location" : undefined}>
-          {isZh ? item.label : item.en}
-        </a>
-        {DOC_PAGE_CONFIG[page]?.path === item.href && children}
-      </React.Fragment>)}
+      {group.items.filter(item => item.href.startsWith("/docs/")).map(item => item.entryHidden ? (
+        <React.Fragment key={item.href}>{DOC_PAGE_CONFIG[page]?.path === item.href && children}</React.Fragment>
+      ) : (
+        <React.Fragment key={item.href}>
+          <a href={item.href} aria-current={DOC_PAGE_CONFIG[page]?.path === item.href ? "location" : undefined}>
+            {isZh ? item.label : item.en}
+          </a>
+          {DOC_PAGE_CONFIG[page]?.path === item.href && children}
+        </React.Fragment>
+      ))}
     </div>)}
   </div>;
 }
