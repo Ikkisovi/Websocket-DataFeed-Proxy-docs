@@ -7891,16 +7891,13 @@ async function probeWs() {
   });
 }
 
-// Shared keep-alive agents for the RT probe. Without connection reuse, Node's
-// fetch cold-handshakes a full TLS connection to the Cloudflare edge on every
-// probe (~265ms), while REST (localhost, no TLS) and WS (bare TCP) don't — so RT
-// looked ~6-40x slower purely as a measurement artifact. A warm reused socket
-// makes RT measure its real ~30ms (CF edge HIT). The 25s heartbeat below keeps
-// this socket alive between sparse /api/status polls.
+// Shared keep-alive agents avoid repeating the RT public endpoint TLS
+// handshake on each probe. The heartbeat below keeps the connection warm
+// between sparse /api/status polls.
 const _rtHttpsAgent = require('https').Agent ? new (require('https').Agent)({ keepAlive: true, maxSockets: 1, keepAliveMsecs: 30000 }) : undefined;
 const _rtHttpAgent  = new (require('http').Agent)({ keepAlive: true, maxSockets: 1 });
 
-// Probe RT API (Aliyun via Cloudflare) — returns { ok, latencyMs }
+// Probe the ServaRICA RT API public endpoint — returns { ok, latencyMs }
 function probeRt() {
   const start = Date.now();
   const isHttps = PROXY_RT_URL.startsWith('https');
@@ -7961,7 +7958,7 @@ async function collectStatusSnapshot() {
     const prevWs = statusData.uptime.ws.length >= 2 ? statusData.uptime.ws[statusData.uptime.ws.length - 2] : null;
 
     if (prevRest && prevRest.up === 1 && !restProbe.ok) {
-      addIncident('REST API', 'major', 'REST proxy unreachable', `Health probe failed after ${restProbe.latencyMs}ms. Cloudflare → Aliyun path affected.`);
+      addIncident('REST API', 'major', 'REST proxy unreachable', `Health probe failed after ${restProbe.latencyMs}ms. ServaRICA public REST endpoint affected.`);
     } else if (prevRest && prevRest.up === 0 && restProbe.ok) {
       addIncident('REST API', 'resolved', 'REST proxy recovered', `Health probe succeeded in ${restProbe.latencyMs}ms.`);
     }
@@ -7989,19 +7986,19 @@ async function collectStatusSnapshot() {
       components: {
         rest: {
           name: 'REST API',
-          route: 'api.leandata.uk · Cloudflare → Aliyun',
+          route: 'api.leandata.uk · ServaRICA',
           status: restStatus,
           latencyMs: restProbe.latencyMs,
         },
         rt: {
           name: 'RT API',
-          route: 'rt-api.leandata.uk · Cloudflare → Aliyun',
+          route: 'rt-api.leandata.uk · ServaRICA',
           status: rtStatus,
           latencyMs: rtProbe.latencyMs,
         },
         ws: {
           name: 'WebSocket stream',
-          route: 'wss://leandata.uk/stream · Cloudflare → Aliyun',
+          route: 'wss://leandata.uk/stream · ServaRICA',
           status: wsStatus,
           latencyMs: wsProbe.latencyMs,
         },
@@ -8257,9 +8254,8 @@ if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
   });
-  // Heartbeat: keep the RT probe's TLS connection to the Cloudflare edge warm so
-  // periodic /api/status probes reuse it (~30ms) instead of cold-handshaking
-  // (~265ms) on every poll. Interval is below CF's keep-alive idle timeout.
+  // Heartbeat: keep the RT public endpoint connection warm so periodic
+  // /api/status probes can reuse it.
   setInterval(() => { probeRt().catch(() => {}); }, 25000).unref();
 }
 
