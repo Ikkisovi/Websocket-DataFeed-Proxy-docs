@@ -148,6 +148,9 @@ function DocsSearch({ isZh = true }) {
 }
 
 function TopicLinks({ page, children, isZh = true }) {
+  // Dedicated CN route keeps a contextual sidebar: CN tree only, no
+  // permanent cross-topic shortcut blocks.
+  if (page === "market-cn") return <div className="doc-topics">{children}</div>;
   return <div className="doc-topics">
     {NAV_GROUPS.map(group => <div key={group.key} className="doc-topic-group">
       <span>{isZh ? group.label : group.en}</span>
