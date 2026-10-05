@@ -28,8 +28,8 @@ const NAV_GROUPS = [
     match: ["proxy"],
     mainTab: "proxy",
     items: [
-      { label: "总览与认证", en: "Overview & authentication", desc: "Overview · Auth · Tiers", href: DOC_PATHS.marketOverview },
       { label: "股票行情", en: "Stock data", desc: "Bars · Quotes · Trades", href: DOC_PATHS.marketStocks },
+      { label: "总览与认证", en: "Overview & authentication", desc: "Overview · Auth · Tiers", href: DOC_PATHS.marketOverview },
       { label: "期权行情", en: "Options data", desc: "Contracts · Snapshots · OI", href: DOC_PATHS.marketOptions },
       { label: "指数行情", en: "Index data", desc: "SPX · VIX · DJX · XSP", href: DOC_PATHS.marketIndices },
       { label: "研究信号", en: "Research signals", desc: "Spectral Tick-Flow · SID", href: DOC_PATHS.marketResearch },
