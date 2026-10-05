@@ -3262,8 +3262,14 @@ describe('GET /api/status', () => {
 
   it('each component has name, route, status, latencyMs', async () => {
     const res = await request(app).get('/api/status');
+    const routes = {
+      rest: 'api.leandata.uk · ServaRICA',
+      rt: 'rt-api.leandata.uk · ServaRICA',
+      ws: 'wss://leandata.uk/stream · ServaRICA',
+    };
     for (const key of ['rest', 'rt', 'ws']) {
       const comp = res.body.components[key];
+      expect(comp.route).toBe(routes[key]);
       expect(comp).toHaveProperty('name');
       expect(comp).toHaveProperty('route');
       expect(comp).toHaveProperty('status');
