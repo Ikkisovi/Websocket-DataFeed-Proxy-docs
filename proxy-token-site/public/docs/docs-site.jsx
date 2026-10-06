@@ -1549,7 +1549,7 @@ function BulkOrderBody() {
 function FinancialSourceSelector({ active }) {
   const sources = [
     { id: "regular", title: "Regular / FMP", zh: "标准财务数据", meta: "50+ endpoints · statements · ratios · profiles", href: DOC_PATHS.financialRegular, logo: PROVIDER_LOGOS.fmp, alt: "FMP Data logo" },
-    { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "28 metrics · 550 symbols · 2020–present", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo" },
+    { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "28 metrics · 550 symbols · 2020–present · v3: 64 slots · 898 symbols · 2011–present", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo" },
   ];
   return (
     <section id="financial-source-selector" style={{ marginBottom: 26 }}>
@@ -2169,6 +2169,56 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
   },
   "null_counts": { "market_cap": "16441", "pe_ratio": "23764", "dividend_yield": "847954" },
   "years": [ ... ]
+}`}</pre>
+      </section>
+
+      <section id="morningstar-v3" style={{ borderTop: "1px solid var(--rule)", paddingTop: 26, marginBottom: 34 }}>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>v3 · independent store</div>
+        <h3 className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>v3 独立库 / Independent long-format archive</h3>
+        <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
+          v1 接口冻结在旧 Float32 宽表上；v3 读取独立 long-format 库（snapshot <code>ms-v3-ff-20261006</code>，1.78 亿行，2011-01-03 起，898 symbols，64 Float64 slots，含 <code>*_3m</code>/<code>*_12m</code> companion）。
+          <br/>v1 stays frozen on the legacy Float32 wide table; v3 serves the independent long-format store (snapshot <code>ms-v3-ff-20261006</code>, 178M rows, from 2011-01-03, 898 symbols, 64 Float64 slots including <code>*_3m</code>/<code>*_12m</code> companions).
+        </p>
+        <div className="callout" style={{ marginBottom: 18 }}>
+          admission code：0 admitted；1 non-OBSERVED（NULL）；2 PIT 违规 file_date&gt;fund_date（NULL）；3 无可用 file date（NULL，fail closed）；4 legacy direct（无时钟）。仅 code 0/4 携带数值。
+          <br/>Admission codes: 0 admitted; 1 non-OBSERVED (NULL); 2 PIT violation file_date&gt;fund_date (NULL); 3 no usable file date (NULL, fail closed); 4 legacy_direct admitted without clock. Values present only for codes 0/4.
+        </div>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>History v3 · GET / POST</div>
+        <EndpointBadge method="GET" path="/v1/fundamentals/morningstar/v3/history" />
+        <ParamTable rows={[
+          { name: "symbol / symbols", type: "string", required: false, desc: "Comma-separated US equity tickers; maximum 100.", zh: "逗号分隔的美股代码，最多 100 个。" },
+          { name: "start / end", type: "date", required: false, desc: "Inclusive YYYY-MM-DD window on fund_date; defaults to last 30 calendar days.", zh: "fund_date 包含式窗口；默认近 30 个日历日。" },
+          { name: "fields", type: "string", required: false, desc: "Comma-separated subset of the 64 v3 slots; defaults to all.", zh: "64 个 v3 slot 的子集；默认全部。" },
+          { name: "detail", type: "boolean", required: false, desc: "true returns long rows with value, code and file_date per cell.", zh: "true 返回长格式，每格带 value、code、file_date。" },
+          { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000.", zh: "默认 5,000，最大 10,000。" },
+        ]} />
+        <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS \
+  'https://leandata.uk/v1/fundamentals/morningstar/v3/history?symbols=AAPL,MSFT&fields=market_cap,pe_ratio,net_income_3m&start=2026-09-24&end=2026-09-25&limit=4' \
+  -H 'Authorization: Bearer YOUR_TOKEN'`}</pre>
+        <pre className="code" style={{ marginBottom: 26 }}>{`{
+  "schema": "morningstar_fundamentals_history_v3",
+  "store": "ms-v3-ff-20261006",
+  "row_count": 4,
+  "rows": [
+    { "date": "2026-09-25", "symbol": "AAPL", "market_cap": 4902476945600,
+      "pe_ratio": 39.113532, "net_income_3m": 29789000000 },
+    { "date": "2026-09-25", "symbol": "MSFT", "market_cap": 3697401866333,
+      "pe_ratio": 28.755989, "net_income_3m": 35766000000 }
+  ]
+}`}</pre>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>Coverage v3 · GET</div>
+        <EndpointBadge method="GET" path="/v1/fundamentals/morningstar/v3/coverage" />
+        <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
+          返回 snapshot、文件/行数、64 slot 目录（含 family/period）、日期跨度、逐年 coverage。178M 行的逐 slot NULL 统计不在单请求内计算。
+          <br/>Returns snapshot files/rows, the 64-slot catalog with family/period, date span and annual coverage. Per-slot NULL fractions over 178M rows are intentionally not computed per request.
+        </p>
+        <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS 'https://leandata.uk/v1/fundamentals/morningstar/v3/coverage' \
+  -H 'Authorization: Bearer YOUR_TOKEN'`}</pre>
+        <pre className="code">{`{
+  "schema": "morningstar_fundamentals_coverage_v3",
+  "totals": { "snapshot": "ms-v3-ff-20261006", "files": "32", "rows": "178228424" },
+  "span": { "min_date": "2011-01-03", "max_date": "2026-09-28", "symbols": "898" },
+  "slots": [ { "slot": "net_income_3m", "family": "companion_v3", "period": "3m" }, ... ]
 }`}</pre>
       </section>
 
