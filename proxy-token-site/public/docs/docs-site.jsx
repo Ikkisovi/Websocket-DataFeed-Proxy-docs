@@ -852,7 +852,6 @@ function ProviderHero({ id, provider, eyebrow, title, zhTitle, en, zh, chips = [
         <h2 className="provider-hero-title">{isZh ? zhTitle : title}</h2>
         <p className="provider-hero-subtitle">
           {isZh ? zh : en}
-          <br/><span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>{isZh ? en : zh}</span>
         </p>
         <div className="provider-chip-row">
           {chips.map((chip) => <span className="provider-chip" key={chip}>{chip}</span>)}
