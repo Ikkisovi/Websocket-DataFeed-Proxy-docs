@@ -67,3 +67,14 @@ test('requires admin auth', async () => {
     .send({ id: 'update_x' });
   expect(res.status).toBe(401);
 });
+
+test('renders bilingual subject as title plus muted subtitle', async () => {
+  const draft = await makeDraft();
+  const res = await request(app).post('/api/admin/announce/from-update')
+    .set('X-Admin-Token', token)
+    .send({ id: draft.id });
+  expect(res.status).toBe(200);
+  expect(res.body.html).toContain('font-size:28px');
+  expect(res.body.html).toContain('font-size:16px');
+  expect(res.body.html).toContain('Morningstar v3 is live');
+});

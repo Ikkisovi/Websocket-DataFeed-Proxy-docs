@@ -5151,6 +5151,16 @@ function renderAnnounceBody(template, user) {
     .replaceAll('{expires_date}', expiry);
 }
 
+function renderAnnounceSubject(subject) {
+  const text = String(subject || '');
+  const cut = text.indexOf(' / ');
+  if (cut < 0) return `<h1 style="margin:0 0 24px;font-size:28px;line-height:1.4;font-weight:700;color:#176b72">${escapeAnnouncementText(text)}</h1>`;
+  const primary = text.slice(0, cut);
+  const secondary = text.slice(cut + 3).trim();
+  return `<h1 style="margin:0 0 6px;font-size:28px;line-height:1.4;font-weight:700;color:#176b72">${escapeAnnouncementText(primary)}</h1>` +
+    (secondary ? `<p style="margin:0 0 24px;font-size:16px;line-height:1.5;color:#5b6b6c">${escapeAnnouncementText(secondary)}</p>` : '');
+}
+
 function renderAnnounceHtml(subject, bodyHtml, user) {
   const personalized = user ? renderAnnounceBody(bodyHtml, {
     ...user, user_id: escapeAnnouncementText(user.user_id),
@@ -5162,7 +5172,7 @@ function renderAnnounceHtml(subject, bodyHtml, user) {
     '<body style="margin:0;padding:24px;background:#ffffff">',
     '<div style="max-width:680px;margin:0 auto">',
     EMAIL_HTML_OPEN,
-    `<h1 style="margin:0 0 24px;font-size:28px;line-height:1.4;font-weight:700;color:#176b72">${escapeAnnouncementText(subject)}</h1>`,
+    renderAnnounceSubject(subject),
     announcementEmailHtml(personalized),
     EMAIL_HTML_FOOTER,
     '</div></div></body></html>'
