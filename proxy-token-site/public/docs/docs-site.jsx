@@ -2179,7 +2179,7 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
           columns={[["Property", "属性"], ["Value", "取值"]]}
           rows={[
             ["Start date", ["2011-01-03", "2011-01-03"]],
-            ["Asset coverage", ["~898 US equities (R5 NDX + SPX only; no ETFs, ADRs, or OTC)", "约 898 只美股（仅 R5 NDX+SPX；不含 ETF、ADR、OTC）"]],
+            ["Asset coverage", ["~898 US equities (S&P 500 + Nasdaq-100 plus selected hot stocks; no ETFs, ADRs, or OTC)", "约 898 只美股（标普 500 + 纳斯达克 100 + 部分热门股；不含 ETF、ADR、OTC）"]],
             ["Tracked fields", ["64 fundamental slots + reference identity block", "64 个基本面 slot + 公司档案块"]],
             ["Data density", ["Sparse (source NULLs preserved; never filled)", "稀疏（保留源端 NULL，不填充）"]],
             ["Resolution", ["Daily (fund_date)", "日度（fund_date）"]],
@@ -2212,15 +2212,15 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
             ["is_primary_share", ["Primary share class flag (dedup key)", "主份额标记（去重键）"]],
             ["sector_code", ["Morningstar numeric sector (11 members)", "Morningstar 数字行业大类（11 个）"]],
             ["industry_group_code", ["Morningstar numeric industry group", "Morningstar 数字行业组"]],
-            ["industry_code", ["Finest industry level (126 distinct in R5)", "最细行业层级（R5 内 126 个）"]],
+            ["industry_code", ["Finest industry level (126 distinct in this universe)", "最细行业层级（本股票池内 126 个）"]],
             ["financial_period_ending_3m / _12m", ["Fiscal anchor of the admitted period", "所用区间的财年锚"]],
             ["earning_period_ending_3m", ["Earnings anchor of the admitted period", "盈利区间锚"]],
           ]}
         />
         <h3 className="display-title" style={{ fontSize: 24, margin: "22px 0 10px" }}>行业分类 / Morningstar classification</h3>
         <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
-          三层：11 个 sector → 51 个 industry group（R5 实测）→ 126 个 industry。括号内为 R5 ever-associated symbols 数：
-          <br/>Three levels: 11 sectors → 51 industry groups observed in R5 → 126 industries. Counts are R5 ever-associated symbols:
+          三层：11 个 sector → 51 个 industry group（本池实测）→ 126 个 industry。括号内为本池 ever-associated 家数：
+          <br/>Three levels: 11 sectors → 51 industry groups observed in this universe → 126 industries. Counts are ever-associated symbols in this universe:
         </p>
         <BilingualDataTable
           columns={[["Sector", "大类"], ["Groups (symbols)", "行业组（家数）"]]}
