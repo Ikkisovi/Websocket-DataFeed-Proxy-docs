@@ -912,7 +912,7 @@ function BilingualDataTable({ columns, rows, style }) {
   const isZh = useCurrentLanguage() === "zh";
   return (
     <table className="tbl card" style={{ overflow: "hidden", width: "100%", marginBottom: 22, ...style }}>
-      <thead><tr>{columns.map(([en, zh]) => <th key={en}>{isZh ? `${zh} / ${en}` : en}</th>)}</tr></thead>
+      <thead><tr>{columns.map(([en, zh]) => <th key={en}>{isZh ? zh : en}</th>)}</tr></thead>
       <tbody>{rows.map((row, rowIndex) => (
         <tr key={rowIndex}>{row.map((cell, cellIndex) => {
           const value = Array.isArray(cell) ? (isZh ? cell[1] : cell[0]) : cell;
@@ -932,7 +932,6 @@ function ParamRow({ name, type, required, desc, zh }) {
   const lang = useCurrentLanguage();
   const isZh = lang === "zh";
   const descText = isZh ? (zh || desc) : desc;
-  const subText = isZh ? (zh ? desc : null) : (zh || null);
   return (
     <tr>
       <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, color: "var(--ink-strong)", whiteSpace: "nowrap" }}>{name}</td>
@@ -942,7 +941,6 @@ function ParamRow({ name, type, required, desc, zh }) {
       </td>
       <td style={{ fontSize: 12, color: "var(--ink-base)" }}>
         {descText}
-        {subText && <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2 }}>{subText}</div>}
       </td>
     </tr>
   );
@@ -955,10 +953,10 @@ function ParamTable({ rows }) {
     <table className="tbl" style={{ marginBottom: 20, width: "100%", fontSize: 13 }}>
       <thead>
         <tr>
-          <th style={{ width: 180 }}>{isZh ? "参数名 / Parameter" : "Parameter"}</th>
-          <th style={{ width: 90 }}>{isZh ? "类型 / Type" : "Type"}</th>
-          <th style={{ width: 90 }}>{isZh ? "必填 / Required" : "Required"}</th>
-          <th>{isZh ? "说明 / Description" : "Description"}</th>
+          <th style={{ width: 180 }}>{isZh ? "参数名" : "Parameter"}</th>
+          <th style={{ width: 90 }}>{isZh ? "类型" : "Type"}</th>
+          <th style={{ width: 90 }}>{isZh ? "必填" : "Required"}</th>
+          <th>{isZh ? "说明" : "Description"}</th>
         </tr>
       </thead>
       <tbody>
@@ -1987,14 +1985,15 @@ Content-Type: application/json
 }
 
 function MorningstarFundamentalsBody({ articleId } = {}) {
+  const isZh = useCurrentLanguage() === "zh";
   const metrics = [
-    ["Valuation / 估值", "market_cap · pe_ratio · pb_ratio · ps_ratio · ev_to_ebitda · dividend_yield · earning_yield"],
-    ["Profitability / 盈利能力", "roe · roa · gross_margin · operating_margin · net_margin"],
-    ["Liquidity & leverage / 偿债与杠杆", "current_ratio · debt_to_equity"],
-    ["Income statement / 利润表", "total_revenue · operating_income · net_income · ebitda"],
-    ["Cash flow / 现金流", "operating_cash_flow · free_cash_flow · capital_expenditure"],
-    ["Balance sheet / 资产负债表", "total_assets · total_liabilities · cash_and_equivalents · stockholders_equity"],
-    ["Reference market fields / 辅助行情", "adjusted_price · dollar_volume · volume"],
+    [isZh ? "估值比率" : "Valuation ratios", "market_cap · pe_ratio · pb_ratio · ps_ratio · ev_to_ebitda · dividend_yield · earning_yield"],
+    [isZh ? "盈利能力" : "Profitability", "roe · roa · gross_margin · operating_margin · net_margin"],
+    [isZh ? "偿债与杠杆" : "Liquidity & leverage", "current_ratio · debt_to_equity"],
+    [isZh ? "利润表指标" : "Income statement", "total_revenue · operating_income · net_income · ebitda"],
+    [isZh ? "现金流指标" : "Cash flow", "operating_cash_flow · free_cash_flow · capital_expenditure"],
+    [isZh ? "资产负债表" : "Balance sheet", "total_assets · total_liabilities · cash_and_equivalents · stockholders_equity"],
+    [isZh ? "参考行情" : "Reference market fields", "adjusted_price · dollar_volume · volume"],
   ];
   return (
     <DocContent articleId={articleId} style={{ maxWidth: 860, margin: "0 auto" }}>
@@ -2003,101 +2002,135 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
       <ProviderHero
         id="morningstar-overview"
         provider="morningstar"
-        eyebrow="Independent fundamentals provider · Premium"
+        eyebrow={isZh ? "基本面数据源 · Premium" : "Fundamentals provider · Premium"}
         title="Morningstar Fundamentals"
         zhTitle="Morningstar 财务基本面"
-        en="A revision-aware daily dataset of selected Morningstar US fundamentals. Leandata exposes a bounded, read-only latest view while preserving source NULLs, daily fill-forward behavior, availability-date semantics, and provider-specific revision rules."
-        zh="Morningstar 美股基本面的修订感知日度数据集。Leandata 通过有界、只读的 latest view 提供数据，并保留源端 NULL、日度前填、可用日期语义及供应商修订规则。"
-        chips={["daily snapshots", "28 nullable metrics", "SPY + QQQ scope", "latest-view dedup", "Premium"]}
+        en="Daily US equity fundamentals dataset covering S&P 500, Nasdaq-100, and popular equities. Preserves source nulls, reporting availability dates, and revision rules."
+        zh="覆盖标普 500、纳斯达克 100 及热门美股的日度基本面数据集。保留源端真实空值、财报公布日时序与修订规则。"
+        chips={isZh ? ["日度快照", "64 个财务指标", "标普与纳指成分池", "无前填", "Premium"] : ["Daily snapshots", "64 financial metrics", "SPX & NDX scope", "No forward-fill", "Premium"]}
         alt="Morningstar provider logo"
       />
       <p className="callout" style={{ marginBottom: 22 }}>
-        当前主推 <strong>v3（2011-01-03 起，898 只：标普 500 + 纳斯达克 100 + 部分热门股）</strong>，细则见下；v1（2020-01-02 → 2026-09-25）已冻结收档在后，daily feed 未恢复。
-        <br/>Current recommendation is <strong>v3 (from 2011-01-03, 898 symbols: S&amp;P 500 + Nasdaq-100 plus hot stocks)</strong>, detailed below; v1 (2020-01-02 → 2026-09-25) is frozen and archived further down with no daily feed.
+        {isZh ? (
+          <>当前推荐使用 <strong>v3 接口（覆盖 2011 年至今约 898 只标普 500、纳指 100 及热门美股，支持 64 项财务指标）</strong>；旧版 v1 接口已冻结归档，文档在页面后半部分。</>
+        ) : (
+          <>Recommended: <strong>v3 endpoints (from 2011-01-03, ~898 S&P 500, Nasdaq-100, and hot stocks across 64 metrics)</strong>; legacy v1 is frozen and documented below.</>
+        )}
       </p>
 
       <section id="morningstar-v3" style={{ borderTop: "1px solid var(--rule)", paddingTop: 26, marginBottom: 34 }}>
-        <div className="eyebrow" style={{ marginBottom: 8 }}>v3 · dataset</div>
-        <h3 className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>v3 数据集 / Morningstar v3 dataset</h3>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>{isZh ? "v3 · 数据集概览" : "v3 · Dataset summary"}</div>
+        <h3 className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>{isZh ? "v3 核心数据集" : "Morningstar v3 Dataset"}</h3>
         <BilingualDataTable
           columns={[["Property", "属性"], ["Value", "取值"]]}
           rows={[
             ["Start date", ["2011-01-03", "2011-01-03"]],
-            ["Asset coverage", ["~898 US equities (S&P 500 + Nasdaq-100 plus selected hot stocks; no ETFs, ADRs, or OTC)", "约 898 只美股（标普 500 + 纳斯达克 100 + 部分热门股；不含 ETF、ADR、OTC）"]],
-            ["Tracked fields", ["64 fundamental slots + reference identity block", "64 个基本面 slot + 公司档案块"]],
-            ["Data density", ["Sparse (source NULLs preserved; never filled)", "稀疏（保留源端 NULL，不填充）"]],
-            ["Resolution", ["Daily (fund_date)", "日度（fund_date）"]],
-            ["Timezone", ["New York", "纽约"]],
-            ["Precision", ["Float64 slot values", "Float64"]],
-            ["PIT rule", ["Admit only file_date ≤ fund_date (codes 0/4 carry values)", "仅 file_date ≤ fund_date 可用（code 0/4 携带数值）"]],
+            ["Asset coverage", ["~898 US equities (S&P 500 + Nasdaq-100 + hot stocks; no ETFs, ADRs)", "约 898 只美股（标普 500 + 纳指 100 + 热门股票；不含 ETF、ADR）"]],
+            ["Tracked fields", ["64 financial metrics + company reference block", "64 个财务指标 + 基础档案字段"]],
+            ["Data density", ["Sparse (source nulls preserved; no imputation)", "稀疏存储（保留真实空值，不自动填充）"]],
+            ["Resolution", ["Daily (reporting period date)", "日度快照（财报公布日）"]],
+            ["Timezone", ["New York (ET)", "美东时间 (New York)"]],
+            ["Precision", ["Double precision (Float64)", "双精度浮点数 (Float64)"]],
+            ["PIT rule", ["Strict filing date filter (no lookahead bias)", "严格按披露日过滤（杜绝未来函数）"]],
           ]}
         />
         <div className="callout" style={{ marginBottom: 18, marginTop: 14 }}>
-          注意：NDX/SPX 成分是 PIT 口径——指数会定期调入调出，被剔除的股票覆盖即中断（如 GPS 止于 2024-08、FLT 止于 2024-03，均无退市记录），这是成分变更不是数据 bug。全库 173 只无退市记录但覆盖提前结束、333 只 2011 年后新进。用 <code>delisting_date</code> / <code>company_status</code> 区分剔除与退市；coverage 的 span 只反映当前 snapshot 的起止。
-          <br/>Note: NDX/SPX membership is point-in-time — constituents rotate in and out, so a removed stock's coverage simply stops (e.g. GPS ends 2024-08, FLT ends 2024-03, neither delisted). This is membership change, not a data bug. 173 names ended early with no delisting record; 333 entered after 2011. Use <code>delisting_date</code> / <code>company_status</code> to tell removal apart from delisting; the coverage span reflects the current snapshot only.
+          {isZh ? (
+            <>
+              <strong>指数成分调整说明：</strong>标普 500 与纳斯达克 100 会定期调整成分股。某只股票若被调出指数，该日期起将不再记录数据。这属于正常的指数成分轮动，而非数据缺失。如需区分调出与退市，请查看 <code>delisting_date</code> 与 <code>company_status</code> 字段。
+            </>
+          ) : (
+            <>
+              <strong>Index Rebalancing Note:</strong> S&P 500 and Nasdaq-100 constituents rotate over time. When a stock is removed from an index, data coverage ends on that date. This is an expected constituent change, not missing data. To distinguish removal from delisting, check <code>delisting_date</code> and <code>company_status</code>.
+            </>
+          )}
         </div>
-        <h3 className="display-title" style={{ fontSize: 24, margin: "22px 0 10px" }}>基本面属性 / Fundamental attributes</h3>
+        <h3 className="display-title" style={{ fontSize: 24, margin: "22px 0 10px" }}>{isZh ? "财务指标分类" : "Financial Metrics"}</h3>
         <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
-          三个 family：<code>canonical</code> 日度比率与规模（pe_ratio、roe、market_cap…）、<code>fivefield</code> 报表直读、<code>companion_v3</code> 的 <code>*_3m</code>（单季）与 <code>*_12m</code>（TTM）伴随口径；另有 <code>enterprise_value</code>、<code>shares_outstanding</code> 等档案型 slot。只认 status=OBSERVED，非 OBSERVED（缺失、厂商默认、0001 默认日期）一律 NULL，不补零不前填不跨字段替代。
-          <br/>Three families: <code>canonical</code> daily ratios and scale (pe_ratio, roe, market_cap…), <code>fivefield</code> statement-direct reads, and <code>companion_v3</code> <code>*_3m</code> (single quarter) / <code>*_12m</code> (TTM) companions, plus profile slots such as <code>enterprise_value</code> and <code>shares_outstanding</code>. Only status=OBSERVED is admitted; anything else stays NULL with no zero-fill, forward-fill, or cross-field substitution.
+          {isZh ? (
+            "涵盖单季度（3M）与滚动 12 个月（TTM）报表数据（利润表、资产负债表、现金流量表）、日度估值与盈利比率（市盈率、市净率等），以及市值与股本等基础档案。缺失值严格保持为空，不进行插值或填充。"
+          ) : (
+            "Includes quarterly (3M) and trailing 12-month (TTM) statements (income, balance sheet, cash flow), daily valuation and profitability ratios (P/E, P/B, etc.), and market cap/shares outstanding. Missing values strictly remain null with no forward-fill or imputation."
+          )}
         </p>
-        <h3 className="display-title" style={{ fontSize: 24, margin: "22px 0 10px" }}>公司档案属性 / Reference attributes</h3>
+        <h3 className="display-title" style={{ fontSize: 24, margin: "22px 0 10px" }}>{isZh ? "公司基础档案" : "Company Reference Attributes"}</h3>
         <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
-          每个 (qc_sid, fund_date) 附带公司档案块——做宇宙筛选、退市/IPO 对齐、行业中性化的依据：
-          <br/>Every (qc_sid, fund_date) carries a reference block for universe filtering, delisting/IPO alignment, and industry neutralization:
+          {isZh ? (
+            "每条记录附带股票代码、行业分类、上市退市状态、财报周期等元数据，便于行业中性化与股票池筛选："
+          ) : (
+            "Each record includes metadata such as ticker, industry classification, listing/delisting status, and fiscal period anchors for sector neutralization and universe filtering:"
+          )}
         </p>
         <BilingualDataTable
           columns={[["Attribute", "属性"], ["Meaning", "含义"]]}
           rows={[
-            ["qc_ticker", ["Tradable US ticker (e.g. AAPL)", "可交易美股代码"]],
-            ["qc_sid", ["Stable QuantConnect-style security id", "稳定的证券 ID"]],
-            ["cik", ["SEC CIK", "SEC 编号"]],
+            ["qc_ticker", ["Tradable US ticker (e.g. AAPL)", "可交易美股代码（如 AAPL）"]],
+            ["qc_sid", ["Security identifier", "证券 ID"]],
+            ["cik", ["SEC CIK number", "SEC 监管编号"]],
             ["company_status", ["Listing status", "上市状态"]],
             ["currency", ["Reporting currency", "报告币种"]],
-            ["delisting_date", ["Delisting date, when applicable", "退市日期（如有）"]],
-            ["fiscal_year_end", ["Fiscal year-end month/day", "财年截止月日"]],
+            ["delisting_date", ["Delisting date, if applicable", "退市日期（如有）"]],
+            ["fiscal_year_end", ["Fiscal year-end month/day", "财年截止日"]],
             ["ipo_date", ["IPO date", "IPO 日期"]],
-            ["is_primary_share", ["Primary share class flag (dedup key)", "主份额标记（去重键）"]],
-            ["sector_code", ["Morningstar numeric sector (11 members)", "Morningstar 数字行业大类（11 个）"]],
-            ["industry_group_code", ["Morningstar numeric industry group", "Morningstar 数字行业组"]],
-            ["industry_code", ["Finest industry level (126 distinct in this universe)", "最细行业层级（本股票池内 126 个）"]],
-            ["financial_period_ending_3m / _12m", ["Fiscal anchor of the admitted period", "所用区间的财年锚"]],
-            ["earning_period_ending_3m", ["Earnings anchor of the admitted period", "盈利区间锚"]],
+            ["is_primary_share", ["Primary share class flag", "主上市份额标识"]],
+            ["sector_code", ["Morningstar sector code (11 sectors)", "行业大类代码（11 类）"]],
+            ["industry_group_code", ["Morningstar industry group code (51 groups)", "行业组代码（51 组）"]],
+            ["industry_code", ["Detailed industry code (126 industries)", "细分行业代码（126 类）"]],
+            ["financial_period_ending_3m / _12m", ["Statement period ending date", "财报所属期截止日"]],
+            ["earning_period_ending_3m", ["Earnings period ending date", "业绩所属期截止日"]],
           ]}
         />
-        <h3 className="display-title" style={{ fontSize: 24, margin: "22px 0 10px" }}>行业分类 / Morningstar classification</h3>
+        <h3 className="display-title" style={{ fontSize: 24, margin: "22px 0 10px" }}>{isZh ? "行业分类层级" : "Industry Classification"}</h3>
         <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
-          三层：11 个 sector → 51 个 industry group（本池实测）→ 126 个 industry。括号内为本池 ever-associated 家数：
-          <br/>Three levels: 11 sectors → 51 industry groups observed in this universe → 126 industries. Counts are ever-associated symbols in this universe:
+          {isZh ? (
+            "遵循 Morningstar 三级行业分类标准：11 个行业大类、51 个行业组、126 个细分行业。"
+          ) : (
+            "Structured by Morningstar's three-tier hierarchy: 11 sectors, 51 industry groups, and 126 detailed industries."
+          )}
         </p>
         <BilingualDataTable
-          columns={[["Sector", "大类"], ["Groups (symbols)", "行业组（家数）"]]}
+          columns={[["Sector", "行业大类"], ["Industry Groups", "包含行业组"]]}
           rows={[
-            ["101 Basic Materials (33)", ["10110 (5) · 10120 (3) · 10130 (16) · 10150 (7) · 10160 (2)", "10110 (5) · 10120 (3) · 10130 (16) · 10150 (7) · 10160 (2)"]],
-            ["102 Consumer Cyclical (107)", ["10200 (19) · 10220 (4) · 10230 (5) · 10240 (10) · 10250 (11) · 10260 (2) · 10270 (8) · 10280 (29) · 10290 (19)", "10200 (19) · 10220 (4) · 10230 (5) · 10240 (10) · 10250 (11) · 10260 (2) · 10270 (8) · 10280 (29) · 10290 (19)"]],
-            ["103 Financial Services (99)", ["10310 (18) · 10320 (22) · 10330 (19) · 10340 (28) · 10360 (12)", "10310 (18) · 10320 (22) · 10330 (19) · 10340 (28) · 10360 (12)"]],
-            ["104 Real Estate (44)", ["10410 (2) · 10420 (42)", "10410 (2) · 10420 (42)"]],
-            ["205 Consumer Defensive (49)", ["20510 (3) · 20520 (5) · 20525 (27) · 20540 (1) · 20550 (9) · 20560 (4)", "20510 (3) · 20520 (5) · 20525 (27) · 20540 (1) · 20550 (9) · 20560 (4)"]],
-            ["206 Healthcare (101)", ["20610 (15) · 20620 (18) · 20630 (10) · 20645 (10) · 20650 (31) · 20660 (12) · 20670 (5)", "20610 (15) · 20620 (18) · 20630 (10) · 20645 (10) · 20650 (31) · 20660 (12) · 20670 (5)"]],
-            ["207 Utilities (33)", ["20710 (3) · 20720 (30)", "20710 (3) · 20720 (30)"]],
-            ["308 Communication Services (51)", ["30810 (11) · 30820 (29) · 30830 (11)", "30810 (11) · 30820 (29) · 30830 (11)"]],
-            ["309 Energy (49)", ["30910 (49)", "30910 (49)"]],
-            ["310 Industrials (113)", ["31010 (18) · 31020 (16) · 31030 (2) · 31040 (16) · 31050 (5) · 31060 (3) · 31070 (31) · 31080 (19) · 31090 (3)", "31010 (18) · 31020 (16) · 31030 (2) · 31040 (16) · 31050 (5) · 31060 (3) · 31070 (31) · 31080 (19) · 31090 (3)"]],
-            ["311 Technology (130)", ["31110 (67) · 31120 (32) · 31130 (31)", "31110 (67) · 31120 (32) · 31130 (31)"]],
+            [["101 Basic Materials (33)", "101 基础材料 (33 家)"], ["10110 (5) · 10120 (3) · 10130 (16) · 10150 (7) · 10160 (2)", "10110 (5) · 10120 (3) · 10130 (16) · 10150 (7) · 10160 (2)"]],
+            [["102 Consumer Cyclical (107)", "102 非必需消费 (107 家)"], ["10200 (19) · 10220 (4) · 10230 (5) · 10240 (10) · 10250 (11) · 10260 (2) · 10270 (8) · 10280 (29) · 10290 (19)", "10200 (19) · 10220 (4) · 10230 (5) · 10240 (10) · 10250 (11) · 10260 (2) · 10270 (8) · 10280 (29) · 10290 (19)"]],
+            [["103 Financial Services (99)", "103 金融服务 (99 家)"], ["10310 (18) · 10320 (22) · 10330 (19) · 10340 (28) · 10360 (12)", "10310 (18) · 10320 (22) · 10330 (19) · 10340 (28) · 10360 (12)"]],
+            [["104 Real Estate (44)", "104 房地产 (44 家)"], ["10410 (2) · 10420 (42)", "10410 (2) · 10420 (42)"]],
+            [["205 Consumer Defensive (49)", "205 必需消费 (49 家)"], ["20510 (3) · 20520 (5) · 20525 (27) · 20540 (1) · 20550 (9) · 20560 (4)", "20510 (3) · 20520 (5) · 20525 (27) · 20540 (1) · 20550 (9) · 20560 (4)"]],
+            [["206 Healthcare (101)", "206 医疗健康 (101 家)"], ["20610 (15) · 20620 (18) · 20630 (10) · 20645 (10) · 20650 (31) · 20660 (12) · 20670 (5)", "20610 (15) · 20620 (18) · 20630 (10) · 20645 (10) · 20650 (31) · 20660 (12) · 20670 (5)"]],
+            [["207 Utilities (33)", "207 公用事业 (33 家)"], ["20710 (3) · 20720 (30)", "20710 (3) · 20720 (30)"]],
+            [["308 Communication Services (51)", "308 通信服务 (51 家)"], ["30810 (11) · 30820 (29) · 30830 (11)", "30810 (11) · 30820 (29) · 30830 (11)"]],
+            [["309 Energy (49)", "309 能源 (49 家)"], ["30910 (49)", "30910 (49)"]],
+            [["310 Industrials (113)", "310 工业制造 (113 家)"], ["31010 (18) · 31020 (16) · 31030 (2) · 31040 (16) · 31050 (5) · 31060 (3) · 31070 (31) · 31080 (19) · 31090 (3)", "31010 (18) · 31020 (16) · 31030 (2) · 31040 (16) · 31050 (5) · 31060 (3) · 31070 (31) · 31080 (19) · 31090 (3)"]],
+            [["311 Technology (130)", "311 信息技术 (130 家)"], ["31110 (67) · 31120 (32) · 31130 (31)", "31110 (67) · 31120 (32) · 31130 (31)"]],
           ]}
         />
         <div className="callout" style={{ marginBottom: 18, marginTop: 14 }}>
-          admission code：0 admitted；1 non-OBSERVED（NULL）；2 PIT 违规 file_date&gt;fund_date（NULL）；3 无可用 file date（NULL，fail closed）；4 legacy direct（无时钟）。仅 code 0/4 携带数值。
-          <br/>Admission codes: 0 admitted; 1 non-OBSERVED (NULL); 2 PIT violation file_date&gt;fund_date (NULL); 3 no usable file date (NULL, fail closed); 4 legacy_direct admitted without clock. Values present only for codes 0/4.
+          {isZh ? (
+            <>
+              <strong>数据状态码说明：</strong>仅在详情模式（<code>detail=true</code>）下返回。0 为有效入库数据；1 为源端未披露；2 为披露日晚于快照日（为避免未来函数剔除）；3 为财报缺少有效披露日；4 为历史直连数据。仅状态码为 0 或 4 时返回数值，其余返回空值（null）。
+            </>
+          ) : (
+            <>
+              <strong>Data Status Codes:</strong> Returned only when <code>detail=true</code>. 0: Valid admitted data; 1: Unobserved by source; 2: Filing date after snapshot date (excluded to prevent lookahead bias); 3: Missing filing date; 4: Legacy direct data. Values returned only for codes 0 and 4; others return null.
+            </>
+          )}
         </div>
-        <div className="eyebrow" style={{ marginBottom: 8 }}>History v3 · GET / POST</div>
+
+        <div className="eyebrow" style={{ marginBottom: 8 }}>{isZh ? "接口 · 历史数据" : "History Endpoint · v3"}</div>
         <EndpointBadge method="GET" path="/v1/fundamentals/morningstar/v3/history" />
+        <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
+          {isZh ? (
+            "查询日度历史基本面。默认返回标准宽表；传入 detail=true 返回包含状态码与披露日的明细长表。"
+          ) : (
+            "Query daily historical fundamentals. Returns wide format by default, or detailed long rows with status codes and filing dates (detail=true)."
+          )}
+        </p>
         <ParamTable rows={[
-          { name: "symbol / symbols", type: "string", required: false, desc: "Comma-separated US equity tickers; maximum 100.", zh: "逗号分隔的美股代码，最多 100 个。" },
-          { name: "start / end", type: "date", required: false, desc: "Inclusive YYYY-MM-DD window on fund_date; defaults to last 30 calendar days.", zh: "fund_date 包含式窗口；默认近 30 个日历日。" },
-          { name: "fields", type: "string", required: false, desc: "Comma-separated subset of the 64 v3 slots; defaults to all.", zh: "64 个 v3 slot 的子集；默认全部。" },
-          { name: "detail", type: "boolean", required: false, desc: "true returns long rows with value, code and file_date per cell.", zh: "true 返回长格式，每格带 value、code、file_date。" },
-          { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000.", zh: "默认 5,000，最大 10,000。" },
+          { name: "symbol / symbols", type: "string", required: false, desc: "Comma-separated US stock tickers; up to 100.", zh: "逗号分隔的美股代码，最多 100 个。" },
+          { name: "start / end", type: "date", required: false, desc: "Date range in YYYY-MM-DD; defaults to last 30 calendar days.", zh: "起止日期（YYYY-MM-DD）；默认最近 30 天。" },
+          { name: "fields", type: "string", required: false, desc: "Comma-separated list of metrics; defaults to all 64 fields.", zh: "逗号分隔的财务指标列表，默认返回全部 64 个指标。" },
+          { name: "detail", type: "boolean", required: false, desc: "Whether to return detailed long rows with status codes and filing dates. Default false.", zh: "是否返回详情长表（包含数值、状态码与披露日）。默认 false。" },
+          { name: "limit", type: "integer", required: false, desc: "Maximum number of rows; default 5,000, max 10,000.", zh: "返回记录条数限制，默认 5,000，上限 10,000。" },
         ]} />
         <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS \
   'https://leandata.uk/v1/fundamentals/morningstar/v3/history?symbols=AAPL,MSFT&fields=market_cap,pe_ratio,net_income_3m&start=2026-09-24&end=2026-09-25&limit=4' \
@@ -2113,11 +2146,14 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
       "pe_ratio": 28.755989, "net_income_3m": 35766000000 }
   ]
 }`}</pre>
-        <div className="eyebrow" style={{ marginBottom: 8 }}>Coverage v3 · GET</div>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>{isZh ? "接口 · 覆盖统计" : "Coverage Endpoint · v3"}</div>
         <EndpointBadge method="GET" path="/v1/fundamentals/morningstar/v3/coverage" />
         <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
-          返回 snapshot、文件/行数、64 slot 目录（含 family/period）、日期跨度、逐年 coverage。178M 行的逐 slot NULL 统计不在单请求内计算。
-          <br/>Returns snapshot files/rows, the 64-slot catalog with family/period, date span and annual coverage. Per-slot NULL fractions over 178M rows are intentionally not computed per request.
+          {isZh ? (
+            "返回快照版本、总记录数（约 1.78 亿条）、覆盖起止日期及各年份成分股数量统计。"
+          ) : (
+            "Returns snapshot version, total records (~178M), date span, and constituent counts by year."
+          )}
         </p>
         <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS 'https://leandata.uk/v1/fundamentals/morningstar/v3/coverage' \
   -H 'Authorization: Bearer YOUR_TOKEN'`}</pre>
@@ -2128,52 +2164,67 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
   "slots": [ { "slot": "net_income_3m", "family": "companion_v3", "period": "3m" }, ... ]
 }`}</pre>
         <p className="callout" style={{ marginTop: 18 }}>
-          工程备注：v1 接口冻结在旧 Float32 宽表；v3 读独立 long-format 库（snapshot <code>ms-v3-ff-20261006</code>），同一 (qc_sid, fund_date) 取 primary-share 行去重。178M 行的逐 slot NULL 统计不在单请求内计算。
-          <br/>Engineering note: v1 stays frozen on the legacy Float32 wide table; v3 reads the independent long-format store (snapshot <code>ms-v3-ff-20261006</code>) with primary-share dedup per (qc_sid, fund_date). Per-slot NULL fractions over 178M rows are not computed per request.
+          {isZh ? (
+            <>工程说明：v1 接口冻结在旧表；v3 读取独立长表存储（快照 <code>ms-v3-ff-20261006</code>），按主上市份额去重。单次请求不全量计算 1.78 亿行的空值率。</>
+          ) : (
+            <>Engineering note: v1 stays frozen on the legacy table; v3 reads the independent long-format store (snapshot <code>ms-v3-ff-20261006</code>) deduplicated by primary share. Per-metric null rates over 178M rows are not computed per request.</>
+          )}
         </p>
       </section>
 
-      <h3 id="morningstar-pit" className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>什么是 PIT？ / What is point-in-time data?</h3>
+      <h3 id="morningstar-pit" className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>
+        {isZh ? "时点数据概念（PIT 说明）" : "What is point-in-time data?"}
+      </h3>
       <DocDesc
-        zh="PIT（Point-in-Time）数据要求在回看某个历史日期时，只使用当时已经公开或可获得的信息，并使用当时真实存在的证券与成分关系。它的目的，是避免把后来才知道的财报修订、指数成分变化或公司存续结果提前带入历史回测。"
-        en="Point-in-time (PIT) data means that a historical simulation may use only information that was public or available at that historical moment, together with the securities and memberships that actually existed then. Its purpose is to prevent later revisions, constituent changes, or survival outcomes from leaking backward into a backtest."
+        zh="PIT（Point-in-Time）数据要求在回测某个历史日期时，仅使用当时已知的信息与实际成分，避免未来函数与幸存者偏差。"
+        en="Point-in-time (PIT) data ensures historical backtests use only information that was known at that date, preventing lookahead and survivorship bias."
       />
       <ProviderFeatures items={[
-        ["Availability timing", "A value belongs to a backtest only after it became available, not merely because its fiscal period had ended.", "数值只有在真正可用后才能进入回测，不能仅因财报期已经结束就提前使用。"],
-        ["Revision timing", "A later restatement must not silently replace what an investor could have known on an earlier date.", "后续重述不能静默替换投资者在更早日期能够知道的内容。"],
-        ["Universe timing", "Historical membership should reflect the constituents present on each date, rather than only today's survivors.", "历史股票池应反映每个日期当时的成分，而不是只保留今天仍存续的公司。"],
-        ["Why it matters", "Without PIT controls, look-ahead and survivorship bias can materially overstate research performance.", "缺少 PIT 控制会引入未来信息和幸存者偏差，从而显著夸大研究表现。"],
+        [[isZh ? "可用时点" : "Availability timing"], [isZh ? "数值只有在披露可用后才能进入回测，不能仅因财报期结束就提前使用。" : "A value belongs to a backtest only after it became available, not merely because its fiscal period ended."]],
+        [[isZh ? "修订时点" : "Revision timing"], [isZh ? "后续重述不能替换更早日期已获知的内容。" : "A later restatement must not silently replace what an investor knew on an earlier date."]],
+        [[isZh ? "股票池时点" : "Universe timing"], [isZh ? "历史股票池应反映当时实际成分，而非仅包含存续至今的公司。" : "Historical universe reflects constituents present on each date, not just today's survivors."]],
+        [[isZh ? "核心意义" : "Why it matters"], [isZh ? "缺少时点控制会引入未来信息与幸存者偏差，显著虚增回测收益。" : "Without PIT controls, look-ahead and survivorship bias can materially overstate backtests."]],
       ]} />
 
       <div className="provider-note">
-        <strong>本数据集的 PIT 边界 / PIT boundary of this dataset</strong><br/>
-        本数据集的股票范围基于 SPY + QQQ 股票集合，而不是完整的历史 PIT 成分序列，因此存在 current-constituent survivorship bias。<code>date</code> 使用 LEAN <code>Fundamental.Time</code> availability/file date，不是 <code>EndTime</code> 或 fiscal period end。它改善了单行数据的可用时间语义，但不等于完整的严格 PIT 认证。
-        <br/>The symbol scope is based on an SPY + QQQ stock set rather than a complete historical PIT membership series, so current-constituent survivorship bias remains. <code>date</code> uses the LEAN <code>Fundamental.Time</code> availability/file date, not <code>EndTime</code> or fiscal period end. This improves row-level availability timing, but it is not equivalent to full strict-PIT certification.
+        {isZh ? (
+          <>
+            <strong>v1 历史归档边界说明：</strong>股票池基于旧版 SPY + QQQ 集合，存在幸存者偏差。<code>date</code> 为披露可用日，非财报所属期截止日。
+          </>
+        ) : (
+          <>
+            <strong>v1 Historical Archive Scope:</strong> Based on legacy SPY + QQQ set with survivorship bias. <code>date</code> reflects reporting availability date, not fiscal period end.
+          </>
+        )}
       </div>
 
       <ProviderStats items={[
-        ["847,954", "deduplicated logical rows", "去重后的逻辑行"],
-        ["550", "symbols in dataset scope", "数据范围内标的数"],
-        ["1,682", "distinct availability dates", "不同可用日期"],
-        ["2020-01-02 → 2026-09-25", "v1 dataset window (frozen; daily feed paused)", "v1 数据区间（已冻结，daily feed 未恢复）"],
+        ["847,954", isZh ? "去重逻辑行数" : "deduplicated logical rows", isZh ? "去重逻辑行数" : "deduplicated logical rows"],
+        ["550", isZh ? "标的数量" : "symbols in dataset scope", isZh ? "标的数量" : "symbols in dataset scope"],
+        ["1,682", isZh ? "不同可用日期" : "distinct availability dates", isZh ? "不同可用日期" : "distinct availability dates"],
+        ["2020-01-02 → 2026-09-25", isZh ? "v1 归档区间（已冻结）" : "v1 window (frozen)", isZh ? "v1 归档区间（已冻结）" : "v1 window (frozen)"],
       ]} />
 
-      <h3 id="morningstar-processing" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>去重与数据处理 / Deduplication and processing</h3>
+      <h3 id="morningstar-processing" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>
+        {isZh ? "去重与数据处理（旧版 v1）" : "Deduplication and processing"}
+      </h3>
       <ProviderFlow items={[
-        ["Normalize key", "Use symbol + availability date as the logical key", "以 symbol + 可用日期作为逻辑键"],
-        ["Resolve versions", "Identify physical versions of the same logical observation", "识别同一逻辑观测的物理版本"],
-        ["Select latest", "Return one latest logical row per symbol/date", "每个 symbol/date 返回一条最新逻辑行"],
-        ["Preserve meaning", "Keep source values, NULLs, and fill-forward unchanged", "保持源值、NULL 与前填语义不变"],
+        [[isZh ? "归一化键" : "Normalize key"], isZh ? "以代码 + 可用日期作为逻辑主键" : "Use symbol + availability date as logical key", isZh ? "以代码 + 可用日期作为逻辑主键" : "Use symbol + availability date as logical key"],
+        [[isZh ? "识别版本" : "Resolve versions"], isZh ? "识别同一逻辑观测的多版本记录" : "Identify physical versions of the same logical observation", isZh ? "识别同一逻辑观测的多版本记录" : "Identify physical versions of the same logical observation"],
+        [[isZh ? "选取最新" : "Select latest"], isZh ? "每个标的/日期返回最新一条记录" : "Return one latest logical row per symbol/date", isZh ? "每个标的/日期返回最新一条记录" : "Return one latest logical row per symbol/date"],
+        [[isZh ? "保持语义" : "Preserve meaning"], isZh ? "源端数值、空值及前填逻辑不变" : "Keep source values, nulls, and fill-forward unchanged", isZh ? "源端数值、空值及前填逻辑不变" : "Keep source values, nulls, and fill-forward unchanged"],
       ]} />
 
       <ProviderFeatures items={[
-        ["Deterministic deduplication", "The latest view collapses repeated physical rows into one logical symbol/date observation.", "latest view 将重复物理行折叠为一个 symbol/date 逻辑观测。"],
-        ["Revision-aware selection", "If the same logical key has multiple versions, the latest admitted version is returned.", "同一逻辑键存在多个版本时，返回最新纳入的版本。"],
-        ["No value rewriting", "The API does not winsorize, interpolate, forward-fill, or convert a missing metric to zero.", "API 不缩尾、不插值、不自行前填，也不把缺失指标转换为零。"],
-        ["Source fill-forward disclosed", "Repeated daily values may reflect the provider's source-level fill-forward and do not imply a new filing.", "连续相同日值可能来自供应商源端前填，并不代表新的公司披露。"],
+        [[isZh ? "确定性去重" : "Deterministic deduplication"], [isZh ? "最新视图将重复物理行折叠为一条唯一逻辑观测。" : "The latest view collapses repeated physical rows into one logical observation."]],
+        [[isZh ? "修订感知" : "Revision-aware selection"], [isZh ? "同一记录存在多个版本时，返回最新纳入的版本。" : "If the same logical key has multiple versions, the latest admitted version is returned."]],
+        [[isZh ? "保持源端真实" : "No value rewriting"], [isZh ? "API 不进行缩尾、插值或前向填充，缺失值不转为零。" : "The API does not winsorize, interpolate, forward-fill, or convert missing metrics to zero."]],
+        [[isZh ? "前向填充披露" : "Source fill-forward disclosed"], [isZh ? "连续相同数值可能来自源端披露习惯，不代表新增披露。" : "Repeated daily values may reflect provider source fill-forward, not new filings."]],
       ]} />
 
-      <h3 className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>字段 / Metrics</h3>
+      <h3 className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>
+        {isZh ? "指标分组（旧版 v1）" : "Legacy Metric Groups (v1)"}
+      </h3>
       <div style={{ display: "grid", gap: 8, marginBottom: 28 }}>
         {metrics.map(([group, fields]) => (
           <div key={group} style={{ borderTop: "1px solid var(--rule)", padding: "10px 0" }}>
@@ -2183,7 +2234,9 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
         ))}
       </div>
 
-      <h3 id="morningstar-fields" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>字段字典 / Field dictionary</h3>
+      <h3 id="morningstar-fields" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>
+        {isZh ? "字段字典（旧版 v1）" : "Field Dictionary (v1)"}
+      </h3>
       <BilingualDataTable
         columns={[["Field", "字段"], ["Meaning", "含义"], ["Boundary", "使用边界"]]}
         rows={[
@@ -2218,31 +2271,36 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
         ]}
       />
       <p className="callout" style={{ marginBottom: 30 }}>
-        <code>dividend_yield</code> 当前所有 logical rows 均为源端 NULL；保留该字段用于 schema 稳定性，客户端不得将其解释为 0。
-        <br/><code>dividend_yield</code> is currently source-NULL for every logical row. It remains in the stable schema and must not be interpreted as zero.
+        {isZh ? (
+          <><code>dividend_yield</code> 在旧版归档中源端均为空值；保留该字段以维持结构稳定，请勿视为零。</>
+        ) : (
+          <><code>dividend_yield</code> is source-null across this legacy archive; it is preserved for schema stability and must not be interpreted as zero.</>
+        )}
       </p>
 
       <section id="morningstar-history" style={{ borderTop: "1px solid var(--rule)", paddingTop: 26, marginBottom: 34 }}>
-        <div className="eyebrow" style={{ marginBottom: 8 }}>History · GET / POST</div>
-        <h3 className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>历史快照 / Daily history</h3>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>{isZh ? "历史快照 · v1" : "Daily History · v1"}</div>
+        <h3 className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>{isZh ? "历史快照（旧版）" : "Daily History (Legacy)"}</h3>
         <EndpointBadge method="GET" path="/v1/fundamentals/morningstar" />
         <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
-          查询去重后的日度宽表。<code>symbol</code> 是 <code>symbols</code> 的单值别名；GET query 与 POST JSON body 均受相同边界约束。
-          <br/>Query deduplicated daily-wide observations. <code>symbol</code> aliases the single-value form of <code>symbols</code>; GET query and POST JSON body use the same bounds.
+          {isZh ? "查询去重后的日度宽表。GET 与 POST 接口约束一致。" : "Query deduplicated daily-wide observations. GET query and POST JSON body use the same bounds."}
         </p>
         <ParamTable rows={[
           { name: "symbol / symbols", type: "string", required: false, desc: "Comma-separated US equity tickers; maximum 100.", zh: "逗号分隔的美股代码，最多 100 个。" },
-          { name: "start", type: "date", required: false, desc: "Inclusive YYYY-MM-DD start; defaults to end minus 30 calendar days.", zh: "包含式 YYYY-MM-DD 起始日期；默认 end 前 30 个日历日。" },
-          { name: "end", type: "date", required: false, desc: "Inclusive YYYY-MM-DD end; defaults to today.", zh: "包含式 YYYY-MM-DD 结束日期；默认今天。" },
+          { name: "start", type: "date", required: false, desc: "Inclusive YYYY-MM-DD start; defaults to end minus 30 calendar days.", zh: "包含式起始日期；默认结束日前 30 天。" },
+          { name: "end", type: "date", required: false, desc: "Inclusive YYYY-MM-DD end; defaults to today.", zh: "包含式结束日期；默认今天。" },
           { name: "fields", type: "string", required: false, desc: "Comma-separated subset of the 28 metrics; defaults to all.", zh: "28 个指标的逗号分隔子集；默认全部。" },
-          { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000. One extra row proves truncation.", zh: "默认 5,000，最大 10,000；额外读取一行用于证明截断。" },
+          { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000.", zh: "默认 5,000，上限 10,000。" },
         ]} />
         <div className="callout" style={{ marginBottom: 18 }}>
-          未指定 symbol 的横截面查询最多允许 7 个 inclusive calendar days。超过时返回 <code>400 symbol_or_short_window_required</code>。响应中的 <code>truncated=true</code> 表示存在更多 logical rows。
-          <br/>Unfiltered cross-sections are limited to seven inclusive calendar days. Larger requests return <code>400 symbol_or_short_window_required</code>. <code>truncated=true</code> proves more logical rows exist.
+          {isZh ? (
+            <>未指定 symbol 的横截面查询最多允许 7 个自然日。超过时返回 <code>400 symbol_or_short_window_required</code>。响应中的 <code>truncated=true</code> 表示存在更多记录。</>
+          ) : (
+            <>Unfiltered cross-sections are limited to seven calendar days. Larger requests return <code>400 symbol_or_short_window_required</code>. <code>truncated=true</code> proves more rows exist.</>
+          )}
         </div>
-        <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS \\
-  'https://leandata.uk/v1/fundamentals/morningstar?symbol=AAPL&start=2026-09-15&end=2026-09-17&fields=market_cap,pe_ratio,total_revenue,net_income,free_cash_flow' \\
+        <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS \
+  'https://leandata.uk/v1/fundamentals/morningstar?symbol=AAPL&start=2026-09-15&end=2026-09-17&fields=market_cap,pe_ratio,total_revenue,net_income,free_cash_flow' \
   -H 'Authorization: Bearer YOUR_TOKEN'`}</pre>
         <pre className="code">{`{
   "schema": "morningstar_fundamentals_history_v1",
@@ -2268,14 +2326,13 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
       </section>
 
       <section id="morningstar-coverage" style={{ borderTop: "1px solid var(--rule)", paddingTop: 26, marginBottom: 32 }}>
-        <div className="eyebrow" style={{ marginBottom: 8 }}>Coverage · GET</div>
-        <h3 className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>覆盖与 NULL 审计 / Coverage & NULL audit</h3>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>{isZh ? "覆盖统计 · v1" : "Coverage · v1"}</div>
+        <h3 className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>{isZh ? "覆盖与空值审计（旧版）" : "Coverage & NULL Audit (Legacy)"}</h3>
         <EndpointBadge method="GET" path="/v1/fundamentals/morningstar/coverage" />
         <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
-          返回 physical/logical rows、日期范围、distinct dates、symbol 数、逐年 coverage，以及每个 metric 的 NULL 数。无需日期参数，但仍要求 Premium token。
-          <br/>Returns physical/logical rows, date range, distinct dates, symbol count, annual coverage, and per-metric NULL counts. It takes no date parameters but still requires a Premium token.
+          {isZh ? "返回记录总数、日期跨度、股票数及各字段空值统计。" : "Returns physical/logical rows, date range, distinct dates, symbol count, and per-metric NULL counts."}
         </p>
-        <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS 'https://leandata.uk/v1/fundamentals/morningstar/coverage' \\
+        <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS 'https://leandata.uk/v1/fundamentals/morningstar/coverage' \
   -H 'Authorization: Bearer YOUR_TOKEN'`}</pre>
         <pre className="code">{`{
   "schema": "morningstar_fundamentals_coverage_v1",
@@ -2293,28 +2350,33 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
 }`}</pre>
       </section>
 
-      <h3 className="display-title" style={{ fontSize: 27, margin: "0 0 10px" }}>权限、响应头与错误 / Access, headers & errors</h3>
+      <h3 className="display-title" style={{ fontSize: 27, margin: "0 0 10px" }}>{isZh ? "权限与响应说明" : "Access & Headers"}</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, marginBottom: 14 }}>
-        两个 endpoints 均使用现有 Bearer authentication、historical concurrency、archive/egress admission 和 usage/access logging。Standard/Free 返回 <code>403 morningstar_premium_required</code>。后端错误经过清洗，不泄漏 ClickHouse SQL 或凭据。
-        <br/>Both endpoints reuse Bearer authentication, historical concurrency, archive/egress admission, and usage/access logging. Standard/Free receives <code>403 morningstar_premium_required</code>. Backend errors are sanitized and do not expose ClickHouse SQL or credentials.
+        {isZh
+          ? "接口需要 Premium 计划 Token。支持并发限制与用量统计，未授权访问返回 403 morningstar_premium_required。"
+          : "Both endpoints require a Premium plan token. Requests use historical concurrency, admission pools, and access logging. Unauthorized requests receive 403 morningstar_premium_required."}
       </p>
       <pre className="code">{`X-Cache: HIT
 X-Cache-Tier: archive_clickhouse
 X-Data-Source: morningstar_fundamentals_archive
 X-Request-Id: <uuid>`}</pre>
 
-      <div className="provider-attribution">
-        <strong>Provider attribution / 数据来源：</strong> Morningstar US Fundamentals. Morningstar and its marks are the property of their respective owner. Leandata is not presenting this dataset as the complete Morningstar universe or as certified strict point-in-time data.
-        <br/>数据源为 Morningstar US Fundamentals。Morningstar 名称及标识归其权利人所有。Leandata 不将本数据集表述为 Morningstar 完整股票池或经认证的严格 PIT 数据。
-        <br/><a href="https://www.quantconnect.com/data/morning-star-us-fundamentals" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>Official dataset disclosure / 官方数据披露 ↗</a>
+      <div className="provider-attribution" style={{ marginTop: 24, fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.6 }}>
+        {isZh ? (
+          <>
+            数据源为 Morningstar US Fundamentals。Morningstar 名称及标识归其权利人所有。Leandata 不将本数据集表述为 Morningstar 完整股票池或经认证的严格 PIT 数据。
+            <br/><a href="https://www.quantconnect.com/data/morning-star-us-fundamentals" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>官方数据披露 ↗</a>
+          </>
+        ) : (
+          <>
+            Morningstar US Fundamentals. Morningstar and its marks are property of their respective owners. Leandata is not presenting this dataset as the complete Morningstar universe or as certified strict point-in-time data.
+            <br/><a href="https://www.quantconnect.com/data/morning-star-us-fundamentals" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>Official dataset disclosure ↗</a>
+          </>
+        )}
       </div>
     </DocContent>
   );
 }
-
-// ── CN Data 中国数据 (live) ───────────────────────────────────────────
-// Bilingual surface for the live /v1/cn archive endpoints.
-// Live product: China plan (¥70/mo) auto-provisions access, own account only; no vendor names appear here.
 function CnSourceChip({ source }) {
   const map = {
     available: { bg: "var(--ok-soft)", fg: "var(--ok)", en: "available · live", zh: "可用·已上线" },
