@@ -1549,7 +1549,7 @@ function BulkOrderBody() {
 function FinancialSourceSelector({ active }) {
   const sources = [
     { id: "regular", title: "Regular / FMP", zh: "标准财务数据", meta: "50+ endpoints · statements · ratios · profiles", href: DOC_PATHS.financialRegular, logo: PROVIDER_LOGOS.fmp, alt: "FMP Data logo" },
-    { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "28 metrics · 550 symbols · 2020–present · v3: 64 slots · 898 symbols · 2011–present", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo" },
+    { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "v1: 28 metrics · 550 symbols · 2020–2026-09 (frozen) · v3: 64 slots · 898 symbols · 2011–present", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo" },
   ];
   return (
     <section id="financial-source-selector" style={{ marginBottom: 26 }}>
@@ -2034,7 +2034,7 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
         ["847,954", "deduplicated logical rows", "去重后的逻辑行"],
         ["550", "symbols in dataset scope", "数据范围内标的数"],
         ["1,682", "distinct availability dates", "不同可用日期"],
-        ["2020 → 2026", "current dataset window", "当前数据区间"],
+        ["2020-01-02 → 2026-09-25", "v1 dataset window (frozen; daily feed paused)", "v1 数据区间（已冻结，daily feed 未恢复）"],
       ]} />
 
       <h3 id="morningstar-processing" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>去重与数据处理 / Deduplication and processing</h3>
