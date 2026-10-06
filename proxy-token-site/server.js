@@ -5151,6 +5151,16 @@ function renderAnnounceBody(template, user) {
     .replaceAll('{expires_date}', expiry);
 }
 
+function renderAnnounceSubject(subject) {
+  const text = String(subject || '');
+  const cut = text.indexOf(' / ');
+  if (cut < 0) return `<h1 style="margin:0 0 24px;font-size:28px;line-height:1.4;font-weight:700;color:#176b72">${escapeAnnouncementText(text)}</h1>`;
+  const primary = text.slice(0, cut);
+  const secondary = text.slice(cut + 3).trim();
+  return `<h1 style="margin:0 0 6px;font-size:28px;line-height:1.4;font-weight:700;color:#176b72">${escapeAnnouncementText(primary)}</h1>` +
+    (secondary ? `<p style="margin:0 0 24px;font-size:16px;line-height:1.5;color:#5b6b6c">${escapeAnnouncementText(secondary)}</p>` : '');
+}
+
 function renderAnnounceHtml(subject, bodyHtml, user) {
   const personalized = user ? renderAnnounceBody(bodyHtml, {
     ...user, user_id: escapeAnnouncementText(user.user_id),
@@ -5162,7 +5172,7 @@ function renderAnnounceHtml(subject, bodyHtml, user) {
     '<body style="margin:0;padding:24px;background:#ffffff">',
     '<div style="max-width:680px;margin:0 auto">',
     EMAIL_HTML_OPEN,
-    `<h1 style="margin:0 0 24px;font-size:28px;line-height:1.4;font-weight:700;color:#176b72">${escapeAnnouncementText(subject)}</h1>`,
+    renderAnnounceSubject(subject),
     announcementEmailHtml(personalized),
     EMAIL_HTML_FOOTER,
     '</div></div></body></html>'
@@ -5557,6 +5567,54 @@ app.get('/api/admin/announce/template', requireAdmin, (_req, res) => {
     body: DEFAULT_ANNOUNCE_TEMPLATE,
     from_name: cfg?.fromName || DEFAULT_ANNOUNCE_FROM_NAME,
     placeholders: ['{user_id}', '{role}', '{expires_date}']
+  });
+});
+
+// One-click conversion of a saved site announcement (product update) into an
+// HTML email template. Returns the branded render for preview/fill; nothing
+// is sent or persisted. Per-recipient placeholders are preserved verbatim for
+// the send flow to personalize.
+app.post('/api/admin/announce/from-update', requireAdmin, (req, res) => {
+  const id = typeof req.body?.id === 'string' ? req.body.id.trim() : '';
+  if (!id) {
+    return res.status(400).json({ success: false, message: '缺少公告 ID。' });
+  }
+  let entries;
+  try {
+    entries = readProductUpdates();
+  } catch { return productUpdateStorageError(res); }
+  const entry = entries.find(item => item && item.id === id);
+  if (!entry) {
+    return res.status(404).json({ success: false, message: '公告不存在。' });
+  }
+  const title = String(entry.title || '').trim();
+  const titleEn = String(entry.title_en || '').trim();
+  let subject = [title, titleEn].filter(Boolean).join(' / ');
+  if (!subject) subject = 'leandata.uk 更新 / Service update';
+  if (subject.length > ANNOUNCE_MAX_SUBJECT_LENGTH) subject = title || subject.slice(0, ANNOUNCE_MAX_SUBJECT_LENGTH);
+  const zh = cleanAnnouncementHtml(entry.body_html);
+  const en = cleanAnnouncementHtml(entry.body_en_html);
+  const parts = [];
+  if (zh) parts.push(zh);
+  if (en) parts.push(en);
+  const bodyHtml = parts.join('');
+  const text = announcementText(bodyHtml).trim();
+  if (!text) {
+    return res.status(400).json({ success: false, message: '该公告正文为空，无法转邮件模板。' });
+  }
+  const validationError = validateAnnounceInput(subject, text);
+  if (validationError) {
+    return res.status(400).json({ success: false, message: validationError });
+  }
+  const html = renderAnnounceHtml(subject, bodyHtml, null);
+  return res.json({
+    success: true,
+    subject,
+    body: text,
+    body_html: bodyHtml,
+    html,
+    htmlSha256: crypto.createHash('sha256').update(html).digest('hex'),
+    source: { id: entry.id, version: entry.version, status: entry.status }
   });
 });
 
