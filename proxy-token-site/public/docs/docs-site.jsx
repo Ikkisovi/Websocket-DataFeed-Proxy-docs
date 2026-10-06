@@ -1548,8 +1548,8 @@ function BulkOrderBody() {
 
 function FinancialSourceSelector({ active }) {
   const sources = [
+    { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "v3: 64 slots · 898 symbols · 2011–present · v1: 28 metrics · 550 symbols · 2020–2026-09 (frozen)", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo", recommended: true },
     { id: "regular", title: "Regular / FMP", zh: "标准财务数据", meta: "50+ endpoints · statements · ratios · profiles", href: DOC_PATHS.financialRegular, logo: PROVIDER_LOGOS.fmp, alt: "FMP Data logo" },
-    { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "v3: 64 slots · 898 symbols · 2011–present · v1: 28 metrics · 550 symbols · 2020–2026-09 (frozen)", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo" },
   ];
   return (
     <section id="financial-source-selector" style={{ marginBottom: 26 }}>
@@ -1566,7 +1566,7 @@ function FinancialSourceSelector({ active }) {
             <a key={source.id} href={source.href} aria-current={selected ? "page" : undefined} className="provider-source-card" style={{ color: "var(--ink-strong)", textDecoration: "none" }}>
               <img className="provider-source-logo" src={source.logo} alt={source.alt} loading="lazy" />
               <div>
-                <strong style={{ display: "block", fontSize: 17, marginBottom: 3 }}>{source.title}</strong>
+                <strong style={{ display: "block", fontSize: 17, marginBottom: 3 }}>{source.title}{source.recommended ? <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, color: "var(--accent-ink)", background: "var(--accent-soft)", border: "1px solid var(--accent-rule)", borderRadius: 20, padding: "1px 9px", marginLeft: 8, verticalAlign: "middle" }}>推荐 RECOMMENDED</span> : null}</strong>
                 <div style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 5 }}>{source.zh}</div>
                 <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{source.meta}</div>
               </div>

@@ -44,8 +44,8 @@ const NAV_GROUPS = [
     mainTab: "fmp",
     items: [
       { label: "选择数据源", en: "Choose source", desc: "Regular / FMP · Morningstar", href: DOC_PATHS.financial },
+      { label: "Morningstar（推荐）", en: "Morningstar (recommended)", desc: "Daily wide fundamentals", href: DOC_PATHS.financialMorningstar },
       { label: "Regular / FMP", en: "Regular / FMP", desc: "50+ standard endpoints", href: DOC_PATHS.financialRegular },
-      { label: "Morningstar", en: "Morningstar", desc: "Daily wide fundamentals", href: DOC_PATHS.financialMorningstar },
       { label: "财务三表", en: "Financial statements", desc: "Income · Balance · Cashflow", href: DOC_PATHS.financialStatements },
       { label: "比率与增长", en: "Ratios & growth", desc: "Ratios · Growth", href: DOC_PATHS.financialRatios },
     ],
