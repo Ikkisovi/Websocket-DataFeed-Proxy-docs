@@ -2036,11 +2036,11 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
         <div className="callout" style={{ marginBottom: 18, marginTop: 14 }}>
           {isZh ? (
             <>
-              <strong>指数成分调整说明：</strong>标普 500 与纳斯达克 100 会定期调整成分股。某只股票若被调出指数，该日期起将不再记录数据。这属于正常的指数成分轮动，而非数据缺失。如需区分调出与退市，请查看 <code>delisting_date</code> 与 <code>company_status</code> 字段。
+              <strong>指数成分调整说明：</strong>标普 500 与纳斯达克 100 历史成分基于开源社区维护的数据集（<a href="https://github.com/fja05680/sp500" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>fja05680/sp500 ↗</a> 及 <a href="https://github.com/jmccarrell/n100tickers" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>jmccarrell/n100tickers ↗</a>）。指数会定期进行成分轮动，某只股票若被调出指数，其数据覆盖即在调出日终止，此为正常的成分变动而非数据缺失。如需区分调出与退市，可查看 <code>delisting_date</code> 与 <code>company_status</code> 字段。
             </>
           ) : (
             <>
-              <strong>Index Rebalancing Note:</strong> S&P 500 and Nasdaq-100 constituents rotate over time. When a stock is removed from an index, data coverage ends on that date. This is an expected constituent change, not missing data. To distinguish removal from delisting, check <code>delisting_date</code> and <code>company_status</code>.
+              <strong>Index Rebalancing Note:</strong> Historical constituents for S&amp;P 500 and Nasdaq-100 are derived from community-maintained datasets (<a href="https://github.com/fja05680/sp500" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>fja05680/sp500 ↗</a> and <a href="https://github.com/jmccarrell/n100tickers" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>jmccarrell/n100tickers ↗</a>). Constituents rotate over time; when a stock is removed from an index, data coverage ends on that date. This reflects index rebalancing, not missing data. To distinguish removal from delisting, check <code>delisting_date</code> and <code>company_status</code>.
             </>
           )}
         </div>
