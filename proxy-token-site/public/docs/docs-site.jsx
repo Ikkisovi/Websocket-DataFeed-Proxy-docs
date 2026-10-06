@@ -2173,13 +2173,72 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
       </section>
 
       <section id="morningstar-v3" style={{ borderTop: "1px solid var(--rule)", paddingTop: 26, marginBottom: 34 }}>
-        <div className="eyebrow" style={{ marginBottom: 8 }}>v3 · independent store</div>
-        <h3 className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>v3 独立库 / Independent long-format archive</h3>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>v3 · dataset</div>
+        <h3 className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>v3 数据集 / Morningstar v3 dataset</h3>
+        <BilingualDataTable
+          columns={[["Property", "属性"], ["Value", "取值"]]}
+          rows={[
+            ["Start date", ["2011-01-03", "2011-01-03"]],
+            ["Asset coverage", ["~898 US equities (R5 NDX + SPX only; no ETFs, ADRs, or OTC)", "约 898 只美股（仅 R5 NDX+SPX；不含 ETF、ADR、OTC）"]],
+            ["Tracked fields", ["64 fundamental slots + reference identity block", "64 个基本面 slot + 公司档案块"]],
+            ["Data density", ["Sparse (source NULLs preserved; never filled)", "稀疏（保留源端 NULL，不填充）"]],
+            ["Resolution", ["Daily (fund_date)", "日度（fund_date）"]],
+            ["Timezone", ["New York", "纽约"]],
+            ["Precision", ["Float64 slot values", "Float64"]],
+            ["PIT rule", ["Admit only file_date ≤ fund_date (codes 0/4 carry values)", "仅 file_date ≤ fund_date 可用（code 0/4 携带数值）"]],
+          ]}
+        />
+        <h3 className="display-title" style={{ fontSize: 24, margin: "22px 0 10px" }}>基本面属性 / Fundamental attributes</h3>
         <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
-          v1 接口冻结在旧 Float32 宽表上；v3 读取独立 long-format 库（snapshot <code>ms-v3-ff-20261006</code>，1.78 亿行，2011-01-03 起，898 symbols，64 Float64 slots，含 <code>*_3m</code>/<code>*_12m</code> companion）。
-          <br/>v1 stays frozen on the legacy Float32 wide table; v3 serves the independent long-format store (snapshot <code>ms-v3-ff-20261006</code>, 178M rows, from 2011-01-03, 898 symbols, 64 Float64 slots including <code>*_3m</code>/<code>*_12m</code> companions).
+          三个 family：<code>canonical</code> 日度比率与规模（pe_ratio、roe、market_cap…）、<code>fivefield</code> 报表直读、<code>companion_v3</code> 的 <code>*_3m</code>（单季）与 <code>*_12m</code>（TTM）伴随口径；另有 <code>enterprise_value</code>、<code>shares_outstanding</code> 等档案型 slot。只认 status=OBSERVED，非 OBSERVED（缺失、厂商默认、0001 默认日期）一律 NULL，不补零不前填不跨字段替代。
+          <br/>Three families: <code>canonical</code> daily ratios and scale (pe_ratio, roe, market_cap…), <code>fivefield</code> statement-direct reads, and <code>companion_v3</code> <code>*_3m</code> (single quarter) / <code>*_12m</code> (TTM) companions, plus profile slots such as <code>enterprise_value</code> and <code>shares_outstanding</code>. Only status=OBSERVED is admitted; anything else stays NULL with no zero-fill, forward-fill, or cross-field substitution.
         </p>
-        <div className="callout" style={{ marginBottom: 18 }}>
+        <h3 className="display-title" style={{ fontSize: 24, margin: "22px 0 10px" }}>公司档案属性 / Reference attributes</h3>
+        <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
+          每个 (qc_sid, fund_date) 附带公司档案块——做宇宙筛选、退市/IPO 对齐、行业中性化的依据：
+          <br/>Every (qc_sid, fund_date) carries a reference block for universe filtering, delisting/IPO alignment, and industry neutralization:
+        </p>
+        <BilingualDataTable
+          columns={[["Attribute", "属性"], ["Meaning", "含义"]]}
+          rows={[
+            ["qc_ticker", ["Tradable US ticker (e.g. AAPL)", "可交易美股代码"]],
+            ["qc_sid", ["Stable QuantConnect-style security id", "稳定的证券 ID"]],
+            ["cik", ["SEC CIK", "SEC 编号"]],
+            ["company_status", ["Listing status", "上市状态"]],
+            ["currency", ["Reporting currency", "报告币种"]],
+            ["delisting_date", ["Delisting date, when applicable", "退市日期（如有）"]],
+            ["fiscal_year_end", ["Fiscal year-end month/day", "财年截止月日"]],
+            ["ipo_date", ["IPO date", "IPO 日期"]],
+            ["is_primary_share", ["Primary share class flag (dedup key)", "主份额标记（去重键）"]],
+            ["sector_code", ["Morningstar numeric sector (11 members)", "Morningstar 数字行业大类（11 个）"]],
+            ["industry_group_code", ["Morningstar numeric industry group", "Morningstar 数字行业组"]],
+            ["industry_code", ["Finest industry level (126 distinct in R5)", "最细行业层级（R5 内 126 个）"]],
+            ["financial_period_ending_3m / _12m", ["Fiscal anchor of the admitted period", "所用区间的财年锚"]],
+            ["earning_period_ending_3m", ["Earnings anchor of the admitted period", "盈利区间锚"]],
+          ]}
+        />
+        <h3 className="display-title" style={{ fontSize: 24, margin: "22px 0 10px" }}>行业分类 / Morningstar classification</h3>
+        <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
+          三层：11 个 sector → 51 个 industry group（R5 实测）→ 126 个 industry。括号内为 R5 ever-associated symbols 数：
+          <br/>Three levels: 11 sectors → 51 industry groups observed in R5 → 126 industries. Counts are R5 ever-associated symbols:
+        </p>
+        <BilingualDataTable
+          columns={[["Sector", "大类"], ["Groups (symbols)", "行业组（家数）"]]}
+          rows={[
+            ["101 Basic Materials (33)", ["10110 (5) · 10120 (3) · 10130 (16) · 10150 (7) · 10160 (2)", "10110 (5) · 10120 (3) · 10130 (16) · 10150 (7) · 10160 (2)"]],
+            ["102 Consumer Cyclical (107)", ["10200 (19) · 10220 (4) · 10230 (5) · 10240 (10) · 10250 (11) · 10260 (2) · 10270 (8) · 10280 (29) · 10290 (19)", "10200 (19) · 10220 (4) · 10230 (5) · 10240 (10) · 10250 (11) · 10260 (2) · 10270 (8) · 10280 (29) · 10290 (19)"]],
+            ["103 Financial Services (99)", ["10310 (18) · 10320 (22) · 10330 (19) · 10340 (28) · 10360 (12)", "10310 (18) · 10320 (22) · 10330 (19) · 10340 (28) · 10360 (12)"]],
+            ["104 Real Estate (44)", ["10410 (2) · 10420 (42)", "10410 (2) · 10420 (42)"]],
+            ["205 Consumer Defensive (49)", ["20510 (3) · 20520 (5) · 20525 (27) · 20540 (1) · 20550 (9) · 20560 (4)", "20510 (3) · 20520 (5) · 20525 (27) · 20540 (1) · 20550 (9) · 20560 (4)"]],
+            ["206 Healthcare (101)", ["20610 (15) · 20620 (18) · 20630 (10) · 20645 (10) · 20650 (31) · 20660 (12) · 20670 (5)", "20610 (15) · 20620 (18) · 20630 (10) · 20645 (10) · 20650 (31) · 20660 (12) · 20670 (5)"]],
+            ["207 Utilities (33)", ["20710 (3) · 20720 (30)", "20710 (3) · 20720 (30)"]],
+            ["308 Communication Services (51)", ["30810 (11) · 30820 (29) · 30830 (11)", "30810 (11) · 30820 (29) · 30830 (11)"]],
+            ["309 Energy (49)", ["30910 (49)", "30910 (49)"]],
+            ["310 Industrials (113)", ["31010 (18) · 31020 (16) · 31030 (2) · 31040 (16) · 31050 (5) · 31060 (3) · 31070 (31) · 31080 (19) · 31090 (3)", "31010 (18) · 31020 (16) · 31030 (2) · 31040 (16) · 31050 (5) · 31060 (3) · 31070 (31) · 31080 (19) · 31090 (3)"]],
+            ["311 Technology (130)", ["31110 (67) · 31120 (32) · 31130 (31)", "31110 (67) · 31120 (32) · 31130 (31)"]],
+          ]}
+        />
+        <div className="callout" style={{ marginBottom: 18, marginTop: 14 }}>
           admission code：0 admitted；1 non-OBSERVED（NULL）；2 PIT 违规 file_date&gt;fund_date（NULL）；3 无可用 file date（NULL，fail closed）；4 legacy direct（无时钟）。仅 code 0/4 携带数值。
           <br/>Admission codes: 0 admitted; 1 non-OBSERVED (NULL); 2 PIT violation file_date&gt;fund_date (NULL); 3 no usable file date (NULL, fail closed); 4 legacy_direct admitted without clock. Values present only for codes 0/4.
         </div>
@@ -2220,6 +2279,10 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
   "span": { "min_date": "2011-01-03", "max_date": "2026-09-28", "symbols": "898" },
   "slots": [ { "slot": "net_income_3m", "family": "companion_v3", "period": "3m" }, ... ]
 }`}</pre>
+        <p className="callout" style={{ marginTop: 18 }}>
+          工程备注：v1 接口冻结在旧 Float32 宽表；v3 读独立 long-format 库（snapshot <code>ms-v3-ff-20261006</code>），同一 (qc_sid, fund_date) 取 primary-share 行去重。178M 行的逐 slot NULL 统计不在单请求内计算。
+          <br/>Engineering note: v1 stays frozen on the legacy Float32 wide table; v3 reads the independent long-format store (snapshot <code>ms-v3-ff-20261006</code>) with primary-share dedup per (qc_sid, fund_date). Per-slot NULL fractions over 178M rows are not computed per request.
+        </p>
       </section>
 
       <h3 className="display-title" style={{ fontSize: 27, margin: "0 0 10px" }}>权限、响应头与错误 / Access, headers & errors</h3>
