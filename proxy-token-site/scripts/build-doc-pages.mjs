@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -5,7 +6,17 @@ import { DOC_ARTICLES } from "../public/docs/doc-navigation.mjs";
 
 const siteRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const docsRoot = resolve(siteRoot, "public/docs");
-const assetVersion = "20261001-article-docs";
+const fingerprint = createHash("sha256");
+for (const name of ["assets/docs-page.js", "docs/doc-layout.css", "docs/tokens.css"]) {
+  fingerprint.update(await readFile(resolve(siteRoot, "public", name)));
+}
+const assetVersion = fingerprint.digest("hex").slice(0, 16);
+const homepagePath = resolve(siteRoot, "public/index.html");
+const homepage = await readFile(homepagePath, "utf8");
+const tokenVersion = createHash("sha256").update(await readFile(resolve(siteRoot, "public/assets/token-page.js"))).digest("hex").slice(0, 16);
+await writeFile(homepagePath, homepage.replace(
+  /\/docs\/doc-layout\.css\?v=[^"\s]+/g, `/docs/doc-layout.css?v=${assetVersion}`).replace(
+  /\/assets\/token-page\.js\?v=[^"\s]+/g, `/assets/token-page.js?v=${tokenVersion}`));
 
 const pages = {
   "": "Leandata API Documentation",
