@@ -40,7 +40,8 @@ test('converts a saved draft into a branded HTML email template', async () => {
   expect(res.body.subject).toContain('Morningstar v3 上线');
   expect(res.body.subject).toContain('Morningstar v3 is live');
   expect(res.body.body_html).toContain('中文正文');
-  expect(res.body.body_html).toContain('<h2>English</h2>');
+  expect(res.body.body_html).toContain('English body');
+  expect(res.body.body_html).not.toContain('<h2>English</h2>');
   expect(res.body.html).toContain('<!doctype html>');
   expect(res.body.html).toContain('中文正文');
   expect(res.body.source).toEqual({ id: draft.id, version: 1, status: 'draft' });

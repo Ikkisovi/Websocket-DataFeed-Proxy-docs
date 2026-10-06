@@ -5596,7 +5596,7 @@ app.post('/api/admin/announce/from-update', requireAdmin, (req, res) => {
   const en = cleanAnnouncementHtml(entry.body_en_html);
   const parts = [];
   if (zh) parts.push(zh);
-  if (en) parts.push(`<h2>English</h2>${en}`);
+  if (en) parts.push(en);
   const bodyHtml = parts.join('');
   const text = announcementText(bodyHtml).trim();
   if (!text) {
