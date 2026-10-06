@@ -2032,6 +2032,10 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
             ["PIT rule", ["Admit only file_date ≤ fund_date (codes 0/4 carry values)", "仅 file_date ≤ fund_date 可用（code 0/4 携带数值）"]],
           ]}
         />
+        <div className="callout" style={{ marginBottom: 18, marginTop: 14 }}>
+          注意：NDX/SPX 成分是 PIT 口径——指数会定期调入调出，被剔除的股票覆盖即中断（如 GPS 止于 2024-08、FLT 止于 2024-03，均无退市记录），这是成分变更不是数据 bug。全库 173 只无退市记录但覆盖提前结束、333 只 2011 年后新进。用 <code>delisting_date</code> / <code>company_status</code> 区分剔除与退市；coverage 的 span 只反映当前 snapshot 的起止。
+          <br/>Note: NDX/SPX membership is point-in-time — constituents rotate in and out, so a removed stock's coverage simply stops (e.g. GPS ends 2024-08, FLT ends 2024-03, neither delisted). This is membership change, not a data bug. 173 names ended early with no delisting record; 333 entered after 2011. Use <code>delisting_date</code> / <code>company_status</code> to tell removal apart from delisting; the coverage span reflects the current snapshot only.
+        </div>
         <h3 className="display-title" style={{ fontSize: 24, margin: "22px 0 10px" }}>基本面属性 / Fundamental attributes</h3>
         <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
           三个 family：<code>canonical</code> 日度比率与规模（pe_ratio、roe、market_cap…）、<code>fivefield</code> 报表直读、<code>companion_v3</code> 的 <code>*_3m</code>（单季）与 <code>*_12m</code>（TTM）伴随口径；另有 <code>enterprise_value</code>、<code>shares_outstanding</code> 等档案型 slot。只认 status=OBSERVED，非 OBSERVED（缺失、厂商默认、0001 默认日期）一律 NULL，不补零不前填不跨字段替代。
