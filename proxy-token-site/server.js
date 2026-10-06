@@ -5560,6 +5560,54 @@ app.get('/api/admin/announce/template', requireAdmin, (_req, res) => {
   });
 });
 
+// One-click conversion of a saved site announcement (product update) into an
+// HTML email template. Returns the branded render for preview/fill; nothing
+// is sent or persisted. Per-recipient placeholders are preserved verbatim for
+// the send flow to personalize.
+app.post('/api/admin/announce/from-update', requireAdmin, (req, res) => {
+  const id = typeof req.body?.id === 'string' ? req.body.id.trim() : '';
+  if (!id) {
+    return res.status(400).json({ success: false, message: '缺少公告 ID。' });
+  }
+  let entries;
+  try {
+    entries = readProductUpdates();
+  } catch { return productUpdateStorageError(res); }
+  const entry = entries.find(item => item && item.id === id);
+  if (!entry) {
+    return res.status(404).json({ success: false, message: '公告不存在。' });
+  }
+  const title = String(entry.title || '').trim();
+  const titleEn = String(entry.title_en || '').trim();
+  let subject = [title, titleEn].filter(Boolean).join(' / ');
+  if (!subject) subject = 'leandata.uk 更新 / Service update';
+  if (subject.length > ANNOUNCE_MAX_SUBJECT_LENGTH) subject = title || subject.slice(0, ANNOUNCE_MAX_SUBJECT_LENGTH);
+  const zh = cleanAnnouncementHtml(entry.body_html);
+  const en = cleanAnnouncementHtml(entry.body_en_html);
+  const parts = [];
+  if (zh) parts.push(zh);
+  if (en) parts.push(`<h2>English</h2>${en}`);
+  const bodyHtml = parts.join('');
+  const text = announcementText(bodyHtml).trim();
+  if (!text) {
+    return res.status(400).json({ success: false, message: '该公告正文为空，无法转邮件模板。' });
+  }
+  const validationError = validateAnnounceInput(subject, text);
+  if (validationError) {
+    return res.status(400).json({ success: false, message: validationError });
+  }
+  const html = renderAnnounceHtml(subject, bodyHtml, null);
+  return res.json({
+    success: true,
+    subject,
+    body: text,
+    body_html: bodyHtml,
+    html,
+    htmlSha256: crypto.createHash('sha256').update(html).digest('hex'),
+    source: { id: entry.id, version: entry.version, status: entry.status }
+  });
+});
+
 app.get('/api/admin/announce/recipients', requireAdmin, (req, res) => {
   const { reachable, skipped } = resolveAnnounceRecipients({
     includeExpired: req.query.include_expired !== '0',

@@ -1310,6 +1310,14 @@
             </div>
             <button class="btn ghost" type="button" onclick="resetAnnounceTemplate()">恢复模板</button>
           </div>
+          <div class="announce-field">
+            <label class="field-label" for="announce-source-update">从网站公告转入（HTML）</label>
+            <div class="manual-form">
+              <select id="announce-source-update" class="input"></select>
+              <button class="btn" type="button" onclick="convertAnnounceFromUpdate()">一键转邮件模板</button>
+            </div>
+            <div id="announce-converted-note" class="announce-panel-note"></div>
+          </div>
 
           <div class="announce-field">
             <label class="field-label" for="announce-subject">Subject</label>
@@ -1410,6 +1418,7 @@
             <span id="announce-preview-snapshot" class="preview-snapshot">—</span>
           </div>
           <pre id="announce-preview-text" class="preview-text"></pre>
+          <iframe id="announce-preview-html" title="HTML 邮件预览" style="width:100%;min-height:420px;border:1px solid var(--rule);border-radius:8px;background:#fff" hidden></iframe>
         </section>
       </div>
     </div>
@@ -1463,6 +1472,9 @@
     loaded: false,
     templateSubject: '',
     templateBody: '',
+    bodyHtml: null,
+    bodyHtmlSource: null,
+    previewHtml: null,
     fromName: '恺 Kai · leandata.uk',
     placeholders: [],
     recipients: [],
@@ -2561,19 +2573,22 @@
     status.textContent = '正在读取 registry';
 
     try {
-      const [templateResponse, recipientsResponse] = await Promise.all([
+      const [templateResponse, recipientsResponse, updatesResponse] = await Promise.all([
         fetch('/api/admin/announce/template', { headers: announceHeaders() }),
-        fetch('/api/admin/announce/recipients', { headers: announceHeaders() })
+        fetch('/api/admin/announce/recipients', { headers: announceHeaders() }),
+        fetch('/api/admin/product-updates', { headers: announceHeaders() })
       ]);
-      if (templateResponse.status === 401 || recipientsResponse.status === 401) {
+      if (templateResponse.status === 401 || recipientsResponse.status === 401 || updatesResponse.status === 401) {
         location.reload();
         return;
       }
       const template = await templateResponse.json();
       const recipients = await recipientsResponse.json();
-      if (!templateResponse.ok || !recipientsResponse.ok) {
-        throw new Error(template.message || recipients.message || '公告数据加载失败');
+      const updates = await updatesResponse.json();
+      if (!templateResponse.ok || !recipientsResponse.ok || !updatesResponse.ok) {
+        throw new Error(template.message || recipients.message || updates.message || '公告数据加载失败');
       }
+      renderAnnounceSourceOptions(updates.updates || []);
 
       const wasLoaded = announceState.loaded;
       const previousSelection = new Set(announceState.selected);
@@ -2619,8 +2634,74 @@
   function resetAnnounceTemplate() {
     document.getElementById('announce-subject').value = announceState.templateSubject;
     document.getElementById('announce-body').value = announceState.templateBody;
+    announceState.bodyHtml = null;
+    announceState.bodyHtmlSource = null;
+    announceState.previewHtml = null;
+    document.getElementById('announce-converted-note').textContent = '';
     invalidateAnnouncePreview();
     showToast('已恢复默认双语模板', 'success');
+  }
+
+  function renderAnnounceSourceOptions(updates) {
+    const select = document.getElementById('announce-source-update');
+    if (!select) return;
+    select.textContent = '';
+    const ordered = [...updates].sort((a, b) => {
+      const rank = s => (s === 'draft' ? 0 : s === 'published' ? 1 : 2);
+      return rank(a.status) - rank(b.status) || String(b.date || '').localeCompare(String(a.date || ''));
+    });
+    if (!ordered.length) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = '暂无网站公告，先去上面新建';
+      select.append(opt);
+      return;
+    }
+    for (const u of ordered) {
+      const opt = document.createElement('option');
+      opt.value = u.id;
+      const flag = u.status === 'draft' ? '草稿' : u.status === 'published' ? '已发布' : '已归档';
+      opt.textContent = `[${flag}] ${u.title || '(无标题)'} (${u.date || ''})`;
+      select.append(opt);
+    }
+  }
+
+  async function convertAnnounceFromUpdate() {
+    const select = document.getElementById('announce-source-update');
+    const note = document.getElementById('announce-converted-note');
+    const id = select ? select.value : '';
+    if (!id) {
+      showToast('没有可选的网站公告', 'error');
+      return;
+    }
+    note.textContent = '正在转换…';
+    try {
+      const response = await fetch('/api/admin/announce/from-update', {
+        method: 'POST',
+        headers: announceHeaders(true),
+        body: JSON.stringify({ id })
+      });
+      if (response.status === 401) {
+        location.reload();
+        return;
+      }
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.message || '转换失败');
+      document.getElementById('announce-subject').value = data.subject || '';
+      document.getElementById('announce-body').value = data.body || '';
+      announceState.bodyHtml = data.body_html || null;
+      announceState.bodyHtmlSource = data.source || null;
+      announceState.previewHtml = data.html || null;
+      note.textContent = `已转入 HTML 邮件模板（来源公告版本 v${data.source?.version ?? '?'}），可直接生成发送预览。`;
+      announceState.preview = null;
+      document.getElementById('announce-send-button').disabled = true;
+      document.getElementById('announce-snapshot-short').textContent = '尚未预览';
+      document.getElementById('announce-preview-panel').classList.add('hidden');
+      showToast('已转入 HTML 邮件模板', 'success');
+    } catch (error) {
+      note.textContent = '';
+      showToast(error.message, 'error');
+    }
   }
 
   function announceReasonLabel(reason) {
@@ -2770,6 +2851,16 @@
 
   function invalidateAnnouncePreview() {
     announceState.preview = null;
+    announceState.bodyHtml = null;
+    announceState.bodyHtmlSource = null;
+    announceState.previewHtml = null;
+    const note = document.getElementById('announce-converted-note');
+    if (note) note.textContent = '';
+    const frame = document.getElementById('announce-preview-html');
+    if (frame) {
+      frame.hidden = true;
+      frame.removeAttribute('srcdoc');
+    }
     document.getElementById('announce-send-button').disabled = true;
     document.getElementById('announce-snapshot-short').textContent = '尚未预览';
     document.getElementById('announce-preview-panel').classList.add('hidden');
@@ -2782,6 +2873,7 @@
     return {
       subject: document.getElementById('announce-subject').value.trim(),
       body: document.getElementById('announce-body').value.replaceAll('\r\n', '\n').trim(),
+      ...(announceState.bodyHtml ? { body_html: announceState.bodyHtml } : {}),
       selected_user_ids: [...announceState.selected],
       manual_recipients: announceState.manual.map(recipient => ({ ...recipient })),
       ...extra
@@ -2836,6 +2928,11 @@
         `SHA-256 ${data.recipient_snapshot}`;
       document.getElementById('announce-preview-text').textContent =
         data.sample?.text || '';
+      const frame = document.getElementById('announce-preview-html');
+      if (announceState.previewHtml) {
+        frame.srcdoc = announceState.previewHtml;
+        frame.hidden = false;
+      }
       document.getElementById('announce-preview-panel').classList.remove('hidden');
       document.getElementById('announce-selected-count').textContent =
         `${data.reachable.length} 位`;
