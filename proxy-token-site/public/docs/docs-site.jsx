@@ -1549,7 +1549,7 @@ function BulkOrderBody() {
 function FinancialSourceSelector({ active }) {
   const sources = [
     { id: "regular", title: "Regular / FMP", zh: "标准财务数据", meta: "50+ endpoints · statements · ratios · profiles", href: DOC_PATHS.financialRegular, logo: PROVIDER_LOGOS.fmp, alt: "FMP Data logo" },
-    { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "v1: 28 metrics · 550 symbols · 2020–2026-09 (frozen) · v3: 64 slots · 898 symbols · 2011–present", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo" },
+    { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "v3: 64 slots · 898 symbols · 2011–present · v1: 28 metrics · 550 symbols · 2020–2026-09 (frozen)", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo" },
   ];
   return (
     <section id="financial-source-selector" style={{ marginBottom: 26 }}>
@@ -2011,6 +2011,10 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
         chips={["daily snapshots", "28 nullable metrics", "SPY + QQQ scope", "latest-view dedup", "Premium"]}
         alt="Morningstar provider logo"
       />
+      <p className="callout" style={{ marginBottom: 22 }}>
+        当前主推 <strong>v3（2011-01-03 起，898 只：标普 500 + 纳斯达克 100 + 部分热门股）</strong>；v1（2020-01-02 → 2026-09-25）已冻结，daily feed 未恢复。本页上半是 v1 存档说明，下半是 v3 数据集说明。
+        <br/>Current recommendation is <strong>v3 (from 2011-01-03, 898 symbols: S&amp;P 500 + Nasdaq-100 plus hot stocks)</strong>; v1 (2020-01-02 → 2026-09-25) is frozen with no daily feed. Top half of this page describes the v1 archive, bottom half the v3 dataset.
+      </p>
 
       <h3 id="morningstar-pit" className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>什么是 PIT？ / What is point-in-time data?</h3>
       <DocDesc
