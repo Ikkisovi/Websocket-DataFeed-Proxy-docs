@@ -2180,9 +2180,9 @@
       return;
     }
     if (resetLimit) usageDisplayLimit = 30;
+    // Rank strictly by 7-day request volume so row #1 is the actual top
+    // consumer. Role-based priority must not reorder the leaderboard.
     cachedUsageUsers = [...users].sort((a, b) => {
-      const scoreDiff = userPriorityScore(b) - userPriorityScore(a);
-      if (scoreDiff !== 0) return scoreDiff;
       return (b.requests_7d_utc || 0) - (a.requests_7d_utc || 0) || String(b.last_seen || '').localeCompare(String(a.last_seen || ''));
     });
 
@@ -2191,7 +2191,7 @@
 
     wrap.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <span class="log-note">优先展示付费与高活跃用户 · 当前显示 ${displayed.length} / 共 ${cachedUsageUsers.length} 位</span>
+        <span class="log-note">按近 7 天请求数排序 · 当前显示 ${displayed.length} / 共 ${cachedUsageUsers.length} 位</span>
       </div>
       <table class="usage-table">
         <thead><tr>
