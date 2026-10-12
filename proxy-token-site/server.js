@@ -6185,6 +6185,9 @@ const USAGE_RETENTION_DAYS = 35;
 const USAGE_REFRESH_MIN_INTERVAL_MS = 15000;
 const USAGE_MAX_ROUTES_PER_USER = 128;
 const USAGE_MAX_RECENT_EVENTS = 5000;
+// Per-user recent error instances, so an admin opening one user's page can
+// see WHAT failed (error code, message, path) instead of only a count.
+const USAGE_MAX_RECENT_ERRORS_PER_USER = 50;
 const USAGE_MAX_PARTIAL_LINE_BYTES = 1024 * 1024;
 const ACCESS_LOG_DIR = () => process.env.ACCESS_LOG_DIR
   || '/var/log/leandata-v2/access';
@@ -6229,6 +6232,19 @@ function compactUsageEvent(entry, eventMs) {
   };
 }
 
+function compactUsageError(entry, eventMs) {
+  const str = (value, max) => typeof value === 'string' ? value.slice(0, max) : undefined;
+  return {
+    t: entry.timestamp,
+    m: eventMs,
+    status: entry.status,
+    error_code: str(entry.error_code, 64),
+    error: str(entry.error || entry.error_detail, 160),
+    path: str(entry.path, 160),
+    route: str(entry.route, 128)
+  };
+}
+
 function createUsageUserState() {
   return {
     lastSeenMs: 0,
@@ -6238,7 +6254,8 @@ function createUsageUserState() {
     dailyBytesOut: new Map(),
     dailyErrors: new Map(),
     dailyWsSessions: new Map(),
-    routes: new Map()
+    routes: new Map(),
+    recentErrors: []
   };
 }
 
@@ -6311,7 +6328,13 @@ const usageAggregator = (() => {
 
     if (isHttp) {
       addDayValue(user.dailyHttp, day, 1);
-      if (isError) addDayValue(user.dailyErrors, day, 1);
+      if (isError) {
+        addDayValue(user.dailyErrors, day, 1);
+        user.recentErrors.push(compactUsageError(entry, eventMs));
+        if (user.recentErrors.length > USAGE_MAX_RECENT_ERRORS_PER_USER) {
+          user.recentErrors.splice(0, user.recentErrors.length - USAGE_MAX_RECENT_ERRORS_PER_USER);
+        }
+      }
       const route = String(entry.route || 'unknown');
       if (!user.routes.has(route) && user.routes.size >= USAGE_MAX_ROUTES_PER_USER) {
         evictLeastUsedRoute(user.routes);
@@ -6647,13 +6670,18 @@ const usageAggregator = (() => {
         .sort((a, b) => b.m - a.m)
         .slice(0, 20)
         .map(({ user_id, m, ...event }) => event);
+      const recentErrors = [...user.recentErrors]
+        .sort((a, b) => (b.m || 0) - (a.m || 0))
+        .slice(0, 20)
+        .map(({ m, ...event }) => event);
       return {
         user_id: userId,
         roles: activeRoles(user),
         ...windowCounts(user, nowMs),
         daily_14d: days,
         top_routes: routes,
-        recent_events: recentEvents
+        recent_events: recentEvents,
+        recent_errors: recentErrors
       };
     },
     __resetForTest: () => {

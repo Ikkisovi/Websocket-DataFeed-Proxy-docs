@@ -2275,6 +2275,15 @@
         <td class="num">${fmtBytes(ev.b_out)}</td>
       </tr>`).join('');
 
+    const errorRows = (d.recent_errors || []).map(ev => `
+      <tr>
+        <td class="mono">${escHtml((ev.t || '').slice(5, 19).replace('T', ' '))}</td>
+        <td class="num">${ev.status ?? ''}</td>
+        <td class="mono">${escHtml(ev.error_code || '')}</td>
+        <td class="mono">${escHtml(ev.path || ev.route || '')}</td>
+        <td>${escHtml(ev.error || '')}</td>
+      </tr>`).join('');
+
     panel.innerHTML = `
       <div class="usage-section-head" style="margin-bottom:4px">
         <div class="usage-section-title mono" style="font-family:var(--f-mono);font-size:16px"><a class="user-link" data-action="open-user-360" data-user-id="${escHtml(d.user_id)}">${escHtml(d.user_id)}</a></div>
@@ -2301,6 +2310,11 @@
           <table class="usage-table">
             <thead><tr><th>时间</th><th>事件</th><th>路由/模式</th><th style="text-align:right">状态</th><th style="text-align:right">流出</th></tr></thead>
             <tbody>${eventRows || '<tr><td colspan="5" class="empty">无事件</td></tr>'}</tbody>
+          </table>
+          <div class="detail-sub-title">最近报错（错误实例，含错误码与路径）</div>
+          <table class="usage-table">
+            <thead><tr><th>时间</th><th style="text-align:right">状态</th><th>错误码</th><th>路径</th><th>错误信息</th></tr></thead>
+            <tbody>${errorRows || '<tr><td colspan="5" class="empty">保留窗口内无错误实例</td></tr>'}</tbody>
           </table>
         </div>
       </div>`;

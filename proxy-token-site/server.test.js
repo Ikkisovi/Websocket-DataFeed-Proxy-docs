@@ -4289,6 +4289,44 @@ describe('Admin usage monitoring API', () => {
     expect(detail.body.top_routes[0].count).toBe(count * 2);
   });
 
+  test('user detail exposes recent error instances with code and path', async () => {
+    const ts = new Date().toISOString();
+    const batch = [
+      usageEvent({ user_id: 'err_user', request_id: 'e1', status: 422, route: '/v3/option/history/quote', path: '/v3/option/history/quote', error_code: 'native_request_budget_exceeded', error: 'Native Theta request exceeds the configured history budget', timestamp: ts }),
+      usageEvent({ user_id: 'err_user', request_id: 'e2', status: 429, route: '/v3/option/history/quote', path: '/v3/option/history/quote', error_code: 'admission_pool_byte_budget_exceeded', error: 'too many bytes', timestamp: ts }),
+      usageEvent({ user_id: 'err_user', request_id: 'e3', status: 200, route: '/v3/option/history/quote', timestamp: ts })
+    ].map(e => JSON.stringify(e)).join('\n') + '\n';
+    fs.writeFileSync(USAGE_LOG, batch);
+    __resetUsageAggregatorForTest();
+    const detail = await request(app)
+      .get('/api/admin/usage/user?id=err_user')
+      .set('x-admin-token', adminToken);
+    expect(detail.statusCode).toBe(200);
+    expect(detail.body.errors_7d_utc).toBe(2);
+    expect(detail.body.recent_errors).toHaveLength(2);
+    expect(detail.body.recent_errors[0]).toMatchObject({
+      status: 422,
+      error_code: 'native_request_budget_exceeded',
+      path: '/v3/option/history/quote'
+    });
+    expect(JSON.stringify(detail.body)).not.toContain('tok-');
+  });
+
+  test('per-user recent errors are capped without dropping counters', async () => {
+    const ts = new Date().toISOString();
+    const batch = Array.from({ length: 60 }, (_, i) => JSON.stringify(usageEvent({
+      user_id: 'cap_user', request_id: `cap-${i}`, status: 422, error_code: 'boom', error: 'bad', timestamp: ts
+    }))).join('\n') + '\n';
+    fs.writeFileSync(USAGE_LOG, batch);
+    __resetUsageAggregatorForTest();
+    const detail = await request(app)
+      .get('/api/admin/usage/user?id=cap_user')
+      .set('x-admin-token', adminToken);
+    expect(detail.statusCode).toBe(200);
+    expect(detail.body.errors_7d_utc).toBe(60);
+    expect(detail.body.recent_errors).toHaveLength(20);
+  });
+
   test('does not consume an unterminated EOF fragment and ingests it once after its newline arrives', async () => {
     const first = usageEvent({ user_id: 'partial_first', timestamp: new Date().toISOString() });
     const second = usageEvent({ user_id: 'partial_second', timestamp: new Date().toISOString() });
