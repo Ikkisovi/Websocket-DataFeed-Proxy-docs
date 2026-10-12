@@ -53,6 +53,7 @@ const {
   getLastTestAccountLoginEmail,
   clearTestAccountLoginEmails,
   __clearLoginRateLimitsForTest,
+  downgradeExpiredToFree,
   __resetUsageAggregatorForTest,
   __refreshUsageAggregatorForTest,
   __setUsageAggregatorTestHooks
@@ -727,6 +728,45 @@ describe('POST /api/register', () => {
     expect(res.statusCode).toBe(201);
     expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0].email).toBe('mailuser@example.com');
     expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0].email_verified).toBe(true);
+  });
+
+  it('issues permanent Free credentials with no expires_at on registration', async () => {
+    const res = await registerRequest({
+      username: 'permFree', phone: '1', tier: 'free', email: 'permfree@example.com'
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.body.expiry).toBeNull();
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    expect(proxy.users).toHaveLength(1);
+    expect(proxy.users[0].role).toBe('free');
+    expect(proxy.users[0].token).toBe(res.body.token);
+    expect('expires_at' in proxy.users[0]).toBe(false);
+  });
+
+  it('downgrades expired paid accounts to permanent free and keeps the token', async () => {
+    fs.writeFileSync(USERS_FILE, JSON.stringify([
+      { username: 'wasPaid', phone: '1', account_id: 'wasPaid', role: 'standard', tier: 'standard' },
+      { username: 'stillPaid', phone: '2', account_id: 'stillPaid', role: 'premium', tier: 'premium' }
+    ]));
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({ users: [
+      { token: 'tok-expired', user_id: 'wasPaid', role: 'standard', expires_at: new Date(Date.now() - 86400000).toISOString() },
+      { token: 'tok-active', user_id: 'stillPaid', role: 'premium', expires_at: new Date(Date.now() + 10 * 86400000).toISOString() },
+      { token: 'tok-legacy-free', user_id: 'oldFree', role: 'free', expires_at: new Date(Date.now() - 86400000).toISOString() }
+    ] }));
+    const result = await downgradeExpiredToFree();
+    expect(result.converted).toBe(2);
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    const byId = Object.fromEntries(proxy.users.map(u => [u.user_id, u]));
+    expect(byId.wasPaid.role).toBe('free');
+    expect(byId.wasPaid.token).toBe('tok-expired');
+    expect('expires_at' in byId.wasPaid).toBe(false);
+    expect(byId.oldFree.role).toBe('free');
+    expect('expires_at' in byId.oldFree).toBe(false);
+    expect(byId.stillPaid.role).toBe('premium');
+    expect(byId.stillPaid.expires_at).toBeDefined();
+    const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    expect(users.find(u => u.account_id === 'wasPaid').tier).toBe('free');
+    expect(users.find(u => u.account_id === 'stillPaid').tier).toBe('premium');
   });
 });
 

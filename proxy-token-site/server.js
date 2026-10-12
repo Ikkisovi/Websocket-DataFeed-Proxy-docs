@@ -1839,7 +1839,9 @@ async function provisionFreeRegistration(entry) {
   }
 
   const token = crypto.randomUUID();
-  const expiresAt = computeExpiry(tierConfig);
+  // Free is a permanent tier, not a 30-day grant: the proxy entry carries no
+  // expires_at (edge treats a missing expiry as never-expiring; an empty
+  // string would mean inactive, so the field is omitted entirely).
   const localUser = {
     username: entry.username,
     phone: entry.phone,
@@ -1861,7 +1863,6 @@ async function provisionFreeRegistration(entry) {
     ...(entry.email && { email: entry.email }),
     ...(entry.email_verified && { email_verified: true }),
     role: tierConfig.role,
-    expires_at: expiresAt,
     permissions
   };
   const nextUsers = [...users, localUser];
@@ -1883,7 +1884,51 @@ async function provisionFreeRegistration(entry) {
     error.statusCode = 503;
     throw error;
   }
-  return { token, expiresAt, role: tierConfig.role };
+  return { token, expiresAt: null, role: tierConfig.role };
+}
+
+// Downgrade paid accounts past their expiry to the permanent free tier
+// instead of cutting them off. Runs on startup and on a timer; the registry
+// file is the edge's entitlement source, so this is what un-breaks edge
+// enforcement. Local users.json roles are mirrored for admin display.
+async function downgradeExpiredToFree() {
+  const now = Date.now();
+  const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+  if (!Array.isArray(proxyData.users)) return { converted: 0 };
+  const freePerms = resolvePermissions(TIERS.free);
+  const converted = [];
+  for (const proxyUser of proxyData.users) {
+    if (!proxyUser || !proxyUser.expires_at) continue;
+    const expMs = Date.parse(proxyUser.expires_at);
+    if (!Number.isFinite(expMs) || expMs > now) continue;
+    if (proxyUser.role !== 'free') {
+      proxyUser.role = 'free';
+      proxyUser.permissions = freePerms;
+    }
+    delete proxyUser.expires_at;
+    if (proxyUser.user_id) converted.push(proxyUser.user_id);
+  }
+  if (!converted.length) return { converted: 0 };
+  const syncResult = await writeProxyUsersAndSyncAsync(proxyData);
+  if (!syncResult.ok) {
+    console.error('[EXPIRY-SWEEP] registry rewrite failed:', syncResult.message);
+    return { converted: 0, error: syncResult.message };
+  }
+  const users = readJSON(USERS_FILE, []);
+  let changed = false;
+  for (const uid of converted) {
+    const localUser = users.find(user => accountRegistryId(user) === uid);
+    if (localUser && (localUser.role !== 'free' || localUser.tier !== 'free')) {
+      localUser.role = 'free';
+      localUser.tier = 'free';
+      localUser.permissions = freePerms;
+      delete localUser.mode;
+      changed = true;
+    }
+  }
+  if (changed) writeJSONAtomic(USERS_FILE, users);
+  console.log(`[EXPIRY-SWEEP] downgraded ${converted.length} expired account(s) to free`);
+  return { converted: converted.length };
 }
 
 function computeRenewalExpiry(currentExpiry, days) {
@@ -4858,13 +4903,16 @@ app.post('/api/check-status', (req, res) => {
         }
       } catch (_) {}
       const tier = approved.tier || role;
-      if (!maskedToken || !expiresAt || !role) {
+      // Permanent free credentials carry no expires_at; token + role is
+      // sufficient for 'approved'. Only a missing token/role means pending.
+      if (!maskedToken || !role) {
         return res.json({
           success: true,
           status: 'sync_pending',
           message: '账户正在同步到数据服务；请稍后重新查询。'
         });
       }
+      expiresAt = expiresAt || null;
     return res.json({
       success: true,
       status: 'approved',
@@ -8445,6 +8493,15 @@ if (require.main === module) {
   // Heartbeat: keep the RT public endpoint connection warm so periodic
   // /api/status probes can reuse it.
   setInterval(() => { probeRt().catch(() => {}); }, 25000).unref();
+  // Expiry sweep: expired paid accounts fall back to permanent free.
+  downgradeExpiredToFree().catch(err => {
+    console.error('[EXPIRY-SWEEP] startup sweep failed:', err?.message || err);
+  });
+  setInterval(() => {
+    downgradeExpiredToFree().catch(err => {
+      console.error('[EXPIRY-SWEEP] periodic sweep failed:', err?.message || err);
+    });
+  }, 10 * 60 * 1000).unref();
 }
 
 module.exports = {
@@ -8452,6 +8509,7 @@ module.exports = {
   TIERS,
   syncToEC2,
   computeExpiry,
+  downgradeExpiredToFree,
   readJSON,
   writeJSON,
   createAccountSession,

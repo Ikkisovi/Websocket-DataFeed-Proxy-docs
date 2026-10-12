@@ -318,6 +318,7 @@ function AccountDashboard({ overview, loading, onRefresh, onRenew }) {
   const [tokenLoading, setTokenLoading] = useAccountState(false);
   const [tokenMessage, setTokenMessage] = useAccountState("");
   const expired = account.days_remaining === 0;
+  const isPermanentFree = (account.tier === 'free' || account.role === 'free') && account.expiry == null;
 
   const toggleToken = async () => {
     setTokenMessage("");
@@ -375,7 +376,7 @@ function AccountDashboard({ overview, loading, onRefresh, onRenew }) {
               {formatAccountDate(account.expiry)}
             </div>
             <div style={{ color: expired ? "var(--danger)" : "var(--ink-muted)", fontSize: 12, marginTop: 5 }}>
-              {account.days_remaining == null ? "到期时间不可用" : expired ? "已到期" : `剩余 ${account.days_remaining} 天`}
+              {isPermanentFree ? "长期有效" : account.days_remaining == null ? "到期时间不可用" : expired ? "已到期" : `剩余 ${account.days_remaining} 天`}
             </div>
           </div>
         </section>
