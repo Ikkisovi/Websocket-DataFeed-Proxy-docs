@@ -2044,10 +2044,17 @@ async function fulfillPaymentOrderUnlocked(orderId) {
       };
       proxyData.users.push(proxyUser);
     }
+    // Renewal stacks paid days onto the existing expiry only when the account
+    // is already on a paid plan. Upgrades from a free plan start from now so
+    // the free remainder is not converted into extra paid days (30+30=60 bug).
+    // previousRole must be captured before the overwrite below.
+    const previousRole = proxyUser.role;
     proxyUser.role = bundle.role;
     proxyUser.permissions = bundle.permissions;
     proxyUser.expires_at = computeRenewalExpiry(
-      order.kind === 'renewal' ? proxyUser.expires_at : null,
+      order.kind === 'renewal' && previousRole && previousRole !== 'free'
+        ? proxyUser.expires_at
+        : null,
       bundle.days
     );
     if (order.registration?.email) proxyUser.email = order.registration.email;

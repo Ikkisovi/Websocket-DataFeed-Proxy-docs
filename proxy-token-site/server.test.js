@@ -1617,6 +1617,76 @@ describe('Payment bundles and automatic fulfillment', () => {
     expect(proxy.users[0].fulfilled_payment_orders).toEqual([created.body.order.id]);
   });
 
+  it('starts paid time from now when a free account upgrades (no 30+30 stacking)', async () => {
+    process.env.PAYMENT_MOCK_ENABLED = 'true';
+    try {
+      const freeExpiryMs = Date.now() + 20 * 86400000;
+      const account = seedPaidAccount({
+        userId: 'free-upgrader',
+        phone: '6045550177',
+        tier: 'free',
+        email: 'free-upgrader@example.com',
+        expiry: new Date(freeExpiryMs).toISOString(),
+        token: 'free-upgrader-token'
+      });
+      const { login, cookie } = await loginPaidAccount(account);
+      expect(login.statusCode).toBe(200);
+      const created = await request(app)
+        .post('/api/payment/orders')
+        .set('Cookie', cookie)
+        .send({ bundle_id: 'standard-1m', payment_method: 'alipay' });
+      expect(created.statusCode).toBe(201);
+      expect(created.body.order.kind).toBe('renewal');
+      const done = await request(app)
+        .post(`/api/payment/mock/${created.body.order.id}/complete`)
+        .set('Cookie', cookie)
+        .send({});
+      expect(done.statusCode).toBe(200);
+      const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+      const updatedExpiryMs = Date.parse(proxy.users[0].expires_at);
+      // Paid 30 days from now: must be well before free_expiry + 30d.
+      expect(updatedExpiryMs).toBeGreaterThan(Date.now() + 29 * 86400000);
+      expect(updatedExpiryMs).toBeLessThan(Date.now() + 31 * 86400000);
+      expect(updatedExpiryMs).toBeLessThan(freeExpiryMs + 29 * 86400000);
+      expect(proxy.users[0].role).toBe('standard');
+    } finally {
+      delete process.env.PAYMENT_MOCK_ENABLED;
+    }
+  });
+
+  it('keeps stacking paid days when a paid account renews the same tier', async () => {
+    process.env.PAYMENT_MOCK_ENABLED = 'true';
+    try {
+      const paidExpiryMs = Date.now() + 10 * 86400000;
+      const account = seedPaidAccount({
+        userId: 'paid-renewer',
+        phone: '6045550178',
+        tier: 'standard',
+        email: 'paid-renewer@example.com',
+        expiry: new Date(paidExpiryMs).toISOString(),
+        token: 'paid-renewer-token'
+      });
+      const { login, cookie } = await loginPaidAccount(account);
+      expect(login.statusCode).toBe(200);
+      const created = await request(app)
+        .post('/api/payment/orders')
+        .set('Cookie', cookie)
+        .send({ bundle_id: 'standard-1m', payment_method: 'alipay' });
+      expect(created.statusCode).toBe(201);
+      const done = await request(app)
+        .post(`/api/payment/mock/${created.body.order.id}/complete`)
+        .set('Cookie', cookie)
+        .send({});
+      expect(done.statusCode).toBe(200);
+      const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+      const updatedExpiryMs = Date.parse(proxy.users[0].expires_at);
+      expect(updatedExpiryMs).toBeGreaterThan(paidExpiryMs + 29 * 86400000);
+      expect(updatedExpiryMs).toBeLessThan(paidExpiryMs + 31 * 86400000);
+    } finally {
+      delete process.env.PAYMENT_MOCK_ENABLED;
+    }
+  });
+
   it('blocks Z-Pay callbacks with an invalid signature or mismatched paid amount', async () => {
     process.env.ZPAY_PID = 'test-zpay-pid';
     process.env.ZPAY_KEY = 'test-zpay-key';
