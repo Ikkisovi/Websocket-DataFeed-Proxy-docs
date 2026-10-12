@@ -35,6 +35,9 @@ process.env.ACCESS_LOG_DIR = TEST_ACCESS_LOG_DIR;
 process.env.EMAIL_VERIFY_SECRET = 'test-email-verification-secret';
 process.env.EMAIL_TEST_MODE = 'memory';
 process.env.EMAIL_CODE_RESEND_COOLDOWN_MS = '0';
+// Pin the USD->CAD rate so Stripe CAD expectations are deterministic and never
+// depend on live FX fetches. Individual tests may change this per-test.
+process.env.USD_CAD_RATE_OVERRIDE = '1.2';
 
 const mockSendMail = jest.fn().mockResolvedValue({ messageId: 'mock' });
 
@@ -193,6 +196,8 @@ afterEach(() => {
   delete process.env.STRIPE_WEBHOOK_SECRET;
   delete process.env.ZPAY_PID;
   delete process.env.ZPAY_KEY;
+  process.env.USD_CAD_RATE_OVERRIDE = '1.2';
+  server.__resetFxCacheForTest();
   jest.restoreAllMocks();
 });
 
@@ -1791,7 +1796,9 @@ describe('Payment bundles and automatic fulfillment', () => {
     expect(completed.provider_charge).toEqual({
       currency: 'CAD',
       amount_minor: 2000,
-      monthly_amount_minor: 2000
+      monthly_amount_minor: 2000,
+      fx_usd_cad: 1.2,
+      fx_source: 'override'
     });
     const returnLookup = await request(app)
       .get(`/api/payment/orders/${created.body.order.id}`)
@@ -1928,7 +1935,9 @@ describe('Payment bundles and automatic fulfillment', () => {
     expect(standard.body.order.provider_charge).toEqual({
       currency: 'CAD',
       amount_minor: 2000,
-      monthly_amount_minor: 2000
+      monthly_amount_minor: 2000,
+      fx_usd_cad: 1.2,
+      fx_source: 'override'
     });
 
     const basicAccount = seedPaidAccount({
@@ -1965,8 +1974,67 @@ describe('Payment bundles and automatic fulfillment', () => {
     expect(premium.body.order.provider_charge).toEqual({
       currency: 'CAD',
       amount_minor: 3000,
-      monthly_amount_minor: 3000
+      monthly_amount_minor: 3000,
+      fx_usd_cad: 1.2,
+      fx_source: 'override'
     });
+  });
+
+  it('anchors CAD card pricing to USD with a dynamically fetched rate', async () => {
+    process.env.PAYMENT_MOCK_ENABLED = 'true';
+    process.env.USD_CAD_RATE_OVERRIDE = '1.37';
+    server.__resetFxCacheForTest();
+    const registration = await createRegistrationCheckout({
+      username: 'stripe-fx-user',
+      email: 'stripe-fx-user@example.com'
+    });
+    // standard USD anchor 1667 * 1.37 = 2283.79 -> 2284 CAD/month, x1 month.
+    const cad = await createRegistrationOrder({
+      registration,
+      bundleId: 'standard-1m',
+      paymentMethod: 'stripe_card',
+      extra: { stripe_currency: 'CAD' }
+    });
+    expect(cad.statusCode).toBe(201);
+    expect(cad.body.order.provider_charge).toEqual({
+      currency: 'CAD',
+      amount_minor: 2284,
+      monthly_amount_minor: 2284,
+      fx_usd_cad: 1.37,
+      fx_source: 'override'
+    });
+    // USD charge ignores the CAD rate entirely.
+    const usd = await createRegistrationOrder({
+      registration,
+      bundleId: 'standard-1m',
+      paymentMethod: 'stripe_card',
+      extra: { stripe_currency: 'USD' }
+    });
+    expect(usd.statusCode).toBe(201);
+    expect(usd.body.order.provider_charge).toEqual({
+      currency: 'USD',
+      amount_minor: 1667,
+      monthly_amount_minor: 1667
+    });
+    // CNY bundle pricing is independent of FX.
+    expect(cad.body.order.bundle.amount_cny_fen).toBe(10000);
+    expect(cad.body.order.bundle.monthly_amount_cny_fen).toBe(10000);
+    expect(cad.body.order.bundle.stripe_monthly_prices_usd_minor.standard).toBe(1667);
+    expect(cad.body.order.bundle.stripe_monthly_prices_minor).toEqual({ CAD: 2284, USD: 1667 });
+  });
+
+  it('exposes the current USD->CAD rate for CAD price display', async () => {
+    process.env.USD_CAD_RATE_OVERRIDE = '1.37';
+    server.__resetFxCacheForTest();
+    const response = await request(app).get('/api/payment/fx');
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toMatchObject({
+      success: true,
+      usd_cad: { rate: 1.37, source: 'override' },
+      anchor: 'USD'
+    });
+    expect(response.body.anchor_monthly_usd_minor.standard).toBe(1667);
+    expect(response.headers['cache-control']).toBe('no-store');
   });
 
   it('rejects invalid bundles and payment methods', async () => {

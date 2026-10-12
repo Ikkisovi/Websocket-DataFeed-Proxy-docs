@@ -442,6 +442,13 @@ function CheckoutPage() {
                     </button>
                   ))}
                 </div>
+                {stripeCurrency === "CAD" && bundle?.fx_usd_cad && (
+                  <div style={{ color: "var(--ink-muted)", fontSize: 12, lineHeight: 1.6, marginTop: 8 }}>
+                    加币价以美元锚定价按实时汇率折算：1 USD ≈ {bundle.fx_usd_cad.rate} CAD
+                    {bundle.fx_usd_cad.as_of ? `（更新于 ${formatCheckoutDate(bundle.fx_usd_cad.as_of)}）` : ""}。
+                    最终扣款以服务端下单时汇率为准，人民币套餐价不受影响。
+                  </div>
+                )}
               </>
             )}
 

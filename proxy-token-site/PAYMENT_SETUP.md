@@ -25,9 +25,17 @@ snapshot.
    - `checkout.session.expired`
 6. Store the endpoint signing secret as `STRIPE_WEBHOOK_SECRET`.
 
-Stripe card Checkout supports CAD and USD only. The server-authoritative
-monthly amounts are CA$30 and US$25 and are multiplied by the selected number
-of months. The RMB plan catalogue is separate from the Stripe charge currency.
+Stripe card Checkout supports CAD and USD only. Pricing is USD-anchored:
+the USD monthly amounts (`STRIPE_MONTHLY_PRICES_USD_MINOR` in `server.js`)
+are the single source of truth and USD orders charge them directly. CAD orders
+are converted dynamically as `round(USD * live USD→CAD rate)` at order-creation
+time; the rate is fetched from a free FX source (`open.er-api.com`), cached
+for 12 hours (`FX_CACHE_TTL_MS`), and falls back to the last-known-good rate
+or `USD_CAD_FALLBACK_RATE` (default 1.2) when the fetch fails. Pin a rate with
+`USD_CAD_RATE_OVERRIDE` for tests or incident freezes. The current rate is
+exposed at `GET /api/payment/fx` (no-store) and echoed per bundle as
+`fx_usd_cad` in `checkout-info`. The RMB plan catalogue is separate from the
+Stripe charge currency and is never derived from FX.
 
 Until EasyPay approves the merchant, keep
 `PAYMENT_ALIPAY_ENABLED=false`. The checkout continues to display Alipay as an

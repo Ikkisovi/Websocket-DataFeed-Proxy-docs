@@ -307,13 +307,100 @@ const PAYMENT_MONTHLY_PRICES_CNY_FEN = {
   premium: 15000,
   china: 7000
 };
-const STRIPE_MONTHLY_PRICES_MINOR = {
-  basic: { CAD: 1200, USD: 1000 },
-  value: { CAD: 1400, USD: 1167 },
-  standard: { CAD: 2000, USD: 1667 },
-  premium: { CAD: 3000, USD: 2500 },
-  china: { CAD: 1400, USD: 1167 }
+// USD-anchored card pricing (minor units, i.e. US cents). The USD value is the
+// single source of truth; CAD is derived dynamically as
+// round(USD * live USD->CAD rate). CNY (Alipay/Z-Pay) is priced independently
+// via PAYMENT_MONTHLY_PRICES_CNY_FEN and is intentionally unaffected by FX.
+const STRIPE_MONTHLY_PRICES_USD_MINOR = {
+  basic: 1000,
+  value: 1167,
+  standard: 1667,
+  premium: 2500,
+  china: 1167
 };
+
+// --- USD->CAD rate for card pricing -----------------------------------------
+// Source: free open exchange-rate API (no key), cached in memory with a TTL.
+// Ops may pin a rate via USD_CAD_RATE_OVERRIDE (tests / incident freeze).
+// When the live fetch fails, the last-known-good cached rate is reused; only
+// when nothing was ever fetched do we fall back to USD_CAD_FALLBACK_RATE
+// (default 1.2, which reproduces the pre-dynamic CAD table).
+const FX_USD_CAD_SOURCE_URL = 'https://open.er-api.com/v6/latest/USD';
+const FX_USD_CAD_CACHE_TTL_MS = Number(process.env.FX_CACHE_TTL_MS) > 0
+  ? Number(process.env.FX_CACHE_TTL_MS)
+  : 12 * 60 * 60 * 1000;
+const FX_USD_CAD_FETCH_TIMEOUT_MS = 8000;
+let fxUsdCadCache = null; // { rate, fetchedAt, source }
+
+function fxFallbackRate() {
+  const override = Number(process.env.USD_CAD_FALLBACK_RATE);
+  return Number.isFinite(override) && override > 0 ? override : 1.2;
+}
+
+function fxOverrideRate() {
+  const override = Number(process.env.USD_CAD_RATE_OVERRIDE);
+  return Number.isFinite(override) && override > 0 ? override : null;
+}
+
+async function fetchLiveUsdToCadRate() {
+  const response = await fetch(FX_USD_CAD_SOURCE_URL, {
+    signal: AbortSignal.timeout(FX_USD_CAD_FETCH_TIMEOUT_MS),
+    headers: { 'User-Agent': 'Leandata-Checkout/1.0' }
+  });
+  if (!response.ok) throw new Error(`FX source returned HTTP ${response.status}.`);
+  const payload = await response.json();
+  const rate = Number(payload?.rates?.CAD);
+  if (!Number.isFinite(rate) || rate <= 0) throw new Error('FX source returned an invalid CAD rate.');
+  return rate;
+}
+
+// Resolves the current USD->CAD rate. Never throws: always returns a usable
+// rate and reports where it came from via `source`.
+async function getUsdToCadRate() {
+  const override = fxOverrideRate();
+  if (override !== null) {
+    return { rate: override, asOf: new Date().toISOString(), source: 'override', live: false };
+  }
+  const now = Date.now();
+  if (fxUsdCadCache && (now - fxUsdCadCache.fetchedAt) < FX_USD_CAD_CACHE_TTL_MS) {
+    return { rate: fxUsdCadCache.rate, asOf: new Date(fxUsdCadCache.fetchedAt).toISOString(), source: fxUsdCadCache.source, live: false, cached: true };
+  }
+  try {
+    const rate = await fetchLiveUsdToCadRate();
+    fxUsdCadCache = { rate, fetchedAt: now, source: 'live:open.er-api.com' };
+    return { rate, asOf: new Date(now).toISOString(), source: 'live:open.er-api.com', live: true };
+  } catch {
+    if (fxUsdCadCache) {
+      return { rate: fxUsdCadCache.rate, asOf: new Date(fxUsdCadCache.fetchedAt).toISOString(), source: `${fxUsdCadCache.source}+stale`, live: false, cached: true, stale: true };
+    }
+    return { rate: fxFallbackRate(), asOf: new Date(now).toISOString(), source: 'fallback', live: false, fallback: true };
+  }
+}
+
+// Synchronous snapshot for contexts that cannot await a refresh (uses the
+// cached/override/fallback rate without network I/O).
+function peekUsdToCadRate() {
+  const override = fxOverrideRate();
+  if (override !== null) {
+    return { rate: override, asOf: new Date().toISOString(), source: 'override', live: false };
+  }
+  if (fxUsdCadCache) {
+    return { rate: fxUsdCadCache.rate, asOf: new Date(fxUsdCadCache.fetchedAt).toISOString(), source: fxUsdCadCache.source, live: false, cached: true };
+  }
+  const now = new Date().toISOString();
+  return { rate: fxFallbackRate(), asOf: now, source: 'fallback', live: false, fallback: true };
+}
+
+function cadMonthlyFromUsd(usdMinor, rate) {
+  return Math.round(Number(usdMinor) * Number(rate));
+}
+
+// Resolved {CAD,USD} monthly table for one tier at a given USD->CAD rate.
+function stripeMonthlyPricesForRate(tier, rate) {
+  const usd = STRIPE_MONTHLY_PRICES_USD_MINOR[tier];
+  if (!Number.isSafeInteger(usd)) return {};
+  return { CAD: cadMonthlyFromUsd(usd, rate), USD: usd };
+}
 
 const PAYMENT_PLAN_DETAILS = {
   basic: {
@@ -1216,15 +1303,31 @@ function enabledPaymentMethods() {
   return methods;
 }
 
-function stripeProviderCharge(bundle, requestedCurrency) {
+async function stripeProviderCharge(bundle, requestedCurrency) {
   const currency = String(requestedCurrency || 'CAD').trim().toUpperCase();
-  const monthlyAmountMinor = STRIPE_MONTHLY_PRICES_MINOR[bundle?.tier]?.[currency];
-  if (!monthlyAmountMinor) return null;
-  return {
-    currency,
-    amount_minor: monthlyAmountMinor * bundle.months,
-    monthly_amount_minor: monthlyAmountMinor
-  };
+  const usdMonthlyMinor = STRIPE_MONTHLY_PRICES_USD_MINOR[bundle?.tier];
+  if (!Number.isSafeInteger(usdMonthlyMinor)) return null;
+  if (currency === 'USD') {
+    return {
+      currency,
+      amount_minor: usdMonthlyMinor * bundle.months,
+      monthly_amount_minor: usdMonthlyMinor
+    };
+  }
+  if (currency === 'CAD') {
+    // CAD is anchored to USD: converted at the current USD->CAD rate so the
+    // Stripe charge tracks FX instead of a stale static table.
+    const fx = await getUsdToCadRate();
+    const cadMonthlyMinor = cadMonthlyFromUsd(usdMonthlyMinor, fx.rate);
+    return {
+      currency,
+      amount_minor: cadMonthlyMinor * bundle.months,
+      monthly_amount_minor: cadMonthlyMinor,
+      fx_usd_cad: fx.rate,
+      fx_source: fx.source
+    };
+  }
+  return null;
 }
 
 function zpayProviderCharge(bundle) {
@@ -1281,7 +1384,8 @@ function writePaymentOrders(orders) {
   writeJSONAtomic(PAYMENT_ORDERS_FILE, orders);
 }
 
-function publicPaymentBundle(bundle) {
+function publicPaymentBundle(bundle, fxSnapshot) {
+  const fx = fxSnapshot || peekUsdToCadRate();
   return {
     id: bundle.id,
     tier: bundle.tier,
@@ -1291,7 +1395,12 @@ function publicPaymentBundle(bundle) {
     currency: bundle.currency,
     amount_cny_fen: bundle.amount_cny_fen,
     monthly_amount_cny_fen: bundle.monthly_amount_cny_fen,
-    stripe_monthly_prices_minor: STRIPE_MONTHLY_PRICES_MINOR[bundle.tier] || {},
+    // USD anchor (source of truth) plus the CAD amount resolved at the
+    // snapshot rate. Kept as `stripe_monthly_prices_minor` for backward
+    // compatibility with deployed checkout clients.
+    stripe_monthly_prices_usd_minor: { ...STRIPE_MONTHLY_PRICES_USD_MINOR },
+    stripe_monthly_prices_minor: stripeMonthlyPricesForRate(bundle.tier, fx.rate),
+    fx_usd_cad: { rate: fx.rate, as_of: fx.asOf || fx.as_of, source: fx.source },
     name: bundle.name,
     summary: bundle.summary,
     features: bundle.features,
@@ -3496,7 +3605,7 @@ app.use('/api/payment', (_req, res, next) => {
   next();
 });
 
-app.get('/api/payment/checkout-info', (req, res) => {
+app.get('/api/payment/checkout-info', async (req, res) => {
   const context = resolvePaymentCheckoutContext(req, req.query.checkout_token);
   if (!context) {
     return res.status(401).json({
@@ -3512,6 +3621,7 @@ app.get('/api/payment/checkout-info', (req, res) => {
     suggestedMode,
     '1m'
   ].filter(Boolean).join('-');
+  const fxSnapshot = await getUsdToCadRate();
   return res.json({
     success: true,
     kind: context.kind,
@@ -3528,14 +3638,27 @@ app.get('/api/payment/checkout-info', (req, res) => {
     plans: checkoutPlansForContext(context),
     bundles: Object.values(PAYMENT_BUNDLES)
       .filter(bundle => paymentBundleAllowedForContext(bundle, context))
-      .map(publicPaymentBundle),
+      .map(bundle => publicPaymentBundle(bundle, fxSnapshot)),
     payment_methods: enabledPaymentMethods(),
     suggested_bundle_id: PAYMENT_BUNDLES[suggestedBundleId]
       && paymentBundleAllowedForContext(PAYMENT_BUNDLES[suggestedBundleId], context)
       ? suggestedBundleId
       : (context.kind === 'registration' ? 'standard-1m' : 'standard-1m'),
     mock_enabled: process.env.PAYMENT_MOCK_ENABLED === 'true',
-    pricing_notice: '人民币套餐价与 Stripe 卡支付价分开计价；结账前会显示最终币种和金额。'
+    pricing_notice: '卡支付以美元锚定计价：USD 按美元锚定价直接结算，CAD 按实时 USD→CAD 汇率折算；人民币套餐价独立计价，不受汇率影响。结账前会显示最终币种和金额。'
+  });
+});
+
+// Current USD->CAD rate used for CAD card pricing (USD-anchored). CNY pricing
+// is independent and never derived from this rate.
+app.get('/api/payment/fx', async (req, res) => {
+  const fx = await getUsdToCadRate();
+  res.setHeader('Cache-Control', 'no-store');
+  return res.json({
+    success: true,
+    usd_cad: { rate: fx.rate, as_of: fx.asOf || fx.as_of, source: fx.source, live: Boolean(fx.live) },
+    anchor: 'USD',
+    anchor_monthly_usd_minor: { ...STRIPE_MONTHLY_PRICES_USD_MINOR }
   });
 });
 
@@ -3569,7 +3692,7 @@ app.post('/api/payment/orders', async (req, res) => {
     });
   }
   const providerCharge = paymentMethod === 'stripe_card'
-    ? stripeProviderCharge(bundle, req.body?.stripe_currency)
+    ? await stripeProviderCharge(bundle, req.body?.stripe_currency)
     : paymentMethod === 'alipay'
       ? zpayProviderCharge(bundle)
       : null;
@@ -3605,7 +3728,7 @@ app.post('/api/payment/orders', async (req, res) => {
       : null,
     user_id: context.kind === 'renewal' ? context.user_id : null,
     bundle_id: bundle.id,
-    bundle: publicPaymentBundle(bundle),
+    bundle: publicPaymentBundle(bundle, await getUsdToCadRate()),
     payment_method: paymentMethod,
     checkout_locale: req.body?.checkout_locale === 'en' ? 'en' : 'zh',
     ...(providerCharge && { provider_charge: providerCharge }),
@@ -8344,5 +8467,9 @@ module.exports = {
   __buildSmtpMessageForTest: buildSmtpMessage,
   __resetUsageAggregatorForTest: () => usageAggregator.__resetForTest(),
   __refreshUsageAggregatorForTest: () => usageAggregator.ensureFresh(0),
-  __setUsageAggregatorTestHooks: (hooks) => usageAggregator.__setTestHooks(hooks)
+  __setUsageAggregatorTestHooks: (hooks) => usageAggregator.__setTestHooks(hooks),
+  STRIPE_MONTHLY_PRICES_USD_MINOR,
+  getUsdToCadRate,
+  peekUsdToCadRate,
+  __resetFxCacheForTest: () => { fxUsdCadCache = null; }
 };
