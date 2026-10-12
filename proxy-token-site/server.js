@@ -363,7 +363,7 @@ async function getUsdToCadRate() {
   }
   const now = Date.now();
   if (fxUsdCadCache && (now - fxUsdCadCache.fetchedAt) < FX_USD_CAD_CACHE_TTL_MS) {
-    return { rate: fxUsdCadCache.rate, asOf: new Date(fxUsdCadCache.fetchedAt).toISOString(), source: fxUsdCadCache.source, live: false, cached: true };
+    return { rate: fxUsdCadCache.rate, asOf: new Date(fxUsdCadCache.fetchedAt).toISOString(), source: fxUsdCadCache.source, live: fxUsdCadCache.source.startsWith('live'), cached: true };
   }
   try {
     const rate = await fetchLiveUsdToCadRate();
@@ -385,7 +385,7 @@ function peekUsdToCadRate() {
     return { rate: override, asOf: new Date().toISOString(), source: 'override', live: false };
   }
   if (fxUsdCadCache) {
-    return { rate: fxUsdCadCache.rate, asOf: new Date(fxUsdCadCache.fetchedAt).toISOString(), source: fxUsdCadCache.source, live: false, cached: true };
+    return { rate: fxUsdCadCache.rate, asOf: new Date(fxUsdCadCache.fetchedAt).toISOString(), source: fxUsdCadCache.source, live: fxUsdCadCache.source.startsWith('live'), cached: true };
   }
   const now = new Date().toISOString();
   return { rate: fxFallbackRate(), asOf: now, source: 'fallback', live: false, fallback: true };
