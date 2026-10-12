@@ -751,12 +751,16 @@ describe('POST /api/register', () => {
     fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({ users: [
       { token: 'tok-expired', user_id: 'wasPaid', role: 'standard', expires_at: new Date(Date.now() - 86400000).toISOString() },
       { token: 'tok-active', user_id: 'stillPaid', role: 'premium', expires_at: new Date(Date.now() + 10 * 86400000).toISOString() },
-      { token: 'tok-legacy-free', user_id: 'oldFree', role: 'free', expires_at: new Date(Date.now() - 86400000).toISOString() }
+      { token: 'tok-legacy-free', user_id: 'oldFree', role: 'free', expires_at: new Date(Date.now() - 86400000).toISOString() },
+      { token: 'tok-svc', user_id: 'svcAcc', role: 'unrestricted', expires_at: new Date(Date.now() - 86400000).toISOString() },
+      { token: 'tok-test', user_id: 'perftest_x', role: 'test', expires_at: new Date(Date.now() - 86400000).toISOString() }
     ] }));
     const result = await downgradeExpiredToFree();
     expect(result.converted).toBe(2);
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const byId = Object.fromEntries(proxy.users.map(u => [u.user_id, u]));
+    expect(byId.svcAcc.role).toBe('unrestricted');
+    expect(byId['perftest_x'].role).toBe('test');
     expect(byId.wasPaid.role).toBe('free');
     expect(byId.wasPaid.token).toBe('tok-expired');
     expect('expires_at' in byId.wasPaid).toBe(false);

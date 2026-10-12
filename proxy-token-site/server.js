@@ -1895,10 +1895,14 @@ async function downgradeExpiredToFree() {
   const now = Date.now();
   const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
   if (!Array.isArray(proxyData.users)) return { converted: 0 };
+  // Infra principals never downgrade: test load-test accounts and the
+  // unrestricted service identity keep their lifecycle managed elsewhere.
+  const PROTECTED_ROLES = new Set(['test', 'unrestricted']);
   const freePerms = resolvePermissions(TIERS.free);
   const converted = [];
   for (const proxyUser of proxyData.users) {
     if (!proxyUser || !proxyUser.expires_at) continue;
+    if (PROTECTED_ROLES.has(proxyUser.role)) continue;
     const expMs = Date.parse(proxyUser.expires_at);
     if (!Number.isFinite(expMs) || expMs > now) continue;
     if (proxyUser.role !== 'free') {
