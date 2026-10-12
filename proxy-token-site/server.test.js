@@ -772,6 +772,29 @@ describe('POST /api/register', () => {
     expect(users.find(u => u.account_id === 'wasPaid').tier).toBe('free');
     expect(users.find(u => u.account_id === 'stillPaid').tier).toBe('premium');
   });
+
+  it('leaves an expired row alone when another active row owns the identity', async () => {
+    fs.writeFileSync(USERS_FILE, JSON.stringify([]));
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({ users: [
+      { token: 'tok-live', user_id: 'dupUser', role: 'standard', expires_at: new Date(Date.now() + 10 * 86400000).toISOString() },
+      { token: 'tok-dead', user_id: 'dupUser', role: 'premium', expires_at: new Date(Date.now() - 86400000).toISOString() }
+    ] }));
+    const errors = [];
+    const origError = console.error;
+    console.error = (...args) => { errors.push(args.join(' ')); };
+    let result;
+    try {
+      result = await downgradeExpiredToFree();
+    } finally {
+      console.error = origError;
+    }
+    expect(result.converted).toBe(0);
+    expect(errors.some(line => line.includes('dupUser'))).toBe(true);
+    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+    const dead = proxy.users.find(u => u.token === 'tok-dead');
+    expect(dead.role).toBe('premium');
+    expect(dead.expires_at).toBeDefined();
+  });
 });
 
 describe('Email verification and registration template', () => {

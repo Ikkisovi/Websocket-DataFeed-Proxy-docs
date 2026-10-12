@@ -1900,17 +1900,34 @@ async function downgradeExpiredToFree() {
   const PROTECTED_ROLES = new Set(['test', 'unrestricted']);
   const freePerms = resolvePermissions(TIERS.free);
   const converted = [];
+  // The edge authority rejects a projection with two active rows sharing
+  // one user_id, so never activate a row that would duplicate an already
+  // active identity (historical duplicates stay expired until cleaned).
+  const activeIds = new Set();
+  for (const proxyUser of proxyData.users) {
+    if (!proxyUser || !proxyUser.user_id) continue;
+    if (!proxyUser.expires_at || Date.parse(proxyUser.expires_at) > now) {
+      activeIds.add(proxyUser.user_id);
+    }
+  }
   for (const proxyUser of proxyData.users) {
     if (!proxyUser || !proxyUser.expires_at) continue;
     if (PROTECTED_ROLES.has(proxyUser.role)) continue;
     const expMs = Date.parse(proxyUser.expires_at);
     if (!Number.isFinite(expMs) || expMs > now) continue;
+    if (activeIds.has(proxyUser.user_id)) {
+      console.error(`[EXPIRY-SWEEP] skipping ${proxyUser.user_id}: another active row already uses this identity`);
+      continue;
+    }
     if (proxyUser.role !== 'free') {
       proxyUser.role = 'free';
       proxyUser.permissions = freePerms;
     }
     delete proxyUser.expires_at;
-    if (proxyUser.user_id) converted.push(proxyUser.user_id);
+    if (proxyUser.user_id) {
+      converted.push(proxyUser.user_id);
+      activeIds.add(proxyUser.user_id);
+    }
   }
   if (!converted.length) return { converted: 0 };
   const syncResult = await writeProxyUsersAndSyncAsync(proxyData);
