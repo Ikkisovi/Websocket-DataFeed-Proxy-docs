@@ -45,7 +45,17 @@ def portal(*arguments):
     return run(['docker', 'compose', '-f', str(PORTAL_COMPOSE), *arguments])
 
 def recovery(*arguments):
-    return run(['python3', RECOVERY, '--site', 'portal', *arguments])
+    command = ['python3', RECOVERY, '--site', 'portal', *arguments]
+    for attempt in range(20):
+        result = subprocess.run(command, capture_output=True, timeout=120)
+        if result.returncode == 0:
+            return result.stdout.decode().strip()
+        if b'BlockingIOError' not in result.stderr or attempt == 19:
+            with (STATE / 'private-operation-errors.log').open('ab') as output:
+                output.write(result.stdout + result.stderr)
+            raise RuntimeError('Recovery admission failed; inspect the private log')
+        time.sleep(1)
+    raise RuntimeError('Recovery lock budget exhausted')
 
 def private_write(path, value, uid=0):
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -160,7 +170,10 @@ def install_backup_timer(release):
     unit = Path('/etc/systemd/system/leandata-commerce-backup.service')
     timer = unit.with_suffix('.timer')
     if unit.exists() or timer.exists():
-        raise RuntimeError('Backup unit already exists; do not replace a different owner')
+        if not unit.exists() or not timer.exists() or 'Description=Private LeanData commerce logical backup' not in unit.read_text() or 'Description=Daily private LeanData commerce backup' not in timer.read_text():
+            raise RuntimeError('Backup unit belongs to a different owner')
+        if not re.search(r'ExecStart=/usr/bin/python3 /srv/leandata/releases/commerce-[0-9a-f]{40}/proxy-token-site/commerce/backup.py', unit.read_text()):
+            raise RuntimeError('Backup program identity differs')
     unit.write_text('[Unit]\nDescription=Private LeanData commerce logical backup\nAfter=docker.service\n'
         '[Service]\nType=oneshot\nUser=root\nUMask=0077\nMemoryMax=64M\nMemorySwapMax=0\n'
         'CPUQuota=20%\nNice=15\nIOSchedulingClass=idle\nNoNewPrivileges=true\n'
