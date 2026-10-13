@@ -8,6 +8,7 @@ const fs = require('fs');
 const net = require('net');
 const path = require('path');
 const tls = require('tls');
+const { createCommerceStore } = require('./commerce/store.cjs');
 const { execFile } = require('child_process');
 
 const app = express();
@@ -38,12 +39,12 @@ app.use(cors());
 app.post(
   '/api/payment/stripe/webhook',
   express.raw({ type: 'application/json' }),
-  handleStripeWebhook
+  asyncRoute(handleStripeWebhook)
 );
 app.all(
   '/api/payment/zpay/notify',
   express.urlencoded({ extended: false }),
-  handleZpayNotification
+  asyncRoute(handleZpayNotification)
 );
 // Announcement mail carries both UTF-8 text and HTML; keep the larger parser
 // scoped to that route while enforcing per-field limits in the handler.
@@ -89,6 +90,14 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const PENDING_FILE = path.join(DATA_DIR, 'pending.json');
 const BULK_ORDERS_FILE = path.join(DATA_DIR, 'bulk-orders.json');
 const PAYMENT_ORDERS_FILE = path.join(DATA_DIR, 'payment-orders.json');
+const commerceStore = createCommerceStore({
+  read: () => readJSON(PAYMENT_ORDERS_FILE, []),
+  write: orders => writeJSONAtomic(PAYMENT_ORDERS_FILE, orders)
+});
+
+function asyncRoute(handler) {
+  return (req, res, next) => Promise.resolve().then(() => handler(req, res, next)).catch(next);
+}
 const PRODUCT_FEEDBACK_FILE = path.join(DATA_DIR, 'product-update-feedback.json');
 const PRODUCT_UPDATES_FILE = path.join(DATA_DIR, 'product-updates.json');
 const EMAIL_VERIFICATION_FILE = path.join(DATA_DIR, 'email-verifications.json');
@@ -1376,13 +1385,7 @@ function createZpayCheckoutUrl(req, order, bundle, checkoutToken) {
   return `https://z-pay.cn/submit.php?${new URLSearchParams(params).toString()}`;
 }
 
-function readPaymentOrders() {
-  return readJSON(PAYMENT_ORDERS_FILE, []);
-}
-
-function writePaymentOrders(orders) {
-  writeJSONAtomic(PAYMENT_ORDERS_FILE, orders);
-}
+async function readPaymentOrders() { return commerceStore.list(); }
 
 function publicPaymentBundle(bundle, fxSnapshot) {
   const fx = fxSnapshot || peekUsdToCadRate();
@@ -2039,15 +2042,7 @@ function paymentOrderAccessAllowed(req, order, resumeToken, checkoutToken) {
   );
 }
 
-function updatePaymentOrder(orderId, updater) {
-  const orders = readPaymentOrders();
-  const index = orders.findIndex(order => order.id === orderId);
-  if (index < 0) return null;
-  const updated = updater({ ...orders[index] }) || orders[index];
-  orders[index] = updated;
-  writePaymentOrders(orders);
-  return updated;
-}
+async function updatePaymentOrder(orderId, updater) { return commerceStore.update(orderId, updater); }
 
 function fulfilledPaymentOrderIds(user) {
   return Array.isArray(user?.fulfilled_payment_orders)
@@ -2060,7 +2055,7 @@ function addFulfilledPaymentOrder(user, orderId) {
 }
 
 async function fulfillPaymentOrderUnlocked(orderId) {
-  let order = readPaymentOrders().find(item => item.id === orderId);
+  let order = (await readPaymentOrders()).find(item => item.id === orderId);
   if (!order) throw new Error('支付订单不存在。');
   if (order.status === 'COMPLETED') {
     const existing = findProxyAccount(
@@ -2072,7 +2067,7 @@ async function fulfillPaymentOrderUnlocked(orderId) {
     throw new Error('订单尚未支付。');
   }
 
-  order = updatePaymentOrder(orderId, current => ({
+  order = await updatePaymentOrder(orderId, current => ({
     ...current,
     status: 'FULFILLING',
     fulfillment_attempts: Number(current.fulfillment_attempts || 0) + 1,
@@ -2168,7 +2163,7 @@ async function fulfillPaymentOrderUnlocked(orderId) {
   }
 
   const completedAt = new Date().toISOString();
-  order = updatePaymentOrder(order.id, current => ({
+  order = await updatePaymentOrder(order.id, current => ({
     ...current,
     status: 'COMPLETED',
     completed_at: completedAt,
@@ -2184,19 +2179,7 @@ async function fulfillPaymentOrderUnlocked(orderId) {
   }));
 
   if (order.kind === 'registration') {
-    const orders = readPaymentOrders();
-    let changed = false;
-    for (const sibling of orders) {
-      if (sibling.id !== order.id
-          && sibling.registration_id === order.registration_id
-          && sibling.status === 'PENDING') {
-        sibling.status = 'CANCELLED';
-        sibling.cancelled_at = completedAt;
-        sibling.last_error = '同一注册流程已由其他订单完成。';
-        changed = true;
-      }
-    }
-    if (changed) writePaymentOrders(orders);
+    await commerceStore.cancelSiblings(order, completedAt);
   }
 
   return { order, token: proxyUser.token };
@@ -2206,9 +2189,10 @@ async function fulfillPaymentOrder(orderId) {
   if (paymentFulfillmentLocks.has(orderId)) {
     return paymentFulfillmentLocks.get(orderId);
   }
-  const promise = fulfillPaymentOrderUnlocked(orderId)
-    .catch(error => {
-      updatePaymentOrder(orderId, current => ({
+  const promise = commerceStore.withFulfillment(orderId, () => fulfillPaymentOrderUnlocked(orderId))
+    .catch(async error => {
+      if (error.code === 'COMMERCE_BUSY') throw error;
+      await updatePaymentOrder(orderId, current => current.status === 'COMPLETED' ? current : ({
         ...current,
         status: 'FAILED',
         last_error: error.message,
@@ -2221,6 +2205,43 @@ async function fulfillPaymentOrder(orderId) {
     });
   paymentFulfillmentLocks.set(orderId, promise);
   return promise;
+}
+
+async function confirmStripeSession(order, session) {
+  // Keep legacy CNY Checkout Sessions fulfillable if they were created before
+  // the CAD/USD card-pricing launch and complete after this deployment.
+  const expectedCharge = order.provider_charge || {
+    amount_minor: order.bundle.amount_cny_fen,
+    currency: order.bundle.currency
+  };
+  const amountMatches = Number(session.amount_total) === Number(expectedCharge.amount_minor);
+  const currencyMatches = String(session.currency || '').toUpperCase()
+    === String(expectedCharge.currency || '').toUpperCase();
+  const bundleMatches = session.metadata?.bundle_id === order.bundle_id
+    && (session.metadata?.order_id || session.client_reference_id) === order.id
+    && (!order.stripe_checkout_session_id || order.stripe_checkout_session_id === session.id);
+  if (!amountMatches || !currencyMatches || !bundleMatches) {
+    await updatePaymentOrder(order.id, current => ({
+      ...current,
+      status: 'MANUAL_REVIEW',
+      payment_status: 'PAID_MISMATCH',
+      paid_at: current.paid_at || new Date().toISOString(),
+      provider_payment_id: session.payment_intent || session.id,
+      stripe_checkout_session_id: session.id,
+      last_error: 'Stripe 回调金额、币种或 bundle 与本地订单不一致，已阻止自动开通。'
+    }));
+    return { manual_review: true };
+  }
+  await updatePaymentOrder(order.id, current => ({
+    ...current,
+    payment_status: 'PAID',
+    status: current.status === 'COMPLETED' ? 'COMPLETED' : 'PAID',
+    paid_at: current.paid_at || new Date().toISOString(),
+    provider_payment_id: session.payment_intent || session.id,
+    stripe_checkout_session_id: session.id
+  }));
+  await fulfillPaymentOrder(order.id);
+  return { confirmed: true };
 }
 
 async function handleStripeWebhook(req, res) {
@@ -2241,7 +2262,7 @@ async function handleStripeWebhook(req, res) {
   const orderId = session?.metadata?.order_id || session?.client_reference_id;
   if (!orderId) return res.json({ received: true });
 
-  const order = readPaymentOrders().find(item => item.id === orderId);
+  const order = (await readPaymentOrders()).find(item => item.id === orderId);
   if (!order || order.provider !== 'stripe_checkout') {
     return res.json({ received: true });
   }
@@ -2251,43 +2272,14 @@ async function handleStripeWebhook(req, res) {
     if (session.payment_status !== 'paid' && session.payment_status !== 'no_payment_required') {
       return res.json({ received: true });
     }
-    // Keep legacy CNY Checkout Sessions fulfillable if they were created before
-    // the CAD/USD card-pricing launch and complete after this deployment.
-    const expectedCharge = order.provider_charge || {
-      amount_minor: order.bundle.amount_cny_fen,
-      currency: order.bundle.currency
-    };
-    const amountMatches = Number(session.amount_total) === Number(expectedCharge.amount_minor);
-    const currencyMatches = String(session.currency || '').toUpperCase()
-      === String(expectedCharge.currency || '').toUpperCase();
-    const bundleMatches = session.metadata?.bundle_id === order.bundle_id;
-    if (!amountMatches || !currencyMatches || !bundleMatches) {
-      updatePaymentOrder(order.id, current => ({
-        ...current,
-        status: 'MANUAL_REVIEW',
-        payment_status: 'PAID_MISMATCH',
-        paid_at: current.paid_at || new Date().toISOString(),
-        provider_payment_id: session.payment_intent || session.id,
-        stripe_checkout_session_id: session.id,
-        last_error: 'Stripe 回调金额、币种或 bundle 与本地订单不一致，已阻止自动开通。'
-      }));
-      return res.json({ received: true, manual_review: true });
-    }
-    updatePaymentOrder(order.id, current => ({
-      ...current,
-      payment_status: 'PAID',
-      status: current.status === 'COMPLETED' ? 'COMPLETED' : 'PAID',
-      paid_at: current.paid_at || new Date().toISOString(),
-      provider_payment_id: session.payment_intent || session.id,
-      stripe_checkout_session_id: session.id
-    }));
     try {
-      await fulfillPaymentOrder(order.id);
-    } catch (error) {
-      return res.status(500).json({ received: false, message: error.message });
+      const result = await confirmStripeSession(order, session);
+      if (result.manual_review) return res.json({ received: true, manual_review: true });
+    } catch (_) {
+      return res.status(500).json({ received: false, message: '支付已接收，开通将重试。' });
     }
   } else if (event.type === 'checkout.session.expired') {
-    updatePaymentOrder(order.id, current => current.payment_status === 'PAID'
+    await updatePaymentOrder(order.id, current => current.payment_status === 'PAID'
       ? current
       : {
           ...current,
@@ -2345,6 +2337,72 @@ function zpayPaymentMatches(order, payload) {
   );
 }
 
+async function confirmZpayPayment(order, payload) {
+  const sameProviderTransaction = (await readPaymentOrders()).find(item =>
+    item.id !== order.id
+    && item.provider === 'zpay'
+    && item.provider_payment_id === payload.trade_no
+  );
+  if (sameProviderTransaction || !zpayPaymentMatches(order, payload)) {
+    await updatePaymentOrder(order.id, current => ({
+      ...current,
+      status: 'MANUAL_REVIEW',
+      payment_status: 'PAID_MISMATCH',
+      paid_at: current.paid_at || new Date().toISOString(),
+      provider_payment_id: payload.trade_no,
+      zpay_trade_no: payload.trade_no,
+      last_error: 'Z-Pay 回调的商户、订单、金额、名称或交易号与本地订单不一致，已阻止自动开通。'
+    }));
+    return { manual_review: true };
+  }
+
+  await updatePaymentOrder(order.id, current => ({
+    ...current,
+    payment_status: 'PAID',
+    status: current.status === 'COMPLETED' ? 'COMPLETED' : 'PAID',
+    paid_at: current.paid_at || new Date().toISOString(),
+    provider_payment_id: payload.trade_no,
+    zpay_trade_no: payload.trade_no
+  }));
+  await fulfillPaymentOrder(order.id);
+  return { confirmed: true };
+}
+
+async function reconcilePayment(orderId) {
+  return commerceStore.withPaymentCheck(orderId, async () => {
+    const order = await commerceStore.get(orderId);
+    if (!order || order.payment_status !== 'UNPAID') return;
+    let response;
+    if (order.provider === 'stripe_checkout' && stripeConfigured()) {
+      if (!/^cs_[A-Za-z0-9_]+$/.test(order.stripe_checkout_session_id || '')) return;
+      response = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(order.stripe_checkout_session_id)}`, {
+        headers: { Authorization: `Bearer ${stripeSecretKey()}`, 'Stripe-Version': '2026-02-25.clover' },
+        signal: AbortSignal.timeout(8000), redirect: 'error'
+      });
+      if (!response.ok) throw new Error('Payment status query failed');
+      const session = await response.json();
+      if (session.id !== order.stripe_checkout_session_id) throw new Error('Payment query identity mismatch');
+      if (session.payment_status === 'paid') return confirmStripeSession(order, session);
+      if (session.status === 'expired') {
+        await updatePaymentOrder(order.id, current => current.payment_status !== 'UNPAID' ? current
+          : { ...current, status: 'CANCELLED', cancelled_at: new Date().toISOString() });
+      }
+    } else if (order.provider === 'zpay' && zpayConfigured()) {
+      const url = new URL('https://zpayz.cn/api.php');
+      url.search = new URLSearchParams({ act: 'order', pid: zpayMerchantId(), key: zpayMerchantKey(), out_trade_no: order.id });
+      response = await fetch(url, { signal: AbortSignal.timeout(8000), redirect: 'error' });
+      if (!response.ok) throw new Error('Payment status query failed');
+      const result = await response.json();
+      if (Number(result.code) !== 1) return;
+      if (Number(result.status) === 1) {
+        const payload = Object.fromEntries(Object.entries(result).map(([key, value]) => [key, String(value ?? '')]));
+        if (!payload.trade_no || !zpayPaymentMatches(order, payload)) throw new Error('Payment query binding mismatch');
+        return confirmZpayPayment(order, payload);
+      }
+    }
+  });
+}
+
 async function handleZpayNotification(req, res) {
   if (!zpayConfigured()) return res.status(503).send('fail');
 
@@ -2360,37 +2418,11 @@ async function handleZpayNotification(req, res) {
   if (payload.trade_status !== 'TRADE_SUCCESS') return res.send('success');
   if (!payload.out_trade_no || !payload.trade_no) return res.status(400).send('fail');
 
-  const order = readPaymentOrders().find(item => item.id === payload.out_trade_no);
+  const order = (await readPaymentOrders()).find(item => item.id === payload.out_trade_no);
   if (!order || order.provider !== 'zpay') return res.send('success');
 
-  const sameProviderTransaction = readPaymentOrders().find(item =>
-    item.id !== order.id
-    && item.provider === 'zpay'
-    && item.provider_payment_id === payload.trade_no
-  );
-  if (sameProviderTransaction || !zpayPaymentMatches(order, payload)) {
-    updatePaymentOrder(order.id, current => ({
-      ...current,
-      status: 'MANUAL_REVIEW',
-      payment_status: 'PAID_MISMATCH',
-      paid_at: current.paid_at || new Date().toISOString(),
-      provider_payment_id: payload.trade_no,
-      zpay_trade_no: payload.trade_no,
-      last_error: 'Z-Pay 回调的商户、订单、金额、名称或交易号与本地订单不一致，已阻止自动开通。'
-    }));
-    return res.send('success');
-  }
-
-  updatePaymentOrder(order.id, current => ({
-    ...current,
-    payment_status: 'PAID',
-    status: current.status === 'COMPLETED' ? 'COMPLETED' : 'PAID',
-    paid_at: current.paid_at || new Date().toISOString(),
-    provider_payment_id: payload.trade_no,
-    zpay_trade_no: payload.trade_no
-  }));
   try {
-    await fulfillPaymentOrder(order.id);
+    await confirmZpayPayment(order, payload);
   } catch (_) {
     return res.status(500).send('fail');
   }
@@ -3735,7 +3767,7 @@ app.get('/api/payment/fx', async (req, res) => {
   });
 });
 
-app.post('/api/payment/orders', async (req, res) => {
+app.post('/api/payment/orders', asyncRoute(async (req, res) => {
   const context = resolvePaymentCheckoutContext(req, req.body?.checkout_token);
   if (!context) {
     return res.status(401).json({
@@ -3821,14 +3853,12 @@ app.post('/api/payment/orders', async (req, res) => {
     created_at: now,
     fulfillment_attempts: 0
   };
-  const orders = readPaymentOrders();
-  orders.push(order);
-  writePaymentOrders(orders);
+  await commerceStore.create(order);
 
   let checkoutUrl = null;
   if (paymentMethod === 'alipay' && process.env.PAYMENT_MOCK_ENABLED !== 'true') {
     if (!zpayConfigured()) {
-      updatePaymentOrder(order.id, current => ({
+      await updatePaymentOrder(order.id, current => ({
         ...current,
         status: 'FAILED',
         last_error: 'Z-Pay 尚未配置。'
@@ -3845,14 +3875,14 @@ app.post('/api/payment/orders', async (req, res) => {
         bundle,
         context.kind === 'registration' ? String(req.body.checkout_token || '') : ''
       );
-      order = updatePaymentOrder(order.id, current => ({
+      order = await updatePaymentOrder(order.id, current => ({
         ...current,
         zpay_out_trade_no: order.id,
         zpay_subject: `Leandata ${bundle.name} ${bundle.months}M`,
         checkout_url: checkoutUrl
       }));
     } catch (error) {
-      updatePaymentOrder(order.id, current => ({
+      await updatePaymentOrder(order.id, current => ({
         ...current,
         status: 'FAILED',
         last_error: `Z-Pay 结账创建失败：${error.message}`
@@ -3865,7 +3895,7 @@ app.post('/api/payment/orders', async (req, res) => {
   }
   if (paymentMethod === 'stripe_card' && process.env.PAYMENT_MOCK_ENABLED !== 'true') {
     if (!stripeConfigured()) {
-      updatePaymentOrder(order.id, current => ({
+      await updatePaymentOrder(order.id, current => ({
         ...current,
         status: 'FAILED',
         last_error: 'Stripe 尚未配置。'
@@ -3898,13 +3928,13 @@ app.post('/api/payment/orders', async (req, res) => {
         `${baseUrl}/checkout?${cancelQuery.toString()}`
       );
       checkoutUrl = session.url;
-      order = updatePaymentOrder(order.id, current => ({
+      order = await updatePaymentOrder(order.id, current => ({
         ...current,
         stripe_checkout_session_id: session.id,
         checkout_url: session.url
       }));
     } catch (error) {
-      updatePaymentOrder(order.id, current => ({
+      await updatePaymentOrder(order.id, current => ({
         ...current,
         status: 'FAILED',
         last_error: `Stripe Checkout 创建失败：${error.message}`
@@ -3923,10 +3953,10 @@ app.post('/api/payment/orders', async (req, res) => {
     mock_enabled: process.env.PAYMENT_MOCK_ENABLED === 'true',
     checkout_url: checkoutUrl
   });
-});
+}));
 
-app.get('/api/payment/orders/:id', (req, res) => {
-  const order = readPaymentOrders().find(item => item.id === req.params.id);
+app.get('/api/payment/orders/:id', asyncRoute(async (req, res) => {
+  const order = (await readPaymentOrders()).find(item => item.id === req.params.id);
   if (!order || !paymentOrderAccessAllowed(
     req,
     order,
@@ -3944,13 +3974,13 @@ app.get('/api/payment/orders/:id', (req, res) => {
       ? { issued_token: order.issued_token }
       : {})
   });
-});
+}));
 
-app.post('/api/payment/mock/:id/complete', async (req, res) => {
+app.post('/api/payment/mock/:id/complete', asyncRoute(async (req, res) => {
   if (process.env.PAYMENT_MOCK_ENABLED !== 'true') {
     return res.status(404).json({ success: false, message: '本地模拟支付未启用。' });
   }
-  let order = readPaymentOrders().find(item => item.id === req.params.id);
+  let order = (await readPaymentOrders()).find(item => item.id === req.params.id);
   if (!order || !paymentOrderAccessAllowed(req, order, req.body?.resume_token)) {
     return res.status(404).json({ success: false, message: '支付订单不存在。' });
   }
@@ -3959,7 +3989,7 @@ app.post('/api/payment/mock/:id/complete', async (req, res) => {
   }
   if (order.status !== 'COMPLETED' && order.payment_status !== 'PAID') {
     const paidAt = new Date().toISOString();
-    order = updatePaymentOrder(order.id, current => ({
+    order = await updatePaymentOrder(order.id, current => ({
       ...current,
       payment_status: 'PAID',
       status: 'PAID',
@@ -3976,7 +4006,7 @@ app.post('/api/payment/mock/:id/complete', async (req, res) => {
       issued_token: fulfilled.order.kind === 'registration' ? fulfilled.token : undefined
     });
   } catch (error) {
-    const failedOrder = readPaymentOrders().find(item => item.id === order.id);
+    const failedOrder = (await readPaymentOrders()).find(item => item.id === order.id);
     return res.status(500).json({
       success: false,
       retryable: failedOrder?.payment_status === 'PAID',
@@ -3984,7 +4014,7 @@ app.post('/api/payment/mock/:id/complete', async (req, res) => {
       order: failedOrder ? publicPaymentOrder(failedOrder) : null
     });
   }
-});
+}));
 
 // ============================================================
 // PUBLIC: Buyer Registration
@@ -6945,9 +6975,9 @@ app.get('/api/admin/users/search', requireAdmin, async (req, res) => {
 // ============================================================
 // ADMIN: Payments & CRM Overview
 // ============================================================
-app.get('/api/admin/payments/overview', requireAdmin, async (_req, res) => {
+app.get('/api/admin/payments/overview', requireAdmin, asyncRoute(async (_req, res) => {
   await usageAggregator.ensureFresh();
-  const allOrders = readPaymentOrders();
+  const allOrders = await readPaymentOrders();
   const registryUsers = readRegistryUsersSafe();
   const portalUsers = readJSON(USERS_FILE, []);
   const pendingItems = readJSON(PENDING_FILE, []);
@@ -7190,12 +7220,12 @@ app.get('/api/admin/payments/overview', requireAdmin, async (_req, res) => {
       template: s.template
     }))
   });
-});
+}));
 
 // ============================================================
 // ADMIN: User 360 Object-wise Detail
 // ============================================================
-app.get('/api/admin/crm/user', requireAdmin, async (req, res) => {
+app.get('/api/admin/crm/user', requireAdmin, asyncRoute(async (req, res) => {
   const userId = String(req.query.id || '').trim();
   if (!userId || userId.length > 128) {
     return res.status(400).json({ success: false, message: 'Missing or invalid id.' });
@@ -7208,7 +7238,7 @@ app.get('/api/admin/crm/user', requireAdmin, async (req, res) => {
   const portalUser = portalUsers.find(u => (u.account_id || u.username) === userId) || null;
   const pendingItems = readJSON(PENDING_FILE, []);
   const pendingItem = pendingItems.find(p => (p.account_id || p.username) === userId) || null;
-  const allOrders = readPaymentOrders();
+  const allOrders = await readPaymentOrders();
   const userOrders = allOrders.filter(o => (o.user_id || accountRegistryId(o.registration)) === userId || o.registration?.username === userId);
   const bulkOrders = readJSON(BULK_ORDERS_FILE, []).filter(b => b.username === userId);
   const feedbacks = readJSON(PRODUCT_FEEDBACK_FILE, []).filter(f => f.account_id === userId || f.username === userId);
@@ -7334,7 +7364,7 @@ app.get('/api/admin/crm/user', requireAdmin, async (req, res) => {
     bulk_orders: bulkOrders,
     feedback: feedbacks
   });
-});
+}));
 
 app.post('/api/admin/users/extend-expiry', requireAdmin, async (req, res) => {
   const { user_id, days } = req.body;
@@ -8536,25 +8566,52 @@ app.use((err, _req, res, _next) => {
 addIncident('Token Portal', 'resolved', 'Service restart', `token-site server started on port ${PORT}`);
 
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-  });
-  // Heartbeat: keep the RT public endpoint connection warm so periodic
-  // /api/status probes can reuse it.
-  setInterval(() => { probeRt().catch(() => {}); }, 25000).unref();
-  // Expiry sweep: expired paid accounts fall back to permanent free.
-  downgradeExpiredToFree().catch(err => {
-    console.error('[EXPIRY-SWEEP] startup sweep failed:', err?.message || err);
-  });
-  setInterval(() => {
-    downgradeExpiredToFree().catch(err => {
-      console.error('[EXPIRY-SWEEP] periodic sweep failed:', err?.message || err);
+  commerceStore.ready().then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server is running on http://localhost:${PORT}`);
     });
-  }, 10 * 60 * 1000).unref();
+    // Heartbeat: keep the RT public endpoint connection warm so periodic
+    // /api/status probes can reuse it.
+    setInterval(() => { probeRt().catch(() => {}); }, 25000).unref();
+    // Expiry sweep: expired paid accounts fall back to permanent free.
+    downgradeExpiredToFree().catch(err => {
+      console.error('[EXPIRY-SWEEP] startup sweep failed:', err?.message || err);
+    });
+    setInterval(() => {
+      downgradeExpiredToFree().catch(err => {
+        console.error('[EXPIRY-SWEEP] periodic sweep failed:', err?.message || err);
+      });
+    }, 10 * 60 * 1000).unref();
+    let recovering = false;
+    const recover = async () => {
+      if (recovering) return;
+      recovering = true;
+      try {
+        for (const id of await commerceStore.duePayments()) {
+          try { await reconcilePayment(id); }
+          catch (_) { console.error('[COMMERCE] payment reconciliation deferred'); }
+        }
+        for (const id of await commerceStore.dueJobs()) {
+          try { await fulfillPaymentOrder(id); }
+          catch (_) { console.error('[COMMERCE] fulfillment deferred'); }
+        }
+      } catch (_) { console.error('[COMMERCE] recovery unavailable'); }
+      finally { recovering = false; }
+    };
+    recover();
+    setInterval(recover, 15000).unref();
+  }).catch(() => {
+    console.error('[COMMERCE] startup rejected: database/schema/import unavailable');
+    process.exitCode = 1;
+    commerceStore.close();
+  });
 }
 
 module.exports = {
   app,
+  commerceStore,
+  fulfillPaymentOrder,
+  reconcilePayment,
   TIERS,
   syncToEC2,
   computeExpiry,

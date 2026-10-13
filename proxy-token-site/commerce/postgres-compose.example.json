@@ -1,0 +1,24 @@
+{
+  "name": "leandata-commerce-20261013",
+  "services": {
+    "postgres": {
+      "image": "postgres:17",
+      "restart": "unless-stopped",
+      "environment": {
+        "POSTGRES_DB": "leandata_commerce",
+        "POSTGRES_USER": "leandata_commerce_owner",
+        "POSTGRES_PASSWORD_FILE": "/run/secrets/owner-password"
+      },
+      "command": ["postgres", "-c", "shared_buffers=32MB", "-c", "max_connections=16"],
+      "volumes": [
+        {"type": "bind", "source": "/srv/leandata-commerce-20261013/postgres", "target": "/var/lib/postgresql/data"},
+        {"type": "bind", "source": "/etc/leandata/commerce-20261013/owner-password", "target": "/run/secrets/owner-password", "read_only": true}
+      ],
+      "networks": {"database": {"aliases": ["commerce-db"]}},
+      "mem_limit": "256m", "memswap_limit": "256m", "cpus": 0.5, "pids_limit": 128,
+      "healthcheck": {"test": ["CMD-SHELL", "pg_isready -U leandata_commerce_owner -d leandata_commerce"], "interval": "5s", "timeout": "3s", "retries": 12},
+      "logging": {"driver": "json-file", "options": {"max-size": "10m", "max-file": "3"}}
+    }
+  },
+  "networks": {"database": {"internal": true}}
+}
