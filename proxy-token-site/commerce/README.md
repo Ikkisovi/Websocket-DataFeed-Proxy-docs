@@ -94,3 +94,52 @@ new payments, run two portal writers, or drop PostgreSQL custody.
 Account relationalization, refunds/chargebacks, reseller settlement and a new
 storefront are subsequent phases. This release preserves current billing and
 entitlement policy; it does not enable any new payment channel.
+
+
+## October 13 live acceptance
+
+Application/database source was committed at
+`c08a9281413f3efa64c52723aee74d6015a68c2c`. The accepted deployment is
+`5a7195bc5584049d251b17e76f8df9e55c5897ad`; its only application-independent
+amendment retries transient recovery-control lock contention. Both commits were
+published to GitLab `codex/commerce-postgres-20261013` without a main merge.
+
+- Final fenced import: **41 orders, 41 typed payment rows, 13 completed jobs,
+  zero pending fulfillment jobs**. Every imported payload passed exact readback.
+- A private logical backup was restored into a new temporary database; all 41
+  payloads matched the fenced source. Daily backup service was actually executed
+  successfully (`ExecMainStatus=0`); its timer is active.
+- Authenticated local and public payment overview returned 200 with 13 completed
+  purchases. Public home/account/checkout/admin returned 200. Unsigned Stripe and
+  Z-Pay callbacks returned 400; unauthenticated order creation returned 401;
+  production mock completion returned 404.
+- Registry, portal account, pending-registration and both provider environment
+  files matched the fenced source byte hashes. Existing token identities and
+  every unrelated container ID were preserved. Portal recovery was re-admitted,
+  maintenance is off. All portal/database/issuer cgroups retained zero swap and
+  their exact 384/256/64-MiB ceilings, with zero native restarts at acceptance.
+- Database tests: 8 store/privilege/export cases and 3 checkout/restart/provider
+  reconciliation cases passed. Recovery-lock tests: 2 passed. Existing payment
+  regressions: 28 passed; other suites: 63 passed. Full server suite had 234
+  passes and two documentation-contract failures; the unchanged baseline had
+  the identical two failures. This release introduces no new regression failure.
+- No real charge, refund, new provider account or merchant-key change was made.
+  Live acceptance covers migration/readback and existing business reads; positive
+  payment/recovery behavior is separately verified with isolated fixtures.
+
+The first cutover passed import, restoration and authenticated reads but failed
+final recovery admission on a transient `BlockingIOError`. It automatically
+exported the latest 41 database orders, restored the old sole writer, and kept
+account state. All first-attempt snapshots and receipts remain hash-checked in
+`/srv/leandata-commerce-20261013/attempts/c08a9281413f3efa64c52723aee74d6015a68c2c`.
+The retry uses the tested bounded lock handling; it preserves the same database
+and credentials, takes a fresh fenced snapshot and has a distinct acceptance.
+
+Accepted portal image: `sha256:d1de11c32d109d604d4bcc0ccb9c5403f9620c1cabcccf9b946745318da837d6`.
+Dedicated official PostgreSQL image:
+`sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3`.
+Public assets/runtime helpers remain from the exact retained portal base image
+`sha256:e3f0f0cb0dce16676793a3e3b45268d250544dc782c14c57c9bd27ba68c2161a`;
+this phase did not republish static docs. Private receipts and provider/account
+payloads are outside Git. Workstation non-secret acceptance records are under
+`/home/ikkipipi/.local/state/leandata/commerce-postgres-20261013/`.
