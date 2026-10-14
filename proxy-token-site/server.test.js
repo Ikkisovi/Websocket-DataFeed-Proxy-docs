@@ -2340,7 +2340,7 @@ describe('Payment bundles and automatic fulfillment', () => {
       path.join('docs', 'index.html')
     ];
     for (const entryPage of entryPages) {
-      expect(fs.readFileSync(path.join(publicDir, entryPage), 'utf8')).toContain('src="/language.js"');
+      expect(fs.readFileSync(path.join(publicDir, entryPage), 'utf8')).toMatch(/src="\/language\.js(?:\?v=[a-f0-9]{16})?"/);
     }
     expect(languageSource).toContain('leandata.language');
     expect(languageSource).toContain('leandata:languagechange');
@@ -3125,7 +3125,7 @@ describe('POST /api/generate-token', () => {
     expect(unproven.body.error).toBe('account_authentication_required');
 
     // With ownership proof (active session), token is generated
-    const sessionId = createAccountSession('gentest');
+    const sessionId = (await createAccountSession('gentest'));
     const res = await request(app)
       .post('/api/generate-token')
       .set('Cookie', `leandata_account_session=${sessionId}`)
@@ -3145,7 +3145,7 @@ describe('POST /api/generate-token', () => {
       permissions: TIERS.basic.permissions
     }]));
 
-    const sessionId = createAccountSession('synctest');
+    const sessionId = (await createAccountSession('synctest'));
     const res = await request(app)
       .post('/api/generate-token')
       .set('Cookie', `leandata_account_session=${sessionId}`)
@@ -3162,7 +3162,7 @@ describe('POST /api/generate-token', () => {
       permissions: TIERS.premium.permissions
     }]));
 
-    const sessionId = createAccountSession('formattest');
+    const sessionId = (await createAccountSession('formattest'));
     await request(app)
       .post('/api/generate-token')
       .set('Cookie', `leandata_account_session=${sessionId}`)
@@ -3191,7 +3191,7 @@ describe('POST /api/generate-token', () => {
     }]));
 
     // First call with ownership proof generates token
-    const sessionId = createAccountSession('existing');
+    const sessionId = (await createAccountSession('existing'));
     const res1 = await request(app)
       .post('/api/generate-token')
       .set('Cookie', `leandata_account_session=${sessionId}`)
@@ -3225,7 +3225,7 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
       permissions: TIERS.premium.permissions
     }]));
 
-    const sessionId = createAccountSession('fmtcheck');
+    const sessionId = (await createAccountSession('fmtcheck'));
     await request(app)
       .post('/api/generate-token')
       .set('Cookie', `leandata_account_session=${sessionId}`)
@@ -3247,7 +3247,7 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
       permissions: TIERS.basic.permissions
     }]));
 
-    const sessionId = createAccountSession('idcheck');
+    const sessionId = (await createAccountSession('idcheck'));
     await request(app)
       .post('/api/generate-token')
       .set('Cookie', `leandata_account_session=${sessionId}`)
@@ -3268,7 +3268,7 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
       permissions: TIERS.standard.permissions
     }]));
 
-    const sessionId = createAccountSession('tokenchk');
+    const sessionId = (await createAccountSession('tokenchk'));
     const res = await request(app)
       .post('/api/generate-token')
       .set('Cookie', `leandata_account_session=${sessionId}`)
@@ -3288,7 +3288,7 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
       permissions: TIERS.trial.permissions
     }]));
 
-    const sessionId = createAccountSession('expcheck');
+    const sessionId = (await createAccountSession('expcheck'));
     await request(app)
       .post('/api/generate-token')
       .set('Cookie', `leandata_account_session=${sessionId}`)
@@ -5359,7 +5359,7 @@ describe('Portal security repair (20261001)', () => {
       expect(expiredIdentityOnly.statusCode).toBe(403);
 
       // Token expired: with session proof, token is returned
-      const sessionId = createAccountSession(user.username);
+      const sessionId = (await createAccountSession(user.username));
       const expiredWithSession = await request(app)
         .post('/api/generate-token')
         .set('Cookie', `leandata_account_session=${sessionId}`)

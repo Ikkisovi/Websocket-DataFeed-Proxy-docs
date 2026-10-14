@@ -55,6 +55,8 @@ class PostgresCommerceStore {
   }
 
   async transaction(fn) {
+    const shared = this.sharedClient?.();
+    if (shared) return fn(shared);
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -93,12 +95,12 @@ class PostgresCommerceStore {
   }
 
   async list() {
-    const result = await this.pool.query('SELECT payload FROM commerce.orders ORDER BY ordinal');
+    const result = await (this.sharedClient?.() || this.pool).query('SELECT payload FROM commerce.orders ORDER BY ordinal');
     return result.rows.map(row => row.payload);
   }
 
   async get(id) {
-    const result = await this.pool.query('SELECT payload FROM commerce.orders WHERE id=$1', [id]);
+    const result = await (this.sharedClient?.() || this.pool).query('SELECT payload FROM commerce.orders WHERE id=$1', [id]);
     return result.rows[0]?.payload || null;
   }
 
@@ -208,7 +210,9 @@ class PostgresCommerceStore {
       return result;
     } catch (error) {
       if (token) {
-        await client.query(`UPDATE commerce.fulfillment_jobs SET state='queued',lease_token=NULL,lease_until=NULL,
+        await client.query(`UPDATE commerce.fulfillment_jobs SET state=CASE WHEN EXISTS
+          (SELECT 1 FROM commerce.orders WHERE id=$1 AND payload->>'status'='COMPLETED') THEN 'done' ELSE 'queued' END,
+          lease_token=NULL,lease_until=NULL,
           next_attempt_at=now()+make_interval(secs=>LEAST(3600,30*GREATEST(attempts,1))),
           last_error_code=$3,updated_at=now() WHERE order_id=$1 AND lease_token=$2`,
         [id, token, error.code === 'COMMERCE_BUSY' ? 'busy' : 'projection_failed']).catch(() => {});
@@ -248,7 +252,7 @@ class PostgresCommerceStore {
     }
   }
 
-  async close() { await this.pool.end(); }
+  async close() { if (!this.closed) { this.closed = true; await this.pool.end(); } }
 }
 
 class FileCommerceStore {

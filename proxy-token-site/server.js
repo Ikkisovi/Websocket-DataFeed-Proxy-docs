@@ -9,6 +9,7 @@ const net = require('net');
 const path = require('path');
 const tls = require('tls');
 const { createCommerceStore } = require('./commerce/store.cjs');
+const { createPortalStore } = require('./commerce/portal-store.cjs');
 const { execFile } = require('child_process');
 
 const app = express();
@@ -97,6 +98,29 @@ const commerceStore = createCommerceStore({
 
 function asyncRoute(handler) {
   return (req, res, next) => Promise.resolve().then(() => handler(req, res, next)).catch(next);
+}
+
+function identityRoute(handler) {
+  return asyncRoute(async (req, res) => {
+    let reply;
+    const json = res.json;
+    const send = res.send;
+    const rejected = new Error('Identity request rejected');
+    res.json = value => { reply = { kind: 'json', value }; return res; };
+    res.send = value => { reply = { kind: 'send', value }; return res; };
+    try {
+      await portalStore.mutate(async () => {
+        await handler(req, res);
+        if (reply && res.statusCode >= 400) throw rejected;
+      });
+    } catch (error) {
+      if (error !== rejected) throw error;
+    } finally {
+      res.json = json;
+      res.send = send;
+    }
+    if (reply) return (reply.kind === 'json' ? json : send).call(res, reply.value);
+  });
 }
 const PRODUCT_FEEDBACK_FILE = path.join(DATA_DIR, 'product-update-feedback.json');
 const PRODUCT_UPDATES_FILE = path.join(DATA_DIR, 'product-updates.json');
@@ -196,6 +220,32 @@ const IS_CLOUD_HOST = fs.existsSync('/srv/leandata') || fs.existsSync('/mnt/lean
 
 const PROXY_USERS_FILE = process.env.PROXY_USERS_FILE
   || path.join(__dirname, 'remote_proxy', 'users.json');
+
+const portalPaths = { accounts: USERS_FILE, pending: PENDING_FILE, bulk_orders: BULK_ORDERS_FILE, registry: PROXY_USERS_FILE };
+const portalStore = createPortalStore({
+  pool: commerceStore.pool,
+  read: (name, fallback) => readJSON(portalPaths[name], fallback),
+  write: async (name, value) => name === 'registry' ? (await publishProxyUsersFile(value)) : writeJSONAtomic(portalPaths[name], value),
+  project: async (name, value) => {
+    if (require('util').isDeepStrictEqual(readJSON(portalPaths[name], null), value)) return;
+    if (name === 'registry') (await publishProxyUsersFile(value));
+    else {
+      const stat = fs.existsSync(portalPaths[name]) ? fs.statSync(portalPaths[name]) : null;
+      writeJSONAtomic(portalPaths[name], value, stat ? { gid: stat.gid, mode: stat.mode & 0o777 } : null);
+    }
+    if (!require('util').isDeepStrictEqual(readJSON(portalPaths[name], null), value)) throw new Error('Portal projection readback failed');
+  }
+});
+commerceStore.sharedClient = () => portalStore.scope.getStore()?.client;
+async function readPortalJSON(file) {
+  const name = Object.keys(portalPaths).find(name => portalPaths[name] === file);
+  return portalStore.read(name);
+}
+async function writePortalJSON(file, value) {
+  const name = Object.keys(portalPaths).find(name => portalPaths[name] === file);
+  return portalStore.write(name, value);
+}
+async function writeProxyUsersFile(value) { return portalStore.write('registry', value); }
 
 // --- Legacy remote sync config. Aliyun v2 keeps users.json local and shared by mount. ---
 const EC2_HOST = process.env.EC2_HOST || 'ec2-user@52.37.182.24';
@@ -510,7 +560,7 @@ app.get('/api/research-data/products', (_req, res) => {
   return res.json({ success: true, products: Object.values(RESEARCH_PRODUCTS) });
 });
 
-app.post('/api/research-data/checkout', requireAccount, (req, res) => {
+app.post('/api/research-data/checkout', asyncRoute(requireAccount), (req, res) => {
   res.set('Cache-Control', 'no-store');
   const productId = req.body?.product_id;
   const product = typeof productId === 'string' && Object.hasOwn(RESEARCH_PRODUCTS, productId)
@@ -550,7 +600,6 @@ const ADMIN_LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const ADMIN_LOGIN_IP_MAX = 5;
 const ADMIN_LOGIN_GLOBAL_MAX = 50;
 
-const accountSessions = new Map();
 const accountLoginAttempts = new Map();
 const accountLoginCodeSendAttempts = new Map();
 const accountLoginChallenges = new Map();
@@ -576,11 +625,8 @@ const ACCOUNT_LOGIN_CODE_MAX_ATTEMPTS = 5;
 
 // --- Helpers ---
 // Serialize admin user mutations without letting one failure poison the queue.
-let usersMutationQueue = Promise.resolve();
 function withUsersLock(action) {
-  const result = usersMutationQueue.then(action);
-  usersMutationQueue = result.catch(() => {});
-  return result;
+  return portalStore.mutate(action);
 }
 
 function readJSON(filepath, fallback = []) {
@@ -793,8 +839,8 @@ function verifyAccountOtpChallenge(challengeId, accountId, otpCode) {
   return { ok: true };
 }
 
-function verifyAccountOwnershipProof(req, accountId, existingToken = null) {
-  const session = resolveAccountSession(req);
+async function verifyAccountOwnershipProof(req, accountId, existingToken = null) {
+  const session = (await resolveAccountSession(req));
   if (session && session.session.user_id === accountId) {
     return { ok: true, method: 'session' };
   }
@@ -996,7 +1042,7 @@ function isSingleFileBindMountReplaceError(error) {
   return ['EBUSY', 'EXDEV'].includes(String(error?.code || ''));
 }
 
-function writeProxyUsersFile(data) {
+function publishProxyUsersFile(data) {
   // Consumers mount the dedicated registry directory so atomic replacement is
   // visible. Set the reader group before publication, never after rename.
   const configuredGroup = process.env.PROXY_USERS_FILE_GID;
@@ -1116,11 +1162,11 @@ function paymentTokenMatches(token, expectedHash) {
   return Boolean(token && expectedHash && safeEqual(paymentTokenHash(token), expectedHash));
 }
 
-function refreshRegistrationCheckout(pending, entry) {
+async function refreshRegistrationCheckout(pending, entry) {
   const checkoutToken = crypto.randomBytes(32).toString('base64url');
   entry.checkout_token_hash = paymentTokenHash(checkoutToken);
   entry.checkout_token_issued_at = new Date().toISOString();
-  writeJSONAtomic(PENDING_FILE, pending);
+  (await writePortalJSON(PENDING_FILE, pending));
   return {
     checkout_token: checkoutToken,
     checkout_url: `/checkout?checkout_token=${encodeURIComponent(checkoutToken)}`
@@ -1601,12 +1647,12 @@ function recordAccountLoginCodeAccountSent(req, accountId) {
   recordBoundedAttempt(accountLoginCodeSendAttempts, `acc:${accountId}`, ACCOUNT_LOGIN_CODE_WINDOW_MS, 3000);
 }
 
-function findLocalAccount(userId) {
-  return readJSON(USERS_FILE).find(user => accountRegistryId(user) === userId) || null;
+async function findLocalAccount(userId) {
+  return (await readPortalJSON(USERS_FILE)).find(user => accountRegistryId(user) === userId) || null;
 }
 
-function findProxyAccount(userId) {
-  const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+async function findProxyAccount(userId) {
+  const proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
   return (proxyData.users || []).find(user => user.user_id === userId) || null;
 }
 
@@ -1650,8 +1696,8 @@ function accountRegistryIdForNewIdentity(identity, displayUsername, users, proxy
   return `account-${suffix}`;
 }
 
-function findLocalAccountByIdentity(identity) {
-  return readJSON(USERS_FILE).filter(user => sameAccountIdentity(user, identity));
+async function findLocalAccountByIdentity(identity) {
+  return (await readPortalJSON(USERS_FILE)).filter(user => sameAccountIdentity(user, identity));
 }
 
 function maskToken(token) {
@@ -1660,37 +1706,29 @@ function maskToken(token) {
   return `${value.slice(0, 6)}····${value.slice(-4)}`;
 }
 
-function createAccountSession(userId) {
+async function createAccountSession(userId) {
   const sessionId = crypto.randomBytes(32).toString('base64url');
-  accountSessions.set(sessionId, {
-    user_id: userId,
-    expires_at: Date.now() + ACCOUNT_SESSION_TTL_MS
-  });
+  await portalStore.createSession(userId, sessionId, ACCOUNT_SESSION_TTL_MS);
   return sessionId;
 }
 
-function resolveAccountSession(req) {
+async function resolveAccountSession(req) {
   const sessionId = parseCookies(req)[ACCOUNT_SESSION_COOKIE];
   if (!sessionId) return null;
-  const session = accountSessions.get(sessionId);
-  if (!session || session.expires_at <= Date.now()) {
-    accountSessions.delete(sessionId);
-    return null;
-  }
-  session.expires_at = Date.now() + ACCOUNT_SESSION_TTL_MS;
-  return { sessionId, session };
+  return portalStore.resolveSession(sessionId, ACCOUNT_SESSION_TTL_MS);
 }
 
-function requireAccount(req, res, next) {
-  const resolved = resolveAccountSession(req);
+async function requireAccount(req, res, next) {
+  await portalStore.flush();
+  const resolved = (await resolveAccountSession(req));
   if (!resolved) {
     clearAccountSessionCookie(res);
     return res.status(401).json({ success: false, message: '请先登录账户管理中心。' });
   }
-  const localUser = findLocalAccount(resolved.session.user_id);
-  const proxyUser = findProxyAccount(resolved.session.user_id);
+  const localUser = (await findLocalAccount(resolved.session.user_id));
+  const proxyUser = (await findProxyAccount(resolved.session.user_id));
   if (!localUser || !proxyUser || !proxyUser.token) {
-    accountSessions.delete(resolved.sessionId);
+    await portalStore.deleteSession(resolved.sessionId);
     clearAccountSessionCookie(res);
     return res.status(401).json({ success: false, message: '账户凭证已失效，请联系管理员。' });
   }
@@ -1703,8 +1741,8 @@ function requireAccount(req, res, next) {
   next();
 }
 
-function latestRenewalFor(userId) {
-  return readJSON(PENDING_FILE)
+async function latestRenewalFor(userId) {
+  return (await readPortalJSON(PENDING_FILE))
     .filter(item => item.type === 'renewal' && accountRegistryId(item) === userId)
     .sort((left, right) => String(right.requested_at || '').localeCompare(String(left.requested_at || '')))[0] || null;
 }
@@ -1762,18 +1800,18 @@ function syncToEC2Async() {
 /**
  * Write proxy users file. (WS proxy reads the same local users.json.)
  */
-function writeProxyUsersAndSync(data) {
-  writeJSON(PROXY_USERS_FILE, data);
+async function writeProxyUsersAndSync(data) {
+  (await writePortalJSON(PROXY_USERS_FILE, data));
   syncToEC2();
 }
 
 async function writeProxyUsersAndSyncAsync(data) {
   const beforeCount = data.users ? data.users.length : 0;
-  writeProxyUsersFile(data);
+  (await writeProxyUsersFile(data));
 
   // Post-write verification: read back and confirm user count matches
   try {
-    const readBack = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
+    const readBack = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
     const afterCount = (readBack.users || []).length;
     if (afterCount !== beforeCount) {
       console.error(`[GUARD] Post-write mismatch! Wrote ${beforeCount} users, read back ${afterCount}. File: ${PROXY_USERS_FILE}`);
@@ -1825,8 +1863,8 @@ function publicPlan(tierId) {
 async function provisionFreeRegistration(entry) {
   const tierConfig = TIERS.free;
   const permissions = resolvePermissions(tierConfig);
-  const users = readJSON(USERS_FILE);
-  const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+  const users = (await readPortalJSON(USERS_FILE));
+  const proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
   if (!Array.isArray(proxyData.users)) proxyData.users = [];
   const accountId = entry.account_id || accountRegistryIdForNewIdentity(
     canonicalAccountIdentity(entry),
@@ -1874,15 +1912,15 @@ async function provisionFreeRegistration(entry) {
   try {
     const syncResult = await writeProxyUsersAndSyncAsync(nextProxyData);
     if (!syncResult.ok) throw new Error('数据服务注册表同步失败。');
-    writeJSONAtomic(USERS_FILE, nextUsers);
+    (await writePortalJSON(USERS_FILE, nextUsers));
   } catch (cause) {
     console.error('[REGISTRATION] Free provisioning failed', {
       code: cause?.code || 'unknown',
       syscall: cause?.syscall || null,
       message: String(cause?.message || 'unknown').slice(0, 160)
     });
-    try { writeProxyUsersFile(proxyData); } catch (_) {}
-    try { writeJSONAtomic(USERS_FILE, users); } catch (_) {}
+    try { (await writeProxyUsersFile(proxyData)); } catch (_) {}
+    try { (await writePortalJSON(USERS_FILE, users)); } catch (_) {}
     const error = new Error('Free 计划开通失败，请稍后重试。');
     error.statusCode = 503;
     throw error;
@@ -1895,8 +1933,12 @@ async function provisionFreeRegistration(entry) {
 // file is the edge's entitlement source, so this is what un-breaks edge
 // enforcement. Local users.json roles are mirrored for admin display.
 async function downgradeExpiredToFree() {
+  return portalStore.mutate(downgradeExpiredToFreeUnlocked);
+}
+
+async function downgradeExpiredToFreeUnlocked() {
   const now = Date.now();
-  const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+  const proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
   if (!Array.isArray(proxyData.users)) return { converted: 0 };
   // Infra principals never downgrade: test load-test accounts and the
   // unrestricted service identity keep their lifecycle managed elsewhere.
@@ -1938,7 +1980,7 @@ async function downgradeExpiredToFree() {
     console.error('[EXPIRY-SWEEP] registry rewrite failed:', syncResult.message);
     return { converted: 0, error: syncResult.message };
   }
-  const users = readJSON(USERS_FILE, []);
+  const users = (await readPortalJSON(USERS_FILE, []));
   let changed = false;
   for (const uid of converted) {
     const localUser = users.find(user => accountRegistryId(user) === uid);
@@ -1950,7 +1992,7 @@ async function downgradeExpiredToFree() {
       changed = true;
     }
   }
-  if (changed) writeJSONAtomic(USERS_FILE, users);
+  if (changed) (await writePortalJSON(USERS_FILE, users));
   console.log(`[EXPIRY-SWEEP] downgraded ${converted.length} expired account(s) to free`);
   return { converted: converted.length };
 }
@@ -1964,10 +2006,10 @@ function computeRenewalExpiry(currentExpiry, days) {
   return expiry.toISOString();
 }
 
-function resolvePaymentCheckoutContext(req, checkoutToken) {
+async function resolvePaymentCheckoutContext(req, checkoutToken) {
   const token = String(checkoutToken || '').trim();
   if (token) {
-    const entry = readJSON(PENDING_FILE).find(item =>
+    const entry = (await readPortalJSON(PENDING_FILE)).find(item =>
       item.type === 'registration'
       && item.status === 'payment_pending'
       && paymentTokenMatches(token, item.checkout_token_hash)
@@ -1981,10 +2023,10 @@ function resolvePaymentCheckoutContext(req, checkoutToken) {
     };
   }
 
-  const resolved = resolveAccountSession(req);
+  const resolved = (await resolveAccountSession(req));
   if (!resolved) return null;
-  const localUser = findLocalAccount(resolved.session.user_id);
-  const proxyUser = findProxyAccount(resolved.session.user_id);
+  const localUser = (await findLocalAccount(resolved.session.user_id));
+  const proxyUser = (await findProxyAccount(resolved.session.user_id));
   if (!localUser || !proxyUser || !proxyUser.token) return null;
   return {
     kind: 'renewal',
@@ -2022,19 +2064,19 @@ function checkoutPlansForContext(context) {
   });
 }
 
-function paymentOrderAccessAllowed(req, order, resumeToken, checkoutToken) {
+async function paymentOrderAccessAllowed(req, order, resumeToken, checkoutToken) {
   if (paymentTokenMatches(resumeToken, order.resume_token_hash)) return true;
   if (order.kind === 'registration'
       && paymentTokenMatches(checkoutToken, order.checkout_token_hash)) {
     return true;
   }
-  const checkoutContext = resolvePaymentCheckoutContext(req, checkoutToken);
+  const checkoutContext = (await resolvePaymentCheckoutContext(req, checkoutToken));
   if (checkoutContext?.kind === 'registration'
       && order.kind === 'registration'
       && order.registration_id === checkoutContext.registration.id) {
     return true;
   }
-  const resolved = resolveAccountSession(req);
+  const resolved = (await resolveAccountSession(req));
   return Boolean(
     resolved
     && order.kind === 'renewal'
@@ -2058,9 +2100,9 @@ async function fulfillPaymentOrderUnlocked(orderId) {
   let order = (await readPaymentOrders()).find(item => item.id === orderId);
   if (!order) throw new Error('支付订单不存在。');
   if (order.status === 'COMPLETED') {
-    const existing = findProxyAccount(
+    const existing = (await findProxyAccount(
       order.user_id || accountRegistryId(order.registration)
-    );
+    ));
     return { order, token: existing?.token || null };
   }
   if (order.payment_status !== 'PAID') {
@@ -2085,7 +2127,7 @@ async function fulfillPaymentOrderUnlocked(orderId) {
   const targetUserId = order.kind === 'registration'
     ? accountRegistryId(order.registration)
     : order.user_id;
-  const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+  const proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
   if (!Array.isArray(proxyData.users)) proxyData.users = [];
   let proxyUser = proxyData.users.find(user => user.user_id === targetUserId);
   const proxyAlreadyApplied = proxyUser && fulfilledPaymentOrderIds(proxyUser).includes(order.id);
@@ -2127,7 +2169,7 @@ async function fulfillPaymentOrderUnlocked(orderId) {
     }
   }
 
-  const localUsers = readJSON(USERS_FILE);
+  const localUsers = (await readPortalJSON(USERS_FILE));
   const localIndex = localUsers.findIndex(user => accountRegistryId(user) === targetUserId);
   const previousLocalUser = localIndex >= 0 ? localUsers[localIndex] : null;
   if (order.kind === 'renewal' && !previousLocalUser) {
@@ -2148,10 +2190,10 @@ async function fulfillPaymentOrderUnlocked(orderId) {
   addFulfilledPaymentOrder(localUser, order.id);
   if (localIndex >= 0) localUsers[localIndex] = localUser;
   else localUsers.push(localUser);
-  writeJSONAtomic(USERS_FILE, localUsers);
+  (await writePortalJSON(USERS_FILE, localUsers));
 
   if (order.kind === 'registration') {
-    const pending = readJSON(PENDING_FILE);
+    const pending = (await readPortalJSON(PENDING_FILE));
     const registration = pending.find(item => item.id === order.registration_id);
     if (!registration) throw new Error('注册记录不存在，无法完成自动开通。');
     registration.status = 'approved';
@@ -2159,7 +2201,7 @@ async function fulfillPaymentOrderUnlocked(orderId) {
     registration.payment_order_id = order.id;
     registration.payment_method = order.payment_method;
     delete registration.checkout_token_hash;
-    writeJSONAtomic(PENDING_FILE, pending);
+    (await writePortalJSON(PENDING_FILE, pending));
   }
 
   const completedAt = new Date().toISOString();
@@ -2189,7 +2231,7 @@ async function fulfillPaymentOrder(orderId) {
   if (paymentFulfillmentLocks.has(orderId)) {
     return paymentFulfillmentLocks.get(orderId);
   }
-  const promise = commerceStore.withFulfillment(orderId, () => fulfillPaymentOrderUnlocked(orderId))
+  const promise = commerceStore.withFulfillment(orderId, () => portalStore.mutate(() => fulfillPaymentOrderUnlocked(orderId)))
     .catch(async error => {
       if (error.code === 'COMMERCE_BUSY') throw error;
       await updatePaymentOrder(orderId, current => current.status === 'COMPLETED' ? current : ({
@@ -2668,13 +2710,13 @@ function mcpTextResult(payload) {
   };
 }
 
-function resolveMcpPrincipal(req) {
+async function resolveMcpPrincipal(req) {
   const auth = req.headers.authorization;
   const match = typeof auth === 'string' ? auth.match(/^Bearer\s+(\S+)$/i) : null;
   const token = match ? match[1] : '';
   if (!token) return null;
 
-  const registry = readJSON(PROXY_USERS_FILE, { users: [] });
+  const registry = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
   const user = (registry.users || []).find(u => u.token === token);
   if (!user) return null;
 
@@ -3672,8 +3714,8 @@ async function mapWithConcurrency(items, concurrency, mapper) {
   return results;
 }
 
-app.get('/mcp/alpaca', (req, res) => {
-  const principal = resolveMcpPrincipal(req);
+app.get('/mcp/alpaca', asyncRoute(async (req, res) => {
+  const principal = (await resolveMcpPrincipal(req));
   if (!principal) return res.status(401).json({ error: 'Missing or invalid Leandata bearer token.' });
   if (principal.expired) return res.status(403).json({ error: 'Leandata token expired.' });
   return res.json({
@@ -3684,10 +3726,10 @@ app.get('/mcp/alpaca', (req, res) => {
     user_id: principal.user.user_id,
     tools: ALPACA_PAPER_TOOLS.map(t => t.name)
   });
-});
+}));
 
-app.post('/mcp/alpaca', async (req, res) => {
-  const principal = resolveMcpPrincipal(req);
+app.post('/mcp/alpaca', asyncRoute(async (req, res) => {
+  const principal = (await resolveMcpPrincipal(req));
   if (!principal) return res.status(401).json({ error: 'Missing or invalid Leandata bearer token.' });
   if (principal.expired) return res.status(403).json({ error: 'Leandata token expired.' });
 
@@ -3699,7 +3741,7 @@ app.post('/mcp/alpaca', async (req, res) => {
   if (replies.length === 0) return res.status(202).end();
   res.setHeader('Mcp-Session-Id', safePaperUserId(principal.user.user_id || 'unknown'));
   return res.json(Array.isArray(req.body) ? replies : replies[0]);
-});
+}));
 
 // ============================================================
 // PAYMENT: Server-authoritative bundles and local mock provider
@@ -3710,8 +3752,8 @@ app.use('/api/payment', (_req, res, next) => {
   next();
 });
 
-app.get('/api/payment/checkout-info', async (req, res) => {
-  const context = resolvePaymentCheckoutContext(req, req.query.checkout_token);
+app.get('/api/payment/checkout-info', asyncRoute(async (req, res) => {
+  const context = (await resolvePaymentCheckoutContext(req, req.query.checkout_token));
   if (!context) {
     return res.status(401).json({
       success: false,
@@ -3752,11 +3794,11 @@ app.get('/api/payment/checkout-info', async (req, res) => {
     mock_enabled: process.env.PAYMENT_MOCK_ENABLED === 'true',
     pricing_notice: '卡支付以美元锚定计价：USD 按美元锚定价直接结算，CAD 按实时 USD→CAD 汇率折算；人民币套餐价独立计价，不受汇率影响。结账前会显示最终币种和金额。'
   });
-});
+}));
 
 // Current USD->CAD rate used for CAD card pricing (USD-anchored). CNY pricing
 // is independent and never derived from this rate.
-app.get('/api/payment/fx', async (req, res) => {
+app.get('/api/payment/fx', asyncRoute(async (req, res) => {
   const fx = await getUsdToCadRate();
   res.setHeader('Cache-Control', 'no-store');
   return res.json({
@@ -3765,10 +3807,10 @@ app.get('/api/payment/fx', async (req, res) => {
     anchor: 'USD',
     anchor_monthly_usd_minor: { ...STRIPE_MONTHLY_PRICES_USD_MINOR }
   });
-});
+}));
 
 app.post('/api/payment/orders', asyncRoute(async (req, res) => {
-  const context = resolvePaymentCheckoutContext(req, req.body?.checkout_token);
+  const context = (await resolvePaymentCheckoutContext(req, req.body?.checkout_token));
   if (!context) {
     return res.status(401).json({
       success: false,
@@ -3809,7 +3851,7 @@ app.post('/api/payment/orders', asyncRoute(async (req, res) => {
   }
 
   if (context.kind === 'registration') {
-    const approved = findLocalAccount(accountRegistryId(context.registration));
+    const approved = (await findLocalAccount(accountRegistryId(context.registration)));
     if (approved) {
       return res.status(409).json({
         success: false,
@@ -3957,14 +3999,15 @@ app.post('/api/payment/orders', asyncRoute(async (req, res) => {
 
 app.get('/api/payment/orders/:id', asyncRoute(async (req, res) => {
   const order = (await readPaymentOrders()).find(item => item.id === req.params.id);
-  if (!order || !paymentOrderAccessAllowed(
+  if (!order || !(await paymentOrderAccessAllowed(
     req,
     order,
     req.query.resume_token,
     req.query.checkout_token
-  )) {
+  ))) {
     return res.status(404).json({ success: false, message: '支付订单不存在。' });
   }
+  if (order.status === 'COMPLETED') await portalStore.flush();
   return res.json({
     success: true,
     order: publicPaymentOrder(order),
@@ -3981,7 +4024,7 @@ app.post('/api/payment/mock/:id/complete', asyncRoute(async (req, res) => {
     return res.status(404).json({ success: false, message: '本地模拟支付未启用。' });
   }
   let order = (await readPaymentOrders()).find(item => item.id === req.params.id);
-  if (!order || !paymentOrderAccessAllowed(req, order, req.body?.resume_token)) {
+  if (!order || !(await paymentOrderAccessAllowed(req, order, req.body?.resume_token))) {
     return res.status(404).json({ success: false, message: '支付订单不存在。' });
   }
   if (order.status === 'CANCELLED') {
@@ -4007,7 +4050,7 @@ app.post('/api/payment/mock/:id/complete', asyncRoute(async (req, res) => {
     });
   } catch (error) {
     const failedOrder = (await readPaymentOrders()).find(item => item.id === order.id);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
       retryable: failedOrder?.payment_status === 'PAID',
       message: error.message,
@@ -4019,7 +4062,7 @@ app.post('/api/payment/mock/:id/complete', asyncRoute(async (req, res) => {
 // ============================================================
 // PUBLIC: Buyer Registration
 // ============================================================
-app.post('/api/register/request-code', async (req, res) => {
+app.post('/api/register/request-code', asyncRoute(async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   if (!isValidEmail(email)) {
     return res.status(400).json({ success: false, message: '请输入有效的邮箱地址。' });
@@ -4089,9 +4132,9 @@ app.post('/api/register/request-code', async (req, res) => {
     expires_in: Math.floor(EMAIL_CODE_TTL_MS / 1000),
     message: `验证码已发送到 ${email}。`
   });
-});
+}));
 
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', identityRoute(async (req, res) => {
   const {
     username,
     phone,
@@ -4166,8 +4209,8 @@ app.post('/api/register', async (req, res) => {
   challenge.verified_at = new Date().toISOString();
   writeJSONAtomic(EMAIL_VERIFICATION_FILE, challenges);
 
-  const users = readJSON(USERS_FILE);
-  const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+  const users = (await readPortalJSON(USERS_FILE));
+  const proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
   const proxyUsers = Array.isArray(proxyData.users) ? proxyData.users : [];
   const existingUser = users.find(user => sameAccountIdentity(user, identity));
   if (existingUser) {
@@ -4229,7 +4272,7 @@ app.post('/api/register', async (req, res) => {
       message: error.message || '无法启用 Free 计划。'
     });
   }
-});
+}));
 
 // ============================================================
 // PUBLIC: One-off bulk download estimates and order requests
@@ -4312,7 +4355,7 @@ async function fetchBulkEstimate(payload) {
   return data;
 }
 
-app.post('/api/bulk/estimate', async (req, res) => {
+app.post('/api/bulk/estimate', asyncRoute(async (req, res) => {
   const payload = normalizeBulkRequest(req.body);
   const validationError = validateBulkRequest(payload);
   if (validationError) {
@@ -4345,9 +4388,9 @@ app.post('/api/bulk/estimate', async (req, res) => {
       message: error.message
     });
   }
-});
+}));
 
-app.post('/api/bulk/orders', async (req, res) => {
+app.post('/api/bulk/orders', asyncRoute(async (req, res) => {
   const payload = normalizeBulkRequest(req.body);
   const validationError = validateBulkRequest(payload);
   if (validationError) {
@@ -4380,7 +4423,8 @@ app.post('/api/bulk/orders', async (req, res) => {
     const estimate = payload.schemas.length > 0
       ? await fetchBulkEstimate(payload)
       : null;
-    const orders = readJSON(BULK_ORDERS_FILE, []);
+    const order = await portalStore.mutate(async () => {
+    const orders = (await readPortalJSON(BULK_ORDERS_FILE, []));
     const quoteMode = payload.custom_request
       ? (payload.schemas.length > 0 ? 'mixed' : 'manual')
       : 'measured';
@@ -4401,12 +4445,14 @@ app.post('/api/bulk/orders', async (req, res) => {
       created_at: new Date().toISOString()
     };
     orders.push(order);
-    writeJSON(BULK_ORDERS_FILE, orders);
+    (await writePortalJSON(BULK_ORDERS_FILE, orders));
+    return order;
+    });
     return res.status(201).json({
       success: true,
       order_id: order.id,
       status: order.status,
-      quote_mode: quoteMode,
+      quote_mode: order.quote_mode,
       manual_quote_required: Boolean(payload.custom_request),
       estimated_raw_bytes: estimate?.estimated_raw_bytes ?? null,
       estimated_transfer_bytes: estimate?.estimated_transfer_bytes ?? null,
@@ -4421,22 +4467,22 @@ app.post('/api/bulk/orders', async (req, res) => {
       message: error.message
     });
   }
-});
+}));
 
-app.get('/api/admin/bulk-orders', requireAdmin, (_req, res) => {
-  const orders = readJSON(BULK_ORDERS_FILE, [])
+app.get('/api/admin/bulk-orders', requireAdmin, asyncRoute(async (_req, res) => {
+  const orders = (await readPortalJSON(BULK_ORDERS_FILE, []))
     .sort((left, right) => String(right.created_at || '').localeCompare(String(left.created_at || '')));
   return res.json({ success: true, orders });
-});
+}));
 
-app.post('/api/admin/bulk-orders/:id/status', requireAdmin, (req, res) => {
+app.post('/api/admin/bulk-orders/:id/status', requireAdmin, identityRoute(async (req, res) => {
   const allowed = new Set(['pending', 'approved', 'rejected', 'fulfilled']);
   const status = String(req.body?.status || '').trim().toLowerCase();
   if (!allowed.has(status)) {
     return res.status(400).json({ success: false, message: 'Invalid bulk order status.' });
   }
 
-  const orders = readJSON(BULK_ORDERS_FILE, []);
+  const orders = (await readPortalJSON(BULK_ORDERS_FILE, []));
   const order = orders.find(item => item.id === req.params.id);
   if (!order) {
     return res.status(404).json({ success: false, message: 'Bulk order not found.' });
@@ -4460,7 +4506,7 @@ app.post('/api/admin/bulk-orders/:id/status', requireAdmin, (req, res) => {
     }
   }
   order.admin_note = String(req.body?.admin_note || '').trim().slice(0, 1000);
-  writeJSON(BULK_ORDERS_FILE, orders);
+  (await writePortalJSON(BULK_ORDERS_FILE, orders));
   return res.json({
     success: true,
     order_id: order.id,
@@ -4469,7 +4515,7 @@ app.post('/api/admin/bulk-orders/:id/status', requireAdmin, (req, res) => {
     final_price: order.final_price ?? null,
     currency: order.currency || order.estimate?.pricing?.currency || 'CNY'
   });
-});
+}));
 
 // ============================================================
 // ACCOUNT: Login, overview, logout, and renewal request
@@ -4480,7 +4526,7 @@ app.use('/api/account', (_req, res, next) => {
   next();
 });
 
-app.post('/api/account/login-code', async (req, res) => {
+app.post('/api/account/login-code', asyncRoute(async (req, res) => {
   const credential = req.body?.credential || req.body || {};
   const username = String(credential.user_id || credential.username || '').trim();
   const phone = String(credential.phone || '').trim();
@@ -4503,10 +4549,10 @@ app.post('/api/account/login-code', async (req, res) => {
   recordAccountLoginCodeIpSent(req);
 
   const identity = canonicalAccountIdentity({ username, phone });
-  const localMatches = findLocalAccountByIdentity(identity);
+  const localMatches = (await findLocalAccountByIdentity(identity));
   const localUser = localMatches.length === 1 ? localMatches[0] : null;
   const accountId = localUser ? accountRegistryId(localUser) : '';
-  const proxyUser = accountId ? findProxyAccount(accountId) : null;
+  const proxyUser = accountId ? (await findProxyAccount(accountId)) : null;
   const targetEmail = localUser?.email || proxyUser?.email || null;
 
   // Unknown account or missing/invalid email: return the exact same success shape/message as valid target
@@ -4569,9 +4615,9 @@ app.post('/api/account/login-code', async (req, res) => {
     expires_in: Math.floor(ACCOUNT_LOGIN_CODE_TTL_MS / 1000),
     message: '验证码已发送到绑定邮箱。'
   });
-});
+}));
 
-app.post('/api/account/login', (req, res) => {
+app.post('/api/account/login', asyncRoute(async (req, res) => {
   const credential = req.body?.credential;
   const username = String(credential?.user_id || credential?.username || '').trim();
   const phone = String(credential?.phone || '').trim();
@@ -4591,7 +4637,7 @@ app.post('/api/account/login', (req, res) => {
   }
 
   const identity = canonicalAccountIdentity({ username, phone });
-  const localMatches = findLocalAccountByIdentity(identity);
+  const localMatches = (await findLocalAccountByIdentity(identity));
   const localUser = localMatches.length === 1 ? localMatches[0] : null;
   const accountId = localUser ? accountRegistryId(localUser) : '';
 
@@ -4599,7 +4645,7 @@ app.post('/api/account/login', (req, res) => {
     return res.status(429).json({ success: false, message: '登录尝试过多，请 15 分钟后重试。' });
   }
 
-  const proxyUser = accountId ? findProxyAccount(accountId) : null;
+  const proxyUser = accountId ? (await findProxyAccount(accountId)) : null;
   if (!localUser || !proxyUser || !proxyUser.token) {
     recordAccountLoginFailure(req, accountId || null);
     return res.status(401).json({ success: false, message: '用户名、手机号或验证凭据不匹配。' });
@@ -4619,7 +4665,7 @@ app.post('/api/account/login', (req, res) => {
   }
 
   clearAccountLoginFailures(req, accountId);
-  const sessionId = createAccountSession(accountId);
+  const sessionId = (await createAccountSession(accountId));
   setAccountSessionCookie(res, sessionId);
   return res.json({
     success: true,
@@ -4630,16 +4676,16 @@ app.post('/api/account/login', (req, res) => {
       expiry: proxyUser.expires_at || null
     }
   });
-});
+}));
 
-app.post('/api/account/logout', (req, res) => {
-  const resolved = resolveAccountSession(req);
-  if (resolved) accountSessions.delete(resolved.sessionId);
+app.post('/api/account/logout', asyncRoute(async (req, res) => {
+  const resolved = (await resolveAccountSession(req));
+  if (resolved) await portalStore.deleteSession(resolved.sessionId);
   clearAccountSessionCookie(res);
   return res.json({ success: true });
-});
+}));
 
-app.get('/api/account/session', requireAccount, (req, res) => {
+app.get('/api/account/session', asyncRoute(requireAccount), (req, res) => {
   return res.json({
     success: true,
     account: {
@@ -4650,7 +4696,7 @@ app.get('/api/account/session', requireAccount, (req, res) => {
   });
 });
 
-app.get('/api/account/token', requireAccount, (req, res) => {
+app.get('/api/account/token', asyncRoute(requireAccount), (req, res) => {
   const token = String(req.account.proxyUser.token || '');
   if (!token) {
     return res.status(404).json({ success: false, message: '当前账户没有可用 Token。' });
@@ -4662,7 +4708,7 @@ app.get('/api/account/token', requireAccount, (req, res) => {
   });
 });
 
-app.get('/api/account/overview', requireAccount, async (req, res) => {
+app.get('/api/account/overview', asyncRoute(requireAccount), asyncRoute(async (req, res) => {
   const { userId, localUser, proxyUser } = req.account;
   const wsUsageUrl = process.env.PROXY_WS_USAGE_URL
     || `http://${PROXY_WS_HOST}:${PROXY_WS_PORT}/account/usage`;
@@ -4695,11 +4741,11 @@ app.get('/api/account/overview', requireAccount, async (req, res) => {
         ws: wsUsage?.window || null
       }
     },
-    renewal: publicRenewalStatus(latestRenewalFor(userId))
+    renewal: publicRenewalStatus((await latestRenewalFor(userId)))
   });
-});
+}));
 
-app.post('/api/account/email', requireAccount, (req, res) => {
+app.post('/api/account/email', asyncRoute(requireAccount), (req, res) => {
   return res.status(410).json({
     success: false,
     error: 'account_identity_immutable',
@@ -4707,7 +4753,7 @@ app.post('/api/account/email', requireAccount, (req, res) => {
   });
 });
 
-app.post('/api/account/renew', requireAccount, (req, res) => {
+app.post('/api/account/renew', asyncRoute(requireAccount), identityRoute(async (req, res) => {
   const selectedTier = String(req.body?.tier || '').trim();
   const mode = String(req.body?.mode || '').trim();
   const months = Number(req.body?.months);
@@ -4721,7 +4767,7 @@ app.post('/api/account/renew', requireAccount, (req, res) => {
     return res.status(400).json({ success: false, message: 'Value 套餐请选择 stocks 或 options 方向。' });
   }
 
-  const pending = readJSON(PENDING_FILE);
+  const pending = (await readPortalJSON(PENDING_FILE));
   const alreadyPending = pending.find(p => accountRegistryId(p) === req.account.userId && p.status === 'pending' && p.type === 'renewal');
   if (alreadyPending) {
     return res.status(409).json({ success: false, message: '该账号已有续费申请正在审核中，请等待管理员确认。', id: alreadyPending.id });
@@ -4745,7 +4791,7 @@ app.post('/api/account/renew', requireAccount, (req, res) => {
   };
 
   pending.push(entry);
-  writeJSON(PENDING_FILE, pending);
+  (await writePortalJSON(PENDING_FILE, pending));
 
   return res.status(201).json({
     success: true,
@@ -4753,7 +4799,7 @@ app.post('/api/account/renew', requireAccount, (req, res) => {
     message: '续费申请已提交，请等待管理员确认订单。',
     renewal: publicRenewalStatus(entry)
   });
-});
+}));
 
 // ============================================================
 // PRODUCT UPDATES: public changelog + account-scoped feedback
@@ -4883,7 +4929,7 @@ app.put('/api/admin/product-updates/:id', (req, res) => {
   } catch { return productUpdateStorageError(res); }
 });
 
-app.get('/api/product-updates/feedback/mine', requireAccount, (req, res) => {
+app.get('/api/product-updates/feedback/mine', asyncRoute(requireAccount), (req, res) => {
   const entries = readJSON(PRODUCT_FEEDBACK_FILE, [])
     .filter(entry => entry.user_id === req.account.userId)
     .sort((left, right) => String(right.created_at || '').localeCompare(String(left.created_at || '')))
@@ -4891,7 +4937,7 @@ app.get('/api/product-updates/feedback/mine', requireAccount, (req, res) => {
   return res.json({ success: true, feedback: entries });
 });
 
-app.post('/api/product-updates/feedback', requireAccount, (req, res) => {
+app.post('/api/product-updates/feedback', asyncRoute(requireAccount), (req, res) => {
   if (!productFeedbackAllowed(req.account.userId)) {
     return res.status(429).json({ success: false, error: 'feedback_rate_limited', message: '留言次数已达上限，请稍后再试。' });
   }
@@ -4931,20 +4977,20 @@ app.post('/api/renew', (_req, res) => {
 // ============================================================
 // PUBLIC: Buyer check status (by username + phone)
 // ============================================================
-app.post('/api/check-status', (req, res) => {
+app.post('/api/check-status', identityRoute(async (req, res) => {
   const { username, phone, email } = req.body;
   const identity = canonicalAccountIdentity({ username, phone, email });
   if (!hasCompleteAccountIdentity(identity)) {
     return res.status(400).json({ success: false, message: '请提供用户名和手机号。' });
   }
 
-  const users = readJSON(USERS_FILE);
+  const users = (await readPortalJSON(USERS_FILE));
   const approved = users.find(user => sameAccountIdentity(user, identity));
   if (approved) {
       // Look up proxy users.json for token + expiry
       let maskedToken = null, expiresAt = null, role = null;
       try {
-        const proxyData = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
+        const proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
         const proxyUser = (proxyData.users || []).find(u => u.user_id === accountRegistryId(approved));
         if (proxyUser?.token) {
           const t = proxyUser.token;
@@ -4976,7 +5022,7 @@ app.post('/api/check-status', (req, res) => {
     });
   }
 
-  const pending = readJSON(PENDING_FILE);
+  const pending = (await readPortalJSON(PENDING_FILE));
   const entry = pending.find(p => sameAccountIdentity(p, identity));
   if (!entry) {
     return res.json({ success: true, status: 'not_found', message: '未找到注册记录。' });
@@ -5002,7 +5048,7 @@ app.post('/api/check-status', (req, res) => {
   // If approved, look up token + expiry from proxy users.json
   if (entry.status === 'approved') {
     try {
-      const proxyData = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
+      const proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
       const proxyUser = (proxyData.users || []).find(u => u.user_id === accountRegistryId(entry));
       if (proxyUser?.token) {
         const t = proxyUser.token;
@@ -5016,7 +5062,7 @@ app.post('/api/check-status', (req, res) => {
   }
 
   return res.json(result);
-});
+}));
 
 // ============================================================
 // ADMIN: Login & Logout
@@ -5072,14 +5118,14 @@ app.post('/api/admin/logout', (req, res) => {
 // ============================================================
 // ADMIN: Archive refill observability (read-only)
 // ============================================================
-app.get('/api/admin/archive-pipeline', requireAdmin, async (_req, res) => {
+app.get('/api/admin/archive-pipeline', requireAdmin, asyncRoute(async (_req, res) => {
   try {
     res.json(await archivePipelineSnapshot());
   } catch (error) {
     console.error('Archive pipeline observation failed:', error);
     res.status(500).json({ error: 'Archive pipeline observation failed.' });
   }
-});
+}));
 
 // ============================================================
 // ADMIN: Registration email template
@@ -5115,17 +5161,17 @@ app.put('/api/admin/email-template', requireAdmin, (req, res) => {
 // ============================================================
 // ADMIN: List pending registrations
 // ============================================================
-app.get('/api/admin/pending', requireAdmin, (req, res) => {
-  const pending = readJSON(PENDING_FILE);
+app.get('/api/admin/pending', requireAdmin, asyncRoute(async (req, res) => {
+  const pending = (await readPortalJSON(PENDING_FILE));
   return res.json({ success: true, items: pending.filter(p => p.status === 'pending') });
-});
+}));
 
 // ============================================================
 // ADMIN: List all registrations (pending + approved + rejected)
 // ============================================================
-app.get('/api/admin/all', requireAdmin, (req, res) => {
-  const pending = readJSON(PENDING_FILE);
-  const users = readJSON(USERS_FILE);
+app.get('/api/admin/all', requireAdmin, asyncRoute(async (req, res) => {
+  const pending = (await readPortalJSON(PENDING_FILE));
+  const users = (await readPortalJSON(USERS_FILE));
 
   const all = [
     ...pending.map(p => ({ ...p, source: 'pending' })),
@@ -5140,16 +5186,16 @@ app.get('/api/admin/all', requireAdmin, (req, res) => {
   ];
 
   return res.json({ success: true, items: all });
-});
+}));
 
 // ============================================================
 // ADMIN: Approve a registration
 // ============================================================
-app.post('/api/admin/approve', requireAdmin, async (req, res) => {
+app.post('/api/admin/approve', requireAdmin, identityRoute(async (req, res) => {
   const { id } = req.body;
   if (!id) return res.status(400).json({ success: false, message: 'Missing id.' });
 
-  const pending = readJSON(PENDING_FILE);
+  const pending = (await readPortalJSON(PENDING_FILE));
   const entry = pending.find(p => p.id === id && ['pending', 'payment_pending'].includes(p.status));
   if (!entry) return res.status(404).json({ success: false, message: '未找到该待审核记录。' });
 
@@ -5158,9 +5204,9 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
   const isRenewal = entry.type === 'renewal';
   const targetUserId = accountRegistryId(entry);
 
-  const users = readJSON(USERS_FILE);
+  const users = (await readPortalJSON(USERS_FILE));
   const existingLocalUser = users.find(user => accountRegistryId(user) === targetUserId);
-  const persistApproval = () => {
+  const persistApproval = async () => {
     const filtered = users.filter(user => accountRegistryId(user) !== targetUserId);
     filtered.push({
       username: entry.username,
@@ -5172,20 +5218,18 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
       ...(entry.mode && { mode: entry.mode }),
       permissions: perms
     });
-    writeJSON(USERS_FILE, filtered);
+    (await writePortalJSON(USERS_FILE, filtered));
     entry.status = 'approved';
     entry.approved_at = new Date().toISOString();
     delete entry.checkout_token_hash;
-    writeJSON(PENDING_FILE, pending);
+    (await writePortalJSON(PENDING_FILE, pending));
   };
 
   // Update the shared auth registry first. A renewal must preserve the existing
   // token and fails closed if that token disappeared before admin approval.
   try {
     var proxyData = { users: [] };
-    if (fs.existsSync(PROXY_USERS_FILE)) {
-      proxyData = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
-    }
+    proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
     if (!proxyData.users) proxyData.users = [];
 
     const existing = proxyData.users.find(u => u.user_id === targetUserId);
@@ -5213,7 +5257,7 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
           message: `数据服务注册表更新失败，申请保持待审核: ${syncResult.message}`
         });
       }
-      persistApproval();
+      (await persistApproval());
       const action = isRenewal ? '续费已批准并延长有效期' : '已批准，Token 已存在并更新套餐';
       return res.json({
         success: true,
@@ -5245,7 +5289,7 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
         message: `数据服务注册表更新失败，申请保持待审核: ${syncResult.message}`
       });
     }
-    persistApproval();
+    (await persistApproval());
 
     return res.json({
       success: true,
@@ -5260,7 +5304,7 @@ app.post('/api/admin/approve', requireAdmin, async (req, res) => {
       message: `数据服务注册表更新失败，申请保持待审核: ${err.message}`
     });
   }
-});
+}));
 
 // ============================================================
 // ADMIN: User email announcements
@@ -5325,9 +5369,9 @@ Best,
 恺 Kai
 leandata.uk`;
 
-function resolveAnnounceRecipients(options = {}) {
+async function resolveAnnounceRecipients(options = {}) {
   const { includeExpired = false, includeTest = false, includeService = false } = options;
-  const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+  const proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
   const now = Date.now();
   const reachable = [];
   const skipped = [];
@@ -5424,10 +5468,10 @@ function announceRecipientSnapshot(recipients) {
   return crypto.createHash('sha256').update(JSON.stringify(stable)).digest('hex');
 }
 
-function resolveAnnounceSelection(input = {}) {
+async function resolveAnnounceSelection(input = {}) {
   // Announcements may target expired human accounts when they still have a
   // valid email address. Test accounts and service principals remain excluded.
-  const registry = resolveAnnounceRecipients({ includeExpired: true });
+  const registry = (await resolveAnnounceRecipients({ includeExpired: true }));
   const reachableById = new Map(registry.reachable.map(user => [user.user_id, user]));
   const skippedById = new Map(registry.skipped.map(user => [user.user_id, user]));
   const hasExplicitSelection = Object.prototype.hasOwnProperty.call(input, 'selected_user_ids');
@@ -5847,12 +5891,12 @@ app.post('/api/admin/announce/from-update', requireAdmin, (req, res) => {
   });
 });
 
-app.get('/api/admin/announce/recipients', requireAdmin, (req, res) => {
-  const { reachable, skipped } = resolveAnnounceRecipients({
+app.get('/api/admin/announce/recipients', requireAdmin, asyncRoute(async (req, res) => {
+  const { reachable, skipped } = (await resolveAnnounceRecipients({
     includeExpired: req.query.include_expired !== '0',
     includeTest: req.query.include_test === '1',
     includeService: req.query.include_service === '1'
-  });
+  }));
   return res.json({
     success: true,
     reachable,
@@ -5860,9 +5904,9 @@ app.get('/api/admin/announce/recipients', requireAdmin, (req, res) => {
     recipient_snapshot: announceRecipientSnapshot(reachable),
     smtp_configured: Boolean(announceSmtpConfig())
   });
-});
+}));
 
-app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
+app.post('/api/admin/announce/send', requireAdmin, asyncRoute(async (req, res) => {
   const subject = typeof req.body?.subject === 'string' ? req.body.subject.trim() : '';
   const body = typeof req.body?.body === 'string'
     ? req.body.body.replaceAll('\r\n', '\n').trim()
@@ -5882,7 +5926,7 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
   const htmlSha256 = crypto.createHash('sha256').update(html).digest('hex');
   const format = 'multipart/alternative';
 
-  const selection = resolveAnnounceSelection(req.body || {});
+  const selection = (await resolveAnnounceSelection(req.body || {}));
   if (selection.error) {
     return res.status(400).json({
       success: false,
@@ -6041,31 +6085,31 @@ app.post('/api/admin/announce/send', requireAdmin, async (req, res) => {
     duplicate_recipients: duplicateRecipients,
     failures
   });
-});
+}));
 
 // ============================================================
 // ADMIN: Reject a registration
 // ============================================================
-app.post('/api/admin/reject', requireAdmin, (req, res) => {
+app.post('/api/admin/reject', requireAdmin, identityRoute(async (req, res) => {
   const { id, reason } = req.body;
   if (!id) return res.status(400).json({ success: false, message: 'Missing id.' });
 
-  const pending = readJSON(PENDING_FILE);
+  const pending = (await readPortalJSON(PENDING_FILE));
   const entry = pending.find(p => p.id === id && p.status === 'pending');
   if (!entry) return res.status(404).json({ success: false, message: '未找到该待审核记录。' });
 
   entry.status = 'rejected';
   entry.reject_reason = reason || '审核未通过';
   entry.rejected_at = new Date().toISOString();
-  writeJSON(PENDING_FILE, pending);
+  (await writePortalJSON(PENDING_FILE, pending));
 
   return res.json({ success: true, message: `已拒绝 ${entry.username}。` });
-});
+}));
 
 // ============================================================
 // ADMIN: Delete a user from all registries (local + shared proxy registry)
 // ============================================================
-app.post('/api/admin/delete-user', requireAdmin, async (req, res) => {
+app.post('/api/admin/delete-user', requireAdmin, identityRoute(async (req, res) => {
   const accountId = String(req.body?.account_id || '').trim();
   if (!accountId) {
     return res.status(400).json({
@@ -6077,29 +6121,27 @@ app.post('/api/admin/delete-user', requireAdmin, async (req, res) => {
   const logs = [];
 
   // 1. Remove from local approved users
-  const users = readJSON(USERS_FILE);
+  const users = (await readPortalJSON(USERS_FILE));
   const userIdx = users.findIndex(user => accountRegistryId(user) === accountId);
   if (userIdx >= 0) {
     users.splice(userIdx, 1);
-    writeJSON(USERS_FILE, users);
+    (await writePortalJSON(USERS_FILE, users));
     logs.push(`Removed from local users.json`);
   }
 
   // 2. Remove from pending
-  const pending = readJSON(PENDING_FILE);
+  const pending = (await readPortalJSON(PENDING_FILE));
   const pendIdx = pending.findIndex(entry => accountRegistryId(entry) === accountId);
   if (pendIdx >= 0) {
     pending.splice(pendIdx, 1);
-    writeJSON(PENDING_FILE, pending);
+    (await writePortalJSON(PENDING_FILE, pending));
     logs.push(`Removed from pending.json`);
   }
 
   // 3. Remove from shared proxy users file.
   try {
     let proxyData = { users: [] };
-    if (fs.existsSync(PROXY_USERS_FILE)) {
-      proxyData = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
-    }
+    proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
     const before = (proxyData.users || []).length;
     proxyData.users = (proxyData.users || []).filter(user => user.user_id !== accountId);
     const after = proxyData.users.length;
@@ -6120,17 +6162,17 @@ app.post('/api/admin/delete-user', requireAdmin, async (req, res) => {
   }
 
   return res.json({ success: true, message: `Deleted account "${accountId}".`, logs });
-});
+}));
 
 // ============================================================
 // ADMIN: Verify registry — compare local approved users with shared proxy users.
 // ============================================================
-app.get('/api/admin/sync-verify', requireAdmin, async (req, res) => {
+app.get('/api/admin/sync-verify', requireAdmin, asyncRoute(async (req, res) => {
   const result = { tc: null, ec2: null, match: false, missingOnEC2: [], extraOnEC2: [] };
 
   // 1. Read TC proxy users (local file)
   try {
-    const tcData = readJSON(PROXY_USERS_FILE, { users: [] });
+    const tcData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
     result.tc = (tcData.users || []).map(u => u.user_id).sort();
   } catch (err) {
     return res.json({ success: false, message: `Cannot read TC proxy file: ${err.message}` });
@@ -6172,19 +6214,19 @@ app.get('/api/admin/sync-verify', requireAdmin, async (req, res) => {
     missingOnEC2: result.missingOnEC2,
     extraOnEC2: result.extraOnEC2
   });
-});
+}));
 
 // ============================================================
 // ADMIN: Force reload shared users.json
 // ============================================================
-app.post('/api/admin/sync-users', requireAdmin, async (req, res) => {
+app.post('/api/admin/sync-users', requireAdmin, asyncRoute(async (req, res) => {
   const logs = [];
   const log = (msg) => { logs.push(`[${new Date().toISOString()}] ${msg}`); };
 
   // 1. Read current proxy users.json
   let proxyData;
   try {
-    proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+    proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
     const count = (proxyData.users || []).length;
     log(`Read ${count} users from proxy registry`);
   } catch (err) {
@@ -6202,7 +6244,7 @@ app.post('/api/admin/sync-users', requireAdmin, async (req, res) => {
     userCount: (proxyData.users || []).length,
     logs
   });
-});
+}));
 
 // ============================================================
 // ADMIN: Usage monitoring (per-user request/WS usage from the
@@ -6724,11 +6766,12 @@ const usageAggregator = (() => {
   };
 })();
 
-function readRegistryUsersSafe() {
+async function readRegistryUsersSafe() {
   try {
-    const data = readJSON(PROXY_USERS_FILE, { users: [] });
+    const data = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
     return Array.isArray(data.users) ? data.users : [];
-  } catch {
+  } catch (error) {
+    if (process.env.PORTAL_BACKEND === 'postgres') throw error;
     return [];
   }
 }
@@ -6811,15 +6854,15 @@ const edgeUsage = (() => {
 // END_EDGE_USAGE_HELPERS
 edgeUsage.registerEdgeUsage(app, requireAdmin);
 
-app.get('/api/admin/usage/overview', requireAdmin, async (_req, res) => {
+app.get('/api/admin/usage/overview', requireAdmin, asyncRoute(async (_req, res) => {
   await usageAggregator.ensureFresh();
-  const registryUsers = readRegistryUsersSafe();
+  const registryUsers = (await readRegistryUsersSafe());
   const roleInfo = registryRoleCounts(registryUsers);
   const registryById = new Map(registryUsers.map(u => [u.user_id, u]));
 
   // Recent registrations: approved portal accounts plus pending history.
-  const portalUsers = readJSON(USERS_FILE, []);
-  const pendingItems = readJSON(PENDING_FILE, []);
+  const portalUsers = (await readPortalJSON(USERS_FILE, []));
+  const pendingItems = (await readPortalJSON(PENDING_FILE, []));
   const registrations = [
     ...portalUsers.map(u => ({
       username: u.username,
@@ -6877,9 +6920,9 @@ app.get('/api/admin/usage/overview', requireAdmin, async (_req, res) => {
     users: usageRows.slice(0, 200),
     recent_registrations: recentRegistrations
   });
-});
+}));
 
-app.get('/api/admin/usage/user', requireAdmin, async (req, res) => {
+app.get('/api/admin/usage/user', requireAdmin, asyncRoute(async (req, res) => {
   const userId = String(req.query.id || '').trim();
   if (!userId || userId.length > 128) {
     return res.status(400).json({ success: false, message: 'Missing or invalid id.' });
@@ -6889,7 +6932,7 @@ app.get('/api/admin/usage/user', requireAdmin, async (req, res) => {
   if (!detail) {
     return res.status(404).json({ success: false, message: 'No usage recorded for this user in the retained window.' });
   }
-  const registryEntry = readRegistryUsersSafe().find(u => u.user_id === userId) || null;
+  const registryEntry = (await readRegistryUsersSafe()).find(u => u.user_id === userId) || null;
   return res.json({
     success: true,
     registry: registryEntry ? {
@@ -6898,9 +6941,9 @@ app.get('/api/admin/usage/user', requireAdmin, async (req, res) => {
     } : null,
     ...detail
   });
-});
+}));
 
-app.get('/api/admin/users/search', requireAdmin, async (req, res) => {
+app.get('/api/admin/users/search', requireAdmin, asyncRoute(async (req, res) => {
   const q = String(req.query.q || '').trim().toLowerCase();
   if (!q || q.length > 128) {
     return res.status(400).json({ success: false, message: 'Missing or invalid query.' });
@@ -6908,8 +6951,8 @@ app.get('/api/admin/users/search', requireAdmin, async (req, res) => {
   await usageAggregator.ensureFresh();
   const matchesQuery = (values) => values.some(v => typeof v === 'string' && v.toLowerCase().includes(q));
 
-  const registryUsers = readRegistryUsersSafe();
-  const portalUsers = readJSON(USERS_FILE, []);
+  const registryUsers = (await readRegistryUsersSafe());
+  const portalUsers = (await readPortalJSON(USERS_FILE, []));
   const results = new Map();
 
   const upsert = (userId, patch) => {
@@ -6943,7 +6986,7 @@ app.get('/api/admin/users/search', requireAdmin, async (req, res) => {
       });
     }
   }
-  for (const item of readJSON(PENDING_FILE, [])) {
+  for (const item of (await readPortalJSON(PENDING_FILE, []))) {
     if (matchesQuery([item.username, item.phone, item.email])) {
       upsert(item.account_id || item.username, {
         username: item.username,
@@ -6970,7 +7013,7 @@ app.get('/api/admin/users/search', requireAdmin, async (req, res) => {
     };
   });
   return res.json({ success: true, query: q, count: items.length, items });
-});
+}));
 
 // ============================================================
 // ADMIN: Payments & CRM Overview
@@ -6978,9 +7021,9 @@ app.get('/api/admin/users/search', requireAdmin, async (req, res) => {
 app.get('/api/admin/payments/overview', requireAdmin, asyncRoute(async (_req, res) => {
   await usageAggregator.ensureFresh();
   const allOrders = await readPaymentOrders();
-  const registryUsers = readRegistryUsersSafe();
-  const portalUsers = readJSON(USERS_FILE, []);
-  const pendingItems = readJSON(PENDING_FILE, []);
+  const registryUsers = (await readRegistryUsersSafe());
+  const portalUsers = (await readPortalJSON(USERS_FILE, []));
+  const pendingItems = (await readPortalJSON(PENDING_FILE, []));
   const usageByUser = new Map(usageAggregator.publicUsers().map(row => [row.user_id, row]));
   const registryById = new Map(registryUsers.map(u => [u.user_id, u]));
 
@@ -7232,15 +7275,15 @@ app.get('/api/admin/crm/user', requireAdmin, asyncRoute(async (req, res) => {
   }
   await usageAggregator.ensureFresh();
   const usageDetail = usageAggregator.userDetail(userId);
-  const registryUsers = readRegistryUsersSafe();
+  const registryUsers = (await readRegistryUsersSafe());
   const registryEntry = registryUsers.find(u => u.user_id === userId) || null;
-  const portalUsers = readJSON(USERS_FILE, []);
+  const portalUsers = (await readPortalJSON(USERS_FILE, []));
   const portalUser = portalUsers.find(u => (u.account_id || u.username) === userId) || null;
-  const pendingItems = readJSON(PENDING_FILE, []);
+  const pendingItems = (await readPortalJSON(PENDING_FILE, []));
   const pendingItem = pendingItems.find(p => (p.account_id || p.username) === userId) || null;
   const allOrders = await readPaymentOrders();
   const userOrders = allOrders.filter(o => (o.user_id || accountRegistryId(o.registration)) === userId || o.registration?.username === userId);
-  const bulkOrders = readJSON(BULK_ORDERS_FILE, []).filter(b => b.username === userId);
+  const bulkOrders = (await readPortalJSON(BULK_ORDERS_FILE, [])).filter(b => b.username === userId);
   const feedbacks = readJSON(PRODUCT_FEEDBACK_FILE, []).filter(f => f.account_id === userId || f.username === userId);
 
   if (!registryEntry && !portalUser && !pendingItem && !usageDetail && userOrders.length === 0) {
@@ -7366,7 +7409,7 @@ app.get('/api/admin/crm/user', requireAdmin, asyncRoute(async (req, res) => {
   });
 }));
 
-app.post('/api/admin/users/extend-expiry', requireAdmin, async (req, res) => {
+app.post('/api/admin/users/extend-expiry', requireAdmin, identityRoute(async (req, res) => {
   const { user_id, days } = req.body;
   const daysToAdd = Number(days);
   if (!user_id || !Number.isInteger(daysToAdd) || daysToAdd <= 0 || daysToAdd > 365) {
@@ -7375,8 +7418,8 @@ app.post('/api/admin/users/extend-expiry', requireAdmin, async (req, res) => {
 
   let updatedExpiry = null;
   try {
-    await withUsersLock(() => {
-      const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+    await withUsersLock(async () => {
+      const proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
       const user = (proxyData.users || []).find(u => u.user_id === user_id);
       if (!user) {
         const error = new Error('User not found in proxy registry.');
@@ -7390,14 +7433,14 @@ app.post('/api/admin/users/extend-expiry', requireAdmin, async (req, res) => {
       user.expires_at = new Date(newExpMs).toISOString();
       updatedExpiry = user.expires_at;
 
-      writeProxyUsersFile(proxyData);
+      (await writeProxyUsersFile(proxyData));
 
       // Also update portal users if present
-      const portalUsers = readJSON(USERS_FILE, []);
+      const portalUsers = (await readPortalJSON(USERS_FILE, []));
       const pUser = portalUsers.find(u => (u.account_id || u.username) === user_id);
       if (pUser) {
         pUser.expires_at = updatedExpiry;
-        writeJSON(USERS_FILE, portalUsers);
+        (await writePortalJSON(USERS_FILE, portalUsers));
       }
     });
   } catch (error) {
@@ -7408,9 +7451,9 @@ app.post('/api/admin/users/extend-expiry', requireAdmin, async (req, res) => {
   }
 
   return res.json({ success: true, user_id, expires_at: updatedExpiry, message: `已成功为 ${user_id} 延期 ${daysToAdd} 天。` });
-});
+}));
 
-app.post('/api/admin/users/set-role', requireAdmin, async (req, res) => {
+app.post('/api/admin/users/set-role', requireAdmin, identityRoute(async (req, res) => {
   const { user_id, role } = req.body;
   if (typeof user_id !== 'string' || !user_id || typeof role !== 'string' || !Object.hasOwn(TIERS, role)) {
     return res.status(400).json({ success: false, message: 'Invalid user_id or role.' });
@@ -7419,8 +7462,8 @@ app.post('/api/admin/users/set-role', requireAdmin, async (req, res) => {
   const tierDef = TIERS[role];
   let updatedRole = null;
   try {
-    await withUsersLock(() => {
-      const proxyData = readJSON(PROXY_USERS_FILE, { users: [] });
+    await withUsersLock(async () => {
+      const proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
       const user = (proxyData.users || []).find(u => u.user_id === user_id);
       if (!user) {
         const error = new Error('User not found in proxy registry.');
@@ -7432,16 +7475,16 @@ app.post('/api/admin/users/set-role', requireAdmin, async (req, res) => {
       user.permissions = structuredClone(tierDef.permissions);
       updatedRole = user.role;
 
-      writeProxyUsersFile(proxyData);
+      (await writeProxyUsersFile(proxyData));
 
       // Also update portal users
-      const portalUsers = readJSON(USERS_FILE, []);
+      const portalUsers = (await readPortalJSON(USERS_FILE, []));
       const pUser = portalUsers.find(u => (u.account_id || u.username) === user_id);
       if (pUser) {
         pUser.tier = role;
         pUser.role = tierDef.role;
         pUser.permissions = structuredClone(tierDef.permissions);
-        writeJSON(USERS_FILE, portalUsers);
+        (await writePortalJSON(USERS_FILE, portalUsers));
       }
     });
   } catch (error) {
@@ -7452,7 +7495,7 @@ app.post('/api/admin/users/set-role', requireAdmin, async (req, res) => {
   }
 
   return res.json({ success: true, user_id, role: updatedRole, message: `已成功将 ${user_id} 的权限调整为 ${role}。` });
-});
+}));
 
 
 // ============================================================
@@ -7683,7 +7726,7 @@ function attributionTopRows(records, key) {
     .slice(0, 12);
 }
 
-app.get('/api/admin/attribution', requireAdmin, async (req, res) => {
+app.get('/api/admin/attribution', requireAdmin, asyncRoute(async (req, res) => {
   const filters = attributionFilters(req);
   const accessPath = path.join(ACCESS_LOG_DIR(), `access-${filters.day}.jsonl`);
   const [accessSource, usageSource] = await Promise.all([
@@ -7752,19 +7795,19 @@ app.get('/api/admin/attribution', requireAdmin, async (req, res) => {
     })),
     recent_events: records.slice(0, ATTRIBUTION_MAX_RECENT_EVENTS)
   });
-});
+}));
 
 // ============================================================
 // ORIGINAL: Generate token (for approved users)
 // ============================================================
-app.post('/api/generate-token', async (req, res) => {
+app.post('/api/generate-token', identityRoute(async (req, res) => {
   const { username, phone } = req.body || {};
 
   if (!username || !phone) {
     return res.status(400).json({ success: false, message: 'Username and phone are required.' });
   }
 
-  const localUsers = readJSON(USERS_FILE);
+  const localUsers = (await readPortalJSON(USERS_FILE));
   const identity = canonicalAccountIdentity({ username, phone });
   const validCustomer = localUsers.find(user => sameAccountIdentity(user, identity));
 
@@ -7774,9 +7817,7 @@ app.post('/api/generate-token', async (req, res) => {
 
   try {
     var proxyData = { users: [] };
-    if (fs.existsSync(PROXY_USERS_FILE)) {
-      proxyData = JSON.parse(fs.readFileSync(PROXY_USERS_FILE, 'utf8'));
-    }
+    proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
     if (!proxyData.users) proxyData.users = [];
 
     const accountId = accountRegistryId(validCustomer);
@@ -7790,7 +7831,7 @@ app.post('/api/generate-token', async (req, res) => {
     const existingToken = existing?.token || null;
 
     // A known approved local account still needs ownership proof before any new token issue, return, or renewal
-    const proof = verifyAccountOwnershipProof(req, accountId, existingToken);
+    const proof = (await verifyAccountOwnershipProof(req, accountId, existingToken));
     if (!proof.ok) {
       recordAccountLoginFailure(req, accountId);
       return res.status(403).json({
@@ -7848,7 +7889,7 @@ app.post('/api/generate-token', async (req, res) => {
     console.error('Error updating proxy registry:', err);
     return res.status(500).json({ success: false, message: 'Failed to register token on the data proxy server.' });
   }
-});
+}));
 
 // ============================================================
 // Status API — serves real-time health + historical uptime/latency
@@ -8339,14 +8380,14 @@ async function getStatusSnapshot() {
 }
 
 // GET /api/status — shared snapshot avoids repeated probes and synchronous writes per page poll.
-app.get('/api/status', async (_req, res) => {
+app.get('/api/status', asyncRoute(async (_req, res) => {
   try {
     res.json(await getStatusSnapshot());
   } catch (err) {
     console.error('Status probe error:', err);
     res.status(500).json({ error: 'Status probe failed' });
   }
-});
+}));
 
 // GET /api/uptime — 90-day uptime data per component
 // Returns arrays of daily aggregated uptime percentages
@@ -8499,7 +8540,7 @@ const PROXY_LOCAL = process.env.PROXY_REST_URL
 
 async function proxyUsage(req, res, endpoint) {
   try {
-    const principal = resolveMcpPrincipal(req);
+    const principal = (await resolveMcpPrincipal(req));
     if (!principal) return res.status(401).json({ error: 'Missing or invalid Leandata bearer token.' });
     if (principal.expired) return res.status(403).json({ error: 'Leandata token expired.' });
 
@@ -8521,9 +8562,9 @@ async function proxyUsage(req, res, endpoint) {
 }
 
 // GET/POST usage data — the authenticated token can retrieve only its own records.
-app.all('/api/usage/audit', (req, res) => proxyUsage(req, res, '/v1/admin/audit'));
+app.all('/api/usage/audit', asyncRoute(async (req, res) => (await proxyUsage(req, res, '/v1/admin/audit'))));
 
-app.all('/api/usage/stats', (req, res) => proxyUsage(req, res, '/v1/admin/stats'));
+app.all('/api/usage/stats', asyncRoute(async (req, res) => (await proxyUsage(req, res, '/v1/admin/stats'))));
 
 // POST /api/survey/fmp — record FMP integration survey submission
 app.post('/api/survey/fmp', (req, res) => {
@@ -8566,8 +8607,9 @@ app.use((err, _req, res, _next) => {
 addIncident('Token Portal', 'resolved', 'Service restart', `token-site server started on port ${PORT}`);
 
 if (require.main === module) {
-  commerceStore.ready().then(() => {
-    app.listen(PORT, () => {
+  commerceStore.ready().then(async () => {
+    await portalStore.ready();
+    app.listen(PORT, process.env.PORTAL_BIND_HOST || '0.0.0.0', () => {
       console.log(`Server is running on http://localhost:${PORT}`);
     });
     // Heartbeat: keep the RT public endpoint connection warm so periodic
@@ -8587,6 +8629,8 @@ if (require.main === module) {
       if (recovering) return;
       recovering = true;
       try {
+        await portalStore.flush({ verifyAll: true });
+        await portalStore.pruneSessions();
         for (const id of await commerceStore.duePayments()) {
           try { await reconcilePayment(id); }
           catch (_) { console.error('[COMMERCE] payment reconciliation deferred'); }
@@ -8600,16 +8644,18 @@ if (require.main === module) {
     };
     recover();
     setInterval(recover, 15000).unref();
-  }).catch(() => {
-    console.error('[COMMERCE] startup rejected: database/schema/import unavailable');
+  }).catch(async () => {
+    console.error('[PORTAL] startup rejected: database/schema/import/writer unavailable');
     process.exitCode = 1;
-    commerceStore.close();
+    await portalStore.close();
+    await commerceStore.close();
   });
 }
 
 module.exports = {
   app,
   commerceStore,
+  portalStore,
   fulfillPaymentOrder,
   reconcilePayment,
   TIERS,
