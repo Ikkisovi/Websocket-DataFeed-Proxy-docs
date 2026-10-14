@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "build:account": "node scripts/build-account-page.mjs",
+    "test:account": "npm run build:account && node scripts/test-account-page.mjs",
     "build:public": "node scripts/build-public.mjs",
     "test": "npm run build:public && NODE_OPTIONS=--experimental-vm-modules jest && node scripts/verify-public-docs.mjs && node scripts/verify-public-bundles.mjs && node scripts/test-doc-subpages.mjs && node scripts/test-doc-articles.mjs && node scripts/test-gpu-dashboard.mjs && node scripts/test-research-data.mjs && node scripts/test-chart-data.mjs && node scripts/test-chart-ui.mjs",
     "test:docs": "node scripts/verify-public-docs.mjs",

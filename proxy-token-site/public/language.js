@@ -596,6 +596,28 @@
   // them in the substring map above would splice into longer prose (e.g. the
   // key 文档 would rewrite 详细接口文档请查看左侧 to 详细接口Docs请查看左侧).
   const exactTranslations = new Map(Object.entries({
+    // Account login labels must translate as whole nodes, before short keys.
+    "使用当前 API Token 或向绑定邮箱发送一次性验证码进行登录。": "Sign in with your current API token or a one-time code sent to your linked email.",
+    "Token 登录": "Token sign-in",
+    "当前 API Token": "Current API token",
+    "输入账户当前 API Token": "Enter your current account API token",
+    "6 位数字验证码": "6-digit verification code",
+    "获取验证码": "Send code",
+    "请先输入用户名和手机号。": "Enter your username and phone number first.",
+    "验证码已发送至绑定邮箱。": "A verification code has been sent to your linked email.",
+    "验证码已发送到绑定邮箱。": "A verification code has been sent to your linked email.",
+    "请输入账户 API Token。": "Enter your account API token.",
+    "请先点击获取验证码。": "Request a verification code first.",
+    "请输入 6 位邮箱验证码。": "Enter the 6-digit email verification code.",
+    "请提供用户名和手机号。": "Provide your username and phone number.",
+    "请提供 API Token 或邮箱验证码以验证身份。": "Provide your API token or email verification code to verify your identity.",
+    "用户名、手机号或验证凭据不匹配。": "Your username, phone number or verification credentials do not match.",
+    "登录尝试过多，请 15 分钟后重试。": "Too many sign-in attempts. Try again in 15 minutes.",
+    "验证码发送过于频繁，请稍后重试。": "Verification codes were requested too frequently. Try again later.",
+    "验证码邮件发送失败，请稍后重试。": "The verification email could not be sent. Try again later.",
+    "长期有效": "No expiry",
+    "复制 Token": "Copy token",
+
     // Topbar navigation and buttons
     "文档": "Docs",
     "另类数据": "Alternative data",
@@ -840,6 +862,7 @@
       return lead + exactTranslations.get(trimmed) + tail;
     }
     let output = value
+      .replace(/(\d+)s 后重试/g, "Retry in $1s")
       .replace(/剩余\s*(\d+)\s*天/g, "$1 days remaining")
       .replace(/(\d+)\s*个月/g, (_, count) => `${count} ${Number(count) === 1 ? "month" : "months"}`)
       .replace(/(\d{4})年(\d{1,2})月(\d{1,2})日/g, (_, year, month, day) => {

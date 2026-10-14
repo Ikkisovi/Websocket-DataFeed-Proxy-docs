@@ -9,7 +9,6 @@ const entries = [
   "register-page",
   "checkout-page",
   "research-data-page",
-  "account-page",
   "updates-page",
   "docs-page",
   "gpu-index-page",
@@ -94,3 +93,4 @@ for (const name of ['lightweight-charts', 'fancy-canvas', '@msgpack/msgpack']) {
 await writeFile(resolve(siteRoot, 'public/vendor/chart-licenses.txt'), chartNotices.join('\n\n========================================\n\n'));
 
 await import("./build-doc-pages.mjs");
+await import("./build-account-page.mjs");
