@@ -39,6 +39,12 @@ await tick();
 assert.match(form.textContent, /Enter your username and phone number first\./);
 assert.doesNotMatch(form.textContent, /[\u3400-\u9fff]/);
 assert.equal(login.dom.window.LeandataI18n.translate("60s 后重试"), "Retry in 60s");
+for (const message of [
+  "缺少验证码 ID 或验证码。", "验证码无效或已过期，请重新获取。",
+  "验证码已使用，请重新获取。", "验证码与当前账户不匹配。", "验证码用途不匹配。",
+  "验证码已过期，请重新获取。", "验证码尝试次数过多，请重新获取。",
+  "验证码错误次数过多，请重新获取。", "验证码错误，请重试。",
+]) assert.doesNotMatch(login.dom.window.LeandataI18n.translate(message), /[\u3400-\u9fff]/);
 login.dom.window.LeandataI18n.setLanguage("zh");
 await tick();
 assert.match(form.textContent, /使用当前 API Token 或向绑定邮箱发送一次性验证码进行登录。/);
