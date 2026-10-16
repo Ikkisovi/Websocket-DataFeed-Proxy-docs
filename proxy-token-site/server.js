@@ -1989,6 +1989,14 @@ async function fulfillPaymentOrderUnlocked(orderId) {
   if (order.kind === 'renewal' && !previousLocalUser) {
     throw new Error('本地账户记录不存在，无法自动续期。');
   }
+  // Recovery after publication may find a legacy paid marker. Project its
+  // existing clocks with completed-order evidence; never apply the purchase twice.
+  const recovered=subscriptionPolicy.project(proxyUser,previousLocalUser || {},await readPaymentOrders());
+  if (recovered.managed && JSON.stringify(recovered.principal)!==JSON.stringify(proxyUser)) {
+    const index=proxyData.users.indexOf(proxyUser);proxyUser=recovered.principal;proxyData.users[index]=proxyUser;
+    const sync=await writeProxyUsersAndSyncAsync(proxyData);
+    if(!sync.ok) throw new Error('Recovered entitlement publication failed');
+  }
   let localUser = {
     ...(previousLocalUser || {}),
     username: order.registration?.username || previousLocalUser?.username,

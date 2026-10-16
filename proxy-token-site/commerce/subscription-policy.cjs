@@ -5,7 +5,7 @@ const MARKET = new Set(catalog.subscription_groups.market);
 const NORMAL = new Set([...MARKET, 'china', 'trial']);
 const clone = value => structuredClone(value);
 const active = (grant, now) => grant && (grant.tier === 'free' || Date.parse(grant.expires_at) > now);
-const empty = value => !value || !Object.values(value).some(group => Object.keys(group || {}).length);
+const empty = value => !value || !Object.values(value).some(group => group===false || Object.keys(group || {}).length);
 function validClock(value) {
   if(typeof value!=='string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/.test(value) || !Number.isFinite(Date.parse(value))) return false;
   const date=value.slice(0,10);
@@ -76,7 +76,11 @@ function maximum(subscriptions, now) {
   return {grant,permissions,china:active(subscriptions.china,now)?subscriptions.china:null};
 }
 function legacyOverrides(principal, subscriptions, now) {
-  if (principal.permission_overrides !== undefined) return clone(principal.permission_overrides);
+  if (principal.permission_overrides !== undefined) {
+    const value=principal.permission_overrides;
+    if(value!==null && (typeof value!=='object' || Array.isArray(value))) return {rest:false,ws:false};
+    return clone(value);
+  }
   const overrides={rest:{},ws:{}};
   // Only a denial beyond the selected commercial plan is a user override.
   // An ordinary Basic ws=false must not survive as a denial after Free fallback.
@@ -88,7 +92,9 @@ function legacyOverrides(principal, subscriptions, now) {
   const wsAliases={stock:'stocks',option:'options',boat:'boats'};
   for (const group of ['rest','ws']) {
     if (principal.permissions?.[group] === false) {
-      for (const [key, allowed] of Object.entries(reference[group] || {})) if (allowed) overrides[group][key]=false;
+      overrides[group]=false;
+    } else if (principal.permissions?.[group]!=null && ((typeof principal.permissions[group]!=='object' && principal.permissions[group]!==true) || Array.isArray(principal.permissions[group]))) {
+      overrides[group]=false;
     } else for (const [rawKey, value] of Object.entries(principal.permissions?.[group] || {})) {
       const key=group==='ws'?(wsAliases[rawKey] || rawKey):rawKey;
       if (group==='ws' && ['all','*'].includes(key) && value===false) {
@@ -97,6 +103,8 @@ function legacyOverrides(principal, subscriptions, now) {
       if (value===false && reference[group]?.[key]===true) overrides[group][key]=false;
       else if (group==='ws' && value && typeof value==='object' && overrides.ws[key]!==false) overrides.ws[key]=clone(value);
       else if (group==='ws' && value===false && key.includes('.')) overrides.ws[key]=false;
+      else if (typeof value!=='boolean' && group==='rest') {overrides.rest=false;break;}
+      else if (group==='ws' && typeof value!=='boolean' && key in reference.ws) overrides.ws[key]=false;
     }
   }
   if(principal.permissions?.ws?.all===false || principal.permissions?.ws?.['*']===false) for(const channel of Object.keys(reference.ws || {})) overrides.ws[channel]=false;
@@ -104,11 +112,14 @@ function legacyOverrides(principal, subscriptions, now) {
 }
 function narrow(permissions, overrides) {
   for (const group of ['rest','ws']) {
-    if (overrides?.[group]===false) for (const key of Object.keys(permissions[group])) permissions[group][key]=false;
+    const mask=overrides?.[group];
+    const invalid=mask!=null && ((typeof mask!=='object' && typeof mask!=='boolean') || Array.isArray(mask));
+    if (mask===false || invalid) for (const key of Object.keys(permissions[group])) permissions[group][key]=false;
     else for (const [key,value] of Object.entries(overrides?.[group] || {})) {
+      if(group==='rest' && typeof value!=='boolean') {for(const key of Object.keys(permissions.rest)) permissions.rest[key]=false;break;}
       if (value===false && key in permissions[group]) permissions[group][key]=false;
-      // Nested topic restrictions are retained for the WS gateway.
-      else if (group==='ws' && value && typeof value==='object' && permissions.ws[key]) permissions.ws[key]=clone(value);
+      // Topic restrictions stay in permission_overrides; a channel can remain
+      // available even when individual topics are revoked by the WS gateway.
     }
   }
   return permissions;

@@ -92,3 +92,13 @@ test('manual scoped changes preserve the other subscription and clocks',()=>{
   const free=policy.changeTier(changed.principal,{},'free',null,[],now);
   assert.equal(free.market_expiry,null);assert.equal(free.china_expiry,extended.china_expiry);
 });
+
+test('group and malformed masks cannot expand grants or revoke unrelated groups',()=>{
+  const denied=policy.project({...principal,permissions:{rest:false,ws:{options:{quotes:false}}}},{},[],now);
+  assert.equal(denied.permissions.rest.financial,false);assert.equal(denied.permissions.ws.options,true);
+  assert.equal(denied.principal.permission_overrides.rest,false);
+  const malformed=policy.project({...principal,permissions:{rest:'invalid',ws:'invalid'}},{},[],now);
+  assert.equal(malformed.permissions.rest.financial,false);assert.equal(malformed.permissions.ws.stocks,false);
+  const basic=policy.project({...principal,role:'basic',permissions:{ws:false},expires_at:past},{},[],now);
+  assert.equal(basic.permissions.ws.stocks,false);
+});
