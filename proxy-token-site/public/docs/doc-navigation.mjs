@@ -104,8 +104,11 @@ const SECTION_ZH_LABELS = {
   "US market": "美国市场",
   "World · CN 中国数据": "世界 · 中国数据",
   "Getting started": "入门指南",
-  "Overview": "概览与架构",
+  "Overview": "概览与接入",
   "Authentication": "身份鉴权",
+  "Response delivery": "响应交付与安全调用",
+  "Latest OI": "最新 OI 与交易日",
+  "Calendar support": "财报与除息日历范围",
   "Tiers & permissions": "套餐与权限",
   "Free plan usage": "Free 计划指引",
   "Token API": "Token 账户接口",
@@ -154,7 +157,7 @@ const SECTION_ZH_LABELS = {
   "single trades": "单股逐笔成交",
   "single latest trade": "单股最新成交",
   "Options Data": "期权数据",
-  "routing model": "路由与多级缓存",
+  "routing model": "期权接口选择",
   "contracts": "期权合约列表",
   "Snapshots": "期权快照",
   "snapshots": "全链快照与 Greeks",
@@ -175,11 +178,6 @@ const SECTION_ZH_LABELS = {
   "Crypto Data": "加密货币",
   "crypto snapshots": "实时多维快照",
   "orderbooks": "实时订单簿",
-  "Admin endpoints": "管理后台接口",
-  "login": "管理员登录",
-  "pending": "待审核列表",
-  "approve": "审批开通",
-  "reject": "拒绝申请",
   "Reference": "参考说明",
   "Error codes": "错误代码",
   "Rate limits": "并发与限流",
@@ -316,6 +314,7 @@ const SECTION_ZH_LABELS = {
       "Financial data overview": "fmp-fundamentals-overview",
       "Request contract": "fmp-request-contract",
       "Response metadata": "fmp-response-metadata",
+      "Calendar support": "fmp-calendar-support",
       "historical-price-eod/full": "fmp-historical-price-eod",
       "income-statement": "fmp-income-statement",
       "balance-sheet-statement": "fmp-balance-sheet-statement",
@@ -332,7 +331,7 @@ const SECTION_ZH_LABELS = {
       "enterprise-values": "fmp-enterprise-values",
       "financial-scores": "fmp-financial-scores",
     };
-    const ID_MAP = {'Morningstar overview': 'morningstar-overview', 'What is PIT?': 'morningstar-pit', 'Deduplication': 'morningstar-processing', 'Morningstar fields': 'morningstar-fields', 'Morningstar history': 'morningstar-history', 'Morningstar coverage': 'morningstar-coverage', 'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'Cash minute archive': 'cash-indices-overview', 'Cash minute history': 'get-post-v1-indices-minute', 'Cash minute coverage': 'get-v1-indices-minute-coverage', 'Cash daily history': 'get-post-v1-indices-daily', 'Cash daily coverage': 'get-v1-indices-daily-coverage', 'Spectral overview': 'spectral-overview', 'Spectral methodology': 'spectral-methodology', 'Spectral processing': 'spectral-processing', 'Spectral fields': 'spectral-fields', 'Spectral history': 'get-post-v1-spectral-tick-flow', 'Spectral coverage': 'get-v1-spectral-tick-flow-coverage', 'Spectral workflows': 'spectral-workflows', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-snapshot-ohlc', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-history-ohlc', 'at-time quote': 'post-v3-option-at-time-quote', 'direct endpoints': 'post-v3-option-direct-value', 'crypto snapshots': 'get-post-v1beta3-crypto-us-snapshots', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'login': 'post-admin-login', 'pending': 'get-admin-pending', 'approve': 'post-admin-approve', 'reject': 'post-admin-reject', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
+    const ID_MAP = {'Morningstar overview': 'morningstar-overview', 'What is PIT?': 'morningstar-pit', 'Deduplication': 'morningstar-processing', 'Morningstar fields': 'morningstar-fields', 'Morningstar history': 'morningstar-history', 'Morningstar coverage': 'morningstar-coverage', 'Market · US / World': 'market-us-world', 'Overview': 'overview', 'Authentication': 'authentication', 'Response delivery': 'response-delivery', 'Latest OI': 'option-oi-latest', 'Tiers & permissions': 'tiers-permissions', 'Free plan usage': 'free-plan-usage', 'register': 'post-register', 'check-status': 'post-check-status', 'generate-token': 'post-generate-token', 'history/bars': 'post-v1-history-bars', 'index history': 'get-post-v1-indices-history', 'Cash minute archive': 'cash-indices-overview', 'Cash minute history': 'get-post-v1-indices-minute', 'Cash minute coverage': 'get-v1-indices-minute-coverage', 'Cash daily history': 'get-post-v1-indices-daily', 'Cash daily coverage': 'get-v1-indices-daily-coverage', 'Spectral overview': 'spectral-overview', 'Spectral methodology': 'spectral-methodology', 'Spectral processing': 'spectral-processing', 'Spectral fields': 'spectral-fields', 'Spectral history': 'get-post-v1-spectral-tick-flow', 'Spectral coverage': 'get-v1-spectral-tick-flow-coverage', 'Spectral workflows': 'spectral-workflows', 'history/news': 'post-v1-history-news', 'stock trade+quote': 'post-v1-stock-history-trade-quote', 'overview': 'stock-data-availability', 'auctions': 'stock-auctions', 'multi bars': 'stock-bars', 'multi latest bars': 'stock-latest-bars', 'condition codes': 'stock-condition-codes', 'exchange codes': 'stock-exchange-codes', 'multi quotes': 'stock-quotes', 'multi latest quotes': 'stock-latest-quotes', 'multi snapshots': 'stock-snapshots', 'multi trades': 'stock-trades', 'multi latest trades': 'stock-latest-trades', 'single bars': 'stock-single-bars', 'single latest bar': 'stock-single-latest-bar', 'single quotes': 'stock-single-quotes', 'single latest quote': 'stock-single-latest-quote', 'single snapshot': 'stock-single-snapshot', 'single trades': 'stock-single-trades', 'single latest trade': 'stock-single-latest-trade', 'routing model': 'provider-fallback-cache', 'provider model': 'provider-fallback-cache', 'contracts': 'post-v1-options-contracts', 'snapshots': 'post-v1-options-snapshots', 'quote': 'post-v1-options-snapshots-quote', 'snapshot trade': 'post-v1-options-snapshots-trade', 'open interest': 'post-v1-options-snapshots-open-interest', 'expiry': 'post-v1-options-snapshots-expiry', 'snapshot ohlc': 'post-v3-option-snapshot-ohlc', 'bars': 'post-v1-history-options-bars', 'eod': 'post-v1-history-options-eod', 'history open interest': 'post-v1-options-open-interest', 'trades': 'post-v1-history-options-trades', 'history ohlc': 'post-v3-option-history-ohlc', 'at-time quote': 'post-v3-option-at-time-quote', 'direct endpoints': 'post-v3-option-direct-value', 'crypto snapshots': 'get-post-v1beta3-crypto-us-snapshots', 'orderbooks': 'post-v1-crypto-us-latest-orderbooks', 'Error codes': 'error-codes', 'Rate limits': 'rate-limits', 'Financial data overview': 'fmp-fundamentals-overview', 'Request contract': 'fmp-request-contract', 'Response metadata': 'fmp-response-metadata', 'historical-price-eod/full': 'fmp-historical-price-eod', 'income-statement': 'fmp-income-statement', 'balance-sheet-statement': 'fmp-balance-sheet-statement', 'cash-flow-statement': 'fmp-cash-flow-statement', 'PIT statements': 'fmp-pit-statements', 'ratios': 'fmp-ratios', 'ratios-ttm': 'fmp-ratios-ttm', 'key-metrics': 'fmp-key-metrics', 'key-metrics-ttm': 'fmp-key-metrics-ttm', 'income-statement-growth': 'fmp-income-statement-growth', 'balance-sheet-statement-growth': 'fmp-balance-sheet-statement-growth', 'cash-flow-statement-growth': 'fmp-cash-flow-statement-growth', 'financial-growth': 'fmp-financial-growth', 'enterprise-values': 'fmp-enterprise-values', 'financial-scores': 'fmp-financial-scores', 'Snapshot boundary': 'fmp-snapshot-boundary', 'Future data families': 'fmp-future-data-families', 'CN Data overview': 'cn-data-overview', 'Daily bars': 'cn-daily-bars', 'Minute bars': 'cn-minute-bars', 'Valuation': 'cn-valuation', 'Membership': 'cn-membership', 'Reference': 'cn-reference', 'Fundamentals': 'cn-fundamentals', 'ETF data': 'cn-etf', 'Shareholders': 'cn-shareholders', 'Money flow': 'cn-money-flow', 'Billboard': 'cn-billboard', 'Access & scope': 'cn-access', 'ETF minutes': 'cn-etf-minute', 'Options': 'cn-options', 'Funds': 'cn-funds', 'Reserved routes': 'cn-unavailable', 'Catalog': 'cn-catalog'};
 
 function slugify(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -346,7 +345,7 @@ function docSectionId(tab, label) {
 
 function getDocSections(tab, page) {
   const sections = tab === "proxy" ? [
-    { title: "Getting started", items: ["Overview", "Authentication", "Tiers & permissions", "Free plan usage"] },
+    { title: "Getting started", items: ["Overview", "Authentication", "Response delivery", "Tiers & permissions", "Free plan usage"] },
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news", "stock trade+quote"] },
     { title: "Index Data", items: ["index history", "Cash minute archive", "Cash minute history", "Cash minute coverage", "Cash daily history", "Cash daily coverage"] },
@@ -360,17 +359,16 @@ function getDocSections(tab, page) {
       { title: "World · CN 中国数据", items: ["CN Data overview", "Daily bars", "Minute bars", "Valuation", "Membership", "Reference", "Fundamentals", "ETF data", "ETF minutes", "Options", "Funds", "Shareholders", "Reserved routes", "Catalog", "Access & scope"] },
     ]},
     { title: "Options Data", items: ["routing model", "contracts"], children: [
-      { title: "Snapshots", items: ["snapshots", "quote", "snapshot trade", "open interest", "expiry", "snapshot ohlc"] },
+      { title: "Snapshots", items: ["snapshots", "quote", "snapshot trade", "Latest OI", "open interest", "expiry", "snapshot ohlc"] },
       { title: "Options history", items: ["bars", "eod", "history open interest", "trades", "history ohlc", "at-time quote"] },
       { title: "Direct API", items: ["direct endpoints"] },
     ]},
     { title: "Crypto Data", items: ["crypto snapshots", "orderbooks"] },
-    { title: "Admin endpoints", items: ["login", "pending", "approve", "reject"] },
-    { title: "Reference", items: ["Error codes", "Rate limits"] },
+        { title: "Reference", items: ["Error codes", "Rate limits"] },
   ] : tab === "morningstar" ? [
     { title: "Morningstar fundamentals", items: ["Morningstar overview", "What is PIT?", "Deduplication", "Morningstar fields", "Morningstar history", "Morningstar coverage"] },
   ] : tab === "fmp-fundamentals" ? [
-    { title: "Financial data API", items: ["Financial data overview", "Request contract", "Response metadata"] },
+    { title: "Financial data API", items: ["Financial data overview", "Request contract", "Response metadata", "Calendar support"] },
     { title: "Market history", items: ["historical-price-eod/full"] },
     { title: "Market snapshots", items: ["quote", "quote-short", "aftermarket-quote", "aftermarket-trade", "stock-price-change", "market-capitalization", "historical-market-capitalization", "batch-quote", "batch-quote-short", "batch-aftermarket-quote", "batch-aftermarket-trade", "market-capitalization-batch"] },
     { title: "Company reference", items: ["profile", "stock-peers", "key-executives", "company-notes", "financial-reports-dates", "employee-count", "historical-employee-count", "shares-float", "shares-float-all", "dividends", "splits"] },
@@ -391,7 +389,7 @@ function getDocSections(tab, page) {
   ];
 
   const pageSections = {
-    "market-overview": sections.filter((section) => ["Getting started", "Token API", "Stock Data", "Admin endpoints", "Reference"].includes(section.title)).map((section) => section.title === "Stock Data" ? { ...section, linksOnly: true } : section),
+    "market-overview": sections.filter((section) => ["Getting started", "Token API", "Stock Data", "Reference"].includes(section.title)).map((section) => section.title === "Stock Data" ? { ...section, linksOnly: true } : section),
     "market-stocks": [
       { title: "REST History", items: ["history/bars", "stock trade+quote"] },
       { title: "Stock Data", items: ["Market · US / World"], children: [{ title: "US market", items: ["overview"], children: [

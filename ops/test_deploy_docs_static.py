@@ -42,6 +42,7 @@ class StaticDocsDeployTest(unittest.TestCase):
         self.manifest_path.write_text(json.dumps(self.manifest))
         self.calls = []
         self.bad_container_hash = False
+        mock.patch.object(static, "runtime_identity", return_value={"original-container": ("original-start", True)}).start()
         self.identity = (self.public.stat().st_dev, self.public.stat().st_ino)
         self.addCleanup(mock.patch.stopall)
         mock.patch.multiple(static, PUBLIC_ROOT=self.public, RELEASE_ROOT=self.release_root, FILES=self.files).start()
@@ -53,10 +54,10 @@ class StaticDocsDeployTest(unittest.TestCase):
             return json.dumps([{
                 "Id": "original-container",
                 "State": {"StartedAt": "original-start"},
-                "Mounts": [{"Source": str(self.public), "Destination": "/app/public", "RW": False}],
+                "Mounts": [{"Source": str(self.public), "Destination": "/srv/site-public", "RW": False}],
             }]).encode()
         if args[:2] == ["docker", "exec"]:
-            name = args[-1].removeprefix("/app/public/")
+            name = args[-1].removeprefix("/srv/site-public/")
             value = "0" * 64 if self.bad_container_hash else static.digest(self.public / name)
             return value + "  " + name
         raise AssertionError("Unexpected container mutation: " + repr(args))
@@ -106,6 +107,23 @@ class StaticDocsDeployTest(unittest.TestCase):
         self.assertFalse((self.release / "rollback").exists())
         self.assertEqual((self.public / "index.html").read_text(), "later live edit")
 
+    def test_parent_symlink_is_rejected_before_publication(self):
+        import shutil
+        shutil.rmtree(self.public / "assets")
+        outside = self.public.parent / "outside"
+        outside.mkdir()
+        (outside / "docs-page.js").write_text("old assets/docs-page.js")
+        (self.public / "assets").symlink_to(outside, target_is_directory=True)
+        with self.assertRaises(AssertionError):
+            self.apply()
+        self.assertFalse((self.release / "rollback").exists())
+
+    def test_runtime_drift_rolls_back(self):
+        with mock.patch.object(static, "runtime_identity", side_effect=[{}, {"changed": ()}]):
+            with self.assertRaises(AssertionError):
+                self.apply()
+        self.assert_original()
+
     def test_rollback_preserves_later_live_edits(self):
         self.apply()
         (self.public / "index.html").write_text("later live edit")
@@ -122,7 +140,7 @@ class StaticDocsAllowlistTest(unittest.TestCase):
         actual = {str(path.relative_to(public)) for topic in topics
                   for path in (public / topic).glob("*/index.html")
                   if str(path.relative_to(public)) not in static.DOC_PAGE_INDEXES}
-        self.assertEqual(actual, set(static.DOC_ARTICLE_INDEXES))
+        self.assertEqual(actual, set(static.DOC_ARTICLE_INDEXES) | set(static.RETIRED_DOC_INDEXES))
         self.assertEqual(len(static.FILES), len(set(static.FILES)))
 
 
