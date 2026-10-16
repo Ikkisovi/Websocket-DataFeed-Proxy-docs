@@ -12,4 +12,6 @@ COPY --chown=node:node package.json package-lock.json server.js /app/
 COPY --chown=node:node commerce/product-catalog.json commerce/product-catalog.cjs commerce/subscription-policy.cjs /app/commerce/
 COPY --chown=node:node commerce/store.cjs commerce/admin.cjs commerce/001-commerce.sql /app/commerce/
 COPY --chown=node:node commerce/portal-store.cjs commerce/portal-admin.cjs commerce/002-portal.sql /app/commerce/
+# These public inputs also pass through the dynamic site's static fallback.
+COPY --chown=node:node public/register-page.jsx public/product-catalog.json /app/public/
 CMD ["node", "server.js"]
