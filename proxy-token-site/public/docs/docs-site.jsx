@@ -1,3 +1,5 @@
+import API_CONTRACT from "./public-api-contract.json";
+import API_CONTRACT_SOURCE from "./api-contract-source.json";
 import React, {
   useCallback as useStatusCallback,
   useEffect as useStatusEffect,
@@ -57,7 +59,7 @@ function UptimeGrid({ data }) {
 
 // ── stats / quantiles helper ────────────────────────────────────────────
 function quantile(arr, q) {
-  if (!arr || arr.length === 0) return 0;
+  if (!arr || arr.length === 0) return "—";
   const sorted = [...arr].sort((a, b) => a - b);
   const pos = (sorted.length - 1) * q;
   const base = Math.floor(pos);
@@ -305,7 +307,7 @@ function StatusBody() {
   const anyOutage = data.rest.status === "outage" || data.rt.status === "outage" || data.ws.status === "outage";
   const overall = isLoading ? "loading" : allOp ? "operational" : anyOutage ? "outage" : "degraded";
 
-  const overallLabel = overall === "loading" ? "Checking systems…" : overall === "operational" ? "All systems operational" : overall === "outage" ? "Service disruption" : "Partial degradation";
+  const overallLabel = overall === "loading" ? "Checking systems…" : overall === "operational" ? "Connectivity probes passing" : overall === "outage" ? "Service disruption" : "Partial degradation";
   const overallColor = overall === "loading" ? "var(--ink-muted)" : overall === "operational" ? "var(--ok)" : overall === "outage" ? "var(--danger)" : "var(--warn)";
   const overallBg    = overall === "loading" ? "var(--bg-canvas)" : overall === "operational" ? "var(--ok-soft)" : overall === "outage" ? "var(--danger-soft)" : "var(--warn-soft)";
 
@@ -320,7 +322,8 @@ function StatusBody() {
       <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>Status</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 24px" }}>
         Live health of the historical REST API, realtime REST API, and secure WebSocket stream on the public leandata.uk domains.
-        Uptime is sampled every minute; latency percentiles are computed over a rolling 60-minute window.
+        These probes measure connectivity, not the freshness, completeness or availability of every data endpoint. Inspect source timestamps and request errors when validating data. Unknown latency is shown as a dash, not zero.
+        <br/>此页探针反映连通性，不证明每个数据接口的新鲜度、完整性或可用性；请结合来源时间和请求错误判断。没有观测时显示短横线，不显示零延迟。
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>这里展示 leandata.uk 公共域名下历史 REST、实时 REST 与安全 WebSocket 的健康状态。可用性按分钟采样，延迟分位数按 60 分钟滚动窗口计算。</span>
       </p>
 
@@ -920,6 +923,39 @@ function BilingualDataTable({ columns, rows, style }) {
       ))}</tbody>
     </table>
   );
+}
+
+function PublicApiContract() {
+  const contract = API_CONTRACT;
+  return <>
+    <h2 id="api-contract" className="display-title" style={{ fontSize: 28 }}>API contract / 接口契约</h2>
+    <p>Version <code>{contract.version}</code>. <a href="https://api.leandata.uk/v1/api/contract">Live API contract (JSON)</a> · <a href="/docs/public-api-contract.json">Documentation contract (JSON)</a></p>
+    <p>{contract.scope}<br/>本目录覆盖 OI、合约发现、财务归档及通用交付契约；其他接口见对应文档。未列入不代表未实现，available 也不保证特定日期有数据。</p>
+    <p>Backend source <code>{API_CONTRACT_SOURCE.source_commit.slice(0, 12)}</code> · SHA256 <code style={{ overflowWrap: "anywhere" }}>{API_CONTRACT_SOURCE.sha256}</code>. Compare with <code>X-Leandata-Contract-SHA256</code> when reporting contract drift.</p>
+    <p>{contract.compatibility}<br/>旧 URL 和返回结构继续兼容；替代接口需要按各自参数调用，不会自动互相重定向。</p>
+    <h3>Delivery / 交付</h3>
+    <p>{contract.delivery.controls.direct} {contract.delivery.controls.no_direct}</p>
+    <p>{contract.delivery.download_authentication}</p>
+    <table className="tbl"><thead><tr><th>API method</th><th>Optional redirect</th><th>Signed download</th></tr></thead><tbody>{contract.delivery.redirects.map(row => <tr key={row.request_method}><td>{row.request_method}</td><td>{row.status}</td><td>{row.download_method}</td></tr>)}</tbody></table>
+    <p>{contract.delivery.accounting}</p>
+    <h3>Response metadata / 响应元数据</h3>
+    <table className="tbl"><thead><tr><th>Header</th><th>Contract</th></tr></thead><tbody>{Object.entries(contract.response_headers).map(([name, text]) => <tr key={name}><td><code>{name}</code></td><td>{text}</td></tr>)}</tbody></table>
+    <p>Logical tiers describe how bytes were served. Inspect source timestamps for freshness. Legacy tier values remain for compatibility; there is no scheduled removal. 逻辑数据层不代表实时性；旧字段继续兼容。</p>
+    <h3>Errors / 错误处理</h3>
+    <table className="tbl"><thead><tr><th>HTTP</th><th>Action</th></tr></thead><tbody>{contract.errors.map(row => <tr key={row.status}><td>{row.status}</td><td>{row.action}</td></tr>)}</tbody></table>
+    <h3>Endpoint catalog / 接口目录</h3>
+    {contract.operations.map(op => <section key={op.id} style={{ marginBottom: 24 }}>
+      <h4><code>{op.path}</code></h4><p>{op.methods.join(" / ")} · {op.status} · {op.access}</p>
+      <p>{op.summary} {contract.access_policies[op.access]}</p>
+      {op.clocks && <p>{op.clocks}</p>}{op.notes && <p>{op.notes}</p>}
+      {op.parameters.length > 0 && <table className="tbl"><thead><tr><th>Parameter</th><th>Required</th><th>Meaning</th></tr></thead><tbody>{op.parameters.map(p => <tr key={p.name}><td><code>{p.name}</code>{p.aliases && ` (aliases: ${p.aliases.join(", ")})`}</td><td>{p.required ? "yes" : "no"}</td><td>{p.description}</td></tr>)}</tbody></table>}
+      {op.parameter_specification === "endpoint_article" && <p>Parameters and response fields: <a href={op.docs}>endpoint documentation</a>. 参数请查看接口文章。</p>}
+      {op.error && <p>HTTP {op.error.status} · <code>{op.error.code}</code> · {op.error.message}</p>}
+      {op.example && <><p>{op.example_note}</p><pre className="code">{`curl --get "https://api.leandata.uk${op.path}" \
+  --header "Authorization: Bearer $LEANDATA_TOKEN"` + Object.entries(op.example.params).map(([k,v]) => ` \
+  --data-urlencode "${k}=${v}"`).join("")}</pre></>}
+    </section>)}
+  </>;
 }
 
 const API_CATEGORIES = {
@@ -1627,7 +1663,7 @@ function FmpDataOverview({ articleId } = {}) {
       </p>
       <h3 id="fmp-future-data-families" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>即将推出 / Coming Soon</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-        我们正在逐步增加更多数据类型，包括：分析师预测、机构持仓、ETF 持仓等。如有特定需求，欢迎联系我们。
+        仅以当前接口目录中标明的已上线能力为准。分析师预测已在目录中；机构持仓、ETF 持仓或未来日历等额外需求不构成已交付承诺，请先确认具体覆盖。
         <br/><br/>
         We're expanding coverage to include: analyst estimates, institutional holdings, ETF holdings, and more. Contact us with your specific data needs.
       </p>
@@ -1932,6 +1968,16 @@ Content-Type: application/json
         财务比率接口返回的字段包括 <code>currentRatio</code>（流动比率）、<code>quickRatio</code>（速动比率）、<code>debtToEquityRatio</code>（负债权益比）、<code>priceToEarningsRatio</code>（市盈率）、<code>returnOnEquity</code>（ROE）等。TTM 字段通常以 <code>TTM</code> 结尾。字段缺失或为 null 时表示数据源没有提供该字段，请勿当作零处理。
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Ratios endpoints return fields like <code>currentRatio</code>, <code>quickRatio</code>, <code>debtToEquityRatio</code>, <code>priceToEarningsRatio</code>, <code>returnOnEquity</code>, etc. TTM fields typically end with <code>TTM</code>. Missing or null fields indicate unavailable data—do not treat as zero.</span>
       </p>
+
+      <h2 id="fmp-calendar-support" className="display-title" style={{ fontSize: 28 }}>Calendar support / 财报与除息日历支持范围</h2>
+      <p>Premium authorizes the documented available financial endpoints; it does not expose every endpoint of an upstream product. <code>/stable/earnings</code> and <code>/stable/dividends</code> provide available archived company-event records, with historical/snapshot coverage. They do not guarantee a complete or current future calendar.<br/>Premium 权限不等于上游全接口开放，也不代表未来事件日历已经上线。</p>
+      <table className="tbl card"><thead><tr><th>Need / 需求</th><th>Current availability / 当前支持</th></tr></thead><tbody>
+        <tr><td>Historical earnings / 历史业绩公告</td><td><code>/stable/earnings</code>, available archived records</td></tr>
+        <tr><td>Historical dividends / 历史分红</td><td><code>/stable/dividends</code>, available archived records</td></tr>
+        <tr><td>Future earnings calendar / 未来财报日历</td><td>Not available; <code>/stable/earnings-calendar</code> currently returns 501</td></tr>
+        <tr><td>Future ex-dividend calendar / 未来除息日历</td><td>Not available; <code>/stable/dividends-calendar</code> currently returns 501</td></tr>
+      </tbody></table>
+      <p>A 501 is an unavailable endpoint, not a plan-upgrade prompt. An empty 200 array only describes the requested slice. Quote/profile/analyst records in this financial catalog are archived snapshots; use the market-data quote endpoints for current trading decisions and inspect source timestamps.<br/>501 不应通过升级套餐或反复重试解决。空数组不证明全市场无事件；财务目录中的报价、资料、预测是归档快照，交易所需当前报价请使用行情接口并检查来源时间。</p>
 
       <h3 id="fmp-request-contract" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>参数说明 / Parameters</h3>
       <div style={{ overflowX: "auto", marginBottom: 22 }}>
@@ -2711,7 +2757,7 @@ const PROXY_FOCUS_BOUNDARIES = [
   ["provider-fallback-cache", "options"],
   ["get-post-v1beta3-crypto-us-snapshots", "crypto-news"],
   ["post-v1-crypto-us-latest-orderbooks", "crypto-news"],
-  ["post-admin-login", "overview"],
+  ["error-codes", "overview"],
 ];
 
 function ProxyApiBody({ focus, articleId }) {
@@ -2724,8 +2770,8 @@ function ProxyApiBody({ focus, articleId }) {
       <div className="eyebrow" style={{ marginBottom: 10 }}>Getting started</div>
       <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}><Bilingual {...API_CATEGORIES.market} /></h2>
       <DocDesc
-        zh="Leandata 提供两类核心服务：Token 门户负责账户注册与 Token 签发管理；行情代理通过稳定公共域名提供历史 REST、实时 REST 与 WebSocket 实时行情流。使用单一 Token 即可访问全部数据接口，无需自行配置第三方凭证。"
-        en="Leandata provides two core surfaces: a token portal for registration and token issuance, and a high-performance market data proxy for historical REST, realtime REST, and secure WebSocket streaming. Authenticate with a single unified token across all historical and realtime data endpoints without managing third-party credentials."
+        zh="Leandata 提供两类核心服务：Token 门户负责账户注册与 Token 签发管理；行情代理通过稳定公共域名提供历史 REST、实时 REST 与 WebSocket 实时行情流。使用同一 Token 调用套餐已授权且已上线的接口，无需自行配置第三方凭证。"
+        en="Leandata provides two core surfaces: a token portal for registration and token issuance, and a high-performance market data proxy for historical REST, realtime REST, and secure WebSocket streaming. Use one unified token for documented available endpoints authorized by your plan, without managing third-party credentials."
       />
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
         <thead><tr><th>Surface</th><th>Public URL</th><th>Auth</th></tr></thead>
@@ -2744,8 +2790,8 @@ function ProxyApiBody({ focus, articleId }) {
       </div>
       <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>{isZh ? "身份鉴权 (Authentication)" : "Authentication"}</h2>
       <DocDesc
-        zh="所有数据接口（REST 和 WS）都需要 UUID Token。推荐通过 HTTP Authorization 请求头传递，也支持在 POST JSON 请求体中传递："
-        en="All data endpoints (REST and WS) require a UUID token. Pass it as an HTTP header or in the JSON body:"
+        zh="数据接口需要有效的 LeanData Token。将 Token 视为不透明凭据，优先使用 Authorization 请求头，不要放入 URL 或日志："
+        en="Data endpoints require an active LeanData token. Treat it as an opaque credential; prefer the Authorization header and never put it in a URL or logs:"
       />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`# Option A — Authorization header (preferred)
@@ -2758,20 +2804,32 @@ Authorization: Bearer <TOKEN>
         Tokens expire 30 days after issuance (trial: 3 days, non-renewable). The proxy returns <code>401</code> for invalid or expired tokens and <code>403</code> if your tier lacks permission for the endpoint.
       </p>
 
-      <h3 style={{ fontSize: 20, margin: "0 0 10px" }}>Invalid-token abuse protection (enabled runtime contract)</h3>
-      <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px", margin: "0 0 40px", fontSize: 13, lineHeight: 1.6 }}>
-        <strong>Runtime status: enabled on REST and WebSocket authentication.</strong> The limiter applies only to repeated invalid-token attempts; one expired or mistyped token is not a ban condition. REST returns <code>429</code> with <code>Retry-After</code>; WS returns a <code>429</code> control error with <code>retry_after_seconds</code> before closing the failed session.
-        <br/><span style={{ color: "var(--ink-soft)" }}>运行状态：REST 与 WebSocket 鉴权均已启用。仅对重复的无效 Token 尝试限流；一次过期或输入错误不会触发封禁。REST 返回带 <code>Retry-After</code> 的 <code>429</code>；WS 在关闭失败连接前返回带 <code>retry_after_seconds</code> 的 <code>429</code> 控制错误。</span>
-        <table className="tbl card" style={{ overflow: "hidden", margin: "12px 0" }}>
-          <thead><tr><th>Signal</th><th>Action</th><th>Scope</th></tr></thead>
-          <tbody>
-            <tr><td><code>5</code> invalid-token failures / <code>60s</code></td><td><code>429</code> soft throttle for <code>60s</code> with <code>Retry-After</code></td><td>abuse key</td></tr>
-            <tr><td><code>15</code> failures / <code>5m</code></td><td>temporary ban for <code>5m</code></td><td>abuse key</td></tr>
-          </tbody>
-        </table>
-        The abuse key uses a daily-rotated HMAC of the source IP plus a coarse User-Agent category. A presented token may be HMAC-fingerprinted for short-lived correlation, but raw IPs and raw tokens are never logged or persisted. Each temporary ban expires automatically after <code>5 minutes</code>; bans do not escalate. Pseudonymous counters and ban events are retained for at most <code>7 days</code>; identifier-free aggregate totals may be retained for <code>30 days</code>. Rotation occurs at <code>00:00 UTC</code>.
-        <br/><span style={{ color: "var(--ink-soft)" }}>防护键由每日轮换的源 IP HMAC 和粗粒度 User-Agent 类别组成。Token 只允许以 HMAC 指纹做短期关联，不记录或持久化原始 IP/Token。每次临时封禁 <code>5 分钟</code>后自动解除，不会升级。伪匿名计数和封禁事件最多保留 <code>7 天</code>；去标识聚合总数可保留 <code>30 天</code>，每日 <code>00:00 UTC</code> 轮换。</span>
-      </div>
+      <p>Repeated invalid credentials may be temporarily throttled. Stop retrying an unchanged invalid or expired token, correct the credential, and honor <code>Retry-After</code> on 429 responses. A queue/capacity 429 is a different condition; use its public error code when diagnosing it.<br/>反复提交无效或过期 Token 可能触发临时限流，应先修正凭据；429 的鉴权保护与数据排队／容量限制是不同原因，请按错误码处理。</p>
+
+      {PublicApiContract()}
+
+      <h2 id="response-delivery" className="display-title" style={{ fontSize: 28 }}>Response delivery / 响应交付与安全调用</h2>
+      <p>Ordinary GET and POST queries return their data on the original API request. Clients do not need to discover another service or resend credentials to another host. A successful empty array is a valid empty result for the requested slice, not proof of complete coverage.<br/>普通 GET 和 POST 查询直接在原 API 请求中返回数据。客户端无需探测其他服务或向其他域名重发凭据；成功返回空数组只表示本次切片为空，不代表全量覆盖。</p>
+      <p><code>direct=1</code> explicitly permits signed download delivery where available; a cache hit can still return 200. <code>direct=0</code> or <code>no_direct=1</code> keeps delivery on the original request, with <code>no_direct=1</code> taking precedence. Controls do not create different payload cache entries.<br/>只有主动选择 <code>direct=1</code> 才可能收到签名下载跳转；缓存命中仍可直接返回 200。</p>
+      <p>The authorized download origin is <code>https://archive-direct.leandata.uk</code>. For optional delivery, POST → 303 is followed with GET and no original body; GET → 307 remains GET. Validate the exact HTTPS origin, preserve the full signed URL, and use a separate request without Authorization, cookies or original credentials. Never log signed URLs; expired links require a new API request. Unexpected POST → 307 should be reported with request time and <code>X-Request-Id</code>.<br/>下载地址已带短时签名，不应转发 Bearer Token。签名地址本身是临时凭据，不要公开或记录到普通日志。</p>
+      <p>Normal authorized API archive delivery is included in the endpoint's plan access. The initial API request counts once; the signed download does not add a second public API request. Retrying the API is another request. Separately ordered Bulk Download exports retain their explicit pricing.<br/>正常 API 归档交付沿用套餐权限，不因交付跳转额外收费；初始 API 请求正常计数，签名下载不重复计数。重新发起 API 请求会再次计数；独立批量导出订单单独计价。</p>
+      <pre className="code">{`import os
+import requests
+
+with requests.Session() as client:
+    client.trust_env = False
+    response = client.get(
+        "https://api.leandata.uk/stable/profile",
+        headers={"Authorization": "Bearer " + os.environ["LEANDATA_TOKEN"]},
+        params={"symbol": "AAPL", "limit": 1},
+        timeout=45,
+        allow_redirects=False,
+    )
+    if response.status_code != 200:
+        request_id = response.headers.get("X-Request-Id", "unknown")
+        raise RuntimeError(f"HTTP {response.status_code}; request_id={request_id}")
+    data = response.json()`}</pre>
+      <p>This example requires Premium financial-data access. Public <code>/health</code> reports connectivity only; detailed operational metrics are not a customer API. Log status, public error code, request ID and UTC time when requesting support; omit the token and signed URL.<br/>示例需要 Premium 财务权限。报障提供状态码、错误码、请求 ID 与 UTC 时间即可，无需提供 Token 或签名 URL。</p>
 
       <h2 id="tiers-permissions" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>{isZh ? "套餐与权限说明 (Tiers & Permissions)" : "Tiers & permissions"}</h2>
       <DocDesc
@@ -2835,7 +2893,7 @@ Authorization: Bearer <TOKEN>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
             <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontSize: 12 }}>All REST endpoints including crypto orderbooks</td>
+            <td style={{ fontSize: 12 }}>Documented US REST + financial data + crypto orderbooks; CN sold separately</td>
           </tr>
           <tr>
             <td><span className="tier china">China</span></td>
@@ -3013,7 +3071,7 @@ print("Option contracts:", resp_opt.status_code)`}
       ]} />
       <pre className="code" style={{ marginBottom: 28 }}>
 {`// Request
-{ "username": "tonnysun", "phone": "18717931119", "email": "tonny@example.com", "tier": "premium" }
+{ "username": "example-user", "phone": "<PHONE>", "email": "tonny@example.com", "tier": "premium" }
 
 // Value tier — mode required
 { "username": "qianyu", "phone": "13800138000", "email": "qianyu@example.com", "tier": "value", "mode": "options" }
@@ -3039,7 +3097,7 @@ print("Option contracts:", resp_opt.status_code)`}
       ]} />
       <pre className="code" style={{ marginBottom: 28 }}>
 {`// Request
-{ "username": "tonnysun", "phone": "18717931119" }
+{ "username": "example-user", "phone": "<PHONE>" }
 
 // Response — status values: "pending" | "approved" | "rejected" | "not_found"
 { "success": true, "status": "pending", "message": "审核中，请耐心等待。" }`}
@@ -3556,7 +3614,7 @@ for row in resp.json()["rows"]:
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>以下股票行情接口均通过标准 <code>GET</code> 路径开放。响应结构遵循官方全市场行情规范，鉴权、多级服务端缓存与并发控制由代理统一处理。</span>
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 16px" }}>
-        Every endpoint in this section returns standard JSON payloads. Repeated latest/snapshot calls return <code>X-Cache: DISK_HIT</code> when served from cache.
+        Endpoints return JSON; current-data calls may go to a live source on every request. A cache hit, when applicable, is identified by <code>X-Cache: HIT</code>. Always inspect source timestamps.
       </p>
 
       <div className="provider-source-card" style={{ marginBottom: 28 }}>
@@ -3580,13 +3638,13 @@ for row in resp.json()["rows"]:
       {/* ── Provider Data ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Options Data</div>
 
-      <h2 id="provider-fallback-cache" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "期权数据路由与多级缓存架构" : "Options routing model and server-side cache"}</h2>
+      <h2 id="provider-fallback-cache" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "期权接口选择与数据语义" : "Choosing an options endpoint"}</h2>
       <DocDesc
-        zh="底层行情接入多源专业数据链路，由代理网关统一处理鉴权、多级缓存（热点内存 + 历史海量归档）与并发调度："
-        en="Market data is unified behind a high-availability proxy layer handling authentication, multi-tier caching (hot memory + historical archive), rate limiting, and automated upstream routing:"
+        zh="按业务用途选择已上线接口。合约目录、当前快照、历史查询与 OI 的参数和时间语义不同，不应互相替代："
+        en="Choose an available endpoint for your task. Contract discovery, current snapshots, historical records and daily OI use different parameters and clocks; do not substitute one response type for another:"
       />
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
-        <thead><tr><th>Surface</th><th>Route</th><th>Routing behavior</th></tr></thead>
+        <thead><tr><th>Surface</th><th>Route</th><th>Use / 用途</th></tr></thead>
         <tbody>
           {[
             ["Standard options (OCC)",        "/v1beta1/options/*",                                            "Bars, historical trades, latest quotes/trades, snapshots, and chain snapshots. Historical availability begins 2024-02-01."],
@@ -3594,7 +3652,7 @@ for row in resp.json()["rows"]:
             ["Contracts discovery",           "/v1/options/contracts",                                         "Current active contracts with strikes and expirations. Use /v3/option/list/contracts/* with a historical date for expired contracts."],
             ["Full snapshots / Greeks",       "/v1/options/snapshots",                                         "Latest quote, trade, Greeks, and implied volatility where available."],
             ["Quote / trade snapshots",       "/v1/options/snapshots/{quote,trade}",                           "Normalized latest quote and trade per OCC contract."],
-            ["OI / OHLC snapshots",           "/v1/options/snapshots/open_interest, /v3/option/snapshot/*",    "Contract-level open-interest and OHLC snapshots."],
+            ["OI / OHLC snapshots",           "/v3/option/snapshot/open_interest, /v3/option/snapshot/ohlc",    "Exact-contract open-interest and OHLC snapshots."],
             ["Direct options API",            "/v3/option/*",                                                  "Direct parameter endpoints using root, expiration, strike, and right with structured JSON output."],
           ].map(([area, route, behavior], i) => (
             <tr key={i}>
@@ -3607,7 +3665,8 @@ for row in resp.json()["rows"]:
       </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         Successful REST responses are cached server-side.
-        Cache keys strip proxy credentials, return <code>X-Cache: DISK_HIT</code> on repeat, and use tiered TTLs: historical 7 days, intraday/latest 60 seconds, snapshots 5 minutes, contracts/lists 1 hour.
+        Response caching depends on the endpoint and source timestamp. <code>X-Cache: HIT</code> identifies a cache hit; other values describe delivery and are not a freshness guarantee. Check each record's timestamp and the endpoint's session/date semantics. Do not build business logic around internal cache-tier labels or assume one TTL for every endpoint.
+        <br/>缓存策略按接口区分；命中缓存不代表数据已更新到今天。请检查记录时间及交易日，不要依赖内部缓存层名称或统一 TTL。
       </p>
       <h3 id="standard-rest-examples" style={{ fontSize: 16, fontWeight: 500, margin: "0 0 8px", color: "var(--ink-strong)" }}>Standard REST examples</h3>
       <pre className="code" style={{ marginBottom: 40 }}>
@@ -3736,6 +3795,7 @@ bars_5m = (frame.set_index("t").resample("5min")
         <br/><span style={{ color: "var(--ink-muted)" }}>为保障服务端内存安全，全链通配符（<code>*</code>）请求将被拒绝（返回 HTTP <code>422</code>）。单次日期跨度上限为 31 天。批量全链历史回补请逐个合约发起，并建议安排在美股常规交易时段外。</span>
       </div>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/options/open_interest`} />
+      <p>Dates select source report days. A report published around 06:30 New York time represents the previous trading session's closing OI. The source timestamp, effective trading day and your retrieval time are separate clocks; missing records are not zero. See Latest OI for a current-contract example.<br/>查询日期按报告日选择；报告时间、有效交易日、获取时间应分别保存。</p>
       <ParamTable rows={[
         { name: "symbol",       type: "string",  required: true,  desc: "Root ticker (e.g. AAPL)" },
         { name: "start",        type: "string",  required: true,  desc: "ISO 8601 date (max 31 days span)" },
@@ -3755,7 +3815,7 @@ bars_5m = (frame.set_index("t").resample("5min")
       <pre className="code" style={{ marginBottom: 40 }}>
 {`// Response
 {
-  "count": 1840,
+  "count": 1,
   "data": [
     {
       "symbol":        "AAPL",
@@ -3878,8 +3938,8 @@ for row in data["data"][:5]:
       {/* ── Snapshots ── */}
       <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · Snapshots</div>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 24px" }}>
-        Snapshot endpoints return the <em>latest</em> state of option contracts — greeks, quotes, trade, open interest — served from a high-speed in-memory cache.
-        All snapshot endpoints accept OCC symbols obtained from <code>/v1/options/contracts</code>.
+        Quote/trade snapshot endpoints return the latest available market observations. Latest does not mean every field is current; inspect source timestamps. OI is a separate daily report, not a field guaranteed in a general market snapshot.
+        Quote/trade snapshots accept OCC symbols obtained from <code>/v1/options/contracts</code>. Native OI queries use exact symbol, expiration, strike and right instead.
       </p>
 
       <h2 id="post-v1-options-snapshots" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots</h2>
@@ -3992,49 +4052,44 @@ for sym, snap in resp.json()["snapshots"].items():
   -d '{"symbols":"AAPL260522C00110000","feed":"indicative"}'`}
       </pre>
 
-      <h2 id="post-v1-options-snapshots-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/open_interest</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Latest open interest per contract (count + timestamp).
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约最新持仓量（OI 快照）。</span>
-      </p>
-      <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/open_interest`} />
-      <ParamTable rows={[
-        { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 1000 per request)" },
-        { name: "limit",   type: "integer", required: false, desc: "1–1000 (default: 100)" },
-      ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`curl -X POST ${REST_BASE}/v1/options/snapshots/open_interest \\
-  -H "Authorization: Bearer <TOKEN>" \\
-  -H "Content-Type: application/json" \\
-  -d '{"symbols":"AAPL260522C00110000"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`// Response
-{
-  "snapshots": {
-    "AAPL260522C00110000": {
-      "openInterest": {
-        "oi": 5,
-        "t": "2026-05-22T06:30:30.000Z"
-      }
-    }
-  }
-}`}
-      </pre>
-      <h3 id="oi-snapshot-python-example" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Python example — check OI for multiple contracts</h3>
-      <pre className="code" style={{ marginBottom: 40 }}>
-{`import requests
+      <h2 id="option-oi-latest" className="display-title" style={{ fontSize: 28 }}>Latest open interest / 最新未平仓量</h2>
+      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/snapshot/open_interest`} />
+      <p>Use exact <code>symbol</code>, <code>expiration</code>, <code>strike</code> and an explicit <code>right=call|put</code>. Discover an active contract first; do not copy an expired OCC symbol from an example into a current snapshot request.<br/>先查询有效合约，再按具体标的、到期日、行权价和方向查询 OI。示例中的旧合约不能用于当前快照。</p>
+      <p>OI is a daily report, normally published around 06:30 America/New_York, representing the end of the previous trading session. This is an expected publication window, not a guaranteed availability time for every contract. <code>timestamp</code> is the source report time with an explicit offset, not API arrival time. For example, <code>2026-10-15T06:30:02-04:00</code> corresponds to OI at the close of October 14. Keep report time, effective trading day and retrieval time separately; missing records are not zero. Map report dates through the exchange calendar, including holidays.<br/>OI 是日度报告，不是盘中实时持仓。请分别保存来源报告时间、对应交易日和客户端获取时间。必须检查返回时间是否足够新；缺失记录不能当作 OI 为零。</p>
+      <pre className="code">{`import os
+from datetime import datetime, timezone
+import requests
 
-symbols = "AAPL260620C00200000,AAPL260620P00200000"
-resp = requests.post(
-    "${REST_BASE}/v1/options/snapshots/open_interest",
-    headers={"Authorization": "Bearer <TOKEN>"},
-    json={"symbols": symbols}
-)
-for sym, snap in resp.json()["snapshots"].items():
-    oi = snap["openInterest"]
-    print(f"{sym}  OI={oi['oi']}  as_of={oi['t']}")`}
-      </pre>
+with requests.Session() as client:
+    client.trust_env = False
+    client.headers["Authorization"] = "Bearer " + os.environ["LEANDATA_TOKEN"]
+    def query(path, params):
+        response = client.get("https://api.leandata.uk" + path,
+            params=params, timeout=45, allow_redirects=False)
+        if response.status_code != 200:
+            rid = response.headers.get("X-Request-Id", "unknown")
+            raise RuntimeError(f"HTTP {response.status_code}; request_id={rid}")
+        return response.json()
+
+    contracts = query("/v1/options/contracts",
+        {"underlying_symbols": "AAPL", "type": "call", "limit": 1})["option_contracts"]
+    if not contracts:
+        raise RuntimeError("No active contract returned")
+    contract = contracts[0]
+    result = query("/v3/option/snapshot/open_interest", {
+        "symbol": "AAPL", "expiration": contract["expiration_date"],
+        "strike": contract["strike_price"], "right": contract["type"],
+    })
+    retrieved_at = datetime.now(timezone.utc).isoformat()
+    if not result.get("data"):
+        print("No OI record returned; do not substitute zero")
+    for row in result.get("data", []):
+        print(row["timestamp"], row["open_interest"], retrieved_at)
+    # Empty/stale data is unavailable; never substitute zero.`}</pre>
+      <p>Historical OI uses <code>/v1/options/open_interest</code> with <code>start</code>/<code>end</code>, or <code>/v3/option/history/open_interest</code> with <code>start_date</code>/<code>end_date</code>. Date selection refers to source report dates; a historical request is not proof of original point-in-time availability.<br/>历史 OI 的日期选择按来源报告日解释，历史查询本身不证明原始时点可用性。</p>
+
+      <h2 id="post-v1-options-snapshots-open-interest" className="display-title" style={{ fontSize: 28 }}>OI compatibility route / OI 兼容路径</h2>
+      <p><code>/v1/options/snapshots/open_interest</code> is not an implemented OI interface. It previously returned a general market snapshot without OI; do not treat that response as open interest. Use <code>/v3/option/snapshot/open_interest</code> above.<br/>该兼容路径尚未实现 OI 查询，旧响应中的普通行情快照不能用作 OI。请使用上面的正式查询接口。</p>
 
       <h2 id="post-v1-options-snapshots-expiry" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/expiry</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -4086,7 +4141,7 @@ for sym, snap in data["snapshots"].items():
       <h2 id="post-v3-option-direct-value" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/* (Direct Options API)</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Direct parameter endpoints for querying options data using root ticker, expiration (YYMMDD), strike, and right (C/P) instead of OCC symbols.
-        Supports both <code>GET</code> query parameters and <code>POST</code> JSON bodies, with responses cached server-side.
+        Supports both <code>GET</code> query parameters and <code>POST</code> JSON bodies, with structured JSON responses. Cache behavior is endpoint-specific.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权原生参数查询接口：支持直接使用标的代码、到期日（YYMMDD）、行权价与权利类型（C/P）组合查询，无需拼接 OCC 字符串。支持 GET 与 POST。</span>
       </p>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/...`} />
@@ -4151,8 +4206,8 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
 
       <h3 id="post-v3-option-at-time-quote" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Quote at time example</h3>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Last NBBO per contract at one millisecond of the day. Prefer the whole-chain form below over per-contract loops: one request per underlying per day.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>返回某日指定时刻每张合约的最新买卖盘。整链一次取回，一天一标的只需一次请求，不要逐合约循环。</span>
+        Last NBBO per contract at one millisecond of the day. Start with an exact contract and bounded date window; whole-chain requests remain subject to endpoint byte and timeout limits.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>返回某日指定时刻每张合约的最新买卖盘。先使用具体合约和短日期窗口；整链请求仍受响应大小及超时限制。</span>
       </p>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`# GET — single contract at a specific time of day
@@ -4169,7 +4224,7 @@ curl -H "Authorization: Bearer <TOKEN>" \\
   "endpoint": "/v3/option/at_time/quote",
   "count": 760,
   "data": [
-    { "symbol": "AAPL", "expiration": "2024-11-08", "strike": 220.0, "right": "PUT", "timestamp": "2024-11-04T15:55:00.000-05:00", "price": 1.25 }
+    { "symbol": "AAPL", "expiration": "2024-11-08", "strike": 220.0, "right": "PUT", "timestamp": "2024-11-04T15:55:00.000-05:00", "bid": 1.20, "ask": 1.30, "bid_size": 10, "ask_size": 12, "midpoint": 1.25 }
   ]
 }`}
       </pre>
@@ -4289,75 +4344,6 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
 }`}
       </pre>
 
-      {/* ── Admin endpoints ── */}
-      <div className="eyebrow" style={{ marginBottom: 10 }}>Admin endpoints</div>
-      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 20px" }}>
-        Token portal admin API. Auth uses <code>X-Admin-Token</code> header (obtained from <code>POST /api/admin/login</code>). Sessions are in-memory and reset on server restart.
-      </p>
-
-      <h2 id="post-admin-login" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/admin/login</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Receive a session token for the admin panel. Password set via <code>ADMIN_PASSWORD</code> environment variable.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取管理员面板的会话 Token。密码通过 ADMIN_PASSWORD 环境变量设置。</span>
-      </p>
-      <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/admin/login`} />
-      <pre className="code" style={{ marginBottom: 28 }}>
-{`// Request
-{ "password": "admin123" }
-
-// Response 200
-{ "success": true, "token": "a3f9c2...64b" }
-
-// Use in subsequent admin requests:
-// X-Admin-Token: a3f9c2...64b`}
-      </pre>
-
-      <h2 id="get-admin-pending" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET /api/admin/pending</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>List registrations awaiting approval.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>列出待审批的注册申请。</span>
-      </p>
-      <EndpointBadge method="GET" path={`${TOKEN_BASE}/api/admin/pending`} />
-      <pre className="code" style={{ marginBottom: 28 }}>
-{`// Response
-{ "success": true, "items": [
-  { "id": "61ce4f82-...", "username": "tonnysun", "phone": "18717931119",
-    "tier": "premium", "registered_at": "2026-05-19T...", "status": "pending" }
-]}`}
-      </pre>
-
-      <h2 id="post-admin-approve" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/admin/approve</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Approve a pending registration. Writes the user to both the token-site database and the proxy backend, issuing a token automatically.
-        Returns the generated token so you can share it directly with the user.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>批准一条待处理的注册申请；自动写入用户数据库并签发 Token，返回值可直接发给用户。</span>
-      </p>
-      <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/admin/approve`} />
-      <pre className="code" style={{ marginBottom: 28 }}>
-{`// Request
-{ "id": "61ce4f82-8b16-4e7e-be01-282730e53cc8" }
-
-// Response 200
-{
-  "success": true,
-  "message": "已批准 tonnysun，Token 已自动注册到 proxy。",
-  "token":  "<TOKEN>",
-  "expiry": "2026-06-19T14:15:57.059Z"
-}`}
-      </pre>
-
-      <h2 id="post-admin-reject" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/admin/reject</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Reject a pending registration with an optional reason.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>拒绝一条待处理的注册申请，可附带原因。</span>
-      </p>
-      <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/admin/reject`} />
-      <pre className="code" style={{ marginBottom: 48 }}>
-{`// Request
-{ "id": "61ce4f82-...", "reason": "信息不完整" }
-
-// Response 200
-{ "success": true, "message": "已拒绝 tonnysun。" }`}
-      </pre>
-
-
       {/* ── Reference ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Reference</div>
 
@@ -4370,12 +4356,15 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
         <tbody>
           {[
             ["400", '{"error":"Missing required fields"}', "Required parameter absent or malformed JSON"],
-            ["401", '{"error":"Invalid token"}', "Token missing, expired, or not active"],
+            ["401", '{"error":"invalid_token"}', "Token missing, expired, or not active"],
             ["403", '{"error":"Forbidden"}', "Token valid but tier lacks permission for this endpoint"],
             ["404", '{"error":"Token not found"}', "Admin lookup: user_id not in active token list"],
             ["409", '{"success":false,"message":"..."}', "Duplicate username on registration"],
             ["429", '{"error":"historical_concurrency_limit"}', "More than 3 historical REST requests are in flight for this account"],
             ["429", '{"error":"rate_limit_exceeded"}', "Rate limit reached; back off and retry"],
+            ["429", '{"error":"theta_native_queue_timeout"}', "Shared data capacity or queue timeout; retry later with bounded backoff"],
+            ["422", '{"error":"native_request_budget_exceeded"}', "Request exceeds endpoint shape/span/size limits; split or correct it"],
+            ["501", '{"error":"route_not_migrated"}', "Endpoint is unavailable; do not keep retrying or upgrade to resolve this"],
             ["500", '{"error":"internal_server_error"}', "Internal proxy server error"],
             ["503", '{"error":"service_unavailable"}', "Market data service temporarily unavailable"],
             ["503", '{"error":"Server overloaded, stream priority active."}', "High load; WS streams take priority"],
@@ -4391,8 +4380,8 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
 
       <h2 id="rate-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Rate limits</h2>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", margin: "0 0 12px", fontSize: 13 }}>
-        <strong>HTTP 429 = an enforced runtime limit was reached.</strong> The common cause is the per-account historical REST concurrency cap. Wait for in-flight requests to complete and retry with exponential backoff.
-        <br/><span style={{ color: "var(--ink-soft)" }}>收到 HTTP 429 表示触发了运行时限制，常见原因是账号历史 REST 并发达到上限。请等待在途请求完成并使用指数退避。</span>
+        <strong>HTTP 429 = an enforced runtime limit was reached.</strong> Read the public error code: causes include account limits, shared data capacity and queue timeouts. Honor Retry-After when present; retry at most five times with bounded exponential backoff and jitter. Do not retry an unchanged 400/401/403/422/501 request.
+        <br/><span style={{ color: "var(--ink-soft)" }}>收到 HTTP 429 表示触发了运行时限制，原因包括账号限制、共享数据容量或排队超时，并不表示用户一定请求过快。存在 Retry-After 时遵守它；最多五次有上限的指数退避并加入随机抖动。400/401/403/422/501 不应原样重试。</span>
       </div>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         The proxy does not currently enforce the old tier-specific rolling req/min values. Historical REST concurrency is per account and remains held until the response body reaches EOF.
@@ -4405,7 +4394,8 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
         <tbody>
           {[
             ["Historical REST concurrency", "3", "per account"],
-            ["Historical options REST QPS", "5/s", "per account"],
+            ["Native options request rate", "up to 5/s", "per account; shared capacity can be lower"],
+            ["Market-session history fetch", "1/s; 1 active fetch", "per account; cached delivery has separate admission"],
             ["WS subjects", "500", "per connection"],
             ["WS connections", "no account cap", "service capacity still applies"],
           ].map(([limit, value, scope], i) => (
@@ -4418,7 +4408,7 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
         </tbody>
       </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
-        These are current runtime limits, not capacity guarantees. No plan-specific historical request-size budget is enforced. Service-wide backpressure can return <code>503</code>, and provider-capacity limits can return <code>429</code>.
+        These are admission ceilings, not throughput entitlements. Start with one sequential request; market-session, endpoint-specific and shared capacity limits can be stricter than the base three-request historical cap. No plan-specific historical request-size budget is enforced. Service-wide backpressure can return <code>503</code>, and provider-capacity limits can return <code>429</code>.
         <br/><span style={{ color: "var(--ink-soft)" }}>这些是当前运行时限制，不是容量保证；历史请求大小不按套餐单独设预算。服务总背压可能返回 <code>503</code>，数据源容量限制可能返回 <code>429</code>。</span>
       </p>
 

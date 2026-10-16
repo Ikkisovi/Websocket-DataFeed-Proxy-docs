@@ -1,0 +1,1492 @@
+{
+  "schema_version": 1,
+  "version": "2026-10-16.2",
+  "title": "LeanData public REST integration contract",
+  "scope": "Reviewed option OI/discovery, financial archive endpoints and shared REST delivery/error metadata. Other product endpoints remain in their documentation; absence here is not an unavailable verdict.",
+  "catalog_path": "/v1/api/contract",
+  "docs_path": "/docs/market/overview/api-contract/",
+  "origins": [
+    "https://api.leandata.uk",
+    "https://rt-api.leandata.uk"
+  ],
+  "authentication": {
+    "type": "http_bearer",
+    "credential": "Opaque active LeanData token. Never log it or forward it to signed download delivery.",
+    "contract_authentication_required": false
+  },
+  "access_policies": {
+    "options": "An active plan with options access, with existing plan date/expiry restrictions. This contract does not grant entitlement.",
+    "premium_financial": "Premium financial-data authorization; availability and archive coverage remain separate.",
+    "unavailable": "No plan enables an unimplemented endpoint."
+  },
+  "delivery": {
+    "default": "same_origin",
+    "controls": {
+      "direct": "Only direct=1 opts into signed delivery; cache hits can still return 200.",
+      "no_direct": "no_direct=1 overrides direct and keeps same-origin bytes."
+    },
+    "signed_origin": "https://archive-direct.leandata.uk",
+    "redirects": [
+      {
+        "request_method": "GET",
+        "status": 307,
+        "download_method": "GET"
+      },
+      {
+        "request_method": "POST",
+        "status": 303,
+        "download_method": "GET"
+      }
+    ],
+    "download_authentication": "Signed URL only; use a separate request without Authorization, cookies or original body. Validate the exact HTTPS origin and never log the signed URL.",
+    "accounting": "The initial API request counts once. Signed delivery adds no second public API request or delivery fee; API retries count again. Separately ordered bulk exports retain their pricing."
+  },
+  "response_headers": {
+    "X-Leandata-Contract": "Contract version for the public metadata semantics.",
+    "X-Leandata-Contract-SHA256": "SHA256 of the exact UTF-8 contract JSON bytes.",
+    "X-Leandata-Data-Tier": "Logical serving tier, when known: hot-cache, archive, memory, source, snapshot-history. Not a freshness or coverage guarantee.",
+    "X-Cache": "Existing HIT/MISS/BYPASS behavior is preserved.",
+    "X-Request-Id": "Support correlation identifier.",
+    "X-Cache-Tier": "Legacy compatibility field retained during migration. New integrations should prefer X-Leandata-Data-Tier; no removal date is scheduled."
+  },
+  "legacy_tier_mapping": {
+    "aliyun_hot": "hot-cache",
+    "thinkcentre_archive": "archive",
+    "memory": "memory",
+    "upstream": "source",
+    "snapshot_history": "snapshot-history",
+    "thinkcentre_archive_direct": "archive",
+    "thinkcentre_response_direct": "source"
+  },
+  "errors": [
+    {
+      "status": 400,
+      "action": "Correct parameters; do not retry an unchanged request."
+    },
+    {
+      "status": 401,
+      "action": "Correct or renew credentials before retrying."
+    },
+    {
+      "status": 403,
+      "action": "Check plan and endpoint entitlement; an upgrade cannot implement a 501 endpoint."
+    },
+    {
+      "status": 422,
+      "action": "Correct the unsupported request shape."
+    },
+    {
+      "status": 429,
+      "action": "Read the error code to distinguish account rate/concurrency from shared capacity. Honor Retry-After when supplied, otherwise use bounded exponential backoff with jitter."
+    },
+    {
+      "status": 501,
+      "action": "Endpoint unavailable; do not retry or upgrade solely for this response."
+    },
+    {
+      "status": 503,
+      "action": "Service or source temporarily unavailable; use bounded retries."
+    }
+  ],
+  "compatibility": "Existing supported paths and payload schemas remain intact. Replacement URLs are guidance, not automatic redirects or claims of identical schemas.",
+  "operations": [
+    {
+      "id": "option-oi-latest",
+      "path": "/v3/option/snapshot/open_interest",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "options",
+      "summary": "Latest published open interest for one exact contract.",
+      "parameters": [
+        {
+          "name": "symbol",
+          "required": true,
+          "description": "Underlying stock symbol.",
+          "aliases": [
+            "root"
+          ]
+        },
+        {
+          "name": "expiration",
+          "required": true,
+          "description": "Exact expiration, YYYY-MM-DD.",
+          "aliases": [
+            "exp"
+          ]
+        },
+        {
+          "name": "strike",
+          "required": true,
+          "description": "Exact strike price."
+        },
+        {
+          "name": "right",
+          "required": false,
+          "description": "call or put selects one contract; both is the compatibility default.",
+          "aliases_values": {
+            "C": "call",
+            "P": "put"
+          }
+        }
+      ],
+      "clocks": "Reports are normally published around 06:30 America/New_York and reflect the previous trading session close. Preserve source report timestamp, effective trading session and retrieval time separately; missing records are not zero.",
+      "response_schema": "Native data envelope; not an Alpaca snapshot.",
+      "example": {
+        "method": "GET",
+        "params": {
+          "symbol": "AAPL",
+          "expiration": "${OPTION_EXPIRATION}",
+          "strike": "${OPTION_STRIKE}",
+          "right": "call"
+        }
+      },
+      "example_note": "Discover a current contract first; replace placeholders with its expiration and strike."
+    },
+    {
+      "id": "option-oi-history-1",
+      "path": "/v1/options/open_interest",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "options",
+      "summary": "Historical open interest; keep the route-specific schema and date parameters.",
+      "parameters": [],
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/market/options/post-v1-options-open-interest/",
+      "notes": "This historical API is not the latest snapshot. Older paths and their payloads remain supported; do not redirect clients between schemas."
+    },
+    {
+      "id": "option-oi-history-2",
+      "path": "/v2/options/open_interest",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "options",
+      "summary": "Historical open interest; keep the route-specific schema and date parameters.",
+      "parameters": [],
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/market/options/post-v1-options-open-interest/",
+      "notes": "This historical API is not the latest snapshot. Older paths and their payloads remain supported; do not redirect clients between schemas."
+    },
+    {
+      "id": "option-oi-history-3",
+      "path": "/v3/option/history/open_interest",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "options",
+      "summary": "Historical open interest; keep the route-specific schema and date parameters.",
+      "parameters": [],
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/market/options/post-v1-options-open-interest/",
+      "notes": "This historical API is not the latest snapshot. Older paths and their payloads remain supported; do not redirect clients between schemas."
+    },
+    {
+      "id": "option-contracts",
+      "path": "/v1/options/contracts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "options",
+      "summary": "Discover listed option contracts.",
+      "parameters": [
+        {
+          "name": "underlying_symbols",
+          "required": false,
+          "description": "Underlying symbols; required unless symbol_or_id is supplied."
+        },
+        {
+          "name": "limit",
+          "required": false,
+          "description": "Bounded result count."
+        },
+        {
+          "name": "symbol_or_id",
+          "required": false,
+          "description": "One exact contract identifier, as an alternative to underlying_symbols."
+        },
+        {
+          "name": "type",
+          "required": false,
+          "description": "call or put filter."
+        }
+      ],
+      "example": {
+        "method": "GET",
+        "params": {
+          "underlying_symbols": "AAPL",
+          "limit": "1",
+          "type": "call"
+        }
+      }
+    },
+    {
+      "id": "option-oi-unavailable",
+      "path": "/v1/options/snapshots/open_interest",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "unavailable",
+      "access": "options",
+      "summary": "This compatibility path does not supply OI.",
+      "parameters": [],
+      "error": {
+        "status": 501,
+        "code": "endpoint_unavailable",
+        "message": "This compatibility route does not provide open interest. Use /v3/option/snapshot/open_interest with an exact symbol, expiration, strike and right."
+      },
+      "replacement": "/v3/option/snapshot/open_interest"
+    },
+    {
+      "id": "earnings-calendar",
+      "path": "/stable/earnings-calendar",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "unavailable",
+      "access": "unavailable",
+      "summary": "Future earnings calendar is unavailable.",
+      "parameters": [],
+      "error": {
+        "status": 501,
+        "code": "route_not_migrated",
+        "message": "This endpoint is not available. Check the documented endpoint catalog; retrying or upgrading the plan does not implement an unavailable endpoint."
+      },
+      "notes": "Premium does not enable this endpoint. Archived company-event records are a separate product surface."
+    },
+    {
+      "id": "dividends-calendar",
+      "path": "/stable/dividends-calendar",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "unavailable",
+      "access": "unavailable",
+      "summary": "Future dividends calendar is unavailable.",
+      "parameters": [],
+      "error": {
+        "status": 501,
+        "code": "route_not_migrated",
+        "message": "This endpoint is not available. Check the documented endpoint catalog; retrying or upgrading the plan does not implement an unavailable endpoint."
+      },
+      "notes": "Premium does not enable this endpoint. Archived company-event records are a separate product surface."
+    },
+    {
+      "id": "financial-8",
+      "path": "/stable/aftermarket-quote",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial aftermarket quote.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-9",
+      "path": "/stable/aftermarket-trade",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial aftermarket trade.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-10",
+      "path": "/stable/analyst-estimates",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial analyst estimates.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-11",
+      "path": "/stable/available-countries",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial available countries.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-12",
+      "path": "/stable/available-exchanges",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial available exchanges.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-13",
+      "path": "/stable/available-industries",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial available industries.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-14",
+      "path": "/stable/available-sectors",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial available sectors.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-15",
+      "path": "/stable/balance-sheet-statement",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial balance sheet statement.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-16",
+      "path": "/stable/balance-sheet-statement-growth",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial balance sheet statement growth.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-17",
+      "path": "/stable/batch-aftermarket-quote",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial batch aftermarket quote.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-18",
+      "path": "/stable/batch-aftermarket-trade",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial batch aftermarket trade.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-19",
+      "path": "/stable/batch-quote",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial batch quote.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-20",
+      "path": "/stable/batch-quote-short",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial batch quote short.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-21",
+      "path": "/stable/cash-flow-statement",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial cash flow statement.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-22",
+      "path": "/stable/cash-flow-statement-growth",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial cash flow statement growth.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-23",
+      "path": "/stable/cik-list",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial cik list.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-24",
+      "path": "/stable/company-notes",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial company notes.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-25",
+      "path": "/stable/custom-discounted-cash-flow",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial custom discounted cash flow.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-26",
+      "path": "/stable/custom-levered-discounted-cash-flow",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial custom levered discounted cash flow.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-27",
+      "path": "/stable/delisted-companies",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial delisted companies.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-28",
+      "path": "/stable/discounted-cash-flow",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial discounted cash flow.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-29",
+      "path": "/stable/dividends",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial dividends.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-30",
+      "path": "/stable/earnings",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial earnings.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-31",
+      "path": "/stable/employee-count",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial employee count.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-32",
+      "path": "/stable/enterprise-values",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial enterprise values.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-33",
+      "path": "/stable/financial-growth",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial financial growth.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-34",
+      "path": "/stable/financial-reports-dates",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial financial reports dates.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-35",
+      "path": "/stable/financial-scores",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial financial scores.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-36",
+      "path": "/stable/financial-statement-symbol-list",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial financial statement symbol list.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-37",
+      "path": "/stable/grades",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial grades.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-38",
+      "path": "/stable/grades-consensus",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial grades consensus.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-39",
+      "path": "/stable/grades-historical",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial grades historical.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-40",
+      "path": "/stable/historical-employee-count",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial historical employee count.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-41",
+      "path": "/stable/historical-market-capitalization",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial historical market capitalization.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-42",
+      "path": "/stable/historical-price-eod/full",
+      "methods": [
+        "GET"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial full.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-43",
+      "path": "/stable/income-statement",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial income statement.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-44",
+      "path": "/stable/income-statement-growth",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial income statement growth.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-45",
+      "path": "/stable/key-executives",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial key executives.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-46",
+      "path": "/stable/key-metrics",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial key metrics.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-47",
+      "path": "/stable/key-metrics-ttm",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial key metrics ttm.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-48",
+      "path": "/stable/levered-discounted-cash-flow",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial levered discounted cash flow.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-49",
+      "path": "/stable/market-capitalization",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial market capitalization.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-50",
+      "path": "/stable/market-capitalization-batch",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial market capitalization batch.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-51",
+      "path": "/stable/owner-earnings",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial owner earnings.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-52",
+      "path": "/stable/price-target-consensus",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial price target consensus.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-53",
+      "path": "/stable/price-target-summary",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial price target summary.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-54",
+      "path": "/stable/profile",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial profile.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/",
+      "example": {
+        "method": "GET",
+        "params": {
+          "symbol": "AAPL",
+          "limit": "1"
+        }
+      }
+    },
+    {
+      "id": "financial-55",
+      "path": "/stable/quote",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial quote.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-56",
+      "path": "/stable/quote-short",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial quote short.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-57",
+      "path": "/stable/ratings-historical",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial ratings historical.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-58",
+      "path": "/stable/ratings-snapshot",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial ratings snapshot.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-59",
+      "path": "/stable/ratios",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial ratios.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-60",
+      "path": "/stable/ratios-ttm",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial ratios ttm.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-61",
+      "path": "/stable/revenue-geographic-segmentation",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial revenue geographic segmentation.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-62",
+      "path": "/stable/revenue-product-segmentation",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial revenue product segmentation.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-63",
+      "path": "/stable/shares-float",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial shares float.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-64",
+      "path": "/stable/shares-float-all",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial shares float all.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-65",
+      "path": "/stable/splits",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial splits.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-66",
+      "path": "/stable/stock-list",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial stock list.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-67",
+      "path": "/stable/stock-peers",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial stock peers.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-68",
+      "path": "/stable/stock-price-change",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial stock price change.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-69",
+      "path": "/stable/symbol-change",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial symbol change.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-70",
+      "path": "/v1/archive/fmp/derived-metrics",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial derived metrics.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-71",
+      "path": "/v1/archive/fmp/equity/eod",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial eod.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-72",
+      "path": "/v1/archive/fmp/metrics/catalog",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial catalog.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-73",
+      "path": "/v1/archive/fmp/snapshot-metrics",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial snapshot metrics.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-74",
+      "path": "/v1/archive/fmp/statement-metrics",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial statement metrics.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-75",
+      "path": "/v1/company/profile",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial profile.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-76",
+      "path": "/v1/fmp/balance-sheet-statement",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial balance sheet statement.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-77",
+      "path": "/v1/fmp/cash-flow-statement",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial cash flow statement.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-78",
+      "path": "/v1/fmp/income-statement",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial income statement.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-79",
+      "path": "/v1/fmp/key-metrics",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial key metrics.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-80",
+      "path": "/v1/fmp/profile",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial profile.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-81",
+      "path": "/v1/fmp/ratios",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial ratios.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-82",
+      "path": "/v1/fmp/v3/profile",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial profile.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-83",
+      "path": "/v1/pit/fmp/balance-sheet-statement",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial balance sheet statement.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-84",
+      "path": "/v1/pit/fmp/cash-flow-statement",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial cash flow statement.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "financial-85",
+      "path": "/v1/pit/fmp/income-statement",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Archived financial income statement.",
+      "parameters": [],
+      "notes": "Archive/snapshot coverage only. This does not guarantee current quotes, future events or original-vintage PIT. Consult the endpoint article for field-specific filters.",
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/financial/regular/"
+    },
+    {
+      "id": "quote-at-time",
+      "path": "/v3/option/at_time/quote",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "options",
+      "summary": "Historical quote at a time; bounded whole-chain queries are supported.",
+      "parameters": [],
+      "parameter_specification": "endpoint_article",
+      "docs": "/docs/market/options/post-v3-option-at-time-quote/",
+      "notes": "The exact-contract restriction of latest OI is not a blanket wildcard ban on quote history."
+    }
+  ],
+  "browser_exposed_headers": [
+    "X-Leandata-Contract",
+    "X-Leandata-Contract-SHA256",
+    "X-Leandata-Data-Tier",
+    "X-Cache",
+    "X-Cache-Tier",
+    "X-Request-Id",
+    "Retry-After"
+  ],
+  "data_source_tier_mapping": {
+    "theta_sealed_response": "source"
+  }
+}

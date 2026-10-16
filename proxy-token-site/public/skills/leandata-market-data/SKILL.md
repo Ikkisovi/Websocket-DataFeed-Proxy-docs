@@ -5,7 +5,7 @@ description: Query the public Leandata market-data API, follow pagination, and d
 
 # Leandata Market Data
 
-Use the documented public API contract. Do not infer or describe private infrastructure, data suppliers, routing, caches, or implementation details.
+Use the documented public API contract. Explain documented access, delivery and data-timestamp semantics. Do not infer private hosts, routing, storage or implementation details.
 
 ## Plan access
 
@@ -37,13 +37,13 @@ curl -X POST https://api.leandata.uk/v1/history/bars \
   -d '{"symbol":"AAPL","timeframe":"1Day","start":"2026-09-21","end":"2026-09-23"}'
 ```
 
-Option minute bars:
+Option minute bars (historical example; requires a plan covering these dates):
 
 ```bash
 curl -X POST https://api.leandata.uk/v1/history/options/bars \
   -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
-  -d '{"symbols":"AAPL260620C00200000","timeframe":"1Min","start":"2023-04-01","end":"2023-06-30"}'
+  -d '{"symbols":"AAPL250117C00200000","timeframe":"1Min","start":"2025-01-02","end":"2025-01-03"}'
 ```
 
 Cash-index minute bars (paid plan):
@@ -59,6 +59,17 @@ Cash-index daily bars (paid plan):
 curl "https://api.leandata.uk/v1/indices/daily?symbol=VIX&start=2026-09-15&end=2026-09-17" \
   -H "Authorization: Bearer <TOKEN>"
 ```
+
+## Delivery and OI
+
+- Ordinary GET/POST calls return data on the original API request. Disable automatic redirects in security-sensitive integrations; optional signed delivery requires explicit `direct=1`.
+- Only `https://archive-direct.leandata.uk` is an authorized signed delivery origin. For POST→303 use GET without the original body; GET→307 remains GET. Fetch the complete signed URL with a separate client that sends no Bearer token, cookies or original credentials. Never log the signed URL.
+- Initial API requests are metered normally; signed downloads are not counted as another public API request. Separate bulk-export orders retain explicit pricing.
+- For OI use `/v3/option/snapshot/open_interest` with exact symbol/expiration/strike/right, or `/v1/options/open_interest` for bounded history. Discover current contracts before asking for current snapshots.
+- `/v1/options/snapshots/open_interest` is not an implemented OI interface. Do not accept a general snapshot as OI data.
+- OI source timestamps identify the report time (normally around 06:30 New York time), representing the previous trading session's close. Preserve report time, effective trading date and retrieval time separately. Check freshness; missing records are not zero.
+- Financial earnings/dividend archives do not guarantee future calendars. `/stable/earnings-calendar` and `/stable/dividends-calendar` are unavailable (501); a plan upgrade or retry does not enable them.
+- Premium covers documented available endpoints, not every upstream interface; CN remains a separate plan.
 
 ## Endpoint notes
 
@@ -78,6 +89,7 @@ Record the HTTP status, response body, request ID, endpoint, sanitized parameter
 | `401` | Check that the Bearer header is present and the token has no extra whitespace or quotes. Never expose it. |
 | `403` | Check plan access, date bounds, and the response body; see Plan access above. |
 | `404` | Verify the documented route. A missing result alone does not prove that a symbol never existed. |
+| `422`, `501` | Correct the oversized request or use an available documented endpoint. Do not retry unchanged. |
 | `408`, `429`, `500`, `502`, `503`, `504` | Treat as transient or throttled responses. Honor `Retry-After`; reduce request size for timeouts. If the response points to a credential issue, stop retrying the unchanged token and verify it. Otherwise retry at most five times with bounded backoff and jitter. |
 
 Do not retry `400`, `401`, `403`, or `404` without first correcting the request or access issue. Never silently switch endpoints, symbols, dates, or intervals to make a request appear successful.
@@ -85,3 +97,13 @@ Do not retry `400`, `401`, `403`, or `404` without first correcting the request 
 ## Report results
 
 Report the endpoint, sanitized parameters, status, row count per symbol, earliest/latest timestamp, pagination completion, and warnings. Distinguish results with rows, valid empty results, client/request errors (`4xx`), and temporary service errors (`5xx`). Do not describe a `5xx` as “no historical data” without a later successful request proving an empty result.
+
+## Machine-readable public contract
+
+Read `https://api.leandata.uk/v1/api/contract` for the reviewed OI, financial
+archive and shared delivery contract. The documentation copy is at
+`https://leandata.uk/docs/public-api-contract.json`. Compare its SHA256 with
+`X-Leandata-Contract-SHA256`; catalog absence is not an unavailable verdict.
+Prefer `X-Leandata-Data-Tier` for logical serving tiers. Legacy `X-Cache-Tier`
+remains compatible. Neither field certifies freshness or coverage. Preserve
+route-specific payload schemas and source clocks when using older paths.
