@@ -97,3 +97,13 @@ Do not retry `400`, `401`, `403`, or `404` without first correcting the request 
 ## Report results
 
 Report the endpoint, sanitized parameters, status, row count per symbol, earliest/latest timestamp, pagination completion, and warnings. Distinguish results with rows, valid empty results, client/request errors (`4xx`), and temporary service errors (`5xx`). Do not describe a `5xx` as “no historical data” without a later successful request proving an empty result.
+
+## Machine-readable public contract
+
+Read `https://api.leandata.uk/v1/api/contract` for the reviewed OI, financial
+archive and shared delivery contract. The documentation copy is at
+`https://leandata.uk/docs/public-api-contract.json`. Compare its SHA256 with
+`X-Leandata-Contract-SHA256`; catalog absence is not an unavailable verdict.
+Prefer `X-Leandata-Data-Tier` for logical serving tiers. Legacy `X-Cache-Tier`
+remains compatible. Neither field certifies freshness or coverage. Preserve
+route-specific payload schemas and source clocks when using older paths.

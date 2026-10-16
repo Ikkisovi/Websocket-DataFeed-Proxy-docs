@@ -1,3 +1,5 @@
+import API_CONTRACT from "./public-api-contract.json";
+import API_CONTRACT_SOURCE from "./api-contract-source.json";
 import React, {
   useCallback as useStatusCallback,
   useEffect as useStatusEffect,
@@ -921,6 +923,39 @@ function BilingualDataTable({ columns, rows, style }) {
       ))}</tbody>
     </table>
   );
+}
+
+function PublicApiContract() {
+  const contract = API_CONTRACT;
+  return <>
+    <h2 id="api-contract" className="display-title" style={{ fontSize: 28 }}>API contract / 接口契约</h2>
+    <p>Version <code>{contract.version}</code>. <a href="https://api.leandata.uk/v1/api/contract">Live API contract (JSON)</a> · <a href="/docs/public-api-contract.json">Documentation contract (JSON)</a></p>
+    <p>{contract.scope}<br/>本目录覆盖 OI、合约发现、财务归档及通用交付契约；其他接口见对应文档。未列入不代表未实现，available 也不保证特定日期有数据。</p>
+    <p>Backend source <code>{API_CONTRACT_SOURCE.source_commit.slice(0, 12)}</code> · SHA256 <code style={{ overflowWrap: "anywhere" }}>{API_CONTRACT_SOURCE.sha256}</code>. Compare with <code>X-Leandata-Contract-SHA256</code> when reporting contract drift.</p>
+    <p>{contract.compatibility}<br/>旧 URL 和返回结构继续兼容；替代接口需要按各自参数调用，不会自动互相重定向。</p>
+    <h3>Delivery / 交付</h3>
+    <p>{contract.delivery.controls.direct} {contract.delivery.controls.no_direct}</p>
+    <p>{contract.delivery.download_authentication}</p>
+    <table className="tbl"><thead><tr><th>API method</th><th>Optional redirect</th><th>Signed download</th></tr></thead><tbody>{contract.delivery.redirects.map(row => <tr key={row.request_method}><td>{row.request_method}</td><td>{row.status}</td><td>{row.download_method}</td></tr>)}</tbody></table>
+    <p>{contract.delivery.accounting}</p>
+    <h3>Response metadata / 响应元数据</h3>
+    <table className="tbl"><thead><tr><th>Header</th><th>Contract</th></tr></thead><tbody>{Object.entries(contract.response_headers).map(([name, text]) => <tr key={name}><td><code>{name}</code></td><td>{text}</td></tr>)}</tbody></table>
+    <p>Logical tiers describe how bytes were served. Inspect source timestamps for freshness. Legacy tier values remain for compatibility; there is no scheduled removal. 逻辑数据层不代表实时性；旧字段继续兼容。</p>
+    <h3>Errors / 错误处理</h3>
+    <table className="tbl"><thead><tr><th>HTTP</th><th>Action</th></tr></thead><tbody>{contract.errors.map(row => <tr key={row.status}><td>{row.status}</td><td>{row.action}</td></tr>)}</tbody></table>
+    <h3>Endpoint catalog / 接口目录</h3>
+    {contract.operations.map(op => <section key={op.id} style={{ marginBottom: 24 }}>
+      <h4><code>{op.path}</code></h4><p>{op.methods.join(" / ")} · {op.status} · {op.access}</p>
+      <p>{op.summary} {contract.access_policies[op.access]}</p>
+      {op.clocks && <p>{op.clocks}</p>}{op.notes && <p>{op.notes}</p>}
+      {op.parameters.length > 0 && <table className="tbl"><thead><tr><th>Parameter</th><th>Required</th><th>Meaning</th></tr></thead><tbody>{op.parameters.map(p => <tr key={p.name}><td><code>{p.name}</code>{p.aliases && ` (aliases: ${p.aliases.join(", ")})`}</td><td>{p.required ? "yes" : "no"}</td><td>{p.description}</td></tr>)}</tbody></table>}
+      {op.parameter_specification === "endpoint_article" && <p>Parameters and response fields: <a href={op.docs}>endpoint documentation</a>. 参数请查看接口文章。</p>}
+      {op.error && <p>HTTP {op.error.status} · <code>{op.error.code}</code> · {op.error.message}</p>}
+      {op.example && <><p>{op.example_note}</p><pre className="code">{`curl --get "https://api.leandata.uk${op.path}" \
+  --header "Authorization: Bearer $LEANDATA_TOKEN"` + Object.entries(op.example.params).map(([k,v]) => ` \
+  --data-urlencode "${k}=${v}"`).join("")}</pre></>}
+    </section>)}
+  </>;
 }
 
 const API_CATEGORIES = {
@@ -2770,6 +2805,8 @@ Authorization: Bearer <TOKEN>
       </p>
 
       <p>Repeated invalid credentials may be temporarily throttled. Stop retrying an unchanged invalid or expired token, correct the credential, and honor <code>Retry-After</code> on 429 responses. A queue/capacity 429 is a different condition; use its public error code when diagnosing it.<br/>反复提交无效或过期 Token 可能触发临时限流，应先修正凭据；429 的鉴权保护与数据排队／容量限制是不同原因，请按错误码处理。</p>
+
+      {PublicApiContract()}
 
       <h2 id="response-delivery" className="display-title" style={{ fontSize: 28 }}>Response delivery / 响应交付与安全调用</h2>
       <p>Ordinary GET and POST queries return their data on the original API request. Clients do not need to discover another service or resend credentials to another host. A successful empty array is a valid empty result for the requested slice, not proof of complete coverage.<br/>普通 GET 和 POST 查询直接在原 API 请求中返回数据。客户端无需探测其他服务或向其他域名重发凭据；成功返回空数组只表示本次切片为空，不代表全量覆盖。</p>
