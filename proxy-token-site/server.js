@@ -275,108 +275,14 @@ const EC2_SSH_KEY = process.env.EC2_SSH_KEY
 // --- Service tier definitions ---
 // Tiers control endpoint/channel permissions. Current runtime capacity limits
 // are documented separately and must not be presented as tier entitlements.
-const TIERS = {
-  free: {
-    role: 'free',
-    expiryDays: 30,
-    permissions: {
-      ws: { stocks: true, options: true, overnight: true, crypto: true, news: true, boats: true, test: true },
-      rest: { stocks_history: true, options_history: true, options_contracts: true, options_snapshots: true, options_snapshots_expiry: true, crypto_orderbooks: true, admin_token_lookup: false, news_history: true }
-    }
-  },
-  trial: {
-    role: 'standard',
-    expiryDays: 3,
-    permissions: {
-      ws: { stocks: true, options: true, overnight: true, crypto: true, news: true, boats: true, test: true },
-      rest: { stocks_history: true, options_history: true, options_contracts: true, options_snapshots: true, options_snapshots_expiry: true, crypto_orderbooks: false, admin_token_lookup: false, news_history: false }
-    }
-  },
-  basic: {
-    role: 'basic',
-    expiryDays: 30,
-    permissions: {
-      ws: { stocks: false, options: false, overnight: false, crypto: false, news: false, boats: false, test: false },
-      rest: { stocks_history: true, options_history: true, options_contracts: true, options_snapshots: true, options_snapshots_expiry: true, crypto_orderbooks: false, admin_token_lookup: false, news_history: false }
-    }
-  },
-  value: {
-    role: 'value',
-    expiryDays: 30,
-    modes: {
-      stocks: {
-        ws: { stocks: true, options: true, overnight: true, crypto: true, news: true, boats: true, test: true },
-        rest: { stocks_history: true, options_history: false, options_contracts: false, options_snapshots: false, options_snapshots_expiry: false, crypto_orderbooks: false, admin_token_lookup: false, news_history: false }
-      },
-      options: {
-        ws: { stocks: true, options: true, overnight: true, crypto: true, news: true, boats: true, test: true },
-        rest: { stocks_history: false, options_history: true, options_contracts: true, options_snapshots: true, options_snapshots_expiry: true, crypto_orderbooks: false, admin_token_lookup: false, news_history: false }
-      }
-    },
-    // Default permissions (used when mode not specified — shouldn't happen but safe fallback)
-    permissions: {
-      ws: { stocks: true, options: true, overnight: true, crypto: true, news: true, boats: true, test: true },
-      rest: { stocks_history: true, options_history: false, options_contracts: false, options_snapshots: false, options_snapshots_expiry: false, crypto_orderbooks: false, admin_token_lookup: false, news_history: false }
-    }
-  },
-  standard: {
-    role: 'standard',
-    expiryDays: 30,
-    permissions: {
-      ws: { stocks: true, options: true, overnight: true, crypto: true, news: true, boats: true, test: true },
-      rest: { stocks_history: true, options_history: true, options_contracts: true, options_snapshots: true, options_snapshots_expiry: true, crypto_orderbooks: false, admin_token_lookup: false, news_history: false }
-    }
-  },
-  premium: {
-    role: 'premium',
-    expiryDays: 30,
-    permissions: {
-      ws: { stocks: true, options: true, overnight: true, crypto: true, news: true, boats: true, test: true },
-      rest: { stocks_history: true, options_history: true, options_contracts: true, options_snapshots: true, options_snapshots_expiry: true, crypto_orderbooks: true, admin_token_lookup: false, news_history: true }
-    }
-  },
-  // Standalone CN archive plan (中国A股归档数据). Archive reads only:
-  // no realtime WebSocket and no US market-data flags. The CN gateway
-  // grants /v1/cn/* off role === 'china' via the synced registry.
-  china: {
-    role: 'china',
-    expiryDays: 30,
-    permissions: {
-      ws: { stocks: false, options: false, overnight: false, crypto: false, news: false, boats: false, test: false },
-      rest: { stocks_history: false, options_history: false, options_contracts: false, options_snapshots: false, options_snapshots_expiry: false, crypto_orderbooks: false, admin_token_lookup: false, news_history: false, cn_archive: true }
-    }
-  },
-  // Internal load-test tier — short expiry, high per-user limits. Marked
-  // with test_user:true so the warmer/analytics filter these out of audit.
-  test: {
-    role: 'test',
-    expiryDays: 1,
-    permissions: {
-      ws: { stocks: true, options: true, overnight: true, crypto: true, news: true, boats: true, test: true },
-      rest: { stocks_history: true, options_history: true, options_contracts: true, options_snapshots: true, options_snapshots_expiry: true, crypto_orderbooks: true, admin_token_lookup: false, news_history: true }
-    }
-  }
-};
+const { catalog: PRODUCT_CATALOG, catalogSHA256: PRODUCT_CATALOG_SHA256,
+  buildPaymentBundles, resolvePermissions, publicCatalog, resolveEffectivePermissions } = require('./commerce/product-catalog.cjs');
+const TIERS = { ...PRODUCT_CATALOG.legacy_tiers, ...PRODUCT_CATALOG.tiers };
+const subscriptionPolicy = require('./commerce/subscription-policy.cjs');
 const PAYMENT_METHOD_IDS = new Set(['alipay', 'wechat_pay', 'stripe_card']);
-const PAYMENT_DURATION_MONTHS = [1, 2, 3, 6, 12];
-const PAYMENT_MONTHLY_PRICES_CNY_FEN = {
-  basic: 6000,
-  value: 7000,
-  standard: 10000,
-  premium: 15000,
-  china: 7000
-};
-// USD-anchored card pricing (minor units, i.e. US cents). The USD value is the
-// single source of truth; CAD is derived dynamically as
-// round(USD * live USD->CAD rate). CNY (Alipay/Z-Pay) is priced independently
-// via PAYMENT_MONTHLY_PRICES_CNY_FEN and is intentionally unaffected by FX.
-const STRIPE_MONTHLY_PRICES_USD_MINOR = {
-  basic: 1000,
-  value: 1167,
-  standard: 1667,
-  premium: 2500,
-  china: 1167
-};
+const PAYMENT_DURATION_MONTHS = PRODUCT_CATALOG.duration_months;
+const PAYMENT_MONTHLY_PRICES_CNY_FEN = PRODUCT_CATALOG.monthly_prices_cny_minor;
+const STRIPE_MONTHLY_PRICES_USD_MINOR = PRODUCT_CATALOG.monthly_prices_usd_minor;
 
 // --- USD->CAD rate for card pricing -----------------------------------------
 // Source: free open exchange-rate API (no key), cached in memory with a TTL.
@@ -461,66 +367,7 @@ function stripeMonthlyPricesForRate(tier, rate) {
   return { CAD: cadMonthlyFromUsd(usd, rate), USD: usd };
 }
 
-const PAYMENT_PLAN_DETAILS = {
-  basic: {
-    name: 'Basic',
-    summary: '轻量历史数据访问',
-    features: ['股票与期权历史查询', 'REST API 访问', '适合低频研究', '不包含实时 WebSocket'],
-    renewal_only: true
-  },
-  value: {
-    name: 'Value',
-    summary: '实时数据与单方向历史数据',
-    features: ['全部实时 WebSocket 通道', '股票或期权历史数据二选一', 'WS 按当前运行时 subject 限制', 'WS 不设账号级连接数硬上限'],
-    modes: ['stocks', 'options']
-  },
-  standard: {
-    name: 'Standard',
-    summary: '主流研究与交易工作流',
-    features: ['全部实时 WebSocket 通道', '股票与期权历史数据', 'WS 按当前运行时 subject 限制', 'WS 不设账号级连接数硬上限']
-  },
-  premium: {
-    name: 'Premium',
-    summary: '完整数据权限与最高容量',
-    features: ['全部实时 WebSocket 通道', '完整 REST 数据范围', 'WS 按当前运行时 subject 限制', '包含 crypto 与 news 数据']
-  },
-  china: {
-    name: 'China',
-    summary: '中国A股归档数据（独立套餐）',
-    features: ['中国A股日线 / 分钟线 / 估值 / 成分与会话', '归档接口 /v1/cn/*（ThinkCentre 隧道读取）', '盘后批量归档，无实时推送', '付款成功后自动开通，无需人工审核']
-  }
-};
-
-function buildPaymentBundles() {
-  const bundles = {};
-  for (const [tier, details] of Object.entries(PAYMENT_PLAN_DETAILS)) {
-    const modes = details.modes || [null];
-    for (const mode of modes) {
-      for (const months of PAYMENT_DURATION_MONTHS) {
-        const id = [tier, mode, `${months}m`].filter(Boolean).join('-');
-        const tierConfig = TIERS[tier];
-        const days = months * (tierConfig.expiryDays || 30);
-        bundles[id] = {
-          id,
-          tier,
-          mode,
-          months,
-          days,
-          currency: 'CNY',
-          amount_cny_fen: PAYMENT_MONTHLY_PRICES_CNY_FEN[tier] * months,
-          monthly_amount_cny_fen: PAYMENT_MONTHLY_PRICES_CNY_FEN[tier],
-          role: tierConfig.role,
-          permissions: resolvePermissions(tierConfig, mode),
-          name: details.name,
-          summary: details.summary,
-          features: details.features,
-          renewal_only: details.renewal_only === true
-        };
-      }
-    }
-  }
-  return bundles;
-}
+const PAYMENT_PLAN_DETAILS = PRODUCT_CATALOG.plan_details;
 
 const PAYMENT_BUNDLES = buildPaymentBundles();
 
@@ -545,7 +392,7 @@ const RESEARCH_PRODUCTS = Object.freeze({
     id: 'cn-data',
     name: 'CN Data 中国数据',
     status: 'live',
-    amount_minor: 7000,
+    amount_minor: PAYMENT_MONTHLY_PRICES_CNY_FEN.china,
     currency: 'CNY',
     payment_required: true,
     authentication_required: true,
@@ -553,6 +400,11 @@ const RESEARCH_PRODUCTS = Object.freeze({
     endpoints: ['/v1/cn', '/v1/cn/*'],
     checkout_hint: '/checkout?tier=china'
   })
+});
+
+app.get('/api/product-catalog', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  return res.json({ success: true, ...publicCatalog() });
 });
 
 app.get('/api/research-data/products', (_req, res) => {
@@ -569,7 +421,7 @@ app.post('/api/research-data/checkout', asyncRoute(requireAccount), (req, res) =
     return res.status(400).json({ success: false, code: 'unknown_product' });
   }
   const expiry = req.account.proxyUser.expires_at;
-  if (expiry && (!Number.isFinite(Date.parse(expiry)) || Date.parse(expiry) <= Date.now())) {
+  if (!subscriptionPolicy.isActive(req.account.proxyUser)) {
     return res.status(403).json({ success: false, code: 'token_expired' });
   }
   // Fail closed if a future product needs payment: do not fulfill it through this path.
@@ -1453,7 +1305,10 @@ function publicPaymentBundle(bundle, fxSnapshot) {
     name: bundle.name,
     summary: bundle.summary,
     features: bundle.features,
-    renewal_only: bundle.renewal_only
+    renewal_only: bundle.renewal_only,
+    catalog_version: bundle.catalog_version || null,
+    catalog_sha256: bundle.catalog_sha256 || null,
+    capabilities: bundle.permissions || null
   };
 }
 
@@ -1732,11 +1587,12 @@ async function requireAccount(req, res, next) {
     clearAccountSessionCookie(res);
     return res.status(401).json({ success: false, message: '账户凭证已失效，请联系管理员。' });
   }
+  const entitlement=subscriptionPolicy.project(proxyUser,localUser,await readPaymentOrders());
   req.account = {
     sessionId: resolved.sessionId,
     userId: resolved.session.user_id,
-    localUser,
-    proxyUser
+    localUser:entitlement.account,
+    proxyUser:entitlement.principal
   };
   next();
 }
@@ -1829,12 +1685,7 @@ async function writeProxyUsersAndSyncAsync(data) {
 /**
  * Resolve permissions for a tier, taking mode into account for value tier.
  */
-function resolvePermissions(tierConfig, mode) {
-  if (tierConfig.modes && mode && tierConfig.modes[mode]) {
-    return tierConfig.modes[mode];
-  }
-  return tierConfig.permissions;
-}
+
 
 /**
  * Compute expiry date from tier config.
@@ -1850,8 +1701,12 @@ function publicPlan(tierId) {
     return {
       id: 'free',
       name: 'Free',
-      rest_history_window_days: 31,
-      ws_subscription_limit: 10
+      permanent: true,
+      rest_history_window_days: PRODUCT_CATALOG.tiers.free.constraints.history_days,
+      option_expirations: PRODUCT_CATALOG.tiers.free.constraints.option_expirations,
+      ws_channels: ['stocks','options','overnight','crypto','news','boats'],
+      catalog_version: PRODUCT_CATALOG.version,
+      catalog_sha256: PRODUCT_CATALOG_SHA256
     };
   }
   return {
@@ -1906,6 +1761,8 @@ async function provisionFreeRegistration(entry) {
     role: tierConfig.role,
     permissions
   };
+  const projection=subscriptionPolicy.project(proxyUser,localUser);
+  Object.assign(proxyUser,projection.principal);Object.assign(localUser,projection.account);
   const nextUsers = [...users, localUser];
   const nextProxyData = { ...proxyData, users: [...proxyData.users, proxyUser] };
 
@@ -1937,64 +1794,30 @@ async function downgradeExpiredToFree() {
 }
 
 async function downgradeExpiredToFreeUnlocked() {
-  const now = Date.now();
-  const proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
-  if (!Array.isArray(proxyData.users)) return { converted: 0 };
-  // Infra principals never downgrade: test load-test accounts and the
-  // unrestricted service identity keep their lifecycle managed elsewhere.
-  const PROTECTED_ROLES = new Set(['test', 'unrestricted']);
-  const freePerms = resolvePermissions(TIERS.free);
-  const converted = [];
-  // The edge authority rejects a projection with two active rows sharing
-  // one user_id, so never activate a row that would duplicate an already
-  // active identity (historical duplicates stay expired until cleaned).
+  const proxyData = await readPortalJSON(PROXY_USERS_FILE, {users:[]});
+  const users = await readPortalJSON(USERS_FILE, []);
+  const orders = await readPaymentOrders();
+  const counts=new Map();for(const p of proxyData.users || []) counts.set(p.user_id,(counts.get(p.user_id)||0)+1);
   const activeIds = new Set();
-  for (const proxyUser of proxyData.users) {
-    if (!proxyUser || !proxyUser.user_id) continue;
-    if (!proxyUser.expires_at || Date.parse(proxyUser.expires_at) > now) {
-      activeIds.add(proxyUser.user_id);
-    }
+  for (const p of proxyData.users || []) {
+    if (p.subscriptions || !p.expires_at || Date.parse(p.expires_at)>Date.now()) activeIds.add(p.user_id);
   }
-  for (const proxyUser of proxyData.users) {
-    if (!proxyUser || !proxyUser.expires_at) continue;
-    if (PROTECTED_ROLES.has(proxyUser.role)) continue;
-    const expMs = Date.parse(proxyUser.expires_at);
-    if (!Number.isFinite(expMs) || expMs > now) continue;
-    if (activeIds.has(proxyUser.user_id)) {
-      console.error(`[EXPIRY-SWEEP] skipping ${proxyUser.user_id}: another active row already uses this identity`);
-      continue;
-    }
-    if (proxyUser.role !== 'free') {
-      proxyUser.role = 'free';
-      proxyUser.permissions = freePerms;
-    }
-    delete proxyUser.expires_at;
-    if (proxyUser.user_id) {
-      converted.push(proxyUser.user_id);
-      activeIds.add(proxyUser.user_id);
-    }
+  let changed=0;
+  for (let index=0;index<(proxyData.users || []).length;index++) {
+    const p=proxyData.users[index];
+    if (!p || !p.user_id || ['test','unrestricted'].includes(p.role)) continue;
+    if(counts.get(p.user_id)>1){console.error('[SUBSCRIPTIONS] Skipped duplicate identity',p.user_id);continue;}
+    if (!p.subscriptions && p.expires_at && Date.parse(p.expires_at)<=Date.now() && activeIds.has(p.user_id)) { console.error('[SUBSCRIPTIONS] Skipped expired duplicate identity');continue; }
+    const localIndex=users.findIndex(user=>accountRegistryId(user)===p.user_id);
+    const state=subscriptionPolicy.project(p,localIndex>=0?users[localIndex]:{},orders);
+    if (!state.managed || !state.changed) continue;
+    proxyData.users[index]=state.principal;if(localIndex>=0) users[localIndex]=state.account;changed++;
   }
-  if (!converted.length) return { converted: 0 };
-  const syncResult = await writeProxyUsersAndSyncAsync(proxyData);
-  if (!syncResult.ok) {
-    console.error('[EXPIRY-SWEEP] registry rewrite failed:', syncResult.message);
-    return { converted: 0, error: syncResult.message };
-  }
-  const users = (await readPortalJSON(USERS_FILE, []));
-  let changed = false;
-  for (const uid of converted) {
-    const localUser = users.find(user => accountRegistryId(user) === uid);
-    if (localUser && (localUser.role !== 'free' || localUser.tier !== 'free')) {
-      localUser.role = 'free';
-      localUser.tier = 'free';
-      localUser.permissions = freePerms;
-      delete localUser.mode;
-      changed = true;
-    }
-  }
-  if (changed) (await writePortalJSON(USERS_FILE, users));
-  console.log(`[EXPIRY-SWEEP] downgraded ${converted.length} expired account(s) to free`);
-  return { converted: converted.length };
+  if (!changed) return {converted:0};
+  const sync=await writeProxyUsersAndSyncAsync(proxyData);
+  if (!sync.ok) throw new Error('Subscription projection publication failed');
+  await writePortalJSON(USERS_FILE,users);
+  return {converted:changed};
 }
 
 function computeRenewalExpiry(currentExpiry, days) {
@@ -2147,19 +1970,10 @@ async function fulfillPaymentOrderUnlocked(orderId) {
       };
       proxyData.users.push(proxyUser);
     }
-    // Renewal stacks paid days onto the existing expiry only when the account
-    // is already on a paid plan. Upgrades from a free plan start from now so
-    // the free remainder is not converted into extra paid days (30+30=60 bug).
-    // previousRole must be captured before the overwrite below.
-    const previousRole = proxyUser.role;
-    proxyUser.role = bundle.role;
-    proxyUser.permissions = bundle.permissions;
-    proxyUser.expires_at = computeRenewalExpiry(
-      order.kind === 'renewal' && previousRole && previousRole !== 'free'
-        ? proxyUser.expires_at
-        : null,
-      bundle.days
-    );
+    const accounts = await readPortalJSON(USERS_FILE, []);
+    const previous = accounts.find(user=>accountRegistryId(user)===targetUserId) || {};
+    const granted=subscriptionPolicy.applyPurchase(proxyUser,previous,bundle,order.id,Date.now(),await readPaymentOrders());
+    Object.assign(proxyUser,granted.principal);
     if (order.registration?.email) proxyUser.email = order.registration.email;
     addFulfilledPaymentOrder(proxyUser, order.id);
 
@@ -2175,7 +1989,7 @@ async function fulfillPaymentOrderUnlocked(orderId) {
   if (order.kind === 'renewal' && !previousLocalUser) {
     throw new Error('本地账户记录不存在，无法自动续期。');
   }
-  const localUser = {
+  let localUser = {
     ...(previousLocalUser || {}),
     username: order.registration?.username || previousLocalUser?.username,
     phone: order.registration?.phone || previousLocalUser?.phone,
@@ -2187,6 +2001,8 @@ async function fulfillPaymentOrderUnlocked(orderId) {
     ...(bundle.mode ? { mode: bundle.mode } : {})
   };
   if (!bundle.mode) delete localUser.mode;
+  const projection=subscriptionPolicy.project(proxyUser,localUser);
+  localUser=projection.account;
   addFulfilledPaymentOrder(localUser, order.id);
   if (localIndex >= 0) localUsers[localIndex] = localUser;
   else localUsers.push(localUser);
@@ -2215,8 +2031,12 @@ async function fulfillPaymentOrderUnlocked(orderId) {
       role: bundle.role,
       tier: bundle.tier,
       mode: bundle.mode || null,
-      expiry: proxyUser.expires_at,
-      token_masked: maskToken(proxyUser.token)
+      expiry: proxyUser.subscriptions?.[bundle.tier==='china'?'china':'market']?.expires_at || proxyUser.expires_at,
+      subscriptions: proxyUser.subscriptions || null,
+      token_masked: maskToken(proxyUser.token),
+      catalog_version: PRODUCT_CATALOG.version,
+      catalog_sha256: PRODUCT_CATALOG_SHA256,
+      capabilities: subscriptionPolicy.project(proxyUser,localUser).permissions || proxyUser.permissions
     }
   }));
 
@@ -2721,7 +2541,7 @@ async function resolveMcpPrincipal(req) {
   if (!user) return null;
 
   const expiry = user.expires_at ? new Date(user.expires_at) : null;
-  if (expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime() < Date.now()) {
+  if (!subscriptionPolicy.isActive(user)) {
     return { expired: true, user, token };
   }
   return { expired: false, user, token };
@@ -3819,6 +3639,7 @@ app.post('/api/payment/orders', asyncRoute(async (req, res) => {
   }
   const bundleId = String(req.body?.bundle_id || '').trim();
   const paymentMethod = String(req.body?.payment_method || '').trim();
+  if(bundleId==='trial' || bundleId.startsWith('trial-')) return res.status(410).json({success:false,error:'product_retired',message:'Trial 已停售。'});
   const bundle = PAYMENT_BUNDLES[bundleId];
   if (!bundle || !paymentBundleAllowedForContext(bundle, context)) {
     return res.status(400).json({ success: false, message: '请选择有效的支付套餐。' });
@@ -4166,6 +3987,7 @@ app.post('/api/register', identityRoute(async (req, res) => {
   }
 
   const requestedTier = String(tier || 'free').trim().toLowerCase();
+  if (requestedTier==='trial') return res.status(410).json({success:false,error:'product_retired',message:'Trial 已停售，请注册 Free 后选择现售套餐。'});
   if (requestedTier !== 'free') {
     return res.status(400).json({
       success: false,
@@ -4667,13 +4489,15 @@ app.post('/api/account/login', asyncRoute(async (req, res) => {
   clearAccountLoginFailures(req, accountId);
   const sessionId = (await createAccountSession(accountId));
   setAccountSessionCookie(res, sessionId);
+  const current=subscriptionPolicy.project(proxyUser,localUser,await readPaymentOrders());
   return res.json({
     success: true,
     account: {
       user_id: localUser.username,
-      role: proxyUser.role || localUser.role || 'standard',
+      role: current.principal.role,
       email: localUser.email || proxyUser.email || null,
-      expiry: proxyUser.expires_at || null
+      expiry: current.expiry || null,
+      market_expiry:current.market_expiry || null,china_expiry:current.china_expiry || null,subscriptions:current.subscriptions || null
     }
   });
 }));
@@ -4716,7 +4540,8 @@ app.get('/api/account/overview', asyncRoute(requireAccount), asyncRoute(async (r
     fetchAccountUsage(`${PROXY_REST_URL}/v1/account/usage`, proxyUser.token),
     fetchAccountUsage(wsUsageUrl, proxyUser.token)
   ]);
-  const expiry = proxyUser.expires_at || null;
+  const grantState=subscriptionPolicy.project(proxyUser,localUser);
+  const expiry=grantState.managed?grantState.expiry:proxyUser.expires_at || null;
   const expiryMs = expiry ? new Date(expiry).getTime() : NaN;
   const daysRemaining = Number.isNaN(expiryMs)
     ? null
@@ -4725,13 +4550,19 @@ app.get('/api/account/overview', asyncRoute(requireAccount), asyncRoute(async (r
     success: true,
     account: {
       user_id: localUser.username || userId,
-      role: proxyUser.role || localUser.role || 'standard',
-      tier: localUser.tier || proxyUser.role || 'standard',
-      mode: localUser.mode || null,
+      role: grantState.principal.role || proxyUser.role,
+      tier: grantState.account.tier || localUser.tier,
+      mode: grantState.account.mode || null,
       email: proxyUser.email || localUser.email || null,
       expiry,
       days_remaining: daysRemaining,
-      token_masked: maskToken(proxyUser.token)
+      token_masked: maskToken(proxyUser.token),
+      subscriptions: grantState.subscriptions || null,
+      market_expiry: grantState.market_expiry || null,
+      china_expiry: grantState.china_expiry || null,
+      capabilities: grantState.permissions || proxyUser.permissions,
+      catalog_version: PRODUCT_CATALOG.version,
+      catalog_sha256: PRODUCT_CATALOG_SHA256
     },
     usage: {
       rest: restUsage?.rest || null,
@@ -4755,6 +4586,7 @@ app.post('/api/account/email', asyncRoute(requireAccount), (req, res) => {
 
 app.post('/api/account/renew', asyncRoute(requireAccount), identityRoute(async (req, res) => {
   const selectedTier = String(req.body?.tier || '').trim();
+  if (selectedTier==='trial') return res.status(410).json({success:false,error:'product_retired',message:'Trial 已停售。'});
   const mode = String(req.body?.mode || '').trim();
   const months = Number(req.body?.months);
   if (!['basic', 'value', 'standard', 'premium'].includes(selectedTier)) {
@@ -5199,111 +5031,46 @@ app.post('/api/admin/approve', requireAdmin, identityRoute(async (req, res) => {
   const entry = pending.find(p => p.id === id && ['pending', 'payment_pending'].includes(p.status));
   if (!entry) return res.status(404).json({ success: false, message: '未找到该待审核记录。' });
 
-  const tierConfig = TIERS[entry.tier] || TIERS.premium;
-  const perms = resolvePermissions(tierConfig, entry.mode);
-  const isRenewal = entry.type === 'renewal';
-  const targetUserId = accountRegistryId(entry);
-
-  const users = (await readPortalJSON(USERS_FILE));
-  const existingLocalUser = users.find(user => accountRegistryId(user) === targetUserId);
-  const persistApproval = async () => {
-    const filtered = users.filter(user => accountRegistryId(user) !== targetUserId);
-    filtered.push({
-      username: entry.username,
-      phone: entry.phone || existingLocalUser?.phone,
-      email: entry.email || existingLocalUser?.email,
-      account_id: targetUserId,
-      role: tierConfig.role,
-      tier: entry.tier,
-      ...(entry.mode && { mode: entry.mode }),
-      permissions: perms
-    });
-    (await writePortalJSON(USERS_FILE, filtered));
-    entry.status = 'approved';
-    entry.approved_at = new Date().toISOString();
-    delete entry.checkout_token_hash;
-    (await writePortalJSON(PENDING_FILE, pending));
-  };
-
-  // Update the shared auth registry first. A renewal must preserve the existing
-  // token and fails closed if that token disappeared before admin approval.
-  try {
-    var proxyData = { users: [] };
-    proxyData = (await readPortalJSON(PROXY_USERS_FILE, { users: [] }));
-    if (!proxyData.users) proxyData.users = [];
-
-    const existing = proxyData.users.find(u => u.user_id === targetUserId);
-    if (isRenewal && (!existing || !existing.token)) {
-      return res.status(409).json({
-        success: false,
-        message: '续费账户的现有 Token 已不存在，申请保持待审核；请先恢复原账户。'
-      });
-    }
-
-    if (existing) {
-      existing.role = tierConfig.role;
-      existing.permissions = perms;
-      if (entry.email) existing.email = entry.email;
-      existing.expires_at = isRenewal
-        ? computeRenewalExpiry(existing.expires_at, entry.renew_days || tierConfig.expiryDays || 30)
-        : (existing.expires_at || computeExpiry(tierConfig));
-      if (entry.tier === 'test') existing.test_user = true;
-      else delete existing.test_user;
-
-      const syncResult = await writeProxyUsersAndSyncAsync(proxyData);
-      if (!syncResult.ok) {
-        return res.status(500).json({
-          success: false,
-          message: `数据服务注册表更新失败，申请保持待审核: ${syncResult.message}`
-        });
-      }
-      (await persistApproval());
-      const action = isRenewal ? '续费已批准并延长有效期' : '已批准，Token 已存在并更新套餐';
-      return res.json({
-        success: true,
-        message: `${action}：${entry.username}，已同步到数据服务。`,
-        token: existing.token,
-        expiry: existing.expires_at,
-        role: existing.role
-      });
-    }
-
-    const token = crypto.randomUUID();
-    const expiresAt = computeExpiry(tierConfig);
-
-    proxyData.users = proxyData.users.filter(u => u.user_id !== targetUserId);
-    proxyData.users.push({
-      token,
-      user_id: targetUserId,
-      role: tierConfig.role,
-      expires_at: expiresAt,
-      permissions: perms,
-      ...(entry.email && { email: entry.email }),
-      ...(entry.tier === 'test' && { test_user: true })
-    });
-
-    const syncResult = await writeProxyUsersAndSyncAsync(proxyData);
-    if (!syncResult.ok) {
-      return res.status(500).json({
-        success: false,
-        message: `数据服务注册表更新失败，申请保持待审核: ${syncResult.message}`
-      });
-    }
-    (await persistApproval());
-
-    return res.json({
-      success: true,
-      message: `已批准 ${entry.username}，Token 已注册并同步到数据服务。`,
-      token,
-      expiry: expiresAt,
-      role: tierConfig.role
-    });
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: `数据服务注册表更新失败，申请保持待审核: ${err.message}`
-    });
+  if (entry.tier==='trial') return res.status(410).json({success:false,error:'product_retired',message:'Trial 已停售，不再新开通。'});
+  const tierConfig = TIERS[entry.tier];
+  if (!tierConfig || (entry.tier==='value' && !['stocks','options'].includes(entry.mode))) return res.status(400).json({success:false,message:'Invalid plan or scope.'});
+  const isRenewal=entry.type==='renewal';
+  const targetUserId=accountRegistryId(entry);
+  const users=await readPortalJSON(USERS_FILE,[]);
+  const local=users.find(user=>accountRegistryId(user)===targetUserId) || {};
+  const registry=await readPortalJSON(PROXY_USERS_FILE,{users:[]});
+  registry.users ||= [];
+  const existing=registry.users.find(user=>user.user_id===targetUserId);
+  if (isRenewal && !existing?.token) return res.status(409).json({success:false,message:'续费账户的现有 Token 已不存在，申请保持待审核；请先恢复原账户。'});
+  let principal=existing || {user_id:targetUserId,token:crypto.randomUUID()};
+  let projection;
+  if (entry.tier==='test') {
+    principal={...principal,role:tierConfig.role,permissions:resolvePermissions(tierConfig),expires_at:computeExpiry(tierConfig),test_user:true};
+    delete principal.subscriptions;delete principal.permission_overrides;
+    projection={principal,account:{...local,role:'test',tier:'test',permissions:principal.permissions}};
+  } else if (entry.tier==='free') {
+    const subscriptions=subscriptionPolicy.bootstrap(principal,local) || {};
+    subscriptions.market={tier:'free',expires_at:null};
+    projection=subscriptionPolicy.project({...principal,subscriptions},local);
+  } else {
+    projection=subscriptionPolicy.applyPurchase(principal,local,{tier:entry.tier,mode:entry.mode,days:entry.renew_days || tierConfig.expiryDays || 30},`approval:${entry.id}`,Date.now(),await readPaymentOrders());
   }
+  principal=projection.principal;
+  if (entry.email) principal.email=entry.email;
+  if (entry.tier!=='test') delete principal.test_user;
+  const nextLocal={...local,...projection.account,username:entry.username,phone:entry.phone || local.phone,
+    email:entry.email || local.email,account_id:targetUserId};
+  registry.users=registry.users.map(user=>user===existing?principal:user);
+  if (!existing) registry.users.push(principal);
+  const sync=await writeProxyUsersAndSyncAsync(registry);
+  if (!sync.ok) return res.status(500).json({success:false,message:`数据服务注册表更新失败，申请保持待审核: ${sync.message}`});
+  const index=users.findIndex(user=>accountRegistryId(user)===targetUserId);
+  if (index>=0) users[index]=nextLocal;else users.push(nextLocal);
+  await writePortalJSON(USERS_FILE,users);
+  entry.status='approved';entry.approved_at=new Date().toISOString();delete entry.checkout_token_hash;
+  await writePortalJSON(PENDING_FILE,pending);
+  return res.json({success:true,message:`已批准 ${entry.username}，Token 已注册并同步到数据服务。`,
+    token:principal.token,expiry:principal.expires_at || null,role:principal.role,subscriptions:principal.subscriptions});
 }));
 
 // ============================================================
@@ -7186,13 +6953,13 @@ app.get('/api/admin/payments/overview', requireAdmin, asyncRoute(async (_req, re
   const segments = [
     {
       id: 'high_intent_trial',
-      name: '高活跃未付费 (High Intent Trial)',
+      name: '高活跃 Free 用户 (Active Free)',
       badge: 'warn',
-      description: '免费试用中且近 7 天有实际调用（API ≥ 5 次或有 WS 会话），最具付费转化潜力的核心目标',
+      description: 'Free 长期有效；近 7 天有实际调用（API ≥ 5 次或有 WS 会话）的未付费用户',
       users: allAudienceUsers.filter(u => !u.is_paid && (u.requests_7d >= 5 || u.ws_7d > 0)),
       template: {
-        subject: '【LeanData 数据服务】专享升级优惠：解锁全部历史数据与独家期权实时行情',
-        body: `尊敬的 {{username}}，\n\n感谢您近期使用 LeanData 市场数据服务！系统监测到您在近期研究中调用了较多行情请求。\n\n为了给您提供更完整、更低延迟的数据支持，我们现为您提供【限时 8 折升级优惠】：\n- 包含全部股票/期权深度历史分钟线与高阶 Greeks\n- 不限连接数的高速实时 WebSocket\n\n欢迎登录控制台（https://leandata.uk/account.html）升级您的套餐。\n如有任何定制数据需求，欢迎随时回复本邮件。`
+        subject: '【LeanData 数据服务】查看适合您的付费数据套餐',
+        body: `尊敬的 {{username}}，\n\n感谢您近期使用 LeanData 市场数据服务！系统监测到您在近期研究中调用了较多行情请求。\n\n您可以按需选择股票或期权历史数据套餐。Premium 另含已支持的财务数据、REST 新闻历史和加密订单簿。具体权限和运行限制以产品目录及账户用量页为准。Free 长期有效，升级完全自愿。\n\n欢迎登录控制台（https://leandata.uk/account.html）升级您的套餐。\n如有任何定制数据需求，欢迎随时回复本邮件。`
       }
     },
     {
@@ -7208,13 +6975,13 @@ app.get('/api/admin/payments/overview', requireAdmin, asyncRoute(async (_req, re
     },
     {
       id: 'expiring_soon',
-      name: '试用即将到期 (Expiring Soon ≤ 3天)',
+      name: '订阅即将到期 (Expiring Soon ≤ 3天)',
       badge: 'warn',
-      description: '试用期剩余 ≤ 3 天或最近刚过期的用户，促转化黄金窗口',
-      users: allAudienceUsers.filter(u => !u.is_paid && u.days_remaining !== null && u.days_remaining <= 3 && u.days_remaining >= -7),
+      description: '已授予的付费订阅剩余 ≤ 3 天或最近刚过期；Free 基线长期有效',
+      users: allAudienceUsers.filter(u => ['basic','value','standard','premium','china'].includes(u.role) && u.days_remaining !== null && u.days_remaining <= 3 && u.days_remaining >= -7),
       template: {
-        subject: '【重要提醒】您的 LeanData 免费试用即将到期',
-        body: `尊敬的 {{username}}，\n\n您的 LeanData 免费试用账号即将在近期到期。\n\n为了避免您的量化回测或实盘数据订阅中断，建议您及时在账户中心进行续费：\n👉 登录续费：https://leandata.uk/account.html\n\n支持 Basic、Standard、Premium 多种档位，按月/按年灵活订阅。`
+        subject: '【LeanData】您的付费订阅权益即将到期',
+        body: `尊敬的 {{username}}，\n\n您的 LeanData 一项付费订阅权益即将在近期到期。Free 基线长期有效；China 和美股订阅分别到期，互不影响。需要继续使用该付费权益时，可在账户中心选择续费：\n👉 登录续费：https://leandata.uk/account.html\n\n现售套餐、价格和有效期均以账户中心的产品目录为准。`
       }
     },
     {
@@ -7291,14 +7058,15 @@ app.get('/api/admin/crm/user', requireAdmin, asyncRoute(async (req, res) => {
   }
 
   // Calculate days remaining
-  const expStr = registryEntry?.expires_at || portalUser?.expires_at || null;
+  const current=registryEntry?subscriptionPolicy.project(registryEntry,portalUser || {},allOrders):null;
+  const expStr=current?.managed?current.expiry:registryEntry?.expires_at || portalUser?.expires_at || null;
   let daysRemaining = null;
-  let isActive = false;
+  let isActive = Boolean(registryEntry?.token && subscriptionPolicy.isActive(registryEntry));
   if (expStr) {
     const expMs = Date.parse(expStr);
     if (Number.isFinite(expMs)) {
       daysRemaining = Math.ceil((expMs - Date.now()) / 86400000);
-      isActive = expMs > Date.now();
+      isActive = Boolean(registryEntry?.token && subscriptionPolicy.isActive(registryEntry));
     }
   }
 
@@ -7339,15 +7107,16 @@ app.get('/api/admin/crm/user', requireAdmin, asyncRoute(async (req, res) => {
     username: portalUser?.username || pendingItem?.username || userId,
     phone: portalUser?.phone || pendingItem?.phone || null,
     email: portalUser?.email || pendingItem?.email || null,
-    role: registryEntry?.role || portalUser?.tier || 'free',
-    tier: portalUser?.tier || registryEntry?.role || 'free',
+    role: current?.principal.role || registryEntry?.role || portalUser?.tier || 'free',
+    tier: current?.account.tier || portalUser?.tier || registryEntry?.role || 'free',
     registered_at: portalUser?.registered_at || pendingItem?.registered_at || null,
     expires_at: expStr,
     days_remaining: daysRemaining,
     is_active: isActive,
     token_present: Boolean(registryEntry?.token),
     token_masked: tokenMasked,
-    permissions: registryEntry?.permissions || null,
+    permissions: current?.permissions || registryEntry?.permissions || null,
+    subscriptions:current?.subscriptions || null,market_expiry:current?.market_expiry || null,china_expiry:current?.china_expiry || null,
     sources: [
       ...(registryEntry ? ['registry'] : []),
       ...(portalUser ? ['portal_users'] : []),
@@ -7427,21 +7196,12 @@ app.post('/api/admin/users/extend-expiry', requireAdmin, identityRoute(async (re
         throw error;
       }
 
-      const currentExp = user.expires_at ? Date.parse(user.expires_at) : NaN;
-      const baseMs = Number.isFinite(currentExp) && currentExp > Date.now() ? currentExp : Date.now();
-      const newExpMs = baseMs + daysToAdd * 86400000;
-      user.expires_at = new Date(newExpMs).toISOString();
-      updatedExpiry = user.expires_at;
-
-      (await writeProxyUsersFile(proxyData));
-
-      // Also update portal users if present
-      const portalUsers = (await readPortalJSON(USERS_FILE, []));
-      const pUser = portalUsers.find(u => (u.account_id || u.username) === user_id);
-      if (pUser) {
-        pUser.expires_at = updatedExpiry;
-        (await writePortalJSON(USERS_FILE, portalUsers));
-      }
+      const portalUsers=await readPortalJSON(USERS_FILE,[]);
+      const index=portalUsers.findIndex(u=>accountRegistryId(u)===user_id);
+      const state=subscriptionPolicy.extend(user,index>=0?portalUsers[index]:{},daysToAdd,req.body.group,await readPaymentOrders());
+      proxyData.users[proxyData.users.indexOf(user)]=state.principal;updatedExpiry=state.extended_expiry;
+      const sync=await writeProxyUsersAndSyncAsync(proxyData);if(!sync.ok) throw new Error('Subscription publication failed');
+      if(index>=0){portalUsers[index]=state.account;await writePortalJSON(USERS_FILE,portalUsers);}
     });
   } catch (error) {
     return res.status(error.status === 404 ? 404 : 500).json({
@@ -7459,6 +7219,7 @@ app.post('/api/admin/users/set-role', requireAdmin, identityRoute(async (req, re
     return res.status(400).json({ success: false, message: 'Invalid user_id or role.' });
   }
 
+  if(role==='trial') return res.status(410).json({success:false,error:'product_retired',message:'Trial 已停售。'});
   const tierDef = TIERS[role];
   let updatedRole = null;
   try {
@@ -7471,21 +7232,18 @@ app.post('/api/admin/users/set-role', requireAdmin, identityRoute(async (req, re
         throw error;
       }
 
-      user.role = tierDef.role;
-      user.permissions = structuredClone(tierDef.permissions);
-      updatedRole = user.role;
-
-      (await writeProxyUsersFile(proxyData));
-
-      // Also update portal users
-      const portalUsers = (await readPortalJSON(USERS_FILE, []));
-      const pUser = portalUsers.find(u => (u.account_id || u.username) === user_id);
-      if (pUser) {
-        pUser.tier = role;
-        pUser.role = tierDef.role;
-        pUser.permissions = structuredClone(tierDef.permissions);
-        (await writePortalJSON(USERS_FILE, portalUsers));
-      }
+      const portalUsers=await readPortalJSON(USERS_FILE,[]);
+      const index=portalUsers.findIndex(u=>accountRegistryId(u)===user_id);
+      const local=index>=0?portalUsers[index]:{};
+      let state;
+      if(role==='test') {
+        const principal={...user,role:'test',permissions:structuredClone(tierDef.permissions),expires_at:computeExpiry(tierDef),test_user:true};
+        delete principal.subscriptions;delete principal.permission_overrides;
+        state={principal,account:{...local,tier:'test',role:'test',permissions:principal.permissions}};
+      } else state=subscriptionPolicy.changeTier(user,local,role,req.body.mode,await readPaymentOrders());
+      proxyData.users[proxyData.users.indexOf(user)]=state.principal;updatedRole=state.principal.role;
+      const sync=await writeProxyUsersAndSyncAsync(proxyData);if(!sync.ok) throw new Error('Subscription publication failed');
+      if(index>=0){portalUsers[index]=state.account;await writePortalJSON(USERS_FILE,portalUsers);}
     });
   } catch (error) {
     return res.status(error.status === 404 ? 404 : 500).json({
@@ -7844,47 +7602,32 @@ app.post('/api/generate-token', identityRoute(async (req, res) => {
     clearAccountLoginFailures(req, accountId);
 
     if (existingToken) {
-      const tier = validCustomer.tier || existing.role;
+      const current=subscriptionPolicy.project(existing,validCustomer,await readPaymentOrders());
+      const tier = current.account.tier || existing.role;
       return res.json({
         success: true,
         message: 'Token 已存在。',
         token: existing.token,
-        expiry: existing.expires_at,
-        role: existing.role,
+        expiry: current.expiry || null,
+        subscriptions:current.subscriptions || null,
+        role: current.principal.role,
         tier,
         current_plan: publicPlan(tier)
       });
     }
 
-    // Token is absent: issue new token for the approved user
-    const tierConfig = TIERS[validCustomer.tier] || TIERS[validCustomer.role] || TIERS.premium;
-    const perms = resolvePermissions(tierConfig, validCustomer.mode);
-    const token = crypto.randomUUID();
-    const expiresAt = computeExpiry(tierConfig);
-
-    const newProxyUser = {
-      token,
-      user_id: accountId,
-      role: tierConfig.role,
-      expires_at: expiresAt,
-      permissions: perms,
-      ...(validCustomer.email && { email: validCustomer.email })
-    };
-
-    proxyData.users = proxyData.users.filter(u => u.user_id !== accountId);
+    const restored=subscriptionPolicy.restore(validCustomer,existing,await readPaymentOrders());
+    const token=crypto.randomUUID();
+    const newProxyUser={...restored.principal,token,user_id:accountId,
+      ...(validCustomer.email?{email:validCustomer.email}:{})};
+    proxyData.users=proxyData.users.filter(user=>user.user_id!==accountId);
     proxyData.users.push(newProxyUser);
-
-    const syncResult = await writeProxyUsersAndSyncAsync(proxyData);
-
-    return res.json({
-      success: true,
-      token,
-      expiry: expiresAt,
-      role: newProxyUser.role,
-      tier: validCustomer.tier || newProxyUser.role,
-      current_plan: publicPlan(validCustomer.tier || newProxyUser.role),
-      syncOk: syncResult.ok
-    });
+    const syncResult=await writeProxyUsersAndSyncAsync(proxyData);
+    if (!syncResult.ok) throw new Error('Credential publication failed');
+    const index=localUsers.indexOf(validCustomer);localUsers[index]=restored.account;
+    await writePortalJSON(USERS_FILE,localUsers);
+    return res.json({success:true,token,expiry:newProxyUser.expires_at || null,role:newProxyUser.role,
+      tier:restored.account.tier,current_plan:publicPlan(restored.account.tier),subscriptions:newProxyUser.subscriptions,syncOk:true});
   } catch (err) {
     console.error('Error updating proxy registry:', err);
     return res.status(500).json({ success: false, message: 'Failed to register token on the data proxy server.' });

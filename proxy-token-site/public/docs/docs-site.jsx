@@ -1,3 +1,4 @@
+import PRODUCT_CATALOG from "../product-catalog.json";
 import API_CONTRACT from "./public-api-contract.json";
 import API_CONTRACT_SOURCE from "./api-contract-source.json";
 import React, {
@@ -1979,6 +1980,18 @@ Content-Type: application/json
       </tbody></table>
       <p>A 501 is an unavailable endpoint, not a plan-upgrade prompt. An empty 200 array only describes the requested slice. Quote/profile/analyst records in this financial catalog are archived snapshots; use the market-data quote endpoints for current trading decisions and inspect source timestamps.<br/>501 不应通过升级套餐或反复重试解决。空数组不证明全市场无事件；财务目录中的报价、资料、预测是归档快照，交易所需当前报价请使用行情接口并检查来源时间。</p>
 
+      <h3>Observed event history / 已观测事件归档</h3>
+      <p>Premium supports <code>GET/POST /v1/events/eodhd/history</code> and <code>GET/POST /v1/events/eodhd/coverage</code>. Select <code>dataset=earnings</code> (default), <code>dividends</code> or <code>splits</code>. These endpoints expose observed captures only; they do not guarantee complete historical or future event coverage.<br/>这两条接口需要 Premium，仅返回已观测归档，不承诺完整历史或未来事件日历。</p>
+      <ParamTable rows={[
+        { name: "dataset", type: "string", required: false, desc: "earnings (default) | dividends | splits", zh: "事件数据集" },
+        { name: "start_date / end_date", type: "date", required: false, desc: "History selectors on snapshot_date, not the event date", zh: "按抓取快照日期筛选历史，不是事件日期" },
+        { name: "limit / offset", type: "integer", required: false, desc: "History page: limit up to 500; offset up to 100000", zh: "历史分页：limit 最大 500，offset 最大 100000" },
+      ]} />
+      <p><code>start_date</code>/<code>end_date</code> select <code>snapshot_date</code>. Keep event fields such as earnings <code>report_date</code>, <code>dividend_date</code> and <code>payment_date</code> separate. Coverage is independent of history filters: inspect it for captured snapshot intervals before selecting a history slice. Native payload selection does not accept <code>fields</code>. Preserve sparse/null fields and <code>O</code>/<code>Z</code>/<code>M</code> metadata; <code>research_admission=false</code> remains a research-admission boundary.<br/>查询日期选择抓取快照日期；财报、除息和支付日期是独立业务字段。coverage 不受 history 过滤条件限制。原生载荷不接受 fields 投影，请保留缺失值与元数据。</p>
+      <pre className="code">{`curl "https://api.leandata.uk/v1/events/eodhd/coverage?dataset=earnings" -H "Authorization: Bearer $LEANDATA_TOKEN"
+curl "https://api.leandata.uk/v1/events/eodhd/history?dataset=earnings&start_date=2026-10-01&end_date=2026-10-02&limit=100" -H "Authorization: Bearer $LEANDATA_TOKEN"`}</pre>
+      <p>Delivery uses the normal authenticated API request. Same-origin transparent delivery is the default; opt-in <code>direct=1</code> can return a signed download redirect. Follow signed GET URLs without an Authorization header or Bearer token; never forward the API credential to the download host.<br/>默认同源透明交付；direct=1 可返回签名下载跳转，签名 GET 不携带 Authorization 或 Bearer。</p>
+
       <h3 id="fmp-request-contract" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>参数说明 / Parameters</h3>
       <div style={{ overflowX: "auto", marginBottom: 22 }}>
         <table className="tbl card" style={{ width: "100%", minWidth: 700, overflow: "hidden" }}>
@@ -2696,8 +2709,8 @@ function CnDataSections({ articleId } = {}) {
 
       <h2 id="cn-access" className="display-title" style={{ fontSize: 28, margin: "40px 0 12px" }}>{isZh ? "权限与范围（已上线）" : "Access & scope (live)"}</h2>
       <DocDesc
-        zh="已上线：普通套餐默认不包含（含 Premium）。China 独立套餐 ¥70/月，付款成功后自动开通账号本人权限；切换套餐会替换账号权限（与现有续费语义一致）。归档为盘后批量更新，无实时推送。"
-        en="Live: not included in ordinary plans (including Premium) by default. The standalone China plan (¥70/mo) auto-provisions access on your own account after payment; switching plans replaces account permissions (same renewal semantics as other tiers). Archive updates are post-close batches; no realtime feed."
+        zh="已上线：普通套餐默认不包含（含 Premium）。China 独立套餐 ¥70/月，付款成功后自动开通账号本人权限；China 叠加到现有美股套餐，独立到期；两者沿用同一 Token。归档为盘后批量更新，无实时推送。"
+        en="Live: not included in ordinary plans (including Premium) by default. The standalone China plan (¥70/mo) auto-provisions access on your own account after payment; China stacks with the US-market subscription, expires independently, and uses the same token. Archive updates are post-close batches; no realtime feed."
       />
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
         <thead><tr><th>Method</th><th>Endpoint</th><th>Family</th><th>Source</th><th>Status</th></tr></thead>
@@ -2720,7 +2733,7 @@ function CnDataSections({ articleId } = {}) {
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead><tr><th>Plan</th><th>CN Data entitlement</th><th>/v1/cn/* access</th></tr></thead>
         <tbody>
-          {["Free", "Trial", "Basic", "Value", "Standard", "Premium"].map((plan) => (
+          {["Free", "Basic", "Value", "Standard", "Premium"].map((plan) => (
             <tr key={plan}>
               <td style={{ fontSize: 12 }}>{plan}</td>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>not included</td>
@@ -2801,7 +2814,7 @@ Authorization: Bearer <TOKEN>
 { "token": "<TOKEN>", "symbol": "AAPL", ... }`}
       </pre>
       <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 40px" }}>
-        Tokens expire 30 days after issuance (trial: 3 days, non-renewable). The proxy returns <code>401</code> for invalid or expired tokens and <code>403</code> if your tier lacks permission for the endpoint.
+        Free access is permanent. Paid US-market and China subscriptions have independent expiry clocks; existing legacy tokens retain their original validity. The proxy returns <code>401</code> for invalid or expired tokens and <code>403</code> if your tier lacks permission for the endpoint.
       </p>
 
       <p>Repeated invalid credentials may be temporarily throttled. Stop retrying an unchanged invalid or expired token, correct the credential, and honor <code>Retry-After</code> on 429 responses. A queue/capacity 429 is a different condition; use its public error code when diagnosing it.<br/>反复提交无效或过期 Token 可能触发临时限流，应先修正凭据；429 的鉴权保护与数据排队／容量限制是不同原因，请按错误码处理。</p>
@@ -2836,83 +2849,27 @@ with requests.Session() as client:
         zh="Token 套餐决定数据通道和 REST endpoint 权限；运行时安全限制除特别说明外为共享配置。Basic 仅为老账户兼容，不再开放新注册；大批量数据导出请使用独立的 Bulk Download。"
         en="Token plans control access to channels and REST endpoints. Runtime safety limits are shared unless stated otherwise below. Basic is shown only for existing-account compatibility and is closed to new registration; Bulk Download is the separate one-off product above."
       />
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
-        <thead>
-          <tr><th style={{ width: 120 }}>Plan</th><th>Price</th><th>WS channels</th><th>WS subjects</th><th>WS account connection cap</th><th>REST historical parallel</th><th>REST endpoints</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><span className="tier free">Free</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Free (30 days)</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontSize: 12 }}>Recent 31 days REST history · Nearest 2 option expiries · Instant activation</td>
+      <p>Commercial definitions: <a href="/api/product-catalog"><code>GET /api/product-catalog</code></a>. Catalog version <code>{PRODUCT_CATALOG.version}</code>; prices and capabilities below come from the same public catalog used by checkout. Current request and subscription limits are shown in <a href="/account">account usage</a>.<br/>价格与权限使用公开套餐目录；请求、连接和订阅上限以账户页当前运行时配置为准。</p>
+      <table className="tbl card" data-product-catalog={PRODUCT_CATALOG.version} style={{ overflow: "hidden", marginBottom: 12 }}>
+        <thead><tr><th>Plan</th><th>Price</th><th>WS channels</th><th>REST access</th><th>Validity</th></tr></thead>
+        <tbody>{Object.entries(PRODUCT_CATALOG.tiers).map(([name, tier]) => (
+          <tr key={name}>
+            <td><span className={`tier ${name}`}>{PRODUCT_CATALOG.plan_details[name]?.name || "Free"}</span></td>
+            <td>{name === "free" ? "Free" : `¥${PRODUCT_CATALOG.monthly_prices_cny_minor[name] / 100}/mo`}{PRODUCT_CATALOG.plan_details[name]?.renewal_only ? " · existing accounts" : ""}</td>
+            <td>{Object.keys(tier.permissions.ws).filter(key => key !== "test" && tier.permissions.ws[key]).join(", ") || "REST only"}</td>
+            <td>{name === "free" ? `Stock/option history: recent ${tier.constraints.history_days} days; contracts/latest snapshots: nearest ${tier.constraints.option_expirations} upcoming expiries` : tier.modes ? Object.entries(tier.modes).map(([mode, permissions]) => <div key={mode}><strong>{mode}:</strong> {Object.keys(permissions.rest).filter(key => permissions.rest[key] && key !== "admin_token_lookup").join(", ")}</div>) : Object.keys(tier.permissions.rest).filter(key => tier.permissions.rest[key] && key !== "admin_token_lookup").join(", ")}{name === "value" && " · REST scope chosen at checkout"}</td>
+            <td>{name === "free" ? "Permanent" : name === "china" ? "Independent China expiry" : "Selected market subscription term"}</td>
           </tr>
-          <tr>
-            <td><span className="tier trial">Trial</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥50/3 days</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontSize: 12 }}>Same as Standard · 3-day token · non-renewable</td>
-          </tr>
-          <tr>
-            <td><span className="tier basic">Basic</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Legacy · closed</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>— (REST only)</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontSize: 12 }}>existing accounts only · full history via bounded REST requests</td>
-          </tr>
-          <tr>
-            <td><span className="tier value">Value</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥70/mo</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontSize: 12 }}>REST: stocks OR options (pick at signup) · WS: all channels</td>
-          </tr>
-          <tr>
-            <td><span className="tier standard">Standard</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥100/mo</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontSize: 12 }}>stocks + options history · no crypto orderbooks</td>
-          </tr>
-          <tr>
-            <td><span className="tier premium">Premium</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥150/mo</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontSize: 12 }}>Documented US REST + financial data + crypto orderbooks; CN sold separately</td>
-          </tr>
-          <tr>
-            <td><span className="tier china">China</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥70 / 月 · live</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>live</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontSize: 12 }}>CN Data 中国数据 · live /v1/cn/* · 付款自动开通；独立套餐，不含美股数据（入口见「选择市场」→ 世界/中国；entry via Choose your market → World · CN）</td>
-          </tr>
-        </tbody>
+        ))}</tbody>
       </table>
+      <p>Free is permanent. An active US market plan replaces Free capabilities; China adds independently expiring archive access to the same account and token. Expiry of either paid subscription leaves the other subscription and permanent Free baseline intact. Trial is retired for new sales and grants; already granted validity is retained.<br/>Free 长期有效。美股套餐与 China 独立到期，China 叠加后保留美股权限；任一付费订阅到期不影响另一订阅或永久 Free 基线。Trial 已停售且不再新开通，既有有效期保留。</p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 8px" }}>
         There is currently no tier-specific rolling REST req/min limiter. Upstream provider limits, the shared service ceiling, and overload backpressure still apply.
         <br/>当前没有按套餐执行的 REST 滚动 req/min 限额；服务总并发和过载背压机制仍然生效。
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
-        Keep historical REST concurrency at or below <strong>3 in-flight requests per account</strong>. If a <strong>429</strong> is returned, wait for in-flight requests to complete and retry with exponential backoff.
-        <br/>单个账号的历史 REST 最大并发请求数建议保持在 <strong>3</strong> 以内。若收到 <strong>429</strong>，请等待在途请求完成并使用指数退避重试。
+        Keep historical REST concurrency within the limit shown in account usage. If a <strong>429</strong> is returned, wait for in-flight requests to complete and retry with exponential backoff.
+        <br/>单个账号的历史 REST 并发请遵守账户用量页显示的当前限制。若收到 <strong>429</strong>，请等待在途请求完成并使用指数退避重试。
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         Basic has access to the full available historical range. There is no Basic-specific date-span, symbol-count, or page-count budget. Requests remain subject to provider limits and shared proxy runtime controls such as historical concurrency, QPS, timeouts, and overload backpressure. Bulk Download is a separate one-off delivery product, not a requirement for older dates.
@@ -2932,13 +2889,13 @@ with requests.Session() as client:
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "16px", margin: "0 0 24px", fontSize: 13, lineHeight: 1.6 }}>
         <h4 style={{ margin: "0 0 8px", fontSize: 14, color: "var(--ink-strong)" }}>Free Plan Quota &amp; Access Boundaries / 权益与限制边界</h4>
         <ul style={{ margin: "0 0 10px 18px", padding: 0 }}>
-          <li><strong>REST Historical Date Window:</strong> Stock queries (IEX) within the most recent <strong>31 calendar days</strong>. Option historical bars &amp; trades within the most recent <strong>10 calendar days</strong>. Older dates return <code>403 free_historical_window_exceeded</code>.</li>
+          <li><strong>REST Historical Date Window:</strong> Stock queries (IEX) within the most recent <strong>31 calendar days</strong>. Option historical bars &amp; trades within the most recent <strong>{PRODUCT_CATALOG.tiers.free.constraints.history_days} calendar days</strong>. Older dates return <code>403 free_historical_window_exceeded</code>.</li>
           <li><strong>Option Chains &amp; Snapshots:</strong> Access is limited to the <strong>nearest 2 upcoming expiration cycles</strong> (e.g. 0DTE, nearest weekly or monthly expiries). Expiries further out return <code>403 free_option_chain_window_exceeded</code>.</li>
-          <li><strong>Real-time WebSocket:</strong> Full channel access (stocks, options, crypto, news, overnight) with standard connection limits.</li>
+          <li><strong>Real-time WebSocket:</strong> All six channels (stocks, options, boats, overnight, crypto, news). Current admission limits are shown on the account usage page.</li>
           <li><strong>Financial Statements:</strong> Fundamental balance sheet, income, and cash flow archives require an active <strong>Premium</strong> plan (returns <code>403 fmp_premium_required</code>).</li>
         </ul>
         <span style={{ color: "var(--ink-soft)", fontSize: 12 }}>
-          中文说明：REST 股票历史数据（IEX）支持最近 31 个日历日内；期权历史分钟 K 线与逐笔成交支持最近 10 个日历日内；期权链与 Greeks 快照支持最近 2 轮到期日；实时 WebSocket 通道全部开放；基本面财务数据需升级至 Premium。
+          中文说明：REST 股票历史数据（IEX）支持最近 31 个日历日内；期权历史分钟 K 线与逐笔成交支持最近 31 个日历日内；期权链与 Greeks 快照支持最近 2 轮到期日；实时 WebSocket 通道全部开放；基本面财务数据需升级至 Premium。
         </span>
       </div>
 
@@ -3058,33 +3015,20 @@ print("Option contracts:", resp_opt.status_code)`}
       <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>Token API</div>
 
       <h2 id="post-register" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/register</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Submit a new account registration. The request enters a pending queue until approved by an admin.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>提交新账户注册申请；请求会进入待审核队列，由管理员审核后开通。</span>
-      </p>
+      <p>Create a permanent Free account after email verification. Request a code with <code>POST /api/register/request-code</code>, then submit the returned challenge ID and six-digit code. Upgrade existing accounts through checkout.<br/>邮箱验证后立即开通永久 Free；付费产品从账户页升级。</p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/register`} />
       <ParamTable rows={[
-        { name: "username", type: "string", required: true, desc: "Unique display name (must not exist in approved users)", zh: "唯一用户名（不可与已有账户重复）" },
-        { name: "phone",    type: "string", required: true, desc: "Mobile number used to verify identity on token generation", zh: "用于验证身份与匹配订单的手机号" },
-        { name: "email",    type: "string", required: true, desc: "Valid email used for account identity, service notices, and future login verification.", zh: "接收服务通告、安全通知与登录凭据的邮箱" },
-        { name: "tier",     type: "string", required: false, desc: "trial | value | standard | premium (default: standard). Basic is retired for new registrations.", zh: "套餐类型：trial | value | standard | premium（默认 standard）" },
-        { name: "mode",     type: "string", required: false, desc: "stocks | options — required when tier is value. Determines which data vertical is enabled.", zh: "数据方向：stocks 或 options（仅当 tier 为 value 时必填）" },
+        { name: "username", type: "string", required: true, desc: "Account username", zh: "账户用户名" },
+        { name: "phone", type: "string", required: true, desc: "Account phone number", zh: "账户手机号" },
+        { name: "email", type: "string", required: true, desc: "Verified email address", zh: "已验证邮箱" },
+        { name: "verification_id", type: "string", required: true, desc: "Challenge ID from request-code", zh: "邮箱验证码请求返回的 challenge_id" },
+        { name: "verification_code", type: "string", required: true, desc: "Six-digit email code", zh: "六位邮箱验证码" },
+        { name: "tier", type: "string", required: false, desc: "free only (default)", zh: "仅支持 free（默认）" },
       ]} />
-      <pre className="code" style={{ marginBottom: 28 }}>
-{`// Request
-{ "username": "example-user", "phone": "<PHONE>", "email": "tonny@example.com", "tier": "premium" }
-
-// Value tier — mode required
-{ "username": "qianyu", "phone": "13800138000", "email": "qianyu@example.com", "tier": "value", "mode": "options" }
-
-// Response 200
-{ "success": true, "message": "注册成功！请等待卖家确认订单后即可生成 Token。", "id": "61ce4f82-..." }
-
-// Error 400 — Basic is no longer a public registration tier
-{ "success": false, "error": "retired_registration_tier", "message": "Basic REST 月度套餐已停止新注册..." }
-
-// Error 409 — username already taken
-{ "success": false, "message": "该用户名已被使用，请换一个。" }`}
-      </pre>
+      <pre className="code">{`// Request
+{ "username": "example-user", "phone": "<PHONE>", "email": "user@example.com", "verification_id": "<CHALLENGE_ID>", "verification_code": "<SIX_DIGIT_CODE>", "tier": "free" }
+// Success: approved Free account with token and expiry: null
+// Paid tier: 400 registration_is_free_only`}</pre>
 
       <h2 id="post-check-status" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/check-status</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Poll approval status before attempting token generation.
@@ -3500,8 +3444,8 @@ for row in resp.json()["rows"]:
 
       <h2 id="post-v1-history-news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/news</h2>
       <DocDesc
-        zh="获取全市场或指定标的的历史新闻文章与快讯，所有套餐均可使用。支持 max_pages 自动分页，每页返回最多 50 篇。"
-        en="Fetch historical news articles. Available to all tiers including Basic. Pass max_pages greater than 1 to auto-paginate; each page contains up to 50 articles."
+        zh="获取全市场或指定标的的历史新闻文章与快讯，仅限 Premium。支持 max_pages 自动分页，每页返回最多 50 篇。"
+        en="Fetch historical news articles. Premium only. Pass max_pages greater than 1 to auto-paginate; each page contains up to 50 articles."
       />
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/news`} />
       <ParamTable rows={[
@@ -4387,42 +4331,9 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
         The proxy does not currently enforce the old tier-specific rolling req/min values. Historical REST concurrency is per account and remains held until the response body reaches EOF.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>代理当前不执行旧的套餐级滚动 req/min 数值。历史 REST 并发按账号计算，并持续占用到响应正文读取完毕。</span>
       </p>
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
-        <thead>
-          <tr><th style={{ width: 220 }}>Runtime limit</th><th>Enforced value</th><th>Scope</th></tr>
-        </thead>
-        <tbody>
-          {[
-            ["Historical REST concurrency", "3", "per account"],
-            ["Native options request rate", "up to 5/s", "per account; shared capacity can be lower"],
-            ["Market-session history fetch", "1/s; 1 active fetch", "per account; cached delivery has separate admission"],
-            ["WS subjects", "500", "per connection"],
-            ["WS connections", "no account cap", "service capacity still applies"],
-          ].map(([limit, value, scope], i) => (
-            <tr key={i}>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{limit}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{value}</td>
-              <td style={{ fontSize: 12, color: "var(--ink-soft)" }}>{scope}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
-        These are admission ceilings, not throughput entitlements. Start with one sequential request; market-session, endpoint-specific and shared capacity limits can be stricter than the base three-request historical cap. No plan-specific historical request-size budget is enforced. Service-wide backpressure can return <code>503</code>, and provider-capacity limits can return <code>429</code>.
-        <br/><span style={{ color: "var(--ink-soft)" }}>这些是当前运行时限制，不是容量保证；历史请求大小不按套餐单独设预算。服务总背压可能返回 <code>503</code>，数据源容量限制可能返回 <code>429</code>。</span>
-      </p>
-
+      <p>Current REST concurrency, request pacing, WebSocket connection and subject limits are available in <a href="/account">account usage</a>. These limits describe admission, not guaranteed throughput. Start with one sequential request and honor endpoint-specific errors and Retry-After.<br/>REST 并发、请求节奏、WS 连接与主题上限请查看账户页，运行时准入上限不等于吞吐保证。</p>
       <h2 id="concurrency-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Concurrency limits</h2>
-      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        The account-level concurrency cap applies only to historical REST: ordinary accounts may have up to <strong>3</strong> requests in flight.
-        WebSocket accounts have no account-level connection cap. Each connection may subscribe to at most <strong>500 subjects</strong>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>账号级并发上限仅适用于历史 REST：单个账号最多同时有 <strong>3</strong> 个并发在途请求。WebSocket 不设账号级连接数上限；每条连接最多订阅 <strong>500 个 subjects</strong>。</span>
-      </p>
-      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
-        Subjects count actual deliveries, not unique ticker strings. For example, <code>AAPL trades</code> plus <code>AAPL quotes</code> is two subjects; subscribing to the same subject on two connections counts twice because the frame is delivered twice. Accounts are counted independently: under the current admission logic, two paid accounts may each open 100 WebSocket connections. This is not an unlimited-capacity SLA. For large fan-out, keep a small number of upstream sockets and redistribute locally through a local proxy.
-        <br/>Subjects 按实际投递计数，不按唯一 ticker 去重。例如同时订阅 <code>AAPL trades</code> 和 <code>AAPL quotes</code> 算两个 subjects；同一 subject 在两条连接上订阅也算两次，因为数据会发送两次。不同账号独立计数：按当前准入逻辑，两个付费账号可以各开 100 条 WS；这不代表无限容量 SLA。大规模分发建议仅保留少量上游连接，再通过本地代理转发给多个本地进程。
-      </p>
-
+      <p>Subjects count actual deliveries. <code>AAPL trades</code> plus <code>AAPL quotes</code> counts as two subjects; the same subject on two connections also counts twice. Keep a small number of upstream sockets and redistribute locally when serving multiple local consumers.<br/>主题按实际投递计数；同一主题在多个连接订阅会重复计数。多个本地进程可通过少量上游连接和本地转发共享数据。</p>
       <pre className="code" style={{ marginBottom: 40 }}>
 {`// 429 response body (JSON) — historical REST concurrency
 {
@@ -4462,28 +4373,15 @@ function WsUsageBody({ focus, articleId }) {
       />
 
       <table className="tbl card" style={{ marginBottom: 28, overflow: "hidden" }}>
-        <thead><tr><th>{isZh ? "通道 / Channel" : "Channel"}</th><th>{isZh ? "路径 / Path" : "Path"}</th><th>{isZh ? "格式 / Format" : "Format"}</th><th>Basic</th><th>Trial</th><th>Value</th><th>Standard</th><th>Premium</th></tr></thead>
-        <tbody>
-          {[
-            ["stocks",    "/stream",           "msgpack", "—", "✓", "✓", "✓", "✓"],
-            ["options",   "/stream/options",   "msgpack", "—", "✓", "✓", "✓", "✓"],
-            ["boats",     "/stream/boats",     "msgpack", "—", "✓", "✓", "✓", "✓"],
-            ["overnight", "/stream/overnight", "msgpack", "—", "✓", "✓", "✓", "✓"],
-            ["crypto",    "/stream/crypto",    "JSON",    "—", "✓", "✓", "✓", "✓"],
-            ["news",      "/stream/news",      "JSON",    "—", "✓", "✓", "✓", "✓"],
-          ].map(([ch, path, fmt, b, tr, v, s, p], i) => (
-            <tr key={i}>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, fontWeight: 600 }}>{ch}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>{path}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{fmt}</td>
-              <td style={{ color: b === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{b}</td>
-              <td style={{ color: tr === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{tr}</td>
-              <td style={{ color: v === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{v}</td>
-              <td style={{ color: s === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{s}</td>
-              <td style={{ color: p === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{p}</td>
-            </tr>
-          ))}
-        </tbody>
+        <thead><tr><th>Channel</th><th>Path</th><th>Format</th>{["free", "basic", "value", "standard", "premium"].map(name => <th key={name}>{PRODUCT_CATALOG.plan_details[name]?.name || "Free"}</th>)}</tr></thead>
+        <tbody>{[
+          ["stocks", "/stream", "msgpack"], ["options", "/stream/options", "msgpack"],
+          ["boats", "/stream/boats", "msgpack"], ["overnight", "/stream/overnight", "msgpack"],
+          ["crypto", "/stream/crypto", "JSON"], ["news", "/stream/news", "JSON"],
+        ].map(([channel, path, format]) => <tr key={channel}>
+          <td>{channel}</td><td><code>{path}</code></td><td>{format}</td>
+          {["free", "basic", "value", "standard", "premium"].map(name => <td key={name}>{PRODUCT_CATALOG.tiers[name].permissions.ws[channel] ? "✓" : "—"}</td>)}
+        </tr>)}</tbody>
       </table>
 
       {/* ── Connecting ── */}
@@ -4552,7 +4450,7 @@ await ws.send(json.dumps({
         en="Live US equities: trades, quotes, and minute bars from the consolidated SIP feed. Subscribe to trades, quotes, and/or bars lists. Use * to subscribe to all symbols."
       />
       <H3>Subject limit</H3>
-      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>Each connection supports up to 500 subjects. A ticker subscribed under both <code>trades</code> and <code>quotes</code> consumes two subjects.</p>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>Current per-connection subject limits are shown in account usage. A ticker subscribed under both <code>trades</code> and <code>quotes</code> consumes two subjects.</p>
 
       <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "期权实时行情流 (options)" : "options"}</h2>
       <DocDesc
@@ -4575,8 +4473,8 @@ await ws.send(json.dumps({
 
       <h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "实时新闻快讯流 (news)" : "news"}</h2>
       <DocDesc
-        zh="实时金融新闻与快讯流：传入目标 ticker 列表或 * 订阅全量新闻。消息为标准 JSON 格式。历史新闻亦可通过 REST /v1/history/news 获取。"
-        en="Realtime market news events. Subscribe with a news list of tickers or * for all. Messages are plain JSON. All tiers except Basic. Historical news is also available via REST /v1/history/news."
+        zh="实时金融新闻与快讯流：传入目标 ticker 列表或 * 订阅全量新闻。消息为标准 JSON 格式。历史新闻 REST /v1/history/news 仅限 Premium。"
+        en="Realtime market news events. Subscribe with a news list of tickers or * for all. Messages are plain JSON. All tiers except Basic. Historical news via REST /v1/history/news requires Premium."
       />
 
       <h2 id="overnight" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "美股夜盘交易流 (overnight)" : "overnight"}</h2>

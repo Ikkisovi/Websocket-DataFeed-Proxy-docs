@@ -2,6 +2,7 @@
 // Keeps the Chinese-language UI (target audience) but restyles into the
 // warm-paper + Instrument Serif + IBM Plex Mono system. Drops the dark theme.
 
+import PRODUCT_CATALOG from "./product-catalog.json";
 import React, { useState as useRegState, useEffect as useRegEffect } from "react";
 
 function RegisterTopbar() {
@@ -27,145 +28,17 @@ function RegisterTopbar() {
   );
 }
 
-// Single source of truth for tier display.
-// Numbers (wsSymbols, restPerMin) must match cloud-proxy RateLimiter and docs Tiers table.
-const ALL_CHANNELS = ["stocks", "options", "boats", "overnight", "crypto", "news"];
-
-const TIERS = [
-  {
-    id: "free",
-    name: "Free",
-    price: "¥0",
-    period: "/ 30 days",
-    tagline: "最近一个月 · 轻量实时",
-    desc: "全部 REST endpoint 仅最近 31 个日历日 · 最多 10 条并发 WS 订阅",
-    channels: ALL_CHANNELS,
-    wsSymbols: 10,
-    restPerMin: 10,
-    restParallel: 2,
-    wsConns: "shared limit",
-    validity: "30 days",
-    rest: "all REST · recent 31d",
-    restOnly: false,
-    badge: "FREE",
-  },
-  {
-    id: "trial",
-    name: "Trial",
-    price: "¥50",
-    period: "/ 3 days",
-    tagline: "短期体验",
-    desc: "3 天试用 · 全部 WS 通道 · 不可续期",
-    channels: ALL_CHANNELS,
-    wsSymbols: 50,
-    restPerMin: 60,
-    restParallel: 5,
-    wsConns: 3,
-    validity: "3 days",
-    rest: "stocks + options history",
-    restOnly: false,
-    badge: null,
-  },
-  {
-    id: "bulk",
-    name: "Bulk",
-    price: "¥50",
-    period: "/ first 50 GB",
-    tagline: "一次性批量下载",
-    desc: "按 ticker 与数据集下单 · 超过 50 GB 后每开始 1 GB 加 ¥1",
-    channels: [],
-    wsSymbols: 0,
-    restPerMin: null,
-    restParallel: null,
-    wsConns: null,
-    validity: "one-off",
-    rest: "archive export · measured quote",
-    restOnly: false,
-    isBulk: true,
-    badge: "ONE-OFF",
-  },
-  {
-    id: "value",
-    name: "Value",
-    price: "¥70",
-    period: "/ month",
-    tagline: "REST 二选一 · 限速",
-    desc: "全部 WS 通道 + REST 股票或期权二选一 · 限速 30 req/min",
-    channels: ALL_CHANNELS,
-    wsSymbols: 30,
-    restPerMin: 30,
-    restParallel: 3,
-    wsConns: 2,
-    validity: "30 days",
-    rest: "stocks history 或 options chains",
-    restOnly: false,
-    badge: null,
-    hasMode: true,
-    modes: [
-      { id: "stocks", label: "股票方向", desc: "全部 WS + REST 仅股票历史" },
-      { id: "options", label: "期权方向", desc: "全部 WS + REST 仅期权历史" },
-    ],
-  },
-  {
-    id: "standard",
-    name: "Standard",
-    price: "¥100",
-    period: "/ month",
-    tagline: "主流套餐",
-    desc: "全部 WS 通道 · 50 symbols · stocks + options 历史",
-    channels: ALL_CHANNELS,
-    wsSymbols: 50,
-    restPerMin: 60,
-    restParallel: 3,
-    wsConns: 3,
-    validity: "30 days",
-    rest: "stocks + options history",
-    restOnly: false,
-    badge: "POPULAR",
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    price: "¥150",
-    period: "/ month",
-    tagline: "完整接入",
-    desc: "全部 WS 通道 · 500 symbols · 全部 REST 含 crypto",
-    channels: ALL_CHANNELS,
-    wsSymbols: 500,
-    restPerMin: 300,
-    restParallel: 3,
-    wsConns: "∞",
-    validity: "30 days",
-    rest: "全部 · 含 crypto orderbooks",
-    restOnly: false,
-    badge: null,
-  },
-];
-
-const COMPARISON_ROWS = [
-  { label: "Realtime WebSocket",       get: t => !t.isBulk && t.channels.length > 0 },
-  { label: "WS channels",              get: t => t.isBulk || t.channels.length === 0 ? "—" : `${t.channels.length} channels`, raw: true },
-  { label: "REST data scope",          get: t => t.isBulk ? "archive export" : t.id === "premium" ? "all" : t.id === "value" ? "mode" : "stocks+options", raw: true },
-  { label: "REST req/min",             get: t => t.isBulk ? "—" : `${t.restPerMin}/min`, raw: true },
-  { label: "REST parallel",            get: t => t.isBulk ? "—" : `${t.restParallel}`, raw: true },
-  { label: "WS symbols",               get: t => t.isBulk || t.wsSymbols === 0 ? "—" : `${t.wsSymbols}`, raw: true },
-  { label: "WS connections",           get: t => t.isBulk || t.channels.length === 0 ? "—" : `${t.wsConns}`, raw: true },
-  { label: "Token validity",           get: t => t.validity, raw: true },
-];
-
 function planAccessSummary(plan) {
   const parts = [];
   if (Number.isInteger(plan?.rest_history_window_days)) {
     parts.push(`REST · recent ${plan.rest_history_window_days}d`);
   }
-  if (Number.isInteger(plan?.ws_subscription_limit)) {
-    parts.push(`WS · ${plan.ws_subscription_limit} subs`);
-  }
   return parts.join(" · ");
 }
 
 function RegisterPage() {
-  const tier = "free";
+  const freePlan = PRODUCT_CATALOG.tiers.free;
+  const freeChannels = Object.keys(freePlan.permissions.ws).filter(key => key !== "test" && freePlan.permissions.ws[key]);
 
   // Registration Form State
   const [regUsername, setRegUsername] = useRegState("");
@@ -378,7 +251,7 @@ function RegisterPage() {
             新用户 <span style={{ fontStyle: "italic", color: "var(--accent-ink)" }}>注册</span>
           </h1>
           <p style={{ color: "var(--ink-muted)", margin: "0 0 36px", fontSize: 15, maxWidth: 560 }}>
-            注册默认开通 Free：可查看最近 31 个日历日的 REST 数据，并可订阅最多 10 条 WebSocket。
+            注册默认开通 Free；可用数据范围见套餐权益与接口目录，当前请求和订阅限制见账户页。
             需要更多历史、额度或实时订阅，请在账户管理中升级。
           </p>
 
@@ -386,224 +259,6 @@ function RegisterPage() {
           <div className="register-layout" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 320px", gap: 32, alignItems: "start" }}>
             {/* Left: Free registration form */}
             <div>
-              {false && (
-              <>
-              {/* Tier cards */}
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
-                <div className="eyebrow">1 · 选择服务等级</div>
-                <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>
-                  4 token plans · 1 bulk export
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 28 }}>
-                {TIERS.map(t => {
-                  const selected = !t.isBulk && tier === t.id;
-                  return (
-                    <button
-                      type="button"
-                      key={t.id}
-                      onClick={() => {
-                        if (t.isBulk) {
-                          window.location.href = "/docs/#bulk";
-                          return;
-                        }
-                        setTier(t.id);
-                        if (t.id !== "value") setMode("");
-                      }}
-                      className="card"
-                      style={{
-                        textAlign: "left",
-                        padding: 16,
-                        cursor: "pointer",
-                        borderColor: selected ? "var(--ink-strong)" : "var(--rule)",
-                        background: t.isBulk ? "var(--accent-soft)" : selected ? "var(--bg-paper)" : "var(--bg-canvas)",
-                        borderWidth: 1,
-                        borderStyle: "solid",
-                        borderRadius: "var(--radius-lg)",
-                        position: "relative",
-                        transition: "all .15s",
-                        fontFamily: "inherit",
-                        boxShadow: selected ? "0 1px 0 var(--ink-strong)" : "none",
-                      }}
-                    >
-                      {t.badge && (
-                        <span style={{
-                          position: "absolute", top: -8, right: 12,
-                          padding: "2px 6px",
-                          borderRadius: 3,
-                          background: "var(--ink-strong)",
-                          color: "var(--ink-inverse)",
-                          fontFamily: "var(--f-mono)",
-                          fontSize: 9.5,
-                          letterSpacing: ".1em",
-                        }}>{t.badge}</span>
-                      )}
-                      {selected && !t.isBulk && (
-                        <span style={{
-                          position: "absolute", top: 12, right: 12,
-                          width: 16, height: 16, borderRadius: "50%",
-                          background: "var(--ink-strong)",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          color: "#fff", fontSize: 9,
-                        }}>✓</span>
-                      )}
-
-                      <div style={{ marginBottom: 8 }}>
-                        <span className={`tier ${t.id}`} style={{ marginBottom: 6 }}>{t.name}</span>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 2, marginBottom: 4 }}>
-                        <span className="display-title" style={{ fontSize: 28 }}>{t.price}</span>
-                      </div>
-                      <div style={{ fontFamily: "var(--f-mono)", fontSize: 10.5, color: "var(--ink-muted)", marginBottom: 10 }}>
-                        {t.period}
-                      </div>
-
-                      <div style={{ fontSize: 11, color: "var(--ink-strong)", fontWeight: 500, marginBottom: 4 }}>{t.tagline}</div>
-                      <p style={{ color: "var(--ink-muted)", fontSize: 11.5, margin: "0 0 12px", lineHeight: 1.5, minHeight: 50 }}>{t.desc}</p>
-
-                      {/* Symbols line */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, fontSize: 11 }}>
-                        <span style={{ color: "var(--ink-muted)" }}>symbols</span>
-                        <span style={{
-                          fontFamily: "var(--f-mono)",
-                          color: "var(--ink-strong)",
-                          fontSize: 11,
-                        }}>{t.isBulk ? "up to 1,000 tickers" : t.restOnly ? "unlimited (REST)" : `${t.wsSymbols} symbols`}</span>
-                      </div>
-
-                      {/* Channels */}
-                      <div style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>
-                        WS
-                      </div>
-                      {t.isBulk ? (
-                        <div style={{
-                          fontFamily: "var(--f-mono)",
-                          fontSize: 10.5,
-                          color: "var(--accent-ink)",
-                          padding: "2px 6px",
-                          background: "var(--bg-paper)",
-                          borderRadius: 3,
-                          display: "inline-block",
-                          marginBottom: 10,
-                        }}>open order builder →</div>
-                      ) : t.restOnly ? (
-                        <div style={{
-                          fontFamily: "var(--f-mono)",
-                          fontSize: 10.5,
-                          color: "var(--ink-soft)",
-                          padding: "2px 6px",
-                          background: "var(--bg-sunken)",
-                          borderRadius: 3,
-                          display: "inline-block",
-                          marginBottom: 10,
-                        }}>— REST only</div>
-                      ) : (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginBottom: 10 }}>
-                          {t.channels.map(c => (
-                            <code key={c} style={{
-                              fontFamily: "var(--f-mono)",
-                              fontSize: 9.5,
-                              padding: "1px 5px",
-                              borderRadius: 3,
-                              background: selected ? "var(--accent-soft)" : "var(--bg-sunken)",
-                              color: selected ? "var(--accent-ink)" : "var(--ink-muted)",
-                            }}>{c}</code>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* REST line */}
-                      <div style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>
-                        {t.isBulk ? "DELIVERY" : "REST"}
-                      </div>
-                      <div style={{ fontFamily: "var(--f-mono)", fontSize: 10.5, color: "var(--ink-base)", lineHeight: 1.5 }}>
-                        {t.rest}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Value mode selector — shown only when value tier is selected */}
-              {tier === "value" && (() => {
-                const vt = TIERS.find(t => t.id === "value");
-                return (
-                  <div className="card" style={{ padding: 16, marginBottom: 20, borderColor: !mode ? "oklch(0.65 0.18 25)" : "var(--rule)", transition: "border-color .2s" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                      <div className="eyebrow" style={{ margin: 0 }}>选择 REST 数据方向</div>
-                      <span style={{ fontFamily: "var(--f-mono)", fontSize: 10, color: "var(--ink-soft)" }}>pick one · WS 不受限</span>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                      {vt.modes.map(m => {
-                        const active = mode === m.id;
-                        return (
-                          <button
-                            key={m.id}
-                            onClick={() => setMode(m.id)}
-                            style={{
-                              padding: "12px 14px",
-                              border: `1.5px solid ${active ? "var(--ink-strong)" : "var(--rule)"}`,
-                              borderRadius: "var(--radius-lg)",
-                              background: active ? "var(--bg-paper)" : "var(--bg-canvas)",
-                              cursor: "pointer",
-                              textAlign: "left",
-                              fontFamily: "inherit",
-                              boxShadow: active ? "0 1px 0 var(--ink-strong)" : "none",
-                              transition: "all .15s",
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                              <span style={{
-                                width: 14, height: 14, borderRadius: "50%",
-                                border: `1.5px solid ${active ? "var(--ink-strong)" : "var(--ink-soft)"}`,
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                                background: active ? "var(--ink-strong)" : "transparent",
-                                color: "#fff", fontSize: 8, flexShrink: 0,
-                              }}>{active ? "✓" : ""}</span>
-                              <span style={{ fontWeight: 600, fontSize: 13, color: "var(--ink-strong)" }}>{m.label}</span>
-                            </div>
-                            <div style={{ fontFamily: "var(--f-mono)", fontSize: 10.5, color: "var(--ink-muted)", lineHeight: 1.5, paddingLeft: 20 }}>
-                              {m.desc}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Feature comparison strip — data-driven from TIERS */}
-              <div className="card" style={{ padding: 0, marginBottom: 28, overflow: "hidden" }}>
-                <table className="tbl">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 200 }}>Feature</th>
-                      {TIERS.map(t => <th key={t.id} style={{ textAlign: "center" }}>{t.name}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody style={{ fontFamily: "var(--f-mono)", fontSize: 11.5 }}>
-                    {COMPARISON_ROWS.map(row => (
-                      <tr key={row.label}>
-                        <td style={{ fontFamily: "var(--f-sans)", color: "var(--ink-strong)" }}>{row.label}</td>
-                        {TIERS.map(t => {
-                          const v = row.get(t);
-                          if (row.raw) {
-                            return <td key={t.id} style={{ textAlign: "center", color: v === "—" ? "var(--ink-soft)" : "var(--ink-base)" }}>{v}</td>;
-                          }
-                          return v
-                            ? <td key={t.id} style={{ textAlign: "center", color: "var(--ok)" }}>✓</td>
-                            : <td key={t.id} style={{ textAlign: "center", color: "var(--ink-soft)" }}>—</td>;
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              </>
-              )}
-
               {/* Free account registration */}
               <div className="eyebrow" style={{ marginBottom: 10 }}>1 · 邮箱验证</div>
               <div className="card" style={{ padding: 24 }}>
@@ -613,7 +268,7 @@ function RegisterPage() {
                       <div className="eyebrow" style={{ color: "var(--accent-ink)", marginBottom: 6 }}>Default plan · Free</div>
                       <strong style={{ color: "var(--ink-strong)" }}>注册后立即开通</strong>
                       <div style={{ marginTop: 4, color: "var(--ink-muted)", fontSize: 12.5, lineHeight: 1.55 }}>
-                        REST 可查询最近 31 个日历日；账户总计最多 10 条 WS 订阅。需要更多数据或额度，请注册完成后前往账户管理升级。
+                        Free 长期有效 · {freeChannels.length} 个 WebSocket 通道。股票与期权历史最近 {freePlan.constraints.history_days} 个日历日；期权合约与最新快照限最近 {freePlan.constraints.option_expirations} 个未来到期日。当前运行时请求与订阅限制见账户页。
                       </div>
                     </div>
                   </div>
@@ -748,7 +403,7 @@ function RegisterPage() {
                     <div style={{ marginTop: 4, fontSize: 12, color: "var(--ink-muted)" }}>{planAccessSummary(activatedAccess.plan)}</div>
                     <label className="label" style={{ marginTop: 14 }}>一次性 Token</label>
                     <input className="input mono" readOnly value={activatedAccess.token} style={{ fontSize: 12 }} />
-                    <div className="hint">请立即复制并安全保存；有效期至 {activatedAccess.expiry ? new Date(activatedAccess.expiry).toLocaleDateString("zh-CN") : "—"}。</div>
+                    <div className="hint">请立即复制并安全保存；有效期至 {activatedAccess.expiry ? new Date(activatedAccess.expiry).toLocaleDateString("zh-CN") : "长期有效"}。</div>
                     {new URLSearchParams(window.location.search).get("next") === "research-data" && (
                       <a className="btn accent" href="/research-data" style={{ marginTop: 14 }}>继续研究数据采购 →</a>
                     )}
@@ -839,7 +494,7 @@ function RegisterPage() {
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                             <span style={{ color: "var(--ink-muted)" }}>Expires</span>
-                            <span style={{ color: "var(--ink-strong)" }}>{checkTokenInfo.expiry ? new Date(checkTokenInfo.expiry).toLocaleDateString("zh-CN") : "—"}</span>
+                            <span style={{ color: "var(--ink-strong)" }}>{checkTokenInfo.expiry ? new Date(checkTokenInfo.expiry).toLocaleDateString("zh-CN") : checkTokenInfo.role === "free" ? "长期有效" : "—"}</span>
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between" }}>
                             <span style={{ color: "var(--ink-muted)" }}>Role</span>

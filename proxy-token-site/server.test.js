@@ -122,8 +122,8 @@ describe('Research data checkout', () => {
       registry.users[0].expires_at = expiry;
       fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify(registry));
       const expired = await checkout({ product_id: 'spectral-tick-flow' });
-      expect(expired.status).toBe(403);
-      expect(expired.body.code).toBe('token_expired');
+      expect(expired.status).toBe(expiry==='invalid'?403:200);
+      if(expiry==='invalid') expect(expired.body.code).toBe('token_expired');
     }
   });
 });
@@ -229,7 +229,7 @@ describe('Tier definitions', () => {
     expect(TIERS.free.role).toBe('free');
     expect(TIERS.free.permissions.ws.stocks).toBe(true);
     expect(TIERS.free.permissions.ws.options).toBe(true);
-    expect(TIERS.free.permissions.rest.crypto_orderbooks).toBe(true);
+    expect(TIERS.free.permissions.rest.crypto_orderbooks).toBe(false);
   });
 
   it('basic tier is REST-only (all WS false)', () => {
@@ -562,7 +562,11 @@ describe('POST /api/register', () => {
         id: 'free',
         name: 'Free',
         rest_history_window_days: 31,
-        ws_subscription_limit: 10
+        permanent: true,
+        option_expirations: 2,
+        ws_channels: ['stocks','options','overnight','crypto','news','boats'],
+        catalog_version: expect.any(String),
+        catalog_sha256: expect.stringMatching(/^[a-f0-9]{64}$/)
       }
     }));
     expect(response.body.token).toEqual(expect.any(String));
@@ -756,7 +760,7 @@ describe('POST /api/register', () => {
       { token: 'tok-test', user_id: 'perftest_x', role: 'test', expires_at: new Date(Date.now() - 86400000).toISOString() }
     ] }));
     const result = await downgradeExpiredToFree();
-    expect(result.converted).toBe(2);
+    expect(result.converted).toBe(3);
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const byId = Object.fromEntries(proxy.users.map(u => [u.user_id, u]));
     expect(byId.svcAcc.role).toBe('unrestricted');
@@ -1183,21 +1187,20 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).toContain('/stable/income-statement');
   });
 
-  it('documents the deployed REST concurrency and uncapped paid WebSocket connection contract', () => {
-    for (const source of [docsSource]) {
-      expect(source).toContain('ordinary accounts may have up to <strong>3</strong> requests in flight');
-      expect(source).toContain('WebSocket accounts have no account-level connection cap');
-      expect(source).toContain('Each connection supports up to 500 subjects');
-      expect(source).toContain('subscribing to the same subject on two connections counts twice');
-      expect(source).toContain('two paid accounts may each open 100 WebSocket connections');
-      expect(source).toContain('redistribute locally through a local proxy');
-      expect(source).not.toContain('Connection limit exceeded: 3/3 active websockets');
-      expect(source).not.toContain('Premium",  "10",  "\\u221E"');
-      expect(source).not.toContain('Premium",  "6000"');
-    }
-    expect(registerSource).toContain('restParallel: 3');
-    expect(registerSource).toContain('wsConns: "∞"');
-    expect(registerSource).not.toContain('restParallel: 10');
+  it('uses the generated commercial catalog and points capacity questions to runtime account usage', () => {
+    const projected = JSON.parse(fs.readFileSync(path.join(__dirname, 'public', 'product-catalog.json'), 'utf8'));
+    const { publicCatalog } = require('./commerce/product-catalog.cjs');
+    expect(projected).toEqual(publicCatalog());
+    expect(projected.tiers.trial).toBeUndefined();
+    expect(projected.tiers.test).toBeUndefined();
+    expect(docsSource).toContain('/api/product-catalog');
+    expect(docsSource).toContain('data-product-catalog={PRODUCT_CATALOG.version}');
+    expect(docsSource).toContain('account usage');
+    expect(docsSource).toContain('counts as two subjects');
+    expect(docsSource).not.toContain('two paid accounts may each open 100 WebSocket connections');
+    expect(docsSource).not.toContain('Each connection supports up to 500 subjects');
+    expect(registerSource).not.toMatch(/restPerMin:|wsConns:|wsSymbols:|id: "trial"/);
+    expect(registerSource).toContain('PRODUCT_CATALOG.tiers.free');
   });
 
   it('keeps endpoint guidance focused on public request contracts', () => {
@@ -1281,8 +1284,8 @@ describe('Registration and bulk product UI contract', () => {
     ];
     for (const page of pages) {
       const html = fs.readFileSync(path.join(__dirname, 'public', 'docs', page, 'index.html'), 'utf8');
-      expect(html).toContain('/assets/docs-page.js?v=20261001-article-docs');
-      expect(html).toContain('/docs/tokens.css?v=20261001-article-docs');
+      expect(html).toMatch(/\/assets\/docs-page\.js\?v=[a-f0-9]{16}/);
+      expect(html).toMatch(/\/docs\/tokens\.css\?v=[a-f0-9]{16}/);
     }
     expect(docsNavigationSource).toContain('href: DOC_PATHS.marketStocks');
     expect(docsNavigationSource).toContain('href: DOC_PATHS.financialMorningstar');
@@ -1302,8 +1305,10 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).not.toContain('quantconnect.png');
     expect(docsSource).toContain('US equities market-data feed illustration');
     expect(docsSource).toContain('ProviderHero');
-    expect(docsSource).toContain('什么是 PIT？ / What is point-in-time data?');
-    expect(docsSource).toContain('去重与数据处理 / Deduplication and processing');
+    expect(docsSource).toContain('not certified strict point-in-time');
+    expect(docsSource).toContain('id="morningstar-pit"');
+    expect(docsSource).toContain('id="morningstar-processing"');
+    expect(docsSource).toContain('Deduplication and processing');
     expect(docsSource).toContain('字段字典 / Field dictionary');
     expect(docsSource).toContain('Spectral Tick-Flow 频谱订单流信号');
     expect(docsSource).toContain('executionperiodseconds');
@@ -2184,7 +2189,7 @@ describe('Payment bundles and automatic fulfillment', () => {
       registration,
       paymentMethod: 'card'
     });
-    expect(invalidBundle.statusCode).toBe(400);
+    expect(invalidBundle.statusCode).toBe(410);
     expect(invalidMethod.statusCode).toBe(400);
   });
 
@@ -2672,7 +2677,7 @@ describe('Account portal', () => {
       .set('Cookie', cookie)
       .send({ tier: 'standard', months: 13 });
 
-    expect(invalidPlan.statusCode).toBe(400);
+    expect(invalidPlan.statusCode).toBe(410);
     expect(missingMode.statusCode).toBe(400);
     expect(invalidMonths.statusCode).toBe(400);
   });
@@ -2961,7 +2966,7 @@ describe('POST /api/admin/approve', () => {
 
   it('approves and writes correct role for each tier', async () => {
     const tierTests = [
-      { tier: 'trial', expectedRole: 'standard' },
+
       { tier: 'value', expectedRole: 'value', mode: 'options' },
       { tier: 'standard', expectedRole: 'standard' },
       { tier: 'premium', expectedRole: 'premium' },
@@ -2997,21 +3002,13 @@ describe('POST /api/admin/approve', () => {
     }
   });
 
-  it('trial tier gets 3-day expiry in proxy', async () => {
-    const id = seedPendingRegistration({
-      username: 'trial_exp',
-      email: 'trial_exp@example.com',
-      tier: 'trial'
-    });
-    await request(app).post('/api/admin/approve')
-      .set('x-admin-token', adminToken)
-      .send({ id });
-
-    const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
-    const user = proxy.users.find(u => u.user_id === 'trial_exp');
-    const diffDays = (new Date(user.expires_at) - new Date()) / (1000 * 60 * 60 * 24);
-    expect(diffDays).toBeGreaterThan(2.9);
-    expect(diffDays).toBeLessThan(3.1);
+  it('rejects retired Trial approval without issuing credentials', async () => {
+    const id=seedPendingRegistration({username:'trial_exp',email:'trial_exp@example.com',tier:'trial'});
+    const before=fs.readFileSync(TEST_PROXY_FILE,'utf8');
+    const response=await request(app).post('/api/admin/approve').set('x-admin-token',adminToken).send({id});
+    expect(response.status).toBe(410);expect(response.body.error).toBe('product_retired');
+    expect(fs.readFileSync(TEST_PROXY_FILE,'utf8')).toBe(before);
+    expect(JSON.parse(fs.readFileSync(PENDING_FILE))[0].status).toBe('pending');
   });
 
   it('returns 404 for invalid id', async () => {
@@ -3115,7 +3112,7 @@ describe('POST /api/generate-token', () => {
   it('generates token for approved user', async () => {
     // Pre-populate an approved user
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
-      username: 'gentest', phone: '555', email: 'gentest@example.com', role: 'premium', tier: 'premium',
+      username: 'gentest', phone: '555', email: 'gentest@example.com', role: 'premium', tier: 'premium', expires_at:'2030-01-01T00:00:00.000Z',
       permissions: TIERS.premium.permissions
     }]));
 
@@ -3158,7 +3155,7 @@ describe('POST /api/generate-token', () => {
 
   it('writes proxy file in correct format (token + user_id, NOT username + phone)', async () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
-      username: 'formattest', phone: '888', email: 'formattest@example.com', role: 'premium', tier: 'premium',
+      username: 'formattest', phone: '888', email: 'formattest@example.com', role: 'premium', tier: 'premium', expires_at:'2030-01-01T00:00:00.000Z',
       permissions: TIERS.premium.permissions
     }]));
 
@@ -3282,7 +3279,7 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
     expect(user.token.length).toBeGreaterThan(30); // UUID v4 = 36 chars
   });
 
-  it('proxy file entries must have expires_at field', async () => {
+  it('Trial credential recovery cannot create new paid days', async () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify([{
       username: 'expcheck', phone: '444', email: 'expcheck@example.com', role: 'trial', tier: 'trial',
       permissions: TIERS.trial.permissions
@@ -3297,13 +3294,9 @@ describe('Proxy file format (cloud-proxy compatibility)', () => {
     const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
     const user = proxy.users.find(u => u.user_id === 'expcheck');
 
-    expect(user.expires_at).toBeDefined();
-    // Verify it's a valid ISO date ~3 days from now
-    const expDate = new Date(user.expires_at);
-    const now = new Date();
-    const diffDays = (expDate - now) / (1000 * 60 * 60 * 24);
-    expect(diffDays).toBeGreaterThan(2.9);
-    expect(diffDays).toBeLessThan(3.1);
+    expect(user.expires_at).toBeUndefined();
+    expect(user.role).toBe('free');
+    expect(user.subscriptions.market).toEqual({tier:'free',expires_at:null});
   });
 });
 
@@ -4941,8 +4934,10 @@ describe('Portal security repair (20261001)', () => {
         .get('/api/account/overview')
         .set('Cookie', cookie);
       expect(overview.statusCode).toBe(200);
-      expect(overview.body.account.days_remaining).toBe(0);
-      expect(overview.body.account.expiry).toBe(expiredPast);
+      expect(overview.body.account.days_remaining).toBeNull();
+      expect(overview.body.account.expiry).toBeNull();
+      expect(overview.body.account.tier).toBe('free');
+      expect(overview.body.account.capabilities.ws.stocks).toBe(true);
     });
 
     it('returns identical generic success shape without leaking account existence, and hits IP limiter on invalid requests', async () => {

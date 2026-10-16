@@ -159,7 +159,7 @@ function CheckoutSuccess({ info, result, issuedToken }) {
         <div className="activation-note">
           <CheckoutIcon name="shield" />
           <span>
-            订单已经完成幂等履约。{isRegistration ? "账户与数据访问 Token 已自动创建。" : "原有 Token 保持不变，有效期已经自动延长。"}
+            订单已经完成幂等履约。{isRegistration ? "账户与数据访问 Token 已自动创建。" : "原有 Token 保持不变，本次订阅已生效；美股与 China 分别到期。"}
           </span>
         </div>
       </section>
@@ -168,7 +168,7 @@ function CheckoutSuccess({ info, result, issuedToken }) {
           <div className="success-mark"><CheckoutIcon name="check" /></div>
           <h2 className="success-title">已激活</h2>
           <p className="success-copy">
-            {account.user_id} 的 {order.bundle?.name || account.tier} 套餐已生效，有效期至 {formatCheckoutDate(account.expiry)}。
+            {account.user_id} 的 {order.bundle?.name || account.tier} 套餐已生效，本次订阅有效期至 {formatCheckoutDate(order.bundle?.tier === "china" ? account.china_expiry || account.expiry : account.market_expiry || account.expiry)}。
           </p>
           {issuedToken && (
             <div className="token-box">

@@ -122,7 +122,39 @@ test('database failure rejects login instead of using the compatibility registry
   assert.equal(denied.status,503);server.portalStore.failed=false;
 });
 
+test('China checkout preserves the market clock and each expired grant falls back independently', async () => {
+  const original=(await server.portalStore.read('registry')).users[0];
+  const order=await checkout('china-1m');const url='/api/payment/mock/'+order.order.id+'/complete';
+  const completed=await request(server.app).post(url).send({resume_token:order.resume_token});assert.equal(completed.status,200);
+  const combined=(await server.portalStore.read('registry')).users[0];
+  assert.equal(combined.token,original.token);
+  assert.deepEqual(combined.subscriptions.market,original.subscriptions.market);
+  assert.equal(combined.subscriptions.china.tier,'china');
+  assert.equal(completed.body.order.account.capabilities.rest.cn_archive,true);
+  const repeated=await request(server.app).post(url).send({resume_token:order.resume_token});assert.equal(repeated.status,200);
+  assert.deepEqual((await server.portalStore.read('registry')).users[0],combined);
+  await server.portalStore.mutate(async()=>{
+    const registry=await server.portalStore.read('registry');
+    registry.users[0].subscriptions.market.expires_at='2020-01-01T00:00:00.000Z';
+    registry.users[0].expires_at='2020-01-01T00:00:00.000Z';
+    await server.portalStore.write('registry',registry);
+  });
+  const overview=await request(server.app).get('/api/account/overview').set('Cookie',cookie);
+  assert.equal(overview.status,200);assert.equal(overview.body.account.market_expiry,null);
+  assert.ok(overview.body.account.china_expiry);assert.equal(overview.body.account.capabilities.rest.cn_archive,true);
+  assert.equal(overview.body.account.capabilities.rest.financial,false);assert.equal(overview.body.account.capabilities.ws.stocks,true);
+  const spectral=await request(server.app).post('/api/research-data/checkout').set('Cookie',cookie).send({product_id:'spectral-tick-flow'});
+  assert.equal(spectral.status,200);
+  // A public catalog and retired plan rejection must not create an order or principal.
+  const beforeOrders=await server.commerceStore.list();
+  const catalog=await request(server.app).get('/api/product-catalog');assert.equal(catalog.status,200);
+  assert.equal(catalog.body.tiers.trial,undefined);assert.equal(catalog.body.tiers.test,undefined);
+  const retired=await request(server.app).post('/api/account/renew').set('Cookie',cookie).send({tier:'trial',months:1});assert.equal(retired.status,410);
+  assert.deepEqual(await server.commerceStore.list(),beforeOrders);
+});
+
 test('restart retains hashed sessions, restores generated files and keeps paid entitlement exactly', async () => {
+  await server.downgradeExpiredToFree();
   const before=await importer.snapshot();await server.portalStore.close();await server.commerceStore.close();
   fs.writeFileSync(registryFile,'{"users":[]}');
   const listener=net.createServer();await new Promise(r=>listener.listen(0,'127.0.0.1',r));const port=listener.address().port;await new Promise(r=>listener.close(r));

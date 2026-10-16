@@ -68,6 +68,31 @@ for (const [account, expected] of [
   await paid.close();
 }
 
+for (const locale of ["en", "zh"]) {
+  const account = await page(locale, {
+    user_id: "dual-market", role: "premium", tier: "premium",
+    expiry: "2040-01-01T00:00:00Z", days_remaining: 999,
+    market_expiry: "2030-03-15T00:00:00Z", china_expiry: "2031-09-20T00:00:00Z",
+    capabilities: { ws: { stocks: true, options: false, test: true }, rest: { news_history: true, cn_archive: false, admin_token_lookup: false } },
+    catalog_version: "fixture-catalog",
+  });
+  const main = account.document.querySelector("main");
+  assert.match(main.querySelector('[data-expiry="market"]').textContent, /2030/);
+  assert.match(main.querySelector('[data-expiry="china"]').textContent, /2031/);
+  assert.doesNotMatch(main.querySelector('[data-subscription-expiries]').textContent, /2040/);
+  assert.equal(main.querySelector('[data-capability="ws.stocks"]').dataset.enabled, "true");
+  assert.equal(main.querySelector('[data-capability="ws.options"]').dataset.enabled, "false");
+  assert.equal(main.querySelector('[data-capability="rest.news_history"]').dataset.enabled, "true");
+  assert.equal(main.querySelector('[data-capability="rest.cn_archive"]').dataset.enabled, "false");
+  assert.equal(main.querySelector('[data-capability="ws.test"]'), null);
+  assert.equal(main.querySelector('[data-capability="rest.admin_token_lookup"]'), null);
+  await account.close();
+}
+const freeWithChina = await page("en", { user_id: "free-cn", role: "free", tier: "free", market_expiry: null, china_expiry: "2031-09-20T00:00:00Z" });
+assert.match(freeWithChina.document.querySelector('[data-expiry="market"]').textContent, /Permanent Free baseline/);
+assert.match(freeWithChina.document.querySelector('[data-expiry="china"]').textContent, /2031/);
+await freeWithChina.close();
+
 const fingerprint = createHash("sha256").update(bundle).update(language).digest("hex").slice(0, 16);
 const html = fs.readFileSync(new URL("account.html", publicRoot), "utf8");
 assert.ok(html.includes(`/assets/account-page.js?v=${fingerprint}`));

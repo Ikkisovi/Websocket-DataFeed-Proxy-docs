@@ -233,6 +233,8 @@ RETIRED_DOC_INDEXES = tuple("docs/market/overview/" + name + "/index.html" for n
 
 FILES = (
     "assets/docs-page.js", "assets/token-page.js", "assets/register-page.js",
+    "assets/account-page.js", "account-page.jsx", "account.html",
+    "assets/checkout-page.js", "checkout-page.jsx", "product-catalog.json",
     "assets/providers/fmp-data.png", "assets/providers/morningstar.png", "assets/providers/alpaca.png",
     "skills/leandata-market-data/SKILL.md",
     "register-page.jsx",

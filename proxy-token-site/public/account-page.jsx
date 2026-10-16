@@ -317,6 +317,8 @@ function AccountDashboard({ overview, loading, onRefresh, onRenew }) {
   const [tokenValue, setTokenValue] = useAccountState("");
   const [tokenLoading, setTokenLoading] = useAccountState(false);
   const [tokenMessage, setTokenMessage] = useAccountState("");
+  const hasIndependentExpiry = Object.hasOwn(account, "market_expiry") || Object.hasOwn(account, "china_expiry");
+  const capabilities = account.capabilities;
   const expired = account.days_remaining === 0;
   const isPermanentFree = (account.tier === 'free' || account.role === 'free') && account.expiry == null;
 
@@ -370,6 +372,13 @@ function AccountDashboard({ overview, loading, onRefresh, onRenew }) {
             </div>
             {tokenMessage && <div style={{ marginTop: 8, color: "var(--ink-muted)", fontSize: 12 }}>{tokenMessage}</div>}
           </div>
+          {hasIndependentExpiry ? (
+            <div className="account-summary" data-subscription-expiries="true">
+              <div className="account-pair"><span className="account-pair-label">US market expiry</span><span className="account-pair-value" data-expiry="market">{account.market_expiry ? formatAccountDate(account.market_expiry) : "Permanent Free baseline"}</span></div>
+              <div className="account-pair"><span className="account-pair-label">China expiry</span><span className="account-pair-value" data-expiry="china">{account.china_expiry ? formatAccountDate(account.china_expiry) : "Not active"}</span></div>
+              <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>Independent subscription expiry · permanent Free baseline retained</div>
+            </div>
+          ) : (
           <div style={{ textAlign: "right" }}>
             <div style={{ color: "var(--ink-muted)", fontSize: 12 }}>有效期至</div>
             <div style={{ color: expired ? "var(--danger)" : "var(--ink-strong)", fontFamily: "var(--f-mono)", marginTop: 5 }}>
@@ -379,7 +388,21 @@ function AccountDashboard({ overview, loading, onRefresh, onRenew }) {
               {isPermanentFree ? "长期有效" : account.days_remaining == null ? "到期时间不可用" : expired ? "已到期" : `剩余 ${account.days_remaining} 天`}
             </div>
           </div>
+          )}
         </section>
+
+        {capabilities && <section className="card account-span-12" data-effective-capabilities="true" style={{ padding: 24 }}>
+          <div className="eyebrow">Effective capabilities</div>
+          {["ws", "rest"].map(group => <div key={group} style={{ marginTop: 12 }}>
+            <strong>{group.toUpperCase()}</strong>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+              {Object.entries(capabilities[group] || {}).filter(([name]) => name !== "test" && name !== "admin_token_lookup").map(([name, allowed]) => (
+                <span className="pill" key={name} data-capability={`${group}.${name}`} data-enabled={String(allowed === true)}>{allowed === true ? "✓" : "—"} {name.replaceAll("_", " ")}</span>
+              ))}
+            </div>
+          </div>)}
+          {account.catalog_version && <div style={{ marginTop: 12, fontSize: 12, color: "var(--ink-muted)" }}>Catalog {account.catalog_version}</div>}
+        </section>}
 
         <AccountKpi
           label="REST requests"
@@ -408,7 +431,7 @@ function AccountDashboard({ overview, loading, onRefresh, onRenew }) {
               <div className="eyebrow" style={{ marginBottom: 8 }}>Upgrade & renewal</div>
               <h2 className="display-title" style={{ fontSize: 30, margin: "0 0 8px" }}>选择升级套餐</h2>
               <p style={{ margin: 0, color: "var(--ink-muted)" }}>
-                在这里进入安全结账页选择 Value、Standard 或 Premium、时长和支付方式。支付成功后保留原 Token 并自动延长有效期。
+                在这里进入安全结账页选择套餐、时长和支付方式。China 可叠加到美股套餐，分别到期；支付后保留原 Token。
               </p>
             </div>
             <button className="btn accent" onClick={onRenew}>
@@ -451,6 +474,7 @@ function AccountDashboard({ overview, loading, onRefresh, onRenew }) {
             <span className="account-pair-label">Rate policy</span>
             <span className="account-pair-value">{rest?.limits?.rate_policy === "shared_proxy_and_provider_limits" ? "Proxy + provider" : "—"}</span>
           </div>
+          {ws?.limits && Object.entries(ws.limits).map(([name, value]) => <div className="account-pair" key={name}><span className="account-pair-label">WS {name.replaceAll("_", " ")}</span><span className="account-pair-value">{typeof value === "object" ? "See usage details" : String(value ?? "—")}</span></div>)}
           <button className="btn" onClick={onRefresh} disabled={loading} style={{ width: "100%", justifyContent: "center", marginTop: 16 }}>
             {loading ? "刷新中…" : "刷新实时用量"}
           </button>

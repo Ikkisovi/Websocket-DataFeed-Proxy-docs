@@ -1,8 +1,16 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import { JSDOM, VirtualConsole } from "jsdom";
 import { DOC_ARTICLES } from "../public/docs/doc-navigation.mjs";
+const require = createRequire(import.meta.url);
+const { publicCatalog } = require("../commerce/product-catalog.cjs");
+const commercialCatalog = JSON.parse(fs.readFileSync(new URL("../public/product-catalog.json", import.meta.url)));
+assert.deepEqual(commercialCatalog, publicCatalog(), "Generated public catalog must exactly match checkout commercial definitions");
+assert.equal(commercialCatalog.tiers.trial, undefined);
+assert.equal(commercialCatalog.tiers.test, undefined);
+assert.equal(commercialCatalog.free_baseline_permanent, true);
 
 const contractBytes = fs.readFileSync(new URL("../public/docs/public-api-contract.json", import.meta.url));
 const contract = JSON.parse(contractBytes);
@@ -16,7 +24,11 @@ const cases = [
   ["/docs/market/overview/response-delivery/", [/direct=1/, /archive-direct\.leandata\.uk/, /303/, /307/, /without Authorization/, /counts once/]],
   ["/docs/market/options/option-oi-latest/", [/06:30/, /previous trading session/, /retrieval time/, /missing records are not zero/i]],
   ["/docs/market/options/post-v1-options-snapshots-open-interest/", [/not an implemented OI interface/, /v3\/option\/snapshot\/open_interest/]],
-  ["/docs/financial/regular/fmp-calendar-support/", [/earnings-calendar/, /dividends-calendar/, /501/, /not a plan-upgrade prompt/]],
+  ["/docs/financial/regular/fmp-calendar-support/", [/earnings-calendar/, /dividends-calendar/, /501/, /not a plan-upgrade prompt/, /events\/eodhd\/history/, /events\/eodhd\/coverage/, /snapshot_date/, /report_date/, /dividend_date/, /observed captures only/, /research_admission=false/, /without an Authorization header/]],
+  ["/docs/market/overview/tiers-permissions/", [/GET \/api\/product-catalog/, /Permanent/, /independent.*expiry/i, /Trial is retired/, /31 days/, /nearest 2 upcoming expiries/]],
+  ["/docs/market/overview/free-plan-usage/", [/31 calendar days/, /nearest 2 upcoming expiration/, /All six channels/, /boats/]],
+  ["/docs/market/crypto-news/post-v1-history-news/", [/Premium only/]],
+  ["/docs/market/crypto-news/post-v1-crypto-us-latest-orderbooks/", [/Premium/]],
   ["/docs/status/", [/measure connectivity/, /not the freshness/, /p50\s*—\s*ms/]],
 ];
 for (const [path, patterns] of cases) {
@@ -37,6 +49,27 @@ for (const [path, patterns] of cases) {
   const main = dom.window.document.querySelector("main");
   assert(main, path); assert.deepEqual(errors, []);
   for (const pattern of patterns) assert.match(main.textContent, pattern, path);
+  if (path.endsWith("/tiers-permissions/")) {
+    const rows = [...main.querySelectorAll("[data-product-catalog] tbody tr")];
+    assert.equal(rows.length, Object.keys(commercialCatalog.tiers).length);
+    assert(rows.every(row => !/Trial|\btest\b/.test(row.cells[0].textContent)));
+    assert.doesNotMatch(main.textContent, /500 \/ connection|100 WebSocket connections|Free \(30 days\)/);
+    for (const [name, tier] of Object.entries(commercialCatalog.tiers)) {
+      const row = rows.find(row => row.cells[0].querySelector(`.tier.${name}`));
+      assert(row, name);
+      for (const channel of ["stocks", "options", "boats", "overnight", "crypto", "news"]) {
+        assert.equal(row.cells[2].textContent.includes(channel), tier.permissions.ws[channel], `${name}.${channel}`);
+      }
+      for (const [mode, permissions] of Object.entries(tier.modes || {})) {
+        const scope = [...row.cells[3].querySelectorAll("div")].find(value => value.querySelector("strong")?.textContent === `${mode}:`);
+        assert(scope, `${name}.${mode}`);
+        for (const capability of ["stocks_history", "options_history", "options_contracts", "options_snapshots"]) {
+          assert.equal(scope.textContent.split(/[:,]\s*/).includes(capability), permissions.rest[capability], `${name}.${mode}.${capability}`);
+        }
+      }
+    }
+  }
+  if (path.endsWith("/free-plan-usage/")) assert.doesNotMatch(main.textContent, /10 calendar days/);
   if (path.endsWith("/api-contract/")) {
     for (const op of contract.operations) assert(main.textContent.includes(op.path), op.path);
     assert(main.textContent.includes(contractSource.sha256));

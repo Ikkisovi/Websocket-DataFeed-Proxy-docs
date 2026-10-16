@@ -1,3 +1,4 @@
+import "./generate-product-catalog.mjs";
 import "./sync-api-contract.mjs";
 import { build } from "esbuild";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
