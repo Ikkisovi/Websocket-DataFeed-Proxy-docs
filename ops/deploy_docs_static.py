@@ -24,6 +24,7 @@ DOC_PAGE_INDEXES = (
     "docs/market/cn/index.html",
     "docs/financial/index.html",
     "docs/financial/regular/index.html",
+    "docs/financial/eodhd/index.html",
     "docs/financial/morningstar/index.html",
     "docs/financial/statements/index.html",
     "docs/financial/ratios-growth/index.html",
@@ -36,6 +37,10 @@ DOC_PAGE_INDEXES = (
 
 # BEGIN GENERATED ARTICLE FILES
 DOC_ARTICLE_INDEXES = (
+    "docs/financial/eodhd/eodhd-coverage/index.html",
+    "docs/financial/eodhd/eodhd-fields/index.html",
+    "docs/financial/eodhd/eodhd-history/index.html",
+    "docs/financial/eodhd/eodhd-overview/index.html",
     "docs/financial/morningstar/morningstar-coverage/index.html",
     "docs/financial/morningstar/morningstar-fields/index.html",
     "docs/financial/morningstar/morningstar-history/index.html",

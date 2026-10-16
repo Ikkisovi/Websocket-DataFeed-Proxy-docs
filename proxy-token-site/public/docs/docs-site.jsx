@@ -560,7 +560,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
     window.addEventListener("keydown", closeMenu);
     return () => window.removeEventListener("keydown", closeMenu);
   }, []);
-  const referencePage = ["proxy", "ws", "fmp-fundamentals", "morningstar"].includes(tab);
+  const referencePage = ["proxy", "ws", "fmp-fundamentals", "morningstar", "eodhd"].includes(tab);
   const topic = NAV_GROUPS.flatMap(group => group.items).find(item => item.href === config.path);
   const title = article ? (isZh ? SECTION_ZH_LABELS[article.label] || article.label : article.label) : topic ? (isZh ? topic.label : topic.en) : "Documentation";
 
@@ -589,6 +589,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
     : sourceOverview || page === "financial" ? <FmpDataOverview articleId={article?.id} />
     : config.tab === "proxy" ? <ProxyApiBody {...bodyProps} />
     : config.tab === "fmp-fundamentals" ? <FmpFundamentalsBody {...bodyProps} />
+    : config.tab === "eodhd" ? <EodhdEventsBody articleId={article?.id} />
     : config.tab === "morningstar" ? <MorningstarFundamentalsBody articleId={article?.id} />
     : page === "bulk" ? <BulkOrderBody />
     : config.tab === "ws" ? <WsUsageBody {...bodyProps} />
@@ -1583,6 +1584,7 @@ function BulkOrderBody() {
 function FinancialSourceSelector({ active }) {
   const sources = [
     { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "v3: 64 slots · 898 symbols · 2011–present · v1: 28 metrics · 550 symbols · 2020–2026-09 (frozen)", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo", recommended: true },
+    { id: "eodhd", title: "EODHD", zh: "财报、除息与拆股事件", meta: "Observed event captures · Premium · history + coverage", href: DOC_PATHS.financialEodhd },
     { id: "regular", title: "Regular / FMP", zh: "标准财务数据", meta: "50+ endpoints · statements · ratios · profiles", href: DOC_PATHS.financialRegular, logo: PROVIDER_LOGOS.fmp, alt: "FMP Data logo" },
   ];
   return (
@@ -1590,7 +1592,7 @@ function FinancialSourceSelector({ active }) {
       <div className="eyebrow" style={{ marginBottom: 9 }}>第一步 / Step 1</div>
       <h2 className="display-title" style={{ fontSize: 30, margin: "0 0 8px" }}>选择财务数据源 / Choose a financial data source</h2>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 14px" }}>
-        两套 provider 保持独立 schema、覆盖范围和修订语义。请选择后再查看接口。
+        各数据源保持独立 schema、覆盖范围和修订语义。请选择后再查看接口。
         <br/>Providers keep separate schemas, coverage, and revision semantics. Choose a source before opening its endpoints.
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
@@ -1598,7 +1600,7 @@ function FinancialSourceSelector({ active }) {
           const selected = active === source.id;
           return (
             <a key={source.id} href={source.href} aria-current={selected ? "page" : undefined} className="provider-source-card" style={{ color: "var(--ink-strong)", textDecoration: "none" }}>
-              <img className="provider-source-logo" src={source.logo} alt={source.alt} loading="lazy" />
+              {source.logo ? <img className="provider-source-logo" src={source.logo} alt={source.alt} loading="lazy" /> : <span className="provider-source-logo" aria-hidden="true">EODHD</span>}
               <div>
                 <strong style={{ display: "block", fontSize: 17, marginBottom: 3 }}>{source.title}{source.recommended ? <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, color: "var(--accent-ink)", background: "var(--accent-soft)", border: "1px solid var(--accent-rule)", borderRadius: 20, padding: "1px 9px", marginLeft: 8, verticalAlign: "middle" }}>推荐 RECOMMENDED</span> : null}</strong>
                 <div style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 5 }}>{source.zh}</div>
@@ -1981,15 +1983,16 @@ Content-Type: application/json
       <p>A 501 is an unavailable endpoint, not a plan-upgrade prompt. An empty 200 array only describes the requested slice. Quote/profile/analyst records in this financial catalog are archived snapshots; use the market-data quote endpoints for current trading decisions and inspect source timestamps.<br/>501 不应通过升级套餐或反复重试解决。空数组不证明全市场无事件；财务目录中的报价、资料、预测是归档快照，交易所需当前报价请使用行情接口并检查来源时间。</p>
 
       <h3>Observed event history / 已观测事件归档</h3>
+      <p><a href={DOC_PATHS.financialEodhd}>EODHD integration guide / EODHD 事件接入文档</a></p>
       <p>Premium supports <code>GET/POST /v1/events/eodhd/history</code> and <code>GET/POST /v1/events/eodhd/coverage</code>. Select <code>dataset=earnings</code> (default), <code>dividends</code> or <code>splits</code>. These endpoints expose observed captures only; they do not guarantee complete historical or future event coverage.<br/>这两条接口需要 Premium，仅返回已观测归档，不承诺完整历史或未来事件日历。</p>
       <ParamTable rows={[
         { name: "dataset", type: "string", required: false, desc: "earnings (default) | dividends | splits", zh: "事件数据集" },
-        { name: "start_date / end_date", type: "date", required: false, desc: "History selectors on snapshot_date, not the event date", zh: "按抓取快照日期筛选历史，不是事件日期" },
+        { name: "start / end", type: "date", required: false, desc: "Inclusive history selectors on snapshot_date, not the event date", zh: "按抓取快照日期筛选历史，不是事件日期" },
         { name: "limit / offset", type: "integer", required: false, desc: "History page: limit up to 500; offset up to 100000", zh: "历史分页：limit 最大 500，offset 最大 100000" },
       ]} />
-      <p><code>start_date</code>/<code>end_date</code> select <code>snapshot_date</code>. Keep event fields such as earnings <code>report_date</code>, <code>dividend_date</code> and <code>payment_date</code> separate. Coverage is independent of history filters: inspect it for captured snapshot intervals before selecting a history slice. Native payload selection does not accept <code>fields</code>. Preserve sparse/null fields and <code>O</code>/<code>Z</code>/<code>M</code> metadata; <code>research_admission=false</code> remains a research-admission boundary.<br/>查询日期选择抓取快照日期；财报、除息和支付日期是独立业务字段。coverage 不受 history 过滤条件限制。原生载荷不接受 fields 投影，请保留缺失值与元数据。</p>
+      <p><code>start</code>/<code>end</code> select <code>snapshot_date</code>. Keep event fields such as earnings <code>report_date</code>, <code>dividend_date</code> and <code>payment_date</code> separate. Coverage is independent of history filters: inspect it for captured snapshot intervals before selecting a history slice. Native payload selection does not accept <code>fields</code>. Preserve source fields and sparse/null values; <code>research_admission=false</code> remains a research-admission boundary.<br/>查询日期选择抓取快照日期；财报、除息和支付日期是独立业务字段。coverage 不受 history 过滤条件限制。原生载荷不接受 fields 投影，请保留缺失值与元数据。</p>
       <pre className="code">{`curl "https://api.leandata.uk/v1/events/eodhd/coverage?dataset=earnings" -H "Authorization: Bearer $LEANDATA_TOKEN"
-curl "https://api.leandata.uk/v1/events/eodhd/history?dataset=earnings&start_date=2026-10-01&end_date=2026-10-02&limit=100" -H "Authorization: Bearer $LEANDATA_TOKEN"`}</pre>
+curl "https://api.leandata.uk/v1/events/eodhd/history?dataset=earnings&start=2026-10-01&end=2026-10-02&limit=100" -H "Authorization: Bearer $LEANDATA_TOKEN"`}</pre>
       <p>Delivery uses the normal authenticated API request. Same-origin transparent delivery is the default; opt-in <code>direct=1</code> can return a signed download redirect. Follow signed GET URLs without an Authorization header or Bearer token; never forward the API credential to the download host.<br/>默认同源透明交付；direct=1 可返回签名下载跳转，签名 GET 不携带 Authorization 或 Bearer。</p>
 
       <h3 id="fmp-request-contract" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>参数说明 / Parameters</h3>
@@ -2040,6 +2043,99 @@ curl "https://api.leandata.uk/v1/events/eodhd/history?dataset=earnings&start_dat
       </div>
     </DocContent>
   );
+}
+
+
+function EodhdEventsBody({ articleId } = {}) {
+  const isZh = useCurrentLanguage() === "zh";
+  const operations = API_CONTRACT.operations.filter(op => op.id.startsWith("eodhd-"));
+  return <DocContent articleId={articleId} style={{ maxWidth: 860 }}>
+    <h2 id="eodhd-overview" className="display-title">{isZh ? "EODHD 事件接入" : "EODHD events integration"}</h2>
+    <p>Premium · <code>https://api.leandata.uk</code> · GET / POST · Bearer token</p>
+    <p>使用现有 LeanData Premium Token，无需提供上游密钥。先调用 coverage 选取抓取快照和 bundle，再调用 history 获取 earnings、dividends 或 splits。<br/>Use your existing LeanData Premium token. Inspect coverage, choose a captured snapshot and bundle, then read earnings, dividends or splits history.</p>
+    <p>这是已观测事件归档，不是完整实时或未来日历。未来事件可在选定快照的事件日期字段中筛选；快照日期不等于公告发布时间。<br/>These are observed captures, not a complete live or future calendar. Filter event dates within a selected snapshot client-side; capture dates are not verified vendor publication timestamps. Empty data does not prove no events. <code>research_admission=false</code>.</p>
+    <table className="tbl"><thead><tr><th>Dataset</th><th>Meaning / 含义</th></tr></thead><tbody>
+      <tr><td>earnings (default)</td><td>Captured earnings observations / 财报预告观测</td></tr>
+      <tr><td>dividends</td><td>Captured dividend observations / 分红及除息观测</td></tr>
+      <tr><td>splits</td><td>Captured split observations; can be empty / 拆股观测，可为空</td></tr>
+    </tbody></table>
+    <p>默认同源 200 JSON 交付。可选 <code>direct=1</code>：GET 307 / POST 303 后使用签名 GET；缓存命中也可直接返回 200。签名下载不携带原 Token、Authorization、Cookie 或请求体，且不额外计一次公开 API 请求。<br/>Same-origin JSON is the default. Opt-in signed download uses a separate credential-free GET to the exact HTTPS origin <code>archive-direct.leandata.uk</code>. Never log the signed URL. <a href={docArticlePath("market-overview", "response-delivery")}>Delivery and safe redirect handling</a>.</p>
+    <p>兼容日历接口 <code>/stable/earnings-calendar</code> 和 <code>/stable/dividends-calendar</code> 仍返回 501。EODHD 不会改变这两个接口的可用性。<br/>The FMP calendar routes remain unavailable; EODHD does not change their status.</p>
+    <h2 id="eodhd-fields" className="display-title">{isZh ? "事件字段与日期" : "Event fields and clocks"}</h2>
+    <p>Each history row has <code>bundle</code>, <code>row_id</code>, <code>source_sha256</code> and original <code>payload</code>. Keep the pair <code>(bundle,row_id)</code> as capture identity; do not silently deduplicate revisions. Preserve original response bytes for exact numeric custody and keep null separate from zero.<br/>每条记录包含版本、行号、源 CSV 哈希及原生 payload；保留修订，不要把缺失值填成零。</p>
+    <table className="tbl"><thead><tr><th>Field</th><th>Meaning / 含义</th></tr></thead><tbody>
+      <tr><td>payload.snapshot_date</td><td>Capture date selected by start/end / 查询筛选的抓取快照日期</td></tr>
+      <tr><td>payload.ticker / qc_symbol_id</td><td>Captured ticker and native identity / 原始代码及标识</td></tr>
+      <tr><td>earnings: report_date, report_time, estimate</td><td>Source event date/time labels and estimate; not a verified publication clock / 来源事件日期、时间标签及预期值</td></tr>
+      <tr><td>dividends: declaration_date, dividend_date, payment_date, dividend</td><td>Declaration, ex-dividend and payment dates plus native amount / 宣告、除息、支付日期及原始金额</td></tr>
+      <tr><td>splits: source payload fields</td><td>Read supplied split date/ratio fields; an empty capture establishes no schema values / 以来源拆股日期和比例字段为准，不从空数据推定字段值</td></tr>
+    </tbody></table>
+    <p>Dates can be absent or revised. The API does not certify announcement-time PIT, upstream completeness or research eligibility. Fetch an observed snapshot, then apply your business event-date filter to its payload.<br/>日期可能缺失或修订；请先按快照抓取，再按事件日期筛选，接口不保证原始公告时点 PIT。</p>
+    <h2 id="eodhd-history" className="display-title">GET / POST /v1/events/eodhd/history</h2>
+    <p>Schema <code>qc_native_history_v1</code>: <code>source=eodhd</code>, dataset, count, data, truncated, next_offset, date_semantics and <code>research_admission=false</code>.</p>
+    <ParamTable rows={(operations.find(op => op.id === "eodhd-history")?.parameters || []).map(p => ({ name: p.name, type: ["limit", "offset"].includes(p.name) ? "integer" : "string", required: p.required, desc: p.description }))} />
+    <p><code>start/end</code> 是包含边界的 snapshot_date；<code>start_date/end_date</code> 不是有效别名。未传日期默认截至 UTC 今天的 31 天；不指定 symbols 时最多 7 天，因此请明确日期。<code>fields</code> 投影、cache-only、upstream-only 均不支持。<br/>Use explicit inclusive start/end snapshot dates. start_date/end_date are not supported aliases. Unfiltered cross-sections allow at most 7 inclusive calendar days. Fields projection and cache-only/upstream-only controls are unsupported.</p>
+    <pre className="code">{`# Choose a captured date and bundle from coverage first.
+curl --fail-with-body --silent --show-error --get \\
+  "https://api.leandata.uk/v1/events/eodhd/history" \\
+  -H "Authorization: Bearer $LEANDATA_TOKEN" \\
+  --data-urlencode dataset=earnings --data-urlencode "bundle=$EODHD_BUNDLE" \\
+  --data-urlencode "start=$SNAPSHOT_DATE" --data-urlencode "end=$SNAPSHOT_DATE" \\
+  --data-urlencode limit=100 --data-urlencode offset=0
+
+# POST uses the same selectors. This snapshot date is illustrative.
+curl --fail-with-body --silent --show-error \\
+  "https://api.leandata.uk/v1/events/eodhd/history" \\
+  -H "Authorization: Bearer $LEANDATA_TOKEN" -H "Content-Type: application/json" \\
+  --data '{"dataset":"dividends","start":"2026-10-09","end":"2026-10-09","limit":100}'`}</pre>
+    <p><code>truncated=true</code> 时使用返回的 <code>next_offset</code>，固定 bundle、日期、symbols、limit。<code>truncated=false</code> 时停止。offset 最大 100000；达到上限应缩小日期或股票范围。<br/>Follow returned next_offset only while truncated=true. Pin bundle and keep all other selectors fixed; narrow the window or symbol scope before exceeding offset 100000.</p>
+    <pre className="code">{`import json, os
+from decimal import Decimal
+import requests
+
+base = "https://api.leandata.uk/v1/events/eodhd/"
+params = {
+    "dataset": os.environ.get("EODHD_DATASET", "earnings"),
+    "bundle": os.environ["EODHD_BUNDLE"],
+    "start": os.environ["SNAPSHOT_DATE"],
+    "end": os.environ["SNAPSHOT_DATE"],
+    "limit": 100, "offset": 0,
+}
+with requests.Session() as session:
+    session.headers["Authorization"] = "Bearer " + os.environ["LEANDATA_TOKEN"]
+    for page in range(10):  # bounded example; narrow scope for larger results
+        response = session.get(base + "history", params=params,
+                               timeout=30, allow_redirects=False)
+        if response.status_code != 200:
+            raise SystemExit("HTTP " + str(response.status_code))
+        # Keep response.content for exact byte custody. Decimal avoids float loss.
+        result = json.loads(response.content, parse_float=Decimal)
+        print("page", page, "records", result["count"])
+        if not result["truncated"]:
+            break
+        next_offset = result["next_offset"]
+        if not isinstance(next_offset, int) or not params["offset"] < next_offset <= 100000:
+            raise SystemExit("Narrow snapshot dates or symbols before continuing")
+        params["offset"] = next_offset
+    else:
+        raise SystemExit("Page budget reached; narrow the selected scope")`}</pre>
+    <p>400：修正 dataset、日期或分页参数；403：核对 Premium 权限；429：遵守 Retry-After，使用有限退避重试。空 200 只是所选切片无记录。<br/>Correct permanent errors instead of retrying unchanged requests. An empty 200 describes only the selected slice.</p>
+    <h2 id="eodhd-coverage" className="display-title">GET / POST /v1/events/eodhd/coverage</h2>
+    <ParamTable rows={(operations.find(op => op.id === "eodhd-coverage")?.parameters || []).map(p => ({ name: p.name, type: "string", required: p.required, desc: p.description }))} />
+    <p>Schema <code>qc_native_coverage_v1</code>. Each data entry includes bundle, family, dataset, rows, first_date, last_date, source_sha256 and metadata (run, source_csv, source_csv_sha256). <code>count</code> counts manifests; <code>data[].rows</code> counts captured event records. Empty datasets can have zero rows and null date bounds. Coverage is not paginated.<br/>count 为清单数，rows 为抓取记录数；空数据集日期边界可能为 null。</p>
+    <p>Only dataset and optional bundle select coverage. History start/end, symbols, limit, offset and fields do not filter it. Inspect the complete capture manifests before narrowing history.<br/>coverage 只接受 dataset 和 bundle 选择；历史过滤条件不会限制覆盖结果。<code>upstream_completeness_verified=false</code>，<code>research_admission=false</code>。</p>
+    <pre className="code">{`curl --fail-with-body --silent --show-error --get \\
+  "https://api.leandata.uk/v1/events/eodhd/coverage" \\
+  -H "Authorization: Bearer $LEANDATA_TOKEN" --data-urlencode dataset=earnings
+
+curl --fail-with-body --silent --show-error --get \\
+  "https://api.leandata.uk/v1/events/eodhd/coverage" \\
+  -H "Authorization: Bearer $LEANDATA_TOKEN" --data-urlencode dataset=dividends
+
+curl --fail-with-body --silent --show-error --get \\
+  "https://api.leandata.uk/v1/events/eodhd/coverage" \\
+  -H "Authorization: Bearer $LEANDATA_TOKEN" --data-urlencode dataset=splits`}</pre>
+  </DocContent>;
 }
 
 function MorningstarFundamentalsBody({ articleId } = {}) {

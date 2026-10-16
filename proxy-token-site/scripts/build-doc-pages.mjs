@@ -29,6 +29,7 @@ const pages = {
   "market/cn": "China Market Data API",
   "financial": "Financial Data Sources",
   "financial/regular": "Regular / FMP Financial API",
+  "financial/eodhd": "EODHD Events API",
   "financial/morningstar": "Morningstar Fundamentals API",
   "financial/statements": "Financial Statements API",
   "financial/ratios-growth": "Financial Ratios & Growth API",

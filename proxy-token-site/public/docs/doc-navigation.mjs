@@ -11,6 +11,7 @@ const DOC_PATHS = {
   marketCn: "/docs/market/cn/",
   financial: "/docs/financial/",
   financialRegular: "/docs/financial/regular/",
+  financialEodhd: "/docs/financial/eodhd/",
   financialMorningstar: "/docs/financial/morningstar/",
   financialStatements: "/docs/financial/statements/",
   financialRatios: "/docs/financial/ratios-growth/",
@@ -40,11 +41,12 @@ const NAV_GROUPS = [
   {
     key: "financial",
     label: "财务数据", en: "Financial data",
-    match: ["fmp", "fmp-fundamentals", "morningstar"],
+    match: ["fmp", "fmp-fundamentals", "morningstar", "eodhd"],
     mainTab: "fmp",
     items: [
-      { label: "选择数据源", en: "Choose source", desc: "Regular / FMP · Morningstar", href: DOC_PATHS.financial },
+      { label: "选择数据源", en: "Choose source", desc: "Regular / FMP · Morningstar · EODHD", href: DOC_PATHS.financial },
       { label: "Morningstar（推荐）", en: "Morningstar (recommended)", desc: "Daily wide fundamentals", href: DOC_PATHS.financialMorningstar },
+      { label: "EODHD 事件", en: "EODHD events", desc: "Earnings · Dividends · Splits", href: DOC_PATHS.financialEodhd },
       { label: "Regular / FMP", en: "Regular / FMP", desc: "50+ standard endpoints", href: DOC_PATHS.financialRegular },
       { label: "财务三表", en: "Financial statements", desc: "Income · Balance · Cashflow", href: DOC_PATHS.financialStatements },
       { label: "比率与增长", en: "Ratios & growth", desc: "Ratios · Growth", href: DOC_PATHS.financialRatios },
@@ -85,6 +87,7 @@ const DOC_PAGE_CONFIG = {
   "market-cn": { path: DOC_PATHS.marketCn, tab: "proxy", focus: "cn" },
   financial: { path: DOC_PATHS.financial, tab: "fmp" },
   "financial-regular": { path: DOC_PATHS.financialRegular, tab: "fmp-fundamentals" },
+  "financial-eodhd": { path: DOC_PATHS.financialEodhd, tab: "eodhd" },
   "financial-morningstar": { path: DOC_PATHS.financialMorningstar, tab: "morningstar" },
   "financial-statements": { path: DOC_PATHS.financialStatements, tab: "fmp-fundamentals", focus: "statements" },
   "financial-ratios": { path: DOC_PATHS.financialRatios, tab: "fmp-fundamentals", focus: "ratios" },
@@ -109,6 +112,10 @@ const SECTION_ZH_LABELS = {
   "Response delivery": "响应交付与安全调用",
   "API contract": "接口契约与目录",
   "Latest OI": "最新 OI 与交易日",
+  "EODHD overview": "EODHD 事件接入",
+  "Event fields": "事件字段与日期",
+  "EODHD history": "EODHD 事件历史",
+  "EODHD coverage": "EODHD 覆盖与版本",
   "Calendar support": "财报与除息日历范围",
   "Tiers & permissions": "套餐与权限",
   "Free plan usage": "Free 计划指引",
@@ -341,7 +348,7 @@ function slugify(text) {
 function docSectionId(tab, label) {
   return tab === "fmp-fundamentals"
     ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
-    : ID_MAP[label] || slugify(label);
+    : tab === "eodhd" ? ({ "EODHD overview": "eodhd-overview", "Event fields": "eodhd-fields", "EODHD history": "eodhd-history", "EODHD coverage": "eodhd-coverage" })[label] || slugify(label) : ID_MAP[label] || slugify(label);
 }
 
 function getDocSections(tab, page) {
@@ -366,6 +373,8 @@ function getDocSections(tab, page) {
     ]},
     { title: "Crypto Data", items: ["crypto snapshots", "orderbooks"] },
         { title: "Reference", items: ["Error codes", "Rate limits"] },
+  ] : tab === "eodhd" ? [
+    { title: "EODHD events", items: ["EODHD overview", "Event fields", "EODHD history", "EODHD coverage"] },
   ] : tab === "morningstar" ? [
     { title: "Morningstar fundamentals", items: ["Morningstar overview", "What is PIT?", "Deduplication", "Morningstar fields", "Morningstar history", "Morningstar coverage"] },
   ] : tab === "fmp-fundamentals" ? [
@@ -433,7 +442,7 @@ function articleItems(sections) {
 
 const DOC_ARTICLES = {};
 for (const [page, config] of Object.entries(DOC_PAGE_CONFIG)) {
-  if (!["proxy", "ws", "fmp-fundamentals", "morningstar"].includes(config.tab)) continue;
+  if (!["proxy", "ws", "fmp-fundamentals", "morningstar", "eodhd"].includes(config.tab)) continue;
   for (const item of articleItems(getDocSections(config.tab, page))) {
     const id = docSectionId(config.tab, item.label);
     // cn-* sidebar entries outside market-cn are cross-page links: they must
@@ -457,6 +466,7 @@ function docArticlePath(page, id) {
 function legacyDocsPath(hash) {
   if (!hash) return null;
   if (hash === "fmp" || hash === "financial-source-selector" || hash.startsWith("fmp-data-")) return DOC_PATHS.financial;
+  if (hash === "eodhd" || hash.startsWith("eodhd-")) return DOC_PATHS.financialEodhd;
   if (hash === "morningstar" || hash.startsWith("morningstar-")) return DOC_PATHS.financialMorningstar;
   if (["fmp-income-statement", "fmp-balance-sheet-statement", "fmp-cash-flow-statement", "fmp-pit-statements"].includes(hash)) return DOC_PATHS.financialStatements;
   if (hash.startsWith("fmp-ratio") || hash.startsWith("fmp-key-metric") || hash.includes("growth") || hash === "fmp-enterprise-values" || hash === "fmp-financial-scores") return DOC_PATHS.financialRatios;

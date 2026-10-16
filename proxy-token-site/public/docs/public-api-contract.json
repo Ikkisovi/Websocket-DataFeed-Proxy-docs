@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "2026-10-16.2",
+  "version": "2026-10-16.3",
   "title": "LeanData public REST integration contract",
   "scope": "Reviewed option OI/discovery, financial archive endpoints and shared REST delivery/error metadata. Other product endpoints remain in their documentation; absence here is not an unavailable verdict.",
   "catalog_path": "/v1/api/contract",
@@ -1475,6 +1475,103 @@
       "parameter_specification": "endpoint_article",
       "docs": "/docs/market/options/post-v3-option-at-time-quote/",
       "notes": "The exact-contract restriction of latest OI is not a blanket wildcard ban on quote history."
+    },
+    {
+      "id": "eodhd-history",
+      "path": "/v1/events/eodhd/history",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "EODHD earnings, dividends and splits as observed in archived snapshots.",
+      "parameters": [
+        {
+          "name": "dataset",
+          "required": false,
+          "description": "earnings (default), dividends or splits. One dataset per request."
+        },
+        {
+          "name": "bundle",
+          "required": false,
+          "description": "Optional exact 64-character SHA256 from coverage. Pin it for stable pagination and preserve source revisions."
+        },
+        {
+          "name": "start",
+          "required": false,
+          "description": "Inclusive snapshot_date lower bound, YYYY-MM-DD; defaults to end minus 30 days. Use explicit bounds. This is not report_date or ex-dividend date."
+        },
+        {
+          "name": "end",
+          "required": false,
+          "description": "Inclusive snapshot_date upper bound, YYYY-MM-DD; defaults to current UTC date."
+        },
+        {
+          "name": "symbols",
+          "required": false,
+          "aliases": [
+            "symbol"
+          ],
+          "description": "Up to 100 comma-separated captured ticker symbols. Without symbols, at most 7 inclusive calendar days are permitted."
+        },
+        {
+          "name": "limit",
+          "required": false,
+          "description": "Positive integer, capped at 500 (default 500)."
+        },
+        {
+          "name": "offset",
+          "required": false,
+          "description": "Integer 0..100000 (default 0). Continue only with returned next_offset while truncated=true; pin bundle and keep all other selectors fixed."
+        }
+      ],
+      "docs": "/docs/financial/eodhd/eodhd-history/",
+      "clocks": "start/end select snapshot_date. Event dates (report_date, dividend_date, payment_date or split date) are separate native payload fields. Capture time is not a verified vendor publication timestamp.",
+      "response_schema": "qc_native_history_v1: source=eodhd, dataset, count, data, truncated, next_offset, research_admission=false. Each data row contains bundle, row_id, source_sha256 and original payload. Numeric JSON bytes and null values are retained.",
+      "notes": "Observed archived captures only, not a complete live or future event calendar. Empty data does not prove no events. research_admission remains false. Default delivery is same-origin; direct=1 optionally uses the shared signed GET delivery contract. Cache-only/upstream-only controls are unsupported. fields projection is rejected; start_date/end_date are not supported aliases.",
+      "example": {
+        "method": "GET",
+        "params": {
+          "dataset": "earnings",
+          "start": "2026-10-09",
+          "end": "2026-10-09",
+          "limit": 100
+        }
+      },
+      "example_note": "Illustrative snapshot date. Inspect coverage first and use a captured date and bundle."
+    },
+    {
+      "id": "eodhd-coverage",
+      "path": "/v1/events/eodhd/coverage",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Committed EODHD capture coverage and source provenance, including empty captured datasets.",
+      "parameters": [
+        {
+          "name": "dataset",
+          "required": false,
+          "description": "earnings (default), dividends or splits. One dataset per request."
+        },
+        {
+          "name": "bundle",
+          "required": false,
+          "description": "Optional exact 64-character SHA256 from coverage. Pin it for stable pagination and preserve source revisions."
+        }
+      ],
+      "docs": "/docs/financial/eodhd/eodhd-coverage/",
+      "response_schema": "qc_native_coverage_v1: data rows contain bundle, family, dataset, rows, first_date, last_date, source_sha256 and metadata (run, source_csv, source_csv_sha256, upstream_completeness_verified=false). Date bounds describe observed snapshots; empty datasets can have null bounds.",
+      "notes": "Observed archived captures only, not a complete live or future event calendar. Empty data does not prove no events. research_admission remains false. Default delivery is same-origin; direct=1 optionally uses the shared signed GET delivery contract. Cache-only/upstream-only controls are unsupported. Coverage applies only dataset and optional bundle; history dates, symbols, limit, offset and fields do not filter it. Coverage count is dataset manifest count, not event row count. No pagination is applied.",
+      "example": {
+        "method": "GET",
+        "params": {
+          "dataset": "earnings"
+        }
+      }
     }
   ],
   "browser_exposed_headers": [

@@ -23,7 +23,7 @@ Use the documented public API contract. Explain documented access, delivery and 
 4. Include required `start` and `end` bounds. Use ISO dates unless the endpoint says otherwise.
 5. Start with one symbol and a short interval; expand after a valid response.
 6. Keep request batches small; follow the retry guidance below for transient errors.
-7. Follow `next_page_token` until it is null and preserve the original parameters on every page.
+7. Follow the route-specific pagination marker and preserve selectors. Market routes use `next_page_token`; EODHD history uses `truncated` and `next_offset`.
 8. Before reporting success, validate the HTTP status, JSON shape, requested symbols, timestamps, row count, and pagination state.
 
 ## Common requests
@@ -71,13 +71,56 @@ curl "https://api.leandata.uk/v1/indices/daily?symbol=VIX&start=2026-09-15&end=2
 - Financial earnings/dividend archives do not guarantee future calendars. `/stable/earnings-calendar` and `/stable/dividends-calendar` are unavailable (501); a plan upgrade or retry does not enable them.
 - Premium covers documented available endpoints, not every upstream interface; CN remains a separate plan.
 
+## EODHD events
+
+Premium exposes GET/POST `/v1/events/eodhd/coverage` and
+`/v1/events/eodhd/history` for `dataset=earnings` (default), `dividends` or
+`splits`. Use the existing LeanData token; no upstream key is needed. Read
+`https://leandata.uk/docs/financial/eodhd/` for the complete contract.
+
+1. Inspect coverage for the selected dataset. Its `count` counts manifests;
+   `data[].rows` counts captured records. Empty datasets can have null date bounds.
+2. Choose an observed snapshot and pin its `bundle` SHA256 for history pagination.
+3. Send explicit inclusive `start`/`end` snapshot dates, not event dates.
+   `start_date`/`end_date` are not supported aliases. `symbols` (alias `symbol`)
+   permits up to 100 comma-separated tickers. Without symbols, use at most
+   seven inclusive calendar days. `fields` projection is rejected.
+4. History uses positive `limit` capped at 500 and `offset` 0..100000. Follow
+   returned `next_offset` only while `truncated=true`, keeping every other
+   selector fixed. Narrow scope before reaching the offset ceiling.
+5. Coverage uses only dataset and optional bundle. History dates, symbols,
+   limit, offset and fields do not filter coverage; coverage is not paginated.
+6. Preserve `(bundle,row_id)`, `source_sha256`, native `payload`, nulls and
+   original numeric bytes. Snapshot dates, earnings `report_date`/`report_time`,
+   dividend `dividend_date`/`payment_date` and vendor publication time are
+   distinct. Do not silently collapse revised observations.
+
+```bash
+curl --get "https://api.leandata.uk/v1/events/eodhd/coverage" \
+  -H "Authorization: Bearer $LEANDATA_TOKEN" --data-urlencode dataset=earnings
+
+# Set EODHD_BUNDLE and SNAPSHOT_DATE from coverage first.
+curl --get "https://api.leandata.uk/v1/events/eodhd/history" \
+  -H "Authorization: Bearer $LEANDATA_TOKEN" \
+  --data-urlencode dataset=earnings --data-urlencode "bundle=$EODHD_BUNDLE" \
+  --data-urlencode "start=$SNAPSHOT_DATE" --data-urlencode "end=$SNAPSHOT_DATE" \
+  --data-urlencode limit=100 --data-urlencode offset=0
+```
+
+Use same-origin delivery by default. Cache-only and upstream-only controls are
+unsupported. Optional direct delivery follows the credential-free signed GET
+rules above. These endpoints expose observed captures, not complete current or
+future calendars. Empty splits do not prove no upstream events. Keep
+`research_admission=false` and `upstream_completeness_verified=false`; no strict
+PIT certification or provider publication-time guarantee is established.
+
 ## Endpoint notes
 
 - Cash-index `start` and `end` are inclusive UTC calendar days. The maximum `limit` is 10,000; check `truncated` before treating a response as complete. Unfiltered cross-section requests are limited to seven inclusive calendar days.
 - Daily cash-index bars support only SPX, NDX, VIX, and DJI. The other eight symbols are minute-only; resample them client-side when daily bars are needed. Responses do not include volume, and sparse sessions may contain fewer bars.
 - Supply exact OCC symbols for option bars; do not infer a contract from a ticker, strike, or expiry. The format is `<ROOT><YYMMDD><C|P><8-digit strike>`, with strike in dollars multiplied by 1,000 and zero-padded.
 - Option bars use `1Min`; resample client-side for wider intervals. If a request times out, retry smaller sequential date windows without overlap.
-- Treat an empty result as no data only when the response is HTTP `200`, the JSON is valid, and pagination is complete.
+- A valid empty HTTP `200` after complete pagination means no records in the requested slice, not complete upstream coverage or no events in the market.
 
 ## Error handling
 
