@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "2026-10-16.1",
+  "version": "2026-10-16.2",
   "title": "LeanData public REST integration contract",
   "scope": "Reviewed option OI/discovery, financial archive endpoints and shared REST delivery/error metadata. Other product endpoints remain in their documentation; absence here is not an unavailable verdict.",
   "catalog_path": "/v1/api/contract",
@@ -1485,5 +1485,8 @@
     "X-Cache-Tier",
     "X-Request-Id",
     "Retry-After"
-  ]
+  ],
+  "data_source_tier_mapping": {
+    "theta_sealed_response": "source"
+  }
 }
