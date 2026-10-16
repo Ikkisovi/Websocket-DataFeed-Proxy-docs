@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { JSDOM, VirtualConsole } from "jsdom";
@@ -20,6 +21,8 @@ const root = new URL("../public/", import.meta.url);
 const bundle = fs.readFileSync(new URL("assets/docs-page.js", root), "utf8");
 const language = fs.readFileSync(new URL("language.js", root), "utf8");
 const cases = [
+  ["/docs/realtime/websocket/", [/original JSON in binary WebSocket frames/, /MessagePack control acknowledgements only/, /json.loads/, /frame and byte budgets/]],
+  ["/docs/realtime/subscriptions/", [/replaces the full subscription set/, /Unsubscribe clears all subscriptions without an acknowledgement/, /bars subscriptions/]],
   ["/docs/market/overview/api-contract/", [/Live API contract/, /X-Leandata-Contract-SHA256/, /X-Leandata-Data-Tier/, /route_not_migrated/, /endpoint_unavailable/]],
   ["/docs/market/overview/response-delivery/", [/direct=1/, /archive-direct\.leandata\.uk/, /303/, /307/, /without Authorization/, /counts once/]],
   ["/docs/market/options/option-oi-latest/", [/06:30/, /previous trading session/, /retrieval time/, /missing records are not zero/i]],
@@ -32,8 +35,8 @@ const cases = [
   ["/docs/status/", [/measure connectivity/, /not the freshness/, /p50\s*—\s*ms/]],
 ];
 for (const [path, patterns] of cases) {
-  assert(DOC_ARTICLES[path] || path === "/docs/status/", path);
-  const id = DOC_ARTICLES[path]?.id || "overview";
+  assert(DOC_ARTICLES[path] || ["/docs/status/", "/docs/realtime/websocket/", "/docs/realtime/subscriptions/"].includes(path), path);
+  const id = DOC_ARTICLES[path]?.id || (path.includes("/realtime/") ? path.includes("/websocket/") ? "endpoint" : "subscribe" : "overview");
   const errors = [];
   const console = new VirtualConsole();
   console.on("jsdomError", error => errors.push(error.message));
@@ -67,6 +70,15 @@ for (const [path, patterns] of cases) {
           assert.equal(scope.textContent.split(/[:,]\s*/).includes(capability), permissions.rest[capability], `${name}.${mode}.${capability}`);
         }
       }
+    }
+  }
+  if (path.endsWith("/websocket/")) {
+    assert.doesNotMatch(main.textContent, /msgpack.unpackb|200 messages|50–80%/);
+    const examples = [...main.querySelectorAll("pre.code")].map(node => node.textContent).filter(code => code.startsWith("import asyncio"));
+    assert.equal(examples.length, 2);
+    for (const example of examples) {
+      const result = spawnSync("python3", ["-c", "import ast,sys; ast.parse(sys.stdin.read())"], { input: example, encoding: "utf8" });
+      assert.equal(result.status, 0, result.stderr);
     }
   }
   if (path.endsWith("/free-plan-usage/")) assert.doesNotMatch(main.textContent, /10 calendar days/);

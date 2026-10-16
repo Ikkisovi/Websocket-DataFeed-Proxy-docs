@@ -4368,15 +4368,15 @@ function WsUsageBody({ focus, articleId }) {
       <div className="eyebrow" style={{ marginBottom: 10 }}>{isZh ? "实时数据流" : "Realtime"}</div>
       <h2 id="endpoint" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>{isZh ? "WebSocket 连接与实时数据流" : "WebSocket connection"}</h2>
       <DocDesc
-        zh="每个数据通道都有专属的独立 URL 路径。连接至对应 URL 后，先发送包含 Token 的 auth 认证消息，随后即可发送 subscribe 进行标的订阅。股票、期权、夜盘和暗盘通道采用二进制 MessagePack 格式编码，延迟更低；加密货币与新闻通道采用标准 JSON 格式。"
-        en="Each channel has a dedicated path. Connect to the appropriate URL, send an auth message with your token, then send subscribe messages. Stocks/options/overnight/boats messages are binary MessagePack; crypto and news channels use JSON."
+        zh="每个数据通道都有独立 URL。连接后立即发送 auth，收到认证成功后再 subscribe。所有通道的行情均为二进制 WebSocket 帧内的原始 JSON。JSON 控制消息得到 JSON 确认；MessagePack 控制消息仅使控制确认采用 MessagePack，不改变行情格式。"
+        en="Each channel has a dedicated path. Send auth immediately after connecting, then subscribe after authentication succeeds. All market payloads are original JSON in binary WebSocket frames. JSON controls receive JSON acknowledgements; MessagePack controls receive MessagePack control acknowledgements only."
       />
 
       <table className="tbl card" style={{ marginBottom: 28, overflow: "hidden" }}>
         <thead><tr><th>Channel</th><th>Path</th><th>Format</th>{["free", "basic", "value", "standard", "premium"].map(name => <th key={name}>{PRODUCT_CATALOG.plan_details[name]?.name || "Free"}</th>)}</tr></thead>
         <tbody>{[
-          ["stocks", "/stream", "msgpack"], ["options", "/stream/options", "msgpack"],
-          ["boats", "/stream/boats", "msgpack"], ["overnight", "/stream/overnight", "msgpack"],
+          ["stocks", "/stream", "JSON data"], ["options", "/stream/options", "JSON data"],
+          ["boats", "/stream/boats", "JSON data"], ["overnight", "/stream/overnight", "JSON data"],
           ["crypto", "/stream/crypto", "JSON"], ["news", "/stream/news", "JSON"],
         ].map(([channel, path, format]) => <tr key={channel}>
           <td>{channel}</td><td><code>{path}</code></td><td>{format}</td>
@@ -4396,7 +4396,7 @@ function WsUsageBody({ focus, articleId }) {
 {"action": "subscribe", "trades": ["AAPL"], "quotes": ["AAPL"]}`}
       </pre>
       <pre className="code" style={{ marginBottom: 12 }}>
-{`import asyncio, websockets, json, msgpack
+{`import asyncio, websockets, json
 
 async def stream_stocks(token):
     uri = "${WS_BASE}/stream"        # stocks channel
@@ -4404,27 +4404,26 @@ async def stream_stocks(token):
 
         # 1. Authenticate
         await ws.send(json.dumps({"action": "auth", "token": token}))
-        auth_resp = msgpack.unpackb(await ws.recv())
+        auth_resp = json.loads(await ws.recv())
         # auth_resp → [{"T": "success", "msg": "authenticated"}]
 
         # 2. Subscribe
         await ws.send(json.dumps({
             "action": "subscribe",
             "trades": ["AAPL", "TSLA", "NVDA"],
-            "quotes": ["AAPL"],
-            "bars":   []
+            "quotes": ["AAPL"]
         }))
 
         # 3. Receive
         async for raw in ws:
-            msgs = msgpack.unpackb(raw)   # list of message dicts
+            msgs = json.loads(raw)   # list of message dicts
             for msg in msgs:
                 print(msg)
 
 asyncio.run(stream_stocks("YOUR_TOKEN"))`}
       </pre>
       <pre className="code" style={{ marginBottom: 28 }}>
-{`# For crypto/news channels — same pattern but JSON instead of msgpack
+{`# For crypto/news channels — the same JSON pattern
 uri = "${WS_BASE}/stream/news"
 await ws.send(json.dumps({"action": "auth", "token": token}))
 auth_resp = json.loads(await ws.recv())   # JSON response
@@ -4437,8 +4436,8 @@ await ws.send(json.dumps({
 
       <h2 id="heartbeat" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Heartbeat</h2>
       <DocDesc
-        zh="服务端会自动向客户端发送 WebSocket Ping 帧进行链路活性探测。绝大部分主流客户端库会自动响应 Pong 帧。若客户端不支持自动响应，请在收到 Ping 帧后调用 pong() 以保持长连接。若客户端发送队列积压超过 200 条消息，服务端将主动断开连接以保护系统健康。WebSocket 不设账号级连接数上限；单连接 500 个 subjects 限制依然适用。"
-        en="The server sends WebSocket ping frames automatically. Most client libraries respond to pings automatically. If your client does not, call pong() on receipt to stay connected. The server will close connections that exceed the send queue limit (200 messages)."
+        zh="服务端会自动向客户端发送 WebSocket Ping 帧进行链路活性探测。绝大部分主流客户端库会自动响应 Pong 帧。若客户端不支持自动响应，请在收到 Ping 帧后调用 pong() 以保持长连接。发送队列受帧数和字节预算约束，有限恢复仍无法消化积压时会以 1013 断开。当前账户限制见 account usage。"
+        en="The server sends WebSocket ping frames automatically. Most client libraries respond to pings automatically. If your client does not, call pong() on receipt to stay connected. Outbound queues have frame and byte budgets. Terminal overflow after bounded recovery closes the connection with code 1013. Check account usage for current limits."
       />
 
       {/* ── Channels ── */}
@@ -4446,15 +4445,15 @@ await ws.send(json.dumps({
 
       <h2 id="stocks" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "美股实时行情流 (stocks)" : "stocks"}</h2>
       <DocDesc
-        zh="美股实时行情流：支持全市场 SIP 官方聚合行情的 Trades 逐笔成交、Quotes 逐笔买卖盘与分钟 K 线。通过 trades、quotes 或 bars 列表订阅，支持 * 订阅全市场标的。"
-        en="Live US equities: trades, quotes, and minute bars from the consolidated SIP feed. Subscribe to trades, quotes, and/or bars lists. Use * to subscribe to all symbols."
+        zh="美股实时行情流支持 trades 逐笔成交与 quotes 买卖盘，数据源取决于账户权限（Free 为 IEX）。普通账户需列出具体代码；股票通配符需要单独的服务权限。分钟 K 线请使用 REST 历史接口。"
+        en="Live US equity trades and quotes; the feed depends on account entitlement (Free uses IEX). Ordinary accounts must list explicit symbols; stock wildcards require a separate service grant. Use REST history for minute bars; bars subscriptions are not supported here."
       />
       <H3>Subject limit</H3>
       <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>Current per-connection subject limits are shown in account usage. A ticker subscribed under both <code>trades</code> and <code>quotes</code> consumes two subjects.</p>
 
       <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "期权实时行情流 (options)" : "options"}</h2>
       <DocDesc
-        zh="OPRA 官方期权行情实时流：在 trades 和 quotes 列表中传入标准 OCC 期权代码进行订阅。除 Basic 套餐外均可使用。支持 SPX/SPXW、VIX/VIXW、DJX、XSP 等主流指数期权。行情通过 /stream/options 上的二进制 MessagePack 帧高效推送。"
+        zh="OPRA 官方期权行情实时流：在 trades 和 quotes 列表中传入标准 OCC 期权代码进行订阅。除 Basic 套餐外均可使用。支持 SPX/SPXW、VIX/VIXW、DJX、XSP 等主流指数期权。行情以二进制 WebSocket 帧内的原始 JSON 通过 /stream/options 推送。"
         en="Live OPRA options feed. Subscribe using OCC symbols in the trades and quotes lists. All tiers except Basic. Index options are supported for SPX/SPXW, VIX/VIXW, DJX and XSP families."
       />
 
@@ -4488,23 +4487,23 @@ await ws.send(json.dumps({
 
       <h2 id="subscribe" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "订阅与退订 (Subscribe / Unsubscribe)" : "Subscribe / Unsubscribe"}</h2>
       <DocDesc
-        zh="订阅与退订共用相同的数据结构，仅 action 字段不同（subscribe 或 unsubscribe）。支持增量订阅，每次调用会在当前连接已有标的上追加或移除。"
-        en="Subscribe and unsubscribe actions share the same shape — only the action field differs. You can update subscriptions incrementally; each call adds or removes the listed symbols."
+        zh="subscribe 替换当前连接的完整订阅集合，每次都需发送希望保留的所有标的。unsubscribe 清除全部订阅，不发送确认；要移除部分标的，请重新 subscribe 剩余集合。"
+        en="Each subscribe replaces the full subscription set on this connection. Include every symbol you want to retain. Unsubscribe clears all subscriptions without an acknowledgement; to remove only some symbols, subscribe again with the remaining full set."
       />
       <pre className="code" style={{ marginBottom: 24 }}>
 {`// Subscribe
-{ "action": "subscribe",   "trades": ["AAPL"], "quotes": ["AAPL", "TSLA"], "bars": [] }
+{ "action": "subscribe",   "trades": ["AAPL"], "quotes": ["AAPL", "TSLA"] }
 
 // Unsubscribe
-{ "action": "unsubscribe", "trades": ["AAPL"], "quotes": [], "bars": [] }
+{ "action": "unsubscribe" }
 
-// Subscription confirmation (returned after each subscribe/unsubscribe)
-[{ "T": "subscription", "trades": ["AAPL"], "quotes": ["AAPL","TSLA"], "bars": [] }]`}
+// Subscribe confirmation: mode and admitted subjects
+[{ "T": "subscription", "mode": "stocks", "subjects": ["market.alpaca.stock.trades.AAPL", "market.alpaca.stock.quotes.AAPL", "market.alpaca.stock.quotes.TSLA"] }]`}
       </pre>
 
       <h2 id="unsubscribe" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "退订 (Unsubscribe)" : "Unsubscribe"}</h2>
-      <DocDesc zh="将 action 设为 unsubscribe，只移除消息中指定的标的。其他已有订阅保持有效。" en="Set action to unsubscribe to remove the listed symbols from the current connection's subscriptions." />
-      <pre className="code">{`{ "action": "unsubscribe", "trades": ["AAPL"], "quotes": [], "bars": [] }`}</pre>
+      <DocDesc zh="发送 unsubscribe 清除当前连接的全部订阅。此动作不发送确认。" en="Send unsubscribe to clear all subscriptions on this connection. This action does not send an acknowledgement." />
+      <pre className="code">{`{ "action": "unsubscribe" }`}</pre>
 
       <h2 id="trade" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Trade</h2>
       <pre className="code" style={{ marginBottom: 24 }}>
@@ -4534,6 +4533,7 @@ await ws.send(json.dumps({
       </pre>
 
       <h2 id="bar" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Bar</h2>
+      <p>Reference payload only. This gateway does not support bars subscriptions; request minute bars through REST history.</p>
       <pre className="code" style={{ marginBottom: 48 }}>
 {`{
   "T":  "b",                         // message type: bar (minute)
@@ -4556,15 +4556,15 @@ await ws.send(json.dumps({
         Implement exponential backoff. Subscriptions are not persisted — re-auth and re-subscribe after every reconnect.
       </p>
       <pre className="code" style={{ marginBottom: 28 }}>
-{`import asyncio, websockets, json, msgpack
+{`import asyncio, websockets, json
 
 async def with_reconnect(token, uri, handler, backoff=1):
     while True:
         try:
             async with websockets.connect(uri) as ws:
                 await ws.send(json.dumps({"action": "auth", "token": token}))
-                await ws.recv()                          // auth response
-                await ws.send(json.dumps({               // re-subscribe
+                await ws.recv()                          # auth response
+                await ws.send(json.dumps({               # re-subscribe
                     "action": "subscribe",
                     "trades": ["AAPL", "TSLA"]
                 }))
@@ -4576,8 +4576,7 @@ async def with_reconnect(token, uri, handler, backoff=1):
 
       <h2 id="backpressure" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Backpressure</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Each client has an outbound queue of 200 messages. If your consumer is too slow to drain it, newer messages are dropped and a drop counter is incremented server-side (visible in admin stats).
-        Under system load (<code>X-Load: high</code>), REST endpoints are throttled or rejected to protect stream delivery — WS is always served first.
+        Outbound queues enforce frame and byte budgets with bounded recovery. Terminal overflow disconnects with code 1013. Use backoff, authenticate again and restore your full subscription set. Reconcile gaps using authorized historical endpoints; a reconnect does not replay missed market data.
       </p>
       <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         Best practice: process each message quickly (or offload to a queue) rather than doing heavy work inside the receive loop.
@@ -4585,8 +4584,8 @@ async def with_reconnect(token, uri, handler, backoff=1):
 
       <h2 id="performance" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Performance tips</h2>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        The proxy serves cached responses in under 1ms. Most client-perceived latency comes from network round-trips and TLS handshakes. These tips can cut TTFB by 50–80%.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>代理返回缓存响应不到 1ms，客户端感知到的延迟主要来自网络往返和 TLS 握手。以下建议可将 TTFB 降低 50–80%。</span>
+        Latency depends on the data tier, response size, network and current load. Measure your workload and inspect cache metadata; these suggestions are not a latency SLA.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>延迟取决于数据层级、响应大小、网络和当前负载。请实测业务请求并查看缓存元数据；以下建议不构成延迟 SLA。</span>
       </p>
 
       <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Use GET for cacheable endpoints</h3>
@@ -4603,15 +4602,15 @@ curl -X POST https://api.leandata.uk/v1/history/bars \\
 curl "https://api.leandata.uk/v1/history/bars?token=TOKEN&symbol=AAPL&start=2025-01-01&end=2025-12-31&timeframe=1Day"
 
 # Check cache status in response headers:
-# X-Cache: HIT      → served from in-memory hot cache (~1ms)
-# X-Cache: DISK_HIT → served from fast SSD archive (~5-15ms)
+# X-Cache: HIT      → served from in-memory hot cache
+# X-Cache: DISK_HIT → served from fast SSD archive
 # X-Cache: MISS     → fetched from upstream and cached for next request`}
       </pre>
 
       <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Reuse connections</h3>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Each new HTTPS request pays ~100ms for TCP + TLS handshake. Use a persistent session (HTTP/2 or keep-alive) to amortize this across all requests.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>每个新 HTTPS 请求需约 100ms 用于 TCP + TLS 握手。使用持久连接（HTTP/2 或 keep-alive）可将此开销分摊到所有请求。</span>
+        New HTTPS connections require TCP and TLS handshakes. Use a persistent session (HTTP/2 or keep-alive) to amortize this across all requests.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>新 HTTPS 连接需要 TCP 与 TLS 握手。使用持久连接（HTTP/2 或 keep-alive）可将此开销分摊到所有请求。</span>
       </p>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`# Python — use requests.Session for connection reuse
@@ -4620,12 +4619,12 @@ import requests
 session = requests.Session()
 session.headers["Authorization"] = "Bearer TOKEN"
 
-# First request: ~150ms (TLS handshake + response)
+# First request establishes the connection
 r1 = session.get("https://api.leandata.uk/v1/history/bars",
                   params={"symbol": "AAPL", "start": "2025-01-01",
                           "end": "2025-12-31", "timeframe": "1Day"})
 
-# Subsequent requests: ~20-40ms (connection reused)
+# Subsequent requests can reuse the connection
 r2 = session.get("https://api.leandata.uk/v1/history/bars",
                   params={"symbol": "MSFT", "start": "2025-01-01",
                           "end": "2025-12-31", "timeframe": "1Day"})
