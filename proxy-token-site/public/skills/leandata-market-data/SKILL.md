@@ -68,8 +68,18 @@ curl "https://api.leandata.uk/v1/indices/daily?symbol=VIX&start=2026-09-15&end=2
 - For OI use `/v3/option/snapshot/open_interest` with exact symbol/expiration/strike/right, or `/v1/options/open_interest` for bounded history. Discover current contracts before asking for current snapshots.
 - `/v1/options/snapshots/open_interest` is not an implemented OI interface. Do not accept a general snapshot as OI data.
 - OI source timestamps identify the report time (normally around 06:30 New York time), representing the previous trading session's close. Preserve report time, effective trading date and retrieval time separately. Check freshness; missing records are not zero.
-- Financial earnings/dividend archives do not guarantee future calendars. `/stable/earnings-calendar` and `/stable/dividends-calendar` are unavailable (501); a plan upgrade or retry does not enable them.
+- Future earnings dates use EODHD event routes; financial statement data uses Morningstar. The compatibility `/stable/earnings-calendar` and `/stable/dividends-calendar` endpoints remain unavailable (501); use the documented EODHD routes.
 - Premium covers documented available endpoints, not every upstream interface; CN remains a separate plan.
+
+## Daily financial updates
+
+EODHD future earnings dates and Morningstar financial statement data are both
+expected to start updating daily at **06:00 Pacific time**
+(`America/Los_Angeles`, following PST/PDT daylight-saving changes). This is the
+expected collection/update start, not a guaranteed completion time. Read each
+route's matching coverage for the latest published snapshot. EODHD provides
+upcoming report dates; Morningstar provides financial statement and fundamental
+values. Frozen legacy Morningstar routes keep their documented archive boundary.
 
 ## EODHD events
 
@@ -109,8 +119,9 @@ curl --get "https://api.leandata.uk/v1/events/eodhd/history" \
 
 Use same-origin delivery by default. Cache-only and upstream-only controls are
 unsupported. Optional direct delivery follows the credential-free signed GET
-rules above. These endpoints expose observed captures, not complete current or
-future calendars. Empty splits do not prove no upstream events. Keep
+rules above. Use the latest EODHD earnings snapshot for future report dates; filter
+`payload.report_date` for upcoming events. Financial statement data is updated
+through Morningstar routes. Future dates may be revised in later snapshots. Empty splits do not prove no upstream events. Keep
 `research_admission=false` and `upstream_completeness_verified=false`; no strict
 PIT certification or provider publication-time guarantee is established.
 

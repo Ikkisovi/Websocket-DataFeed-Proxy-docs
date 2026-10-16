@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "2026-10-16.3",
+  "version": "2026-10-16.4",
   "title": "LeanData public REST integration contract",
   "scope": "Reviewed option OI/discovery, financial archive endpoints and shared REST delivery/error metadata. Other product endpoints remain in their documentation; absence here is not an unavailable verdict.",
   "catalog_path": "/v1/api/contract",
@@ -258,14 +258,14 @@
       ],
       "status": "unavailable",
       "access": "unavailable",
-      "summary": "Future earnings calendar is unavailable.",
+      "summary": "This compatibility calendar route is unavailable; use EODHD event routes.",
       "parameters": [],
       "error": {
         "status": 501,
         "code": "route_not_migrated",
         "message": "This endpoint is not available. Check the documented endpoint catalog; retrying or upgrading the plan does not implement an unavailable endpoint."
       },
-      "notes": "Premium does not enable this endpoint. Archived company-event records are a separate product surface."
+      "notes": "Premium does not enable this compatibility endpoint. Use /v1/events/eodhd/history?dataset=earnings and inspect /v1/events/eodhd/coverage. Future earnings dates come from EODHD; financial statement data comes from Morningstar."
     },
     {
       "id": "dividends-calendar",
@@ -276,14 +276,14 @@
       ],
       "status": "unavailable",
       "access": "unavailable",
-      "summary": "Future dividends calendar is unavailable.",
+      "summary": "This compatibility calendar route is unavailable; use EODHD event routes.",
       "parameters": [],
       "error": {
         "status": 501,
         "code": "route_not_migrated",
         "message": "This endpoint is not available. Check the documented endpoint catalog; retrying or upgrading the plan does not implement an unavailable endpoint."
       },
-      "notes": "Premium does not enable this endpoint. Archived company-event records are a separate product surface."
+      "notes": "Premium does not enable this compatibility endpoint. Use /v1/events/eodhd/history?dataset=dividends and inspect /v1/events/eodhd/coverage. Future earnings dates come from EODHD; financial statement data comes from Morningstar."
     },
     {
       "id": "financial-8",
@@ -1485,7 +1485,7 @@
       ],
       "status": "available",
       "access": "premium_financial",
-      "summary": "EODHD earnings, dividends and splits as observed in archived snapshots.",
+      "summary": "Future earnings dates, dividends and splits, with preserved daily event snapshots.",
       "parameters": [
         {
           "name": "dataset",
@@ -1529,7 +1529,7 @@
       "docs": "/docs/financial/eodhd/eodhd-history/",
       "clocks": "start/end select snapshot_date. Event dates (report_date, dividend_date, payment_date or split date) are separate native payload fields. Capture time is not a verified vendor publication timestamp.",
       "response_schema": "qc_native_history_v1: source=eodhd, dataset, count, data, truncated, next_offset, research_admission=false. Each data row contains bundle, row_id, source_sha256 and original payload. Numeric JSON bytes and null values are retained.",
-      "notes": "Observed archived captures only, not a complete live or future event calendar. Empty data does not prove no events. research_admission remains false. Default delivery is same-origin; direct=1 optionally uses the shared signed GET delivery contract. Cache-only/upstream-only controls are unsupported. fields projection is rejected; start_date/end_date are not supported aliases.",
+      "notes": "Future earnings dates are provided through daily event snapshots; financial statement data is updated through Morningstar routes. Read the latest available snapshot and filter payload.report_date for upcoming earnings. Event dates may change in subsequent snapshots. Empty data does not prove no events. research_admission remains false. Default delivery is same-origin; direct=1 optionally uses the shared signed GET delivery contract. Cache-only/upstream-only controls are unsupported. fields projection is rejected; start_date/end_date are not supported aliases. EODHD and Morningstar updates are expected to start daily at 06:00 America/Los_Angeles (PST/PDT); actual published snapshots are reported by the matching coverage endpoint.",
       "example": {
         "method": "GET",
         "params": {
@@ -1565,7 +1565,7 @@
       ],
       "docs": "/docs/financial/eodhd/eodhd-coverage/",
       "response_schema": "qc_native_coverage_v1: data rows contain bundle, family, dataset, rows, first_date, last_date, source_sha256 and metadata (run, source_csv, source_csv_sha256, upstream_completeness_verified=false). Date bounds describe observed snapshots; empty datasets can have null bounds.",
-      "notes": "Observed archived captures only, not a complete live or future event calendar. Empty data does not prove no events. research_admission remains false. Default delivery is same-origin; direct=1 optionally uses the shared signed GET delivery contract. Cache-only/upstream-only controls are unsupported. Coverage applies only dataset and optional bundle; history dates, symbols, limit, offset and fields do not filter it. Coverage count is dataset manifest count, not event row count. No pagination is applied.",
+      "notes": "Future earnings dates are provided through daily event snapshots; financial statement data is updated through Morningstar routes. Read the latest available snapshot and filter payload.report_date for upcoming earnings. Event dates may change in subsequent snapshots. Empty data does not prove no events. research_admission remains false. Default delivery is same-origin; direct=1 optionally uses the shared signed GET delivery contract. Cache-only/upstream-only controls are unsupported. Coverage applies only dataset and optional bundle; history dates, symbols, limit, offset and fields do not filter it. Coverage count is dataset manifest count, not event row count. No pagination is applied. EODHD and Morningstar updates are expected to start daily at 06:00 America/Los_Angeles (PST/PDT); actual published snapshots are reported by the matching coverage endpoint.",
       "example": {
         "method": "GET",
         "params": {
@@ -1585,5 +1585,33 @@
   ],
   "data_source_tier_mapping": {
     "theta_sealed_response": "source"
+  },
+  "refresh_schedules": {
+    "eodhd_events": {
+      "product": "EODHD future earnings dates",
+      "expected_start_time": "06:00",
+      "time_zone": "America/Los_Angeles",
+      "frequency": "daily",
+      "time_semantics": "Expected collection/update start, not a guaranteed completion time. Pacific time follows PST/PDT daylight-saving changes. Inspect coverage for the latest published snapshot.",
+      "data_semantics": "Upcoming earnings report dates in payload.report_date; financial statement values are provided through Morningstar routes.",
+      "routes": [
+        "/v1/events/eodhd/history",
+        "/v1/events/eodhd/coverage"
+      ]
+    },
+    "morningstar_financials": {
+      "product": "Morningstar financial statement data",
+      "expected_start_time": "06:00",
+      "time_zone": "America/Los_Angeles",
+      "frequency": "daily",
+      "time_semantics": "Expected collection/update start, not a guaranteed completion time. Pacific time follows PST/PDT daylight-saving changes. Inspect the matching route coverage for the latest published snapshot.",
+      "data_semantics": "Financial statement and fundamental values from available company reports; separate from the EODHD upcoming earnings schedule. Frozen legacy routes retain their documented archive boundary.",
+      "routes": [
+        "/v1/fundamentals/morningstar/v3/history",
+        "/v1/fundamentals/morningstar/v3/coverage",
+        "/v1/fundamentals/morningstar/native/history",
+        "/v1/fundamentals/morningstar/native/coverage"
+      ]
+    }
   }
 }

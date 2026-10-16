@@ -20,8 +20,14 @@ assert.equal(createHash("sha256").update(contractBytes).digest("hex"), contractS
 const root = new URL("../public/", import.meta.url);
 const bundle = fs.readFileSync(new URL("assets/docs-page.js", root), "utf8");
 const language = fs.readFileSync(new URL("language.js", root), "utf8");
+for (const schedule of Object.values(contract.refresh_schedules)) {
+  assert.equal(schedule.expected_start_time, "06:00");
+  assert.equal(schedule.time_zone, "America/Los_Angeles");
+  assert.equal(schedule.frequency, "daily");
+}
 const cases = [
-  ["/docs/financial/eodhd/eodhd-overview/", [/Premium/, /earnings/, /dividends/, /splits/, /observed captures/, /303/, /307/]],
+  ["/docs/financial/morningstar/morningstar-overview/", [/06:00/, /America\/Los_Angeles/, /PST\/PDT/, /Financial statement data/, /Upcoming earnings dates/]],
+  ["/docs/financial/eodhd/eodhd-overview/", [/Premium/, /earnings/, /dividends/, /splits/, /future earnings dates/i, /Morningstar/, /303/, /307/]],
   ["/docs/financial/eodhd/eodhd-fields/", [/snapshot_date/, /report_time/, /dividend_date/, /source_sha256/, /null separate from zero/]],
   ["/docs/financial/eodhd/eodhd-history/", [/qc_native_history_v1/, /next_offset/, /100000/, /start_date\/end_date are not supported aliases/, /parse_float=Decimal/]],
   ["/docs/financial/eodhd/eodhd-coverage/", [/qc_native_coverage_v1/, /History start\/end/, /Coverage is not paginated/, /upstream_completeness_verified=false/]],
@@ -31,7 +37,7 @@ const cases = [
   ["/docs/market/overview/response-delivery/", [/direct=1/, /archive-direct\.leandata\.uk/, /303/, /307/, /without Authorization/, /counts once/]],
   ["/docs/market/options/option-oi-latest/", [/06:30/, /previous trading session/, /retrieval time/, /missing records are not zero/i]],
   ["/docs/market/options/post-v1-options-snapshots-open-interest/", [/not an implemented OI interface/, /v3\/option\/snapshot\/open_interest/]],
-  ["/docs/financial/regular/fmp-calendar-support/", [/earnings-calendar/, /dividends-calendar/, /501/, /not a plan-upgrade prompt/, /events\/eodhd\/history/, /events\/eodhd\/coverage/, /snapshot_date/, /report_date/, /dividend_date/, /observed captures only/, /research_admission=false/, /without an Authorization header/]],
+  ["/docs/financial/regular/fmp-calendar-support/", [/earnings-calendar/, /dividends-calendar/, /501/, /not a plan-upgrade prompt/, /events\/eodhd\/history/, /events\/eodhd\/coverage/, /snapshot_date/, /report_date/, /dividend_date/, /future report dates/, /Morningstar/, /research_admission=false/, /without an Authorization header/]],
   ["/docs/market/overview/tiers-permissions/", [/GET \/api\/product-catalog/, /Permanent/, /independent.*expiry/i, /Trial is retired/, /31 days/, /nearest 2 upcoming expiries/]],
   ["/docs/market/overview/free-plan-usage/", [/31 calendar days/, /nearest 2 upcoming expiration/, /All six channels/, /boats/]],
   ["/docs/market/crypto-news/post-v1-history-news/", [/Premium only/]],
@@ -76,6 +82,14 @@ for (const [path, patterns] of cases) {
       }
     }
   }
+  if (path.endsWith("/eodhd-overview/") || path.endsWith("/morningstar-overview/") || path.endsWith("/fmp-calendar-support/")) {
+    const schedule = main.querySelector("[data-financial-refresh-schedule]");
+    assert(schedule, path);
+    assert.match(schedule.textContent, /06:00 Pacific time/);
+    assert.match(schedule.textContent, /not a guaranteed completion time/);
+    assert.equal(schedule.querySelectorAll("tbody tr").length, 2);
+    assert.doesNotMatch(schedule.textContent, /UTC-8|UTC-7/);
+  }
   if (path.endsWith("/eodhd-history/")) {
     const examples = [...main.querySelectorAll("pre.code")].map(node => node.textContent);
     const python = examples.find(code => code.startsWith("import json, os"));
@@ -119,4 +133,4 @@ for (const id of ["post-admin-login", "get-admin-pending", "post-admin-approve",
 console.log("Customer delivery, OI clocks, calendar availability and retired operator pages pass");
 
 const marketSkill = fs.readFileSync(new URL("skills/leandata-market-data/SKILL.md", root), "utf8");
-for (const pattern of [/events\/eodhd\/coverage/, /events\/eodhd\/history/, /next_offset/, /start_date.*not supported aliases/, /research_admission=false/]) assert.match(marketSkill, pattern);
+for (const pattern of [/events\/eodhd\/coverage/, /events\/eodhd\/history/, /next_offset/, /start_date.*not supported aliases/, /research_admission=false/, /06:00 Pacific time/, /America\/Los_Angeles/]) assert.match(marketSkill, pattern);

@@ -1584,7 +1584,7 @@ function BulkOrderBody() {
 function FinancialSourceSelector({ active }) {
   const sources = [
     { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "v3: 64 slots · 898 symbols · 2011–present · v1: 28 metrics · 550 symbols · 2020–2026-09 (frozen)", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo", recommended: true },
-    { id: "eodhd", title: "EODHD", zh: "财报、除息与拆股事件", meta: "Observed event captures · Premium · history + coverage", href: DOC_PATHS.financialEodhd },
+    { id: "eodhd", title: "EODHD", zh: "财报、除息与拆股事件", meta: "Future earnings dates · Daily 06:00 Pacific · Premium", href: DOC_PATHS.financialEodhd },
     { id: "regular", title: "Regular / FMP", zh: "标准财务数据", meta: "50+ endpoints · statements · ratios · profiles", href: DOC_PATHS.financialRegular, logo: PROVIDER_LOGOS.fmp, alt: "FMP Data logo" },
   ];
   return (
@@ -1973,18 +1973,19 @@ Content-Type: application/json
       </p>
 
       <h2 id="fmp-calendar-support" className="display-title" style={{ fontSize: 28 }}>Calendar support / 财报与除息日历支持范围</h2>
-      <p>Premium authorizes the documented available financial endpoints; it does not expose every endpoint of an upstream product. <code>/stable/earnings</code> and <code>/stable/dividends</code> provide available archived company-event records, with historical/snapshot coverage. They do not guarantee a complete or current future calendar.<br/>Premium 权限不等于上游全接口开放，也不代表未来事件日历已经上线。</p>
+      <DailyFinancialRefresh />
+      <p>Premium provides future earnings dates through the EODHD event routes; financial statement data is updated through the Morningstar routes. The compatibility <code>/stable/earnings</code> and <code>/stable/dividends</code> endpoints keep their archived snapshot semantics.<br/>未来财报节点使用 EODHD 事件路由，财报数据本身由 Morningstar 路由更新；旧兼容接口保留归档快照语义。</p>
       <table className="tbl card"><thead><tr><th>Need / 需求</th><th>Current availability / 当前支持</th></tr></thead><tbody>
         <tr><td>Historical earnings / 历史业绩公告</td><td><code>/stable/earnings</code>, available archived records</td></tr>
         <tr><td>Historical dividends / 历史分红</td><td><code>/stable/dividends</code>, available archived records</td></tr>
-        <tr><td>Future earnings calendar / 未来财报日历</td><td>Not available; <code>/stable/earnings-calendar</code> currently returns 501</td></tr>
-        <tr><td>Future ex-dividend calendar / 未来除息日历</td><td>Not available; <code>/stable/dividends-calendar</code> currently returns 501</td></tr>
+        <tr><td>Future earnings calendar / 未来财报日历</td><td>EODHD <code>/v1/events/eodhd/history?dataset=earnings</code>; inspect coverage for the latest snapshot. <code>/stable/earnings-calendar</code> remains 501.</td></tr>
+        <tr><td>Future ex-dividend calendar / 未来除息日历</td><td>EODHD <code>dataset=dividends</code> for available ex-dividend dates. <code>/stable/dividends-calendar</code> remains 501.</td></tr>
       </tbody></table>
       <p>A 501 is an unavailable endpoint, not a plan-upgrade prompt. An empty 200 array only describes the requested slice. Quote/profile/analyst records in this financial catalog are archived snapshots; use the market-data quote endpoints for current trading decisions and inspect source timestamps.<br/>501 不应通过升级套餐或反复重试解决。空数组不证明全市场无事件；财务目录中的报价、资料、预测是归档快照，交易所需当前报价请使用行情接口并检查来源时间。</p>
 
-      <h3>Observed event history / 已观测事件归档</h3>
+      <h3>Future earnings and event snapshots / 未来财报节点与事件快照</h3>
       <p><a href={DOC_PATHS.financialEodhd}>EODHD integration guide / EODHD 事件接入文档</a></p>
-      <p>Premium supports <code>GET/POST /v1/events/eodhd/history</code> and <code>GET/POST /v1/events/eodhd/coverage</code>. Select <code>dataset=earnings</code> (default), <code>dividends</code> or <code>splits</code>. These endpoints expose observed captures only; they do not guarantee complete historical or future event coverage.<br/>这两条接口需要 Premium，仅返回已观测归档，不承诺完整历史或未来事件日历。</p>
+      <p>Premium supports <code>GET/POST /v1/events/eodhd/history</code> and <code>GET/POST /v1/events/eodhd/coverage</code>. Select <code>dataset=earnings</code> (default), <code>dividends</code> or <code>splits</code>. Use the latest earnings snapshot for future report dates, then filter payload.report_date for your planning window. Financial statement values are provided through Morningstar.<br/>这两条接口需要 Premium；未来财报节点取最新 earnings 快照，按 report_date 筛选业务窗口；财报数据本身取 Morningstar。</p>
       <ParamTable rows={[
         { name: "dataset", type: "string", required: false, desc: "earnings (default) | dividends | splits", zh: "事件数据集" },
         { name: "start / end", type: "date", required: false, desc: "Inclusive history selectors on snapshot_date, not the event date", zh: "按抓取快照日期筛选历史，不是事件日期" },
@@ -2046,16 +2047,30 @@ curl "https://api.leandata.uk/v1/events/eodhd/history?dataset=earnings&start=202
 }
 
 
+function DailyFinancialRefresh() {
+  return <div data-financial-refresh-schedule>
+    <p>预计每日美西早上 06:00 开始采集及更新（<code>America/Los_Angeles</code>，随 PST/PDT 夏令时切换）。实际可用版本以对应 coverage 为准；06:00 为预计启动时间，不是保证完成时间。<br/>Updates are expected to start daily at 06:00 Pacific time (America/Los_Angeles, PST/PDT). Check the matching coverage endpoint for the latest published snapshot; this is an expected start, not a guaranteed completion time.</p>
+    <table className="tbl"><thead><tr><th>Data / 数据</th><th>Expected start / 预计启动</th><th>Purpose / 用途</th></tr></thead><tbody>
+      {Object.entries(API_CONTRACT.refresh_schedules).map(([key, schedule]) => <tr key={key}>
+        <td>{key === "eodhd_events" ? <a href={DOC_PATHS.financialEodhd}>EODHD</a> : <a href={DOC_PATHS.financialMorningstar}>Morningstar</a>}</td>
+        <td>{schedule.expected_start_time} · {schedule.time_zone} · daily</td>
+        <td>{key === "eodhd_events" ? "未来财报节点 / Upcoming earnings dates" : "财报基本面数据 / Financial statement data"}</td>
+      </tr>)}
+    </tbody></table>
+  </div>;
+}
+
 function EodhdEventsBody({ articleId } = {}) {
   const isZh = useCurrentLanguage() === "zh";
   const operations = API_CONTRACT.operations.filter(op => op.id.startsWith("eodhd-"));
   return <DocContent articleId={articleId} style={{ maxWidth: 860 }}>
     <h2 id="eodhd-overview" className="display-title">{isZh ? "EODHD 事件接入" : "EODHD events integration"}</h2>
+    <DailyFinancialRefresh />
     <p>Premium · <code>https://api.leandata.uk</code> · GET / POST · Bearer token</p>
     <p>使用现有 LeanData Premium Token，无需提供上游密钥。先调用 coverage 选取抓取快照和 bundle，再调用 history 获取 earnings、dividends 或 splits。<br/>Use your existing LeanData Premium token. Inspect coverage, choose a captured snapshot and bundle, then read earnings, dividends or splits history.</p>
-    <p>这是已观测事件归档，不是完整实时或未来日历。未来事件可在选定快照的事件日期字段中筛选；快照日期不等于公告发布时间。<br/>These are observed captures, not a complete live or future calendar. Filter event dates within a selected snapshot client-side; capture dates are not verified vendor publication timestamps. Empty data does not prove no events. <code>research_admission=false</code>.</p>
+    <p>EODHD 提供未来财报节点，用于安排 upcoming earnings 日历。取最新可用 earnings 快照，再按 report_date 筛选未来日期；财报数据本身由 Morningstar 路由更新。<br/>EODHD provides future earnings dates. Read the latest available earnings snapshot and filter report_date for upcoming events; financial statement data is updated through Morningstar. Capture dates remain distinct from event and vendor publication dates. Empty data does not prove no events. <code>research_admission=false</code>.</p>
     <table className="tbl"><thead><tr><th>Dataset</th><th>Meaning / 含义</th></tr></thead><tbody>
-      <tr><td>earnings (default)</td><td>Captured earnings observations / 财报预告观测</td></tr>
+      <tr><td>earnings (default)</td><td>Upcoming earnings report dates / 未来财报节点</td></tr>
       <tr><td>dividends</td><td>Captured dividend observations / 分红及除息观测</td></tr>
       <tr><td>splits</td><td>Captured split observations; can be empty / 拆股观测，可为空</td></tr>
     </tbody></table>
@@ -2164,6 +2179,7 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
         chips={isZh ? ["日度快照", "64 个财务指标", "标普与纳指成分池", "无前填", "Premium"] : ["Daily snapshots", "64 financial metrics", "SPX & NDX scope", "No forward-fill", "Premium"]}
         alt="Morningstar provider logo"
       />
+      <DailyFinancialRefresh />
       <p className="callout" style={{ marginBottom: 22 }}>
         {isZh ? (
           <>当前推荐使用 <strong>v3 接口（覆盖 2011 年至今约 898 只标普 500、纳指 100 及热门美股，支持 64 项财务指标）</strong>；旧版 v1 接口已冻结归档，文档在页面后半部分。</>
