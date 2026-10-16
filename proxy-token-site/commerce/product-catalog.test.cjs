@@ -22,6 +22,10 @@ test('existing purchase IDs, integer prices and durations survive extraction', (
 test('public policy has a source fingerprint and excludes internal test plans', () => {
   assert.match(publicCatalog().sha256, /^[a-f0-9]{64}$/);
   assert.equal(publicCatalog().tiers.test, undefined);
+  assert.equal(publicCatalog().tiers.free.expiryDays,undefined);
+  assert.equal(publicCatalog().tiers.free.permanent,true);
+  assert.equal(Object.keys(publicCatalog().tiers.free.permissions.ws).length,6);
+  assert.equal(publicCatalog().tiers.free.permissions.rest.admin_token_lookup,undefined);
   assert.equal(publicCatalog().monthly_prices_cny_minor.premium, 15000);
 });
 

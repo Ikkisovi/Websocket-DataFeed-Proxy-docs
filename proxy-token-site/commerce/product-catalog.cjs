@@ -66,10 +66,18 @@ function resolveEffectivePermissions(principal) {
 }
 function publicCatalog() {
   const visible = new Set(['free', ...Object.keys(catalog.plan_details)]);
+  const tiers=Object.fromEntries(Object.entries(catalog.tiers).filter(([name])=>visible.has(name)).map(([name,definition])=>{
+    const tier=structuredClone(definition);
+    if(tier.permanent) delete tier.expiryDays;
+    for(const permissions of [tier.permissions,...Object.values(tier.modes || {})]) {
+      delete permissions.ws.test;delete permissions.rest.admin_token_lookup;
+    }
+    return [name,tier];
+  }));
   return { schema_version: catalog.schema_version, version: catalog.version, sha256: catalogSHA256,
     duration_months: catalog.duration_months, retired_products: catalog.retired_products,
     subscription_semantics: catalog.subscription_semantics, free_baseline_permanent: true,
-    tiers: Object.fromEntries(Object.entries(catalog.tiers).filter(([name]) => visible.has(name))),
+    tiers,
     plan_details: catalog.plan_details,
     monthly_prices_cny_minor: catalog.monthly_prices_cny_minor,
     monthly_prices_usd_minor: catalog.monthly_prices_usd_minor };
