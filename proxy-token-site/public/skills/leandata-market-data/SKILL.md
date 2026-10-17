@@ -98,7 +98,7 @@ Premium exposes GET/POST `/v1/events/eodhd/coverage` and
 
 1. Inspect coverage for the selected dataset. Its `count` counts manifests;
    `data[].rows` counts captured records. Empty datasets can have null date bounds.
-2. Choose an observed snapshot and pin its `bundle` SHA256 for history pagination.
+2. Choose an observed snapshot date. Default history selects its latest capture; pin the returned `snapshot` for history pagination, or use an exact `bundle`.
 3. Send explicit inclusive `start`/`end` snapshot dates, not event dates.
    `start_date`/`end_date` are not supported aliases. `symbols` (alias `symbol`)
    permits up to 100 comma-separated tickers. Without symbols, use at most
@@ -169,3 +169,28 @@ archive and shared delivery contract. The documentation copy is at
 Prefer `X-Leandata-Data-Tier` for logical serving tiers. Legacy `X-Cache-Tier`
 remains compatible. Neither field certifies freshness or coverage. Preserve
 route-specific payload schemas and source clocks when using older paths.
+
+## Daily financial history
+
+Use `/v1/fundamentals/morningstar/daily/history` for one source-labelled daily
+series over the fixed historical archive and recent committed native captures.
+The matching `/daily/coverage` accepts a date window (at most 366 elapsed days)
+and optional symbols or QC SIDs. It reports source date counts, unobserved
+weekdays (including possible holidays), latest-native-day missing counts and
+unresolved symbols. Unknown expected stock coverage stays null.
+
+Daily history accepts canonical v3 field names and always returns `values` as
+an object of JSON numbers or null. Use QC SID for stable identity; observed
+aliases are resolved through the fixed reference map, and ambiguous names must
+be queried by SID. Native rows replace historical rows as whole records; no
+fields are filled from another feed. Each row retains source identity, original
+clocks and status. Existing raw `/native` and `/v3` archives remain separate.
+
+EODHD history defaults to the latest committed batch for each capture date,
+including empty captures. Use `versions=all` to inspect preserved versions or an
+exact `bundle` for its original capture. For unpinned EODHD or daily-history
+pagination, save the first response `snapshot` and reuse it with `next_offset`
+as `offset`, keeping the date/identity/field/version filters unchanged. The
+selection is immutable even if a late backfill arrives. Narrow the window if
+more than 128 source bundles would be needed. Coverage `daily_coverage` separates
+`latest_capture_date` and `latest_nonempty_date`; empty is not no-events proof.

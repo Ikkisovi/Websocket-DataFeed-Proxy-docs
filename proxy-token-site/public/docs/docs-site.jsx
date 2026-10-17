@@ -1583,7 +1583,7 @@ function BulkOrderBody() {
 
 function FinancialSourceSelector({ active }) {
   const sources = [
-    { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "v3: 64 slots · 898 symbols · 2011–present · v1: 28 metrics · 550 symbols · 2020–2026-09 (frozen)", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo", recommended: true },
+    { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "Daily history · 64 fields · Coverage reports available dates", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo", recommended: true },
     { id: "eodhd", title: "EODHD", zh: "财报、除息与拆股事件", meta: "Future earnings dates · Daily 06:00 Pacific · Premium", href: DOC_PATHS.financialEodhd },
     { id: "regular", title: "Regular / FMP", zh: "财务数据快照（不自动更新）", meta: "Fixed snapshot · No automatic updates · 50+ endpoints", href: DOC_PATHS.financialRegular, logo: PROVIDER_LOGOS.fmp, alt: "FMP Data logo" },
   ];
@@ -2085,6 +2085,8 @@ function EodhdEventsBody({ articleId } = {}) {
       { name: "symbols", type: "string", required: false, desc: "Up to 100 comma-separated symbols, e.g. AAPL,MSFT", zh: "股票代码，逗号分隔，最多 100 只，例如 AAPL,MSFT" },
       { name: "limit", type: "integer", required: false, desc: "Records per page. Default and maximum: 500.", zh: "每页记录数，默认及最大值为 500。" },
       { name: "offset", type: "integer", required: false, desc: "Starting record, default 0. Use next_offset for the next page.", zh: "从第几条记录开始，默认 0。下一页使用返回的 next_offset。" },
+      { name: "snapshot", type: "string", required: false, desc: "Selection token returned by history. Reuse it for subsequent pages.", zh: "历史查询返回的版本选择标记，后续分页时原样传回。" },
+      { name: "versions", type: "string", required: false, desc: "latest (default) or all preserved versions", zh: "latest（默认）或 all（所有保留版本）" },
       { name: "bundle", type: "string", required: false, desc: "Optional data version from coverage. Use it to keep pages on the same version.", zh: "可选数据版本，从覆盖范围接口获取。分页时可固定同一版本。" },
     ]} />
     <h3>{heading("Request example", "请求示例")}</h3>
@@ -2116,9 +2118,9 @@ function EodhdEventsBody({ articleId } = {}) {
     }
   ]
 }`}</pre>
-    <DocDesc zh="truncated 为 true 时还有下一页，将 next_offset 填入下一次请求的 offset；其他参数保持不变。为空的结果只表示所选范围没有记录。" en="When truncated is true, request the next page using next_offset as offset and keep the other parameters unchanged. An empty result means no records were returned for the selected range." />
+    <DocDesc zh="truncated 为 true 时还有下一页，同时传回 snapshot，并将 next_offset 填入 offset；其他参数保持不变。默认每个更新日期只返回最新采集版本；需要全部版本时传 versions=all。为空的结果只表示所选范围没有记录。" en="When truncated is true, reuse snapshot and pass next_offset as offset with unchanged filters. Each update date uses its latest capture by default; use versions=all for preserved versions. An empty result means no records were returned for the selected range." />
     <details><summary>{heading("Limits and delivery options", "查询限制与交付选项")}</summary>
-      <p>{isZh ? "建议始终传入 start 和 end。省略日期时默认查询最近 31 天；不指定股票的查询最多 7 天。offset 最大为 100000，超过时请缩小日期或股票范围。此接口不支持 fields 字段筛选，也不支持 cache-only 或 upstream-only。日期参数使用 start/end，不使用 start_date/end_date。" : "Always send start and end. Omitting dates selects the latest 31 days, while requests without symbols allow at most 7 days. offset is capped at 100000; narrow the date or symbol range if needed. fields, cache-only and upstream-only are unsupported. Use start/end, not start_date/end_date."}</p>
+      <p>{isZh ? "建议始终传入 start 和 end。省略日期时，不指定股票默认最近 7 天，指定股票默认最近 31 天。offset 最大为 100000，超过时请缩小日期或股票范围。此接口不支持 fields 字段筛选，也不支持 cache-only 或 upstream-only。日期参数使用 start/end，不使用 start_date/end_date。" : "Always send start and end. Without dates, requests without symbols default to the latest 7 days; requests with symbols default to 31 days. offset is capped at 100000; narrow the date or symbol range if needed. fields, cache-only and upstream-only are unsupported. Use start/end, not start_date/end_date."}</p>
       <p>{isZh ? "接口默认直接返回 JSON。需要签名下载时，请参阅 " : "The API returns JSON directly by default. For optional signed downloads, see "}<a href={docArticlePath("market-overview", "response-delivery")}>{heading("response delivery", "响应交付说明")}</a>。</p>
     </details>
 
@@ -2138,7 +2140,7 @@ function EodhdEventsBody({ articleId } = {}) {
       ["data[].rows", ["Number of event records", "事件记录数"]],
       ["data[].bundle", ["Data version to use in history requests", "可用于查询事件日历的数据版本"]],
     ]} />
-    <DocDesc zh="从有记录的版本中选择最新的 last_date，作为事件查询的 start 和 end。记录数为 0 的数据集可能没有日期范围。这个接口不分页，日期和股票筛选条件不会限制它的结果。" en="Choose the latest last_date from a version with records and use it as start and end in your history request. A version with zero records may have no date range. Coverage is not paginated and is not filtered by history dates or symbols." />
+    <DocDesc zh="使用 daily_coverage.latest_capture_date 获取最新采集日期，包括返回空结果的日期；latest_nonempty_date 仅表示最近有记录的日期。不能把采集为空解释为上游没有事件。这个接口不分页，日期和股票筛选条件不会限制它的结果。" en="Use daily_coverage.latest_capture_date for the latest capture date, including empty captures. latest_nonempty_date is the latest date with records. An empty capture does not prove no upstream events. Coverage is not paginated and is not filtered by history dates or symbols." />
   </DocContent>;
 }
 
@@ -2171,11 +2173,51 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
       <DailyFinancialRefresh />
       <p className="callout" style={{ marginBottom: 22 }}>
         {isZh ? (
-          <>当前推荐使用 <strong>v3 接口（覆盖 2011 年至今约 898 只标普 500、纳指 100 及热门美股，支持 64 项财务指标）</strong>；旧版 v1 接口已冻结归档，文档在页面后半部分。</>
+          <>推荐使用 <strong>日度财报历史接口</strong>，一次查询历史归档和最近更新，字段名统一。实际日期、股票数量与缺失情况请查日度覆盖接口；原始 v3、native 和旧版 v1 保留各自的归档范围。</>
         ) : (
-          <>Recommended: <strong>v3 endpoints (from 2011-01-03, ~898 S&P 500, Nasdaq-100, and hot stocks across 64 metrics)</strong>; legacy v1 is frozen and documented below.</>
+          <>Recommended: <strong>daily financial history</strong> combines the historical archive and recent updates in one query with consistent fields. Check daily coverage for actual dates, observed stocks and gaps. Original v3, native and legacy v1 retain their archive boundaries.</>
         )}
       </p>
+
+      <h2 id="morningstar-daily-history" className="display-title">{isZh ? "日度财报历史" : "Daily financial history"}</h2>
+      <EndpointBadge method="GET / POST" path="/v1/fundamentals/morningstar/daily/history" />
+      <DocDesc zh="一次查询某只股票一段时间内的营收、利润、资产和估值指标。接口自动读取历史归档及最近更新，每只股票每天返回一行；没有数据的日期保持缺失。需要 Premium。" en="Query revenue, earnings, assets and valuation metrics across a date range. The endpoint reads the historical archive and recent updates and returns one row per stock and day. Missing dates remain missing. Requires Premium." />
+      <DailyFinancialRefresh />
+      <ParamTable rows={[
+        { name: "symbols / sids", type: "string", required: false, desc: "Up to 100 ticker aliases or exact QC SIDs. Ambiguous tickers require a SID.", zh: "最多 100 个股票代码或 QC SID。代码对应多个身份时，请改用 SID。" },
+        { name: "start / end", type: "date", required: false, desc: "Inclusive daily dates. Without stock filters, request at most 7 days.", zh: "日度数据日期，包含起止日期。不指定股票时，最多查询 7 天。" },
+        { name: "fields", type: "string", required: false, desc: "Comma-separated field names; defaults to all 64 fields.", zh: "需要的字段，逗号分隔，默认返回全部 64 项。" },
+        { name: "limit", type: "integer", required: false, desc: "Records per page, up to 500.", zh: "每页记录数，最多 500。" },
+        { name: "snapshot / offset", type: "string / integer", required: false, desc: "For the next page, reuse snapshot and pass next_offset as offset. Keep filters unchanged and use the first response request.start/end.", zh: "下一页同时传回 snapshot 和 next_offset（作为 offset），其他筛选条件保持不变。日期使用首次响应 request.start/end。" },
+      ]} />
+      <pre className="code">{`curl --get "https://api.leandata.uk/v1/fundamentals/morningstar/daily/history" \\
+  -H "Authorization: Bearer $LEANDATA_TOKEN" \\
+  --data-urlencode "symbols=AAPL" \\
+  --data-urlencode "start=2026-09-25" \\
+  --data-urlencode "end=2026-10-16" \\
+  --data-urlencode "fields=market_cap,total_revenue,net_income"`}</pre>
+      <h3>{isZh ? "响应示例" : "Response example"}</h3>
+      <p>{isZh ? "以下记录仅作格式示意。" : "Illustrative record format."}</p>
+      <pre className="code">{JSON.stringify({ row_count: 1, truncated: false, next_offset: null, snapshot: "<selection token>", rows: [{ date: "2026-10-15", qc_sid: "AAPL R735QTJ8XC9X", symbol: "AAPL", values: { market_cap: 4820749537600, total_revenue: 416161000000, net_income: null }, status: { market_cap: "O", total_revenue: "O", net_income: "M" }, source: { kind: "native_capture", bundle: "<source version>" } }] }, null, 2)}</pre>
+      <DocDesc zh="values 始终是按字段名索引的对象，值为数字或 null。symbol 是归档对照表中的显示代码，qc_sid 是稳定身份；原始代码见 source_symbol（如有）。每行 source 标明来自历史归档还是新采集，source_dates 保留原日期。" en="values is always an object keyed by field name, containing numbers or null. symbol is the display ticker from the archive reference map; qc_sid is the stable identity. source_symbol preserves the captured label when present. Each row's source identifies historical or recent data; source_dates retains the original dates." />
+      <details><summary>{isZh ? "版本与缺失值" : "Versions and missing data"}</summary><p>{isZh ? "默认选择每个 SID、日期最近一次已提交的采集记录。新记录整行覆盖旧记录，不从另一版本补字段。历史入库状态、披露日期及新采集的缺失/零值状态会保留；这不等于严格的历史时点认证。更多版本请使用原始 native 接口。" : "The latest committed capture is selected per SID and date. A new row replaces the old row without filling fields from another version. Original admission/file dates and missing/zero status are retained; strict point-in-time certification is not implied. Use the raw native endpoint for preserved versions."}</p></details>
+
+      <h2 id="morningstar-daily-coverage" className="display-title">{isZh ? "日度覆盖与缺失" : "Daily coverage and gaps"}</h2>
+      <EndpointBadge method="GET / POST" path="/v1/fundamentals/morningstar/daily/coverage" />
+      <DocDesc zh="传入相同的股票和日期，检查哪些日期有数据、历史归档与新采集各自覆盖哪里，以及最近一天各字段缺多少。最多查询 366 天的日期跨度。" en="Use the same stocks and dates to check observed dates, the coverage of each source, and field missingness on the latest captured day. Date windows allow at most 366 elapsed days." />
+      <pre className="code">{`curl --get "https://api.leandata.uk/v1/fundamentals/morningstar/daily/coverage" \\
+  -H "Authorization: Bearer $LEANDATA_TOKEN" \\
+  --data-urlencode "symbols=AAPL" \\
+  --data-urlencode "start=2026-09-25" \\
+  --data-urlencode "end=2026-10-16"`}</pre>
+      <BilingualDataTable columns={[["Field", "字段"], ["Meaning", "含义"]]} rows={[
+        ["observed_dates", ["Dates with records", "有记录的日期"]],
+        ["sources", ["Dates and observed stock counts for each source", "各来源的日期与实际股票数"]],
+        ["unobserved_weekdays", ["Weekdays without records; may include market holidays", "没有记录的工作日，可能包含休市日"]],
+        ["latest_native_day.missing_by_field", ["Null count for each field on the latest captured day", "最近一个采集日各字段的缺失数量"]],
+        ["unresolved_symbols", ["Requested tickers that could not be resolved", "无法解析的请求代码"]],
+      ]} />
+      <DocDesc zh="未提供经过核对的预期股票名单时，股票覆盖率保持 null，不把实际返回数量当作 100% 覆盖。工作日缺记录也不一定是故障，应结合休市日和上市状态判断。" en="Without a verified expected stock list, stock_coverage_ratio remains null. Returned stocks do not prove 100% coverage. Missing weekdays may also reflect market holidays or listing availability." />
 
       <section id="morningstar-v3" style={{ borderTop: "1px solid var(--rule)", paddingTop: 26, marginBottom: 34 }}>
         <div className="eyebrow" style={{ marginBottom: 8 }}>{isZh ? "v3 · 数据集概览" : "v3 · Dataset summary"}</div>
@@ -2190,7 +2232,7 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
             ["Resolution", ["Daily (reporting period date)", "日度快照（财报公布日）"]],
             ["Timezone", ["New York (ET)", "美东时间 (New York)"]],
             ["Precision", ["Double precision (Float64)", "双精度浮点数 (Float64)"]],
-            ["PIT rule", ["Strict filing date filter (no lookahead bias)", "严格按披露日过滤（杜绝未来函数）"]],
+            ["PIT rule", ["Field admission codes retained; not certified strict PIT", "保留字段入库状态，未认证严格历史时点"]],
           ]}
         />
         <div className="callout" style={{ marginBottom: 18, marginTop: 14 }}>

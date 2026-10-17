@@ -27,10 +27,12 @@ for (const schedule of Object.values(contract.refresh_schedules)) {
 }
 const cases = [
   ["/docs/financial/morningstar/morningstar-overview/", [/06:00/, /PST\/PDT/, /Morningstar/]],
+  ["/docs/financial/morningstar/morningstar-daily-history/", [/daily\/history/, /one row per stock and day/, /snapshot/, /source_dates/]],
+  ["/docs/financial/morningstar/morningstar-daily-coverage/", [/unobserved_weekdays/, /missing_by_field/, /stock_coverage_ratio/]],
   ["/docs/financial/eodhd/eodhd-overview/", [/Premium/, /earnings/, /dividends/, /splits/, /upcoming US earnings dates/i, /Morningstar/, /06:00/]],
   ["/docs/financial/eodhd/eodhd-fields/", [/snapshot_date/, /report_time/, /dividend_date/, /source_sha256/, /not zero/]],
   ["/docs/financial/eodhd/eodhd-history/", [/start and end filter calendar update dates/, /next_offset/, /100000/, /Response example/, /ABT/]],
-  ["/docs/financial/eodhd/eodhd-coverage/", [/latest last_date/, /Coverage is not paginated/, /data\[\].rows/]],
+  ["/docs/financial/eodhd/eodhd-coverage/", [/latest_capture_date/, /Coverage is not paginated/, /data\[\].rows/]],
   ["/docs/realtime/websocket/", [/original JSON in binary WebSocket frames/, /MessagePack control acknowledgements only/, /json.loads/, /frame and byte budgets/]],
   ["/docs/realtime/subscriptions/", [/replaces the full subscription set/, /Unsubscribe clears all subscriptions without an acknowledgement/, /bars subscriptions/]],
   ["/docs/market/overview/api-contract/", [/Live API contract/, /X-Leandata-Contract-SHA256/, /X-Leandata-Data-Tier/, /route_not_migrated/, /endpoint_unavailable/]],
@@ -100,6 +102,12 @@ for (const [path, patterns] of cases) {
   if (path.endsWith("/eodhd-overview/")) {
     assert.doesNotMatch(main.textContent, /research_admission|source_sha256|upstream_completeness|303|307|PIT|cookies/i);
     assert(main.querySelector('a[href="/docs/financial/morningstar/"]'));
+  }
+  if (path.endsWith("/morningstar-daily-history/") || path.endsWith("/morningstar-daily-coverage/")) {
+    const code = [...main.querySelectorAll("pre.code")].find(n => n.textContent.startsWith("curl "))?.textContent;
+    assert(code && code.includes("\\\n"), "Financial curl examples must preserve line continuations");
+    assert.equal(spawnSync("bash", ["-n"], {input: code, encoding: "utf8"}).status, 0);
+    assert.doesNotMatch(main.textContent, /Morningstar v3 Dataset|legacy_direct admitted/);
   }
   if (path.endsWith("/eodhd-history/")) {
     const examples = [...main.querySelectorAll("pre.code")].map(node => node.textContent);
