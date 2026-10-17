@@ -26,11 +26,11 @@ for (const schedule of Object.values(contract.refresh_schedules)) {
   assert.equal(schedule.frequency, "daily");
 }
 const cases = [
-  ["/docs/market/research-signals/brain-overview/", [/Planned API/, /not yet available/, /2236/, /963/, /historical union/, /rank2days/, /rank3days/, /rank5days/, /rank10days/, /rank21days/]],
+  ["/docs/market/research-signals/brain-overview/", [/Planned API/, /not yet available/, /2220/, /947/, /historical union/, /security_id/, /rank2days/, /rank3days/, /rank5days/, /rank10days/, /rank21days/]],
   ["/docs/market/research-signals/brain-history/", [/Planned API/, /366/, /seven/, /default all five horizons/, /next_cursor/, /missing scores are not zero/]],
   ["/docs/market/research-signals/brain-latest/", [/Planned API/, /resolved_date/, /not carried forward/, /not a live/]],
   ["/docs/market/research-signals/brain-securities/", [/Planned API/, /not Brain's official constituent list/, /first_observed_date/, /continuous membership/]],
-  ["/docs/market/research-signals/brain-coverage/", [/Planned API/, /historical_sid_count/, /latest_date_sid_count/, /update time has not been announced/]],
+  ["/docs/market/research-signals/brain-coverage/", [/Planned API/, /historical_security_count/, /latest_date_security_count/, /update time has not been announced/]],
   ["/docs/market/options/post-v1-options-contracts/", [/Alpaca/, /show_deliverables/, /page_token/, /stale/, /settlement delay, not data latency/, /historical contract master/]],
   ["/docs/financial/eodhd/eodhd-fields/", [/shareholder record date/, /currency/, /source_updated_at/, /per share/]],
   ["/docs/financial/eodhd/eodhd-history/", [/snapshot_date/, /not event dates/, /symbols=PG,MSFT/, /no separate event-date filter/]],

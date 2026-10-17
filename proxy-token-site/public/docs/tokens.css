@@ -481,6 +481,17 @@ code.inline, .ic {
 .provider-hero.fmp { --provider-accent: #086ee8; --provider-tint: #f3f8ff; }
 .provider-hero.quantconnect { --provider-accent: #d9b000; --provider-tint: #fffaf0; }
 .provider-hero.brain { --provider-accent: #008bc9; --provider-tint: #f0faff; }
+.provider-hero.brain { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.provider-hero.brain .provider-logo-frame {
+  grid-row: 1;
+  width: min(100%, 660px);
+  aspect-ratio: 3 / 1;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
 .provider-hero-copy { min-width: 0; position: relative; z-index: 1; }
 .provider-hero-title {
   margin: 4px 0 10px;
