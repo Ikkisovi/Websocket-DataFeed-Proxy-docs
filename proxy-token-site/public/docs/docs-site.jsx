@@ -836,6 +836,18 @@ const PROVIDER_LOGOS = {
   alpaca: "/assets/providers/alpaca.png",
 };
 
+function BrainStatus() {
+  return <div className="provider-note" data-brain-status="planned">
+    <DocDesc
+      en="Planned API — not yet available. These pages describe the proposed interface. Access plans and the daily publication schedule will be announced when the API launches."
+      zh="接口规划中，尚未开放调用。以下为拟定接口说明；访问套餐与每日发布时间将在上线时公布。"
+    />
+    <a href="https://braincompany.co/bsr.html" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-ink)" }}><Bilingual en="Brain official product page ↗" zh="Brain 官方产品页 ↗" /></a>
+    {" · "}
+    <a href="https://www.braincompany.co/assets/files/BSR_summary.pdf" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-ink)" }}><Bilingual en="Brain US stock ranking factsheet ↗" zh="Brain 美股排名说明书 ↗" /></a>
+  </div>;
+}
+
 function ProviderMotif() {
   const bars = [34, 58, 44, 78, 62, 96, 70, 52, 84, 66, 40, 74, 56, 90, 48];
   return (
@@ -3440,6 +3452,86 @@ for row in resp.json()["rows"]:
       </pre>
 
       {/* ── Research Signals ── */}
+      <h2 id="brain-overview" className="display-title">Brain Stock Ranking</h2>
+      <BrainStatus />
+      <DocDesc
+        en="Brain produces daily stock scores for several forecast horizons and updates its stock universe annually. LeanData's planned Research Data API provides original scores for the 2, 3, 5, 10 and 21 day horizons and the securities with recorded scores."
+        zh="Brain 按日生成多个预测周期的股票评分，并逐年调整股票池。LeanData 拟在 Research Data 中提供 2、3、5、10、21 日五个周期的原始评分，以及有评分记录的历史证券名单。"
+      />
+      <DocDesc
+        en="The archive inspected on 17 October 2026 contains 4,243,837 rows and 2236 distinct SIDs from 1 January 2010 through 16 October 2026. The latest observed date contains 963 SIDs. The 2236 count is the historical union, not the size of today's stock universe."
+        zh="2026 年 10 月 17 日核查的归档包含 4,243,837 行、2236 个不同 SID，日期为 2010-01-01 至 2026-10-16；最新观测日有 963 个 SID。2236 是历史证券并集，不是当前股票池规模。"
+      />
+      <ParamTable rows={[
+        { name: "date", type: "date", desc: "Source observation date; not a precise publication timestamp", zh: "源记录的观测日期，不代表精确发布时间" },
+        { name: "sid", type: "string", desc: "Stable security identity for historical queries", zh: "用于历史查询的稳定证券身份" },
+        { name: "symbol", type: "string", desc: "Ticker label recorded with the score", zh: "随评分记录的股票代码标签" },
+        { name: "rank2days", type: "number", desc: "Original 2-day score at five decimal places", zh: "保留五位小数的原始 2 日评分" },
+        { name: "rank3days", type: "number", desc: "Original 3-day score at five decimal places", zh: "保留五位小数的原始 3 日评分" },
+        { name: "rank5days", type: "number", desc: "Original 5-day score at five decimal places", zh: "保留五位小数的原始 5 日评分" },
+        { name: "rank10days", type: "number", desc: "Original 10-day score at five decimal places", zh: "保留五位小数的原始 10 日评分" },
+        { name: "rank21days", type: "number", desc: "Original 21-day score at five decimal places", zh: "保留五位小数的原始 21 日评分" },
+      ]} />
+      <DocDesc
+        en="Scores are not ordinal positions or realized returns. They are returned without filling missing dates or reranking a requested subset. A missing row does not prove that a security was outside Brain's official universe. Use SID for long histories: a ticker can refer to different securities over time. Fitted predictions and price/fundamental fitting panels are not included."
+        zh="评分不是名次或已实现收益；不补齐缺失日期，也不在请求子集内重新排序。缺少记录不能证明该证券不属于 Brain 官方股票池。长期历史查询请使用 SID：同一个 ticker 在不同时期可能对应不同证券。本产品不包含拟合预测或价量、基本面拟合面板。"
+      />
+
+      <h2 id="brain-history" className="display-title">GET / POST /v1/signals/brain-stock-ranking</h2>
+      <BrainStatus />
+      <DocDesc en="Read original scores over an inclusive date range. GET query parameters and POST JSON bodies use the same fields." zh="按包含首尾日期的区间读取原始评分。GET 查询参数与 POST JSON 请求体使用相同字段。" />
+      <ParamTable rows={[
+        { name: "start / end", type: "date", required: true, desc: "Inclusive YYYY-MM-DD dates", zh: "起止日期，YYYY-MM-DD，包含首尾" },
+        { name: "sids / symbols", type: "string", desc: "Choose one filter, up to 100 comma-separated values; ambiguous tickers must be replaced with a SID", zh: "二选一，最多 100 个逗号分隔值；ticker 有歧义时须改用 SID" },
+        { name: "fields", type: "string", desc: "Optional comma-separated score fields; default all five horizons", zh: "可选，逗号分隔的评分字段；默认返回五个周期" },
+        { name: "limit", type: "integer", desc: "Default 1000; maximum 10000", zh: "默认 1000，最大 10000" },
+        { name: "release", type: "string", desc: "Published data version returned by the first page", zh: "首页返回的已发布数据版本" },
+        { name: "cursor", type: "string", desc: "Use next_cursor with the same release and filters", zh: "续页使用 next_cursor，数据版本和筛选条件须保持一致" },
+      ]} />
+      <DocDesc en="Filtered requests cover at most 366 calendar days; unfiltered cross-sections cover at most seven calendar days. Split longer histories into smaller ranges. Each page is ordered by date and SID." zh="带证券筛选的单次请求最多覆盖 366 个日历日；不筛选证券的截面请求最多覆盖 7 个日历日。更长历史请分段读取。每页按日期和 SID 排序。" />
+      <pre className="code">{`// Planned response example — API not yet available
+{
+  "dataset": "brain-stock-ranking",
+  "release": "brain-20261017-r1",
+  "count": 1,
+  "data": [
+    {"date": "2026-10-15", "sid": "A RPTMYV3VC57P", "symbol": "A", "rank2days": -0.00104, "rank3days": -0.00128, "rank5days": -0.00704, "rank10days": 0.00719, "rank21days": 0.02256}
+  ],
+  "truncated": false,
+  "next_cursor": null
+}`}</pre>
+      <DocDesc en="The release above is illustrative. count is the number of rows on this page. A null next_cursor only means pagination ended. No matching records returns an empty data array; missing scores are not zero." zh="上例 release 仅为示意。count 是本页行数；next_cursor 为空只表示分页结束。没有匹配记录时 data 为空，缺失评分不等于零。" />
+
+      <h2 id="brain-latest" className="display-title">GET / POST /v1/signals/brain-stock-ranking/latest</h2>
+      <BrainStatus />
+      <DocDesc en="Read the cross-section on the latest observation date in the published release. resolved_date identifies that date for all returned securities." zh="读取已发布数据版本中最新观测日的完整截面。resolved_date 明确标识所有返回证券共同使用的日期。" />
+      <ParamTable rows={[
+        { name: "sids / symbols", type: "string", desc: "Optional; choose one filter with at most 100 identities", zh: "可选，二选一，最多 100 个证券身份" },
+        { name: "fields", type: "string", desc: "Optional subset of the five score fields; default all five", zh: "可选五个评分字段中的子集；默认全部返回" },
+        { name: "limit / release / cursor", type: "pagination", desc: "Same pagination rules as history", zh: "与历史接口相同的分页规则" },
+      ]} />
+      <DocDesc en="A security without a score on resolved_date is omitted. Its older score is not carried forward. Use the history endpoint to inspect earlier observations. start and end are not accepted here. Latest means latest published data, not a live or intraday forecast." zh="某证券在 resolved_date 没有评分时不返回该行，也不拿旧评分补齐。较早记录请查历史接口。本接口不接受 start、end。latest 指最新已发布数据，不表示实时或盘中预测。" />
+
+      <h2 id="brain-securities" className="display-title">GET / POST /v1/signals/brain-stock-ranking/securities</h2>
+      <BrainStatus />
+      <DocDesc en="Find securities with recorded scores on a date or during a period. This is observed data coverage, not Brain's official constituent list." zh="查询某日或某段时期有评分记录的证券。这是已观测数据的覆盖名单，不是 Brain 官方完整成分表。" />
+      <ParamTable rows={[
+        { name: "date", type: "date", desc: "One exact observation date; choose this or start/end", zh: "精确观测日期，与 start/end 二选一" },
+        { name: "start / end", type: "date", desc: "Inclusive period of at most one calendar year", zh: "包含首尾的日期区间，最多一个日历年" },
+        { name: "limit / release / cursor", type: "pagination", desc: "Default limit 1000, maximum 10000; continue within the same release", zh: "limit 默认 1000、最大 10000；同一数据版本内续页" },
+      ]} />
+      <DocDesc en="Rows contain sid, symbol, first_observed_date, last_observed_date and observations within the requested period, sorted by SID. First and last dates do not establish continuous membership between them. To obtain the full historical union, merge yearly results by SID." zh="每行包含 sid、symbol，以及请求区间内的 first_observed_date、last_observed_date、observations，按 SID 排序。首次与末次出现日期不代表期间连续在池。全历史名单可按年查询后按 SID 合并。" />
+
+      <h2 id="brain-coverage" className="display-title">GET / POST /v1/signals/brain-stock-ranking/coverage</h2>
+      <BrainStatus />
+      <DocDesc en="Check the published date range, observed row count, historical SID count and latest-date SID count. historical_sid_count and latest_date_sid_count describe different populations. Coverage also identifies available score fields and per-field value counts." zh="查看已发布日期范围、观测行数、历史 SID 并集数和最新观测日 SID 数。historical_sid_count 与 latest_date_sid_count 的统计范围不同。覆盖信息同时列出可用评分字段及各字段的观测值数量。" />
+      <ParamTable rows={[
+        { name: "start / end, sids / symbols", type: "filters", desc: "Optional; use the same date and identity bounds as history. Responses identify the applied filters", zh: "可选，沿用历史接口的日期和证券限制；响应明确列出已应用的筛选条件" },
+        { name: "by", type: "string", desc: "Optional date or year breakdown with pagination", zh: "可选 date 或 year，分页返回按日或按年统计" },
+        { name: "limit / release / cursor", type: "pagination", desc: "Use for breakdown pages; keep the same release and filters", zh: "用于分组统计续页；保持相同数据版本和筛选条件" },
+      ]} />
+      <DocDesc en="Without filters, coverage describes the whole published release. With filters, it describes matching records only. New daily data becomes visible after publication completes. The update time has not been announced. Historical dates do not establish when a score became available intraday." zh="不加筛选时统计整个已发布数据版本；加筛选时只统计匹配记录。每日新数据将在发布完成后统一可见，目前尚未公布更新时间。历史日期不能证明评分在当日某个时刻已可获取。" />
+
       <ProviderHero
         id="spectral-overview"
         provider="quantconnect"
