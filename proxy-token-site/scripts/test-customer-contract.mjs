@@ -26,7 +26,8 @@ for (const schedule of Object.values(contract.refresh_schedules)) {
   assert.equal(schedule.frequency, "daily");
 }
 const cases = [
-  ["/docs/market/research-signals/brain-overview/", [/Planned API/, /not yet available/, /2220/, /947/, /historical union/, /security_id/, /rank2days/, /rank3days/, /rank5days/, /rank10days/, /rank21days/]],
+  ["/docs/market/research-signals/brain-overview/", [/Private preview/, /2220/, /947/, /historical union/, /security_id/, /rank2days/, /rank3days/, /rank5days/, /rank10days/, /rank21days/]],
+  ["/docs/market/research-signals/brain-universe-snapshot/", [/Private preview/, /date=latest/, /947/, /brain_snapshot_not_found/, /10000/, /403/, /publication-time/]],
   ["/docs/market/research-signals/brain-history/", [/Planned API/, /366/, /seven/, /default all five horizons/, /next_cursor/, /missing scores are not zero/]],
   ["/docs/market/research-signals/brain-latest/", [/Planned API/, /resolved_date/, /not carried forward/, /not a live/]],
   ["/docs/market/research-signals/brain-securities/", [/Planned API/, /not Brain's official constituent list/, /first_observed_date/, /continuous membership/]],
@@ -79,7 +80,7 @@ for (const [path, patterns] of cases) {
   assert(main, path); assert.deepEqual(errors, []);
   for (const pattern of patterns) assert.match(main.textContent, pattern, path);
   if (path.includes("/brain-")) {
-    assert(main.querySelector('[data-brain-status="planned"]'), path);
+    assert(main.querySelector(`[data-brain-status="${/brain-(overview|universe-snapshot)/.test(path) ? 'private-preview' : 'planned'}"]`), path);
     for (const url of ["https://braincompany.co/bsr.html", "https://www.braincompany.co/assets/files/BSR_summary.pdf"]) {
       const link = main.querySelector(`a[href="${url}"]`);
       assert(link, `${path}: Brain official link`);

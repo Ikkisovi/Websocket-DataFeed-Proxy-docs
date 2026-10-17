@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "version": "2026-10-17.2",
+  "version": "2026-10-17.3",
   "title": "LeanData public REST integration contract",
-  "scope": "Reviewed option OI/discovery, financial archive endpoints and shared REST delivery/error metadata. Other product endpoints remain in their documentation; absence here is not an unavailable verdict.",
+  "scope": "Reviewed option OI/discovery, financial archive endpoints, Brain universe snapshots and shared REST delivery/error metadata. Other product endpoints remain in their documentation; absence here is not an unavailable verdict.",
   "catalog_path": "/v1/api/contract",
   "docs_path": "/docs/market/overview/api-contract/",
   "origins": [
@@ -17,7 +17,8 @@
   "access_policies": {
     "options": "An active plan with options access, with existing plan date/expiry restrictions. This contract does not grant entitlement.",
     "premium_financial": "Premium financial-data authorization; availability and archive coverage remain separate.",
-    "unavailable": "No plan enables an unimplemented endpoint."
+    "unavailable": "No plan enables an unimplemented endpoint.",
+    "brain_private_preview": "Active Token for the explicitly authorized preview account only. Other accounts and plans do not grant access."
   },
   "delivery": {
     "default": "same_origin",
@@ -1858,6 +1859,35 @@
       "docs": "/docs/financial/morningstar/morningstar-daily-coverage/",
       "response_schema": "morningstar_daily_coverage_v1: source by_date counts, observed_dates, unobserved_weekdays, latest_native_day.missing_by_field, unresolved_symbols, snapshot, expected_symbols=null, stock_coverage_ratio=null.",
       "notes": "Coverage uses requested dates/identities and allows at most 366 elapsed days. Weekday gaps may include market holidays. Observed stocks are not a verified expected-universe denominator; missing values remain null. It does not certify upstream completeness or a 06:00 completion SLA."
+    },
+    {
+      "id": "brain-universe-snapshot",
+      "path": "/v1/signals/brain-stock-ranking/universe/snapshot",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "brain_private_preview",
+      "summary": "Complete recorded Brain universe for one exact observation date; no fill from other dates.",
+      "parameters": [
+        {
+          "name": "date",
+          "required": true,
+          "description": "YYYY-MM-DD or latest. latest resolves the global maximum recorded observation date."
+        }
+      ],
+      "response": {
+        "date": "Resolved observation date; not a historical publication timestamp.",
+        "count": "Number of recorded securities returned in full.",
+        "data": "Members with stable LeanData security_id (UUID) and captured symbol."
+      },
+      "notes": [
+        "No pagination or partial success. At most 10000 members per snapshot.",
+        "404 brain_snapshot_not_found means no recorded snapshot on the exact requested date. No previous-date substitution.",
+        "Observed scoring coverage is not an official constituent list or a historical publication-vintage guarantee.",
+        "The historical union contains securities absent from the selected date; they are not added to this response."
+      ]
     }
   ],
   "browser_exposed_headers": [

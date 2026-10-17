@@ -836,11 +836,11 @@ const PROVIDER_LOGOS = {
   alpaca: "/assets/providers/alpaca.png",
 };
 
-function BrainStatus() {
-  return <div className="provider-note" data-brain-status="planned">
+function BrainStatus({ snapshot = false } = {}) {
+  return <div className="provider-note" data-brain-status={snapshot ? "private-preview" : "planned"}>
     <DocDesc
-      en="Planned API — not yet available. These pages describe the proposed interface. Access plans and the daily publication schedule will be announced when the API launches."
-      zh="接口规划中，尚未开放调用。以下为拟定接口说明；访问套餐与每日发布时间将在上线时公布。"
+      en={snapshot ? "Private preview — universe snapshots are available only to the authorized account. Other Brain score and coverage APIs remain planned. A daily source publication time has not been announced." : "Planned API — this operation is not yet available. Universe snapshots have a separate private preview. Access plans and the daily publication schedule will be announced when these APIs launch."}
+      zh={snapshot ? "定向预览：时点股票池接口仅向已授权账号开放。其他 Brain 评分和覆盖接口仍在规划中，源端每日发布时间尚未公布。" : "此接口仍在规划中，尚未开放调用。时点股票池另有定向预览接口；其余接口的访问套餐与每日发布时间将在上线时公布。"}
     />
     <a href="https://braincompany.co/bsr.html" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-ink)" }}><Bilingual en="Brain official product page ↗" zh="Brain 官方产品页 ↗" /></a>
     {" · "}
@@ -3455,7 +3455,7 @@ for row in resp.json()["rows"]:
       <ProviderHero
         id="brain-overview"
         provider="brain"
-        eyebrow="Research Data · Planned API"
+        eyebrow="Research Data · Private universe preview"
         title="Brain Stock Ranking"
         zhTitle="Brain 股票排名"
         en="Brain produces daily stock scores for several forecast horizons and updates its stock universe annually. LeanData's planned Research Data API provides original scores for the 2, 3, 5, 10 and 21 day horizons and the securities with recorded scores."
@@ -3464,7 +3464,7 @@ for row in resp.json()["rows"]:
         logo="/docs/illustrations/brain-ranking-horizontal-v2.png"
         alt="Brain Stock Ranking editorial title graphic"
       />
-      <BrainStatus />
+      <BrainStatus snapshot />
       <DocDesc
         en="The archive inspected on 17 October 2026 contains 4,243,741 rows and 2220 distinct securities from 1 January 2010 through 16 October 2026. The latest observed date contains 947 securities. The 2220 count is the historical union, not the size of today's stock universe."
         zh="2026 年 10 月 17 日核查的归档包含 4,243,741 行、2220 个不同证券身份，日期为 2010-01-01 至 2026-10-16；最新观测日有 947 个证券身份。2220 是历史证券并集，不是当前股票池规模。"
@@ -3482,6 +3482,43 @@ for row in resp.json()["rows"]:
       <DocDesc
         en="Scores are not ordinal positions or realized returns. They are returned without filling missing dates or reranking a requested subset. A missing row does not prove that a security was outside Brain's official universe. Use security_id for long histories: a ticker can refer to different securities over time. Fitted predictions and price/fundamental fitting panels are not included."
         zh="评分不是名次或已实现收益；不补齐缺失日期，也不在请求子集内重新排序。缺少记录不能证明该证券不属于 Brain 官方股票池。长期历史查询请使用 security_id：同一个 ticker 在不同时期可能对应不同证券。本产品不包含拟合预测或价量、基本面拟合面板。"
+      />
+
+      <h2 id="brain-universe-snapshot" className="display-title">GET / POST /v1/signals/brain-stock-ranking/universe/snapshot</h2>
+      <BrainStatus snapshot />
+      <DocDesc
+        en="Get the complete recorded stock universe for one date. Use date=latest for the newest recorded date, or specify YYYY-MM-DD. GET and POST return the same result."
+        zh="读取某一天已收录的完整股票池。date=latest 返回最新记录日，也可指定 YYYY-MM-DD。GET 与 POST 结果相同。"
+      />
+      <EndpointBadge method="GET / POST" path={`${REST_BASE}/v1/signals/brain-stock-ranking/universe/snapshot`} />
+      <ParamTable rows={[
+        { name: "date", type: "string", required: true, desc: "Exact YYYY-MM-DD, or latest; no default", zh: "指定日期 YYYY-MM-DD，或 latest；必须填写" },
+      ]} />
+      <pre className="code">{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1/signals/brain-stock-ranking/universe/snapshot?date=latest"`}</pre>
+      <pre className="code">{`curl -X POST -H "Authorization: Bearer <TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"date":"2026-10-16"}' \\
+  "${REST_BASE}/v1/signals/brain-stock-ranking/universe/snapshot"`}</pre>
+      <pre className="code">{`// Response shape; illustrative single-member snapshot
+{
+  "date": "2026-10-16",
+  "count": 1,
+  "data": [
+    {"security_id": "5a47ccfa-51af-5d53-aa89-c8a496623673", "symbol": "A"}
+  ]
+}`}</pre>
+      <DocDesc
+        en="date is the resolved observation date. count is the number of members, and data contains the full snapshot without pagination (maximum 10000 members). The archive inspected on 17 October 2026 has 947 members on 16 October. No scores or ingestion metadata are returned."
+        zh="date 为实际读取的记录日期，count 为证券数量，data 一次返回全部名单，不分页，最多 10000 个证券。2026-10-17 核查时，10 月 16 日实际有 947 个证券。此接口不返回评分或导入元数据。"
+      />
+      <DocDesc
+        en="An exact date with no snapshot returns 404 brain_snapshot_not_found, including weekends or gaps without records. It never substitutes a previous date. This is the set of securities with recorded scores, not Brain's official constituent list. Dates are observation labels; historical publication-time versions are not available."
+        zh="指定日期没有记录时返回 404 brain_snapshot_not_found，周末或缺失日也不会自动改取前一天。这是当天有评分记录的证券集合，不是 Brain 官方成分名单。日期仅为观测标签，暂不提供当时已发布版本的历史回溯。"
+      />
+      <DocDesc
+        en="A missing or invalid Token returns 401; an account without preview authorization returns 403. Missing date, unsupported filters, score fields, limits or as_of return 400. Default delivery returns JSON on the same origin. direct=1 opts into signed delivery under the shared GET 307 / POST 303 contract."
+        zh="未提供或无效 Token 返回 401；未获预览授权的账号返回 403。缺少 date，或传入筛选、评分字段、limit、as_of 等不支持的参数返回 400。默认同域返回 JSON；direct=1 使用统一的 GET 307 / POST 303 签名下载方式。"
       />
 
       <h2 id="brain-history" className="display-title">GET / POST /v1/signals/brain-stock-ranking</h2>

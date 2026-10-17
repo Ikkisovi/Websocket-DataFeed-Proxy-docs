@@ -189,6 +189,7 @@ DOC_ARTICLE_INDEXES = (
     "docs/market/research-signals/brain-latest/index.html",
     "docs/market/research-signals/brain-overview/index.html",
     "docs/market/research-signals/brain-securities/index.html",
+    "docs/market/research-signals/brain-universe-snapshot/index.html",
     "docs/market/research-signals/get-post-v1-spectral-tick-flow/index.html",
     "docs/market/research-signals/get-v1-spectral-tick-flow-coverage/index.html",
     "docs/market/research-signals/spectral-fields/index.html",
