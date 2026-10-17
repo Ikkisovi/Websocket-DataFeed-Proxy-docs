@@ -253,6 +253,7 @@ FILES = (
     "skills/leandata-market-data/SKILL.md",
     "register-page.jsx",
     "docs/public-api-contract.json", "docs/api-contract-source.json",
+    "docs/illustrations/brain-ranking-horizontal-v2.png",
     "docs/doc-navigation.mjs", "docs/doc-components.jsx", "docs/doc-layout.css",
     "docs/docs-site.jsx", "docs/tokens.css", "tokens.css",
     *DOC_PAGE_INDEXES, *DOC_ARTICLE_INDEXES, *RETIRED_DOC_INDEXES, "index.html",
