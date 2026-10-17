@@ -29,7 +29,7 @@ const cases = [
   ["/docs/market/options/post-v1-options-contracts/", [/Alpaca/, /show_deliverables/, /page_token/, /stale/, /settlement delay, not data latency/, /historical contract master/]],
   ["/docs/financial/eodhd/eodhd-fields/", [/shareholder record date/, /currency/, /source_updated_at/, /per share/]],
   ["/docs/financial/eodhd/eodhd-history/", [/snapshot_date/, /not event dates/, /symbols=PG,MSFT/, /no separate event-date filter/]],
-  ["/docs/financial/eodhd/eodhd-coverage/", [/pagination ended/, /no reconciliation/, /not completion/]],
+  ["/docs/financial/eodhd/eodhd-coverage/", [/pagination ended/, /not completion/]],
 
   ["/docs/financial/morningstar/morningstar-overview/", [/06:00/, /PST\/PDT/, /Morningstar/]],
   ["/docs/financial/morningstar/morningstar-daily-history/", [/daily\/history/, /one row per stock and day/, /snapshot/, /source_dates/]],
@@ -172,6 +172,11 @@ for (const id of ["post-admin-login", "get-admin-pending", "post-admin-approve",
 console.log("Customer delivery, OI clocks, calendar availability and retired operator pages pass");
 
 const marketSkill = fs.readFileSync(new URL("skills/leandata-market-data/SKILL.md", root), "utf8");
-for (const pattern of [/events\/eodhd\/coverage/, /events\/eodhd\/history/, /next_offset/, /start_date.*not supported aliases/, /research_admission=false/, /06:00 Pacific time/, /America\/Los_Angeles/]) assert.match(marketSkill, pattern);
+for (const pattern of [/events\/eodhd\/coverage/, /events\/eodhd\/history/, /next_offset/, /start_date.*not supported aliases/, /06:00 Pacific time/, /America\/Los_Angeles/]) assert.match(marketSkill, pattern);
 
 assert.match(marketSkill, /fixed snapshot and do not update automatically/);
+
+for (const file of ["docs/docs-site.jsx", "docs/public-api-contract.json", "skills/leandata-market-data/SKILL.md"]) {
+  const source=fs.readFileSync(new URL(file,root),"utf8");
+  assert.doesNotMatch(source,/upstream_completeness_verified|research_admission|source_csv_sha256|archive_bundle_sha256|source_sha256/,file);
+}

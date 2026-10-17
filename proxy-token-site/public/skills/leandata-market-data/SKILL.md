@@ -108,7 +108,7 @@ Premium exposes GET/POST `/v1/events/eodhd/coverage` and
    selector fixed. Narrow scope before reaching the offset ceiling.
 5. Coverage uses only dataset and optional bundle. History dates, symbols,
    limit, offset and fields do not filter coverage; coverage is not paginated.
-6. Preserve `(bundle,row_id)`, `source_sha256`, native `payload`, nulls and
+6. Preserve `(bundle,row_id)`, native `payload`, nulls and
    original numeric bytes. Snapshot dates, earnings `report_date`/`report_time`,
    dividend `dividend_date`/`payment_date` and vendor publication time are
    distinct. Do not silently collapse revised observations.
@@ -129,9 +129,8 @@ Use same-origin delivery by default. Cache-only and upstream-only controls are
 unsupported. Optional direct delivery follows the credential-free signed GET
 rules above. Use the latest EODHD earnings snapshot for future report dates; filter
 `payload.report_date` for upcoming events. Financial statement data is updated
-through Morningstar routes. Future dates may be revised in later snapshots. Empty splits do not prove no upstream events. Keep
-`research_admission=false` and `upstream_completeness_verified=false`; no strict
-PIT certification or provider publication-time guarantee is established.
+through Morningstar routes. Future dates may be revised in later snapshots. Empty splits do not prove no upstream events. Coverage reports captured dates
+and records, not completion of all upstream event announcements.
 
 ## Endpoint notes
 

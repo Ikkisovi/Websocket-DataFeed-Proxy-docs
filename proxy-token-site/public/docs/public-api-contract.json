@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "2026-10-17.1",
+  "version": "2026-10-17.2",
   "title": "LeanData public REST integration contract",
   "scope": "Reviewed option OI/discovery, financial archive endpoints and shared REST delivery/error metadata. Other product endpoints remain in their documentation; absence here is not an unavailable verdict.",
   "catalog_path": "/v1/api/contract",
@@ -1712,7 +1712,7 @@
       ],
       "docs": "/docs/financial/eodhd/eodhd-history/",
       "clocks": "start/end select source snapshot_date, not collection completion, vendor announcement time or event date. earnings.report_date is earnings date; dividends.report_date is shareholder record date. Event-date filtering is client-side.",
-      "response_schema": "qc_native_history_v1: source=eodhd, dataset, count, data, truncated, next_offset, research_admission=false. Each data row contains bundle, row_id, source_sha256 and original payload. Numeric JSON bytes and null values are retained.",
+      "response_schema": "qc_native_history_v1: source=eodhd, dataset, count, data, truncated, next_offset. Each data row contains bundle, row_id and original payload. Numeric JSON bytes and null values are retained.",
       "notes": "Capture-date filters, not event-date filters. Latest selection does not infer upstream completeness. Pin snapshot for subsequent pages; bundle keeps exact raw capture semantics. GET/POST and optional signed delivery share the same selectors. Financial values use Morningstar daily/history. Expected daily refresh starts 06:00 America/Los_Angeles; coverage reports actual available captures. Upcoming earnings/dividend source datasets focus roughly seven days ahead. No complete all-announced calendar, verified per-stock event completeness, currency, source_updated_at or confirmed/cancelled dividend state is supplied. Preserve nulls and original field names.",
       "example": {
         "method": "GET",
@@ -1748,8 +1748,8 @@
         }
       ],
       "docs": "/docs/financial/eodhd/eodhd-coverage/",
-      "response_schema": "qc_native_coverage_v1: data rows contain bundle, family, dataset, rows, first_date, last_date, source_sha256 and metadata (run, source_csv, source_csv_sha256, upstream_completeness_verified=false). Date bounds describe observed snapshots; empty datasets can have null bounds. daily_coverage separates latest_capture_date from latest_nonempty_date and reports selected batch, row count and captured-empty state per day for the latest 31-day capture window. Reader failure returns 503 rather than omitting selected-capture freshness.",
-      "notes": "Future earnings dates are provided through daily event snapshots; financial statement data is updated through Morningstar routes. Read the latest available snapshot and filter payload.report_date for upcoming earnings. Event dates may change in subsequent snapshots. Empty data does not prove no events. research_admission remains false. Default delivery is same-origin; direct=1 optionally uses the shared signed GET delivery contract. Cache-only/upstream-only controls are unsupported. Coverage applies only dataset and optional bundle; history dates, symbols, limit, offset and fields do not filter it. Coverage count is dataset manifest count, not event row count. No pagination is applied. EODHD and Morningstar updates are expected to start daily at 06:00 America/Los_Angeles (PST/PDT); actual published snapshots are reported by the matching coverage endpoint. A queryable committed bundle proves publication of captured contents only. Pagination completion is not stock-event completeness. Checksums identify source objects, not business verification; upstream_completeness_verified=false is a retained unverified-upstream assertion, not a failed transfer check.",
+      "response_schema": "qc_native_coverage_v1: data rows contain bundle, family, dataset, rows, first_date, last_date, metadata (captured_snapshot_dates, fields and date semantics). Date bounds describe observed snapshots; empty datasets can have null bounds. daily_coverage separates latest_capture_date from latest_nonempty_date and reports selected batch, row count and captured-empty state per day for the latest 31-day capture window. Reader failure returns 503 rather than omitting selected-capture freshness.",
+      "notes": "Future earnings dates are provided through daily event snapshots; financial statement data is updated through Morningstar routes. Read the latest available snapshot and filter payload.report_date for upcoming earnings. Event dates may change in subsequent snapshots. Empty data does not prove no events. Default delivery is same-origin; direct=1 optionally uses the shared signed GET delivery contract. Cache-only/upstream-only controls are unsupported. Coverage applies only dataset and optional bundle; history dates, symbols, limit, offset and fields do not filter it. Coverage count is dataset manifest count, not event row count. No pagination is applied. EODHD and Morningstar updates are expected to start daily at 06:00 America/Los_Angeles (PST/PDT); actual published snapshots are reported by the matching coverage endpoint. A queryable committed bundle proves publication of captured contents only. Pagination completion is not stock-event completeness.",
       "example": {
         "method": "GET",
         "params": {
@@ -1810,7 +1810,7 @@
         }
       ],
       "docs": "/docs/financial/morningstar/morningstar-daily-history/",
-      "response_schema": "morningstar_daily_history_v1: rows(date,qc_sid,symbol,values,status,source,source_dates), row_count, truncated, next_offset, snapshot, unresolved_symbols, research_admission=false.",
+      "response_schema": "morningstar_daily_history_v1: rows(date,qc_sid,symbol,values,status,source,source_dates), row_count, truncated, next_offset, snapshot, unresolved_symbols.",
       "notes": "One row per SID/date; newest committed native row takes precedence as a whole, with no field filling from another feed. Legacy admission codes/file dates and native source dates remain explicit. No gap filling or strict PIT certification. Unfiltered history spans at most seven inclusive calendar days. Existing v3 and native raw routes keep their separate source contracts. Reader failure returns 503 rather than silently falling back to all revisions."
     },
     {
@@ -1856,7 +1856,7 @@
         }
       ],
       "docs": "/docs/financial/morningstar/morningstar-daily-coverage/",
-      "response_schema": "morningstar_daily_coverage_v1: source by_date counts, observed_dates, unobserved_weekdays, latest_native_day.missing_by_field, unresolved_symbols, snapshot, expected_symbols=null, stock_coverage_ratio=null, research_admission=false.",
+      "response_schema": "morningstar_daily_coverage_v1: source by_date counts, observed_dates, unobserved_weekdays, latest_native_day.missing_by_field, unresolved_symbols, snapshot, expected_symbols=null, stock_coverage_ratio=null.",
       "notes": "Coverage uses requested dates/identities and allows at most 366 elapsed days. Weekday gaps may include market holidays. Observed stocks are not a verified expected-universe denominator; missing values remain null. It does not certify upstream completeness or a 06:00 completion SLA."
     }
   ],
