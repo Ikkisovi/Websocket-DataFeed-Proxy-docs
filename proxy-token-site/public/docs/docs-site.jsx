@@ -3452,12 +3452,19 @@ for row in resp.json()["rows"]:
       </pre>
 
       {/* ── Research Signals ── */}
-      <h2 id="brain-overview" className="display-title">Brain Stock Ranking</h2>
-      <BrainStatus />
-      <DocDesc
+      <ProviderHero
+        id="brain-overview"
+        provider="brain"
+        eyebrow="Research Data · Planned API"
+        title="Brain Stock Ranking"
+        zhTitle="Brain 股票排名"
         en="Brain produces daily stock scores for several forecast horizons and updates its stock universe annually. LeanData's planned Research Data API provides original scores for the 2, 3, 5, 10 and 21 day horizons and the securities with recorded scores."
         zh="Brain 按日生成多个预测周期的股票评分，并逐年调整股票池。LeanData 拟在 Research Data 中提供 2、3、5、10、21 日五个周期的原始评分，以及有评分记录的历史证券名单。"
+        chips={["2 · 3 · 5 · 10 · 21 days", "daily scores", "historical SIDs"]}
+        logo="/docs/illustrations/brain-ranking-v1.png"
+        alt="Blue neural-network and market-ranking illustration"
       />
+      <BrainStatus />
       <DocDesc
         en="The archive inspected on 17 October 2026 contains 4,243,837 rows and 2236 distinct SIDs from 1 January 2010 through 16 October 2026. The latest observed date contains 963 SIDs. The 2236 count is the historical union, not the size of today's stock universe."
         zh="2026 年 10 月 17 日核查的归档包含 4,243,837 行、2236 个不同 SID，日期为 2010-01-01 至 2026-10-16；最新观测日有 963 个 SID。2236 是历史证券并集，不是当前股票池规模。"

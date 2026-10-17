@@ -480,6 +480,7 @@ code.inline, .ic {
 .provider-hero.morningstar { --provider-accent: #e21b22; --provider-tint: #fff5f4; }
 .provider-hero.fmp { --provider-accent: #086ee8; --provider-tint: #f3f8ff; }
 .provider-hero.quantconnect { --provider-accent: #d9b000; --provider-tint: #fffaf0; }
+.provider-hero.brain { --provider-accent: #008bc9; --provider-tint: #f0faff; }
 .provider-hero-copy { min-width: 0; position: relative; z-index: 1; }
 .provider-hero-title {
   margin: 4px 0 10px;
