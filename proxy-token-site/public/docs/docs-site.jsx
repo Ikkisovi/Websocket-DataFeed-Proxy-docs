@@ -1702,6 +1702,7 @@ const FMP_FOCUS_BOUNDARIES = [
 ];
 
 function FmpFundamentalsBody({ focus, articleId }) {
+  const isZh = useCurrentLanguage() === "zh";
   const panel = {
     background: "var(--bg-paper)",
     border: "1px solid var(--rule)",
@@ -1972,29 +1973,15 @@ Content-Type: application/json
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Ratios endpoints return fields like <code>currentRatio</code>, <code>quickRatio</code>, <code>debtToEquityRatio</code>, <code>priceToEarningsRatio</code>, <code>returnOnEquity</code>, etc. TTM fields typically end with <code>TTM</code>. Missing or null fields indicate unavailable data—do not treat as zero.</span>
       </p>
 
-      <h2 id="fmp-calendar-support" className="display-title" style={{ fontSize: 28 }}>Calendar support / 财报与除息日历支持范围</h2>
+      <h2 id="fmp-calendar-support" className="display-title" style={{ fontSize: 28 }}>财报日历与财报数据 / Earnings calendar & financials</h2>
+      <DocDesc zh="未来的财报发布日期使用 EODHD；营收、净利润、现金流等财报数据使用 Morningstar。两者都预计每天美西早上 06:00 起更新。" en="Use EODHD for upcoming earnings dates and Morningstar for revenue, net income, cash flow and other financial statement data. Both are expected to refresh daily from 06:00 Pacific time." />
       <DailyFinancialRefresh />
-      <p>Premium provides future earnings dates through the EODHD event routes; financial statement data is updated through the Morningstar routes. The compatibility <code>/stable/earnings</code> and <code>/stable/dividends</code> endpoints keep their archived snapshot semantics.<br/>未来财报节点使用 EODHD 事件路由，财报数据本身由 Morningstar 路由更新；旧兼容接口保留归档快照语义。</p>
-      <table className="tbl card"><thead><tr><th>Need / 需求</th><th>Current availability / 当前支持</th></tr></thead><tbody>
-        <tr><td>Historical earnings / 历史业绩公告</td><td><code>/stable/earnings</code>, available archived records</td></tr>
-        <tr><td>Historical dividends / 历史分红</td><td><code>/stable/dividends</code>, available archived records</td></tr>
-        <tr><td>Future earnings calendar / 未来财报日历</td><td>EODHD <code>/v1/events/eodhd/history?dataset=earnings</code>; inspect coverage for the latest snapshot. <code>/stable/earnings-calendar</code> remains 501.</td></tr>
-        <tr><td>Future ex-dividend calendar / 未来除息日历</td><td>EODHD <code>dataset=dividends</code> for available ex-dividend dates. <code>/stable/dividends-calendar</code> remains 501.</td></tr>
-      </tbody></table>
-      <p>A 501 is an unavailable endpoint, not a plan-upgrade prompt. An empty 200 array only describes the requested slice. Quote/profile/analyst records in this financial catalog are archived snapshots; use the market-data quote endpoints for current trading decisions and inspect source timestamps.<br/>501 不应通过升级套餐或反复重试解决。空数组不证明全市场无事件；财务目录中的报价、资料、预测是归档快照，交易所需当前报价请使用行情接口并检查来源时间。</p>
-
-      <h3>Future earnings and event snapshots / 未来财报节点与事件快照</h3>
-      <p><a href={DOC_PATHS.financialEodhd}>EODHD integration guide / EODHD 事件接入文档</a></p>
-      <p>Premium supports <code>GET/POST /v1/events/eodhd/history</code> and <code>GET/POST /v1/events/eodhd/coverage</code>. Select <code>dataset=earnings</code> (default), <code>dividends</code> or <code>splits</code>. Use the latest earnings snapshot for future report dates, then filter payload.report_date for your planning window. Financial statement values are provided through Morningstar.<br/>这两条接口需要 Premium；未来财报节点取最新 earnings 快照，按 report_date 筛选业务窗口；财报数据本身取 Morningstar。</p>
-      <ParamTable rows={[
-        { name: "dataset", type: "string", required: false, desc: "earnings (default) | dividends | splits", zh: "事件数据集" },
-        { name: "start / end", type: "date", required: false, desc: "Inclusive history selectors on snapshot_date, not the event date", zh: "按抓取快照日期筛选历史，不是事件日期" },
-        { name: "limit / offset", type: "integer", required: false, desc: "History page: limit up to 500; offset up to 100000", zh: "历史分页：limit 最大 500，offset 最大 100000" },
+      <BilingualDataTable columns={[["Need", "需求"], ["Endpoint", "使用接口"]]} rows={[
+        [["Upcoming earnings dates", "未来财报日期"], <a href={DOC_PATHS.financialEodhd}>EODHD · /v1/events/eodhd/history?dataset=earnings</a>],
+        [["Dividends and ex-dividend dates", "分红与除息日"], <a href={DOC_PATHS.financialEodhd}>EODHD · dataset=dividends</a>],
+        [["Financial statement data", "财报基本面数据"], <a href={DOC_PATHS.financialMorningstar}>Morningstar · /v1/fundamentals/morningstar/v3/history</a>],
       ]} />
-      <p><code>start</code>/<code>end</code> select <code>snapshot_date</code>. Keep event fields such as earnings <code>report_date</code>, <code>dividend_date</code> and <code>payment_date</code> separate. Coverage is independent of history filters: inspect it for captured snapshot intervals before selecting a history slice. Native payload selection does not accept <code>fields</code>. Preserve source fields and sparse/null values; <code>research_admission=false</code> remains a research-admission boundary.<br/>查询日期选择抓取快照日期；财报、除息和支付日期是独立业务字段。coverage 不受 history 过滤条件限制。原生载荷不接受 fields 投影，请保留缺失值与元数据。</p>
-      <pre className="code">{`curl "https://api.leandata.uk/v1/events/eodhd/coverage?dataset=earnings" -H "Authorization: Bearer $LEANDATA_TOKEN"
-curl "https://api.leandata.uk/v1/events/eodhd/history?dataset=earnings&start=2026-10-01&end=2026-10-02&limit=100" -H "Authorization: Bearer $LEANDATA_TOKEN"`}</pre>
-      <p>Delivery uses the normal authenticated API request. Same-origin transparent delivery is the default; opt-in <code>direct=1</code> can return a signed download redirect. Follow signed GET URLs without an Authorization header or Bearer token; never forward the API credential to the download host.<br/>默认同源透明交付；direct=1 可返回签名下载跳转，签名 GET 不携带 Authorization 或 Bearer。</p>
+      <p>{isZh ? "旧的 /stable/earnings-calendar 和 /stable/dividends-calendar 接口仍返回 501，请使用上述 EODHD 接口。" : "The older /stable/earnings-calendar and /stable/dividends-calendar routes still return 501. Use the EODHD endpoints above."}</p>
 
       <h3 id="fmp-request-contract" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>参数说明 / Parameters</h3>
       <div style={{ overflowX: "auto", marginBottom: 22 }}>
@@ -2048,108 +2035,112 @@ curl "https://api.leandata.uk/v1/events/eodhd/history?dataset=earnings&start=202
 
 
 function DailyFinancialRefresh() {
-  return <div data-financial-refresh-schedule>
-    <p>预计每日美西早上 06:00 开始采集及更新（<code>America/Los_Angeles</code>，随 PST/PDT 夏令时切换）。实际可用版本以对应 coverage 为准；06:00 为预计启动时间，不是保证完成时间。<br/>Updates are expected to start daily at 06:00 Pacific time (America/Los_Angeles, PST/PDT). Check the matching coverage endpoint for the latest published snapshot; this is an expected start, not a guaranteed completion time.</p>
-    <table className="tbl"><thead><tr><th>Data / 数据</th><th>Expected start / 预计启动</th><th>Purpose / 用途</th></tr></thead><tbody>
-      {Object.entries(API_CONTRACT.refresh_schedules).map(([key, schedule]) => <tr key={key}>
-        <td>{key === "eodhd_events" ? <a href={DOC_PATHS.financialEodhd}>EODHD</a> : <a href={DOC_PATHS.financialMorningstar}>Morningstar</a>}</td>
-        <td>{schedule.expected_start_time} · {schedule.time_zone} · daily</td>
-        <td>{key === "eodhd_events" ? "未来财报节点 / Upcoming earnings dates" : "财报基本面数据 / Financial statement data"}</td>
-      </tr>)}
-    </tbody></table>
-  </div>;
+  const isZh = useCurrentLanguage() === "zh";
+  return <p data-financial-refresh-schedule style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 20 }}>
+    <strong>{isZh ? "更新频率：" : "Updates: "}</strong>
+    {isZh ? "预计每天美西早上 06:00 起更新（PST/PDT）。最新数据日期可在覆盖范围接口中查看。" : "Expected daily from 06:00 Pacific time (PST/PDT). Check the coverage endpoint for the latest data date."}
+  </p>;
 }
 
 function EodhdEventsBody({ articleId } = {}) {
   const isZh = useCurrentLanguage() === "zh";
-  const operations = API_CONTRACT.operations.filter(op => op.id.startsWith("eodhd-"));
+  const heading = (en, zh) => isZh ? zh : en;
   return <DocContent articleId={articleId} style={{ maxWidth: 860 }}>
-    <h2 id="eodhd-overview" className="display-title">{isZh ? "EODHD 事件接入" : "EODHD events integration"}</h2>
+    <h2 id="eodhd-overview" className="display-title">{heading("Earnings & company events", "财报与公司事件")}</h2>
+    <DocDesc zh="查询美股公司未来的财报发布日期，以及分红、除息和拆股安排。适用于财报日历、事件提醒和交易前检查，需要 Premium 套餐。" en="Look up upcoming US earnings dates, dividends and stock splits. Use the data for earnings calendars, event alerts and pre-trade checks. Requires Premium." />
     <DailyFinancialRefresh />
-    <p>Premium · <code>https://api.leandata.uk</code> · GET / POST · Bearer token</p>
-    <p>使用现有 LeanData Premium Token，无需提供上游密钥。先调用 coverage 选取抓取快照和 bundle，再调用 history 获取 earnings、dividends 或 splits。<br/>Use your existing LeanData Premium token. Inspect coverage, choose a captured snapshot and bundle, then read earnings, dividends or splits history.</p>
-    <p>EODHD 提供未来财报节点，用于安排 upcoming earnings 日历。取最新可用 earnings 快照，再按 report_date 筛选未来日期；财报数据本身由 Morningstar 路由更新。<br/>EODHD provides future earnings dates. Read the latest available earnings snapshot and filter report_date for upcoming events; financial statement data is updated through Morningstar. Capture dates remain distinct from event and vendor publication dates. Empty data does not prove no events. <code>research_admission=false</code>.</p>
-    <table className="tbl"><thead><tr><th>Dataset</th><th>Meaning / 含义</th></tr></thead><tbody>
-      <tr><td>earnings (default)</td><td>Upcoming earnings report dates / 未来财报节点</td></tr>
-      <tr><td>dividends</td><td>Captured dividend observations / 分红及除息观测</td></tr>
-      <tr><td>splits</td><td>Captured split observations; can be empty / 拆股观测，可为空</td></tr>
-    </tbody></table>
-    <p>默认同源 200 JSON 交付。可选 <code>direct=1</code>：GET 307 / POST 303 后使用签名 GET；缓存命中也可直接返回 200。签名下载不携带原 Token、Authorization、Cookie 或请求体，且不额外计一次公开 API 请求。<br/>Same-origin JSON is the default. Opt-in signed download uses a separate credential-free GET to the exact HTTPS origin <code>archive-direct.leandata.uk</code>. Never log the signed URL. <a href={docArticlePath("market-overview", "response-delivery")}>Delivery and safe redirect handling</a>.</p>
-    <p>兼容日历接口 <code>/stable/earnings-calendar</code> 和 <code>/stable/dividends-calendar</code> 仍返回 501。EODHD 不会改变这两个接口的可用性。<br/>The FMP calendar routes remain unavailable; EODHD does not change their status.</p>
-    <h2 id="eodhd-fields" className="display-title">{isZh ? "事件字段与日期" : "Event fields and clocks"}</h2>
-    <p>Each history row has <code>bundle</code>, <code>row_id</code>, <code>source_sha256</code> and original <code>payload</code>. Keep the pair <code>(bundle,row_id)</code> as capture identity; do not silently deduplicate revisions. Preserve original response bytes for exact numeric custody and keep null separate from zero.<br/>每条记录包含版本、行号、源 CSV 哈希及原生 payload；保留修订，不要把缺失值填成零。</p>
-    <table className="tbl"><thead><tr><th>Field</th><th>Meaning / 含义</th></tr></thead><tbody>
-      <tr><td>payload.snapshot_date</td><td>Capture date selected by start/end / 查询筛选的抓取快照日期</td></tr>
-      <tr><td>payload.ticker / qc_symbol_id</td><td>Captured ticker and native identity / 原始代码及标识</td></tr>
-      <tr><td>earnings: report_date, report_time, estimate</td><td>Source event date/time labels and estimate; not a verified publication clock / 来源事件日期、时间标签及预期值</td></tr>
-      <tr><td>dividends: declaration_date, dividend_date, payment_date, dividend</td><td>Declaration, ex-dividend and payment dates plus native amount / 宣告、除息、支付日期及原始金额</td></tr>
-      <tr><td>splits: source payload fields</td><td>Read supplied split date/ratio fields; an empty capture establishes no schema values / 以来源拆股日期和比例字段为准，不从空数据推定字段值</td></tr>
-    </tbody></table>
-    <p>Dates can be absent or revised. The API does not certify announcement-time PIT, upstream completeness or research eligibility. Fetch an observed snapshot, then apply your business event-date filter to its payload.<br/>日期可能缺失或修订；请先按快照抓取，再按事件日期筛选，接口不保证原始公告时点 PIT。</p>
-    <h2 id="eodhd-history" className="display-title">GET / POST /v1/events/eodhd/history</h2>
-    <p>Schema <code>qc_native_history_v1</code>: <code>source=eodhd</code>, dataset, count, data, truncated, next_offset, date_semantics and <code>research_admission=false</code>.</p>
-    <ParamTable rows={(operations.find(op => op.id === "eodhd-history")?.parameters || []).map(p => ({ name: p.name, type: ["limit", "offset"].includes(p.name) ? "integer" : "string", required: p.required, desc: p.description }))} />
-    <p><code>start/end</code> 是包含边界的 snapshot_date；<code>start_date/end_date</code> 不是有效别名。未传日期默认截至 UTC 今天的 31 天；不指定 symbols 时最多 7 天，因此请明确日期。<code>fields</code> 投影、cache-only、upstream-only 均不支持。<br/>Use explicit inclusive start/end snapshot dates. start_date/end_date are not supported aliases. Unfiltered cross-sections allow at most 7 inclusive calendar days. Fields projection and cache-only/upstream-only controls are unsupported.</p>
-    <pre className="code">{`# Choose a captured date and bundle from coverage first.
-curl --fail-with-body --silent --show-error --get \\
-  "https://api.leandata.uk/v1/events/eodhd/history" \\
+    <BilingualDataTable columns={[["Dataset", "数据集"], ["Content", "内容"]]} rows={[
+      ["earnings", ["Upcoming earnings dates and EPS estimates (default)", "未来财报日期及每股收益预期（默认）"]],
+      ["dividends", ["Dividend amounts, ex-dividend dates and payment dates", "分红金额、除息日及支付日"]],
+      ["splits", ["Stock split dates and ratios, when available", "已收录的拆股日期及比例"]],
+    ]} />
+    <p>{isZh ? "要查询营收、净利润、现金流等财报数据，请使用 " : "For revenue, net income, cash flow and other financial statement data, use "}<a href={DOC_PATHS.financialMorningstar}>{isZh ? "Morningstar 基本面接口" : "Morningstar fundamentals"}</a>{isZh ? "，同样预计每天美西早上 06:00 起更新。" : ", also expected to refresh daily from 06:00 Pacific time."}</p>
+    <h3>{heading("Get started", "开始使用")}</h3>
+    <ol>
+      <li>{isZh ? "查询覆盖范围，找到最近一次更新的日期。" : "Check coverage to find the latest available data date."}</li>
+      <li>{isZh ? "用这个日期查询事件日历，再按返回的财报日期选择未来事件。" : "Request the event calendar for that data date, then select upcoming report dates from the results."}</li>
+    </ol>
+    <p><a href={docArticlePath("financial-eodhd", "eodhd-history")}>{heading("Query event calendar →", "查询事件日历 →")}</a> · <a href={docArticlePath("financial-eodhd", "eodhd-coverage")}>{heading("Check data coverage →", "查询覆盖范围 →")}</a></p>
+
+    <h2 id="eodhd-fields" className="display-title">{heading("Response fields", "返回字段")}</h2>
+    <DocDesc zh="事件信息在每条记录的 payload 中。财报日期可能调整，设置提醒时请使用最近一次更新的数据。" en="Event details are in each record's payload. Earnings dates can change; use the latest data when setting alerts." />
+    <BilingualDataTable columns={[["Field", "字段"], ["Description", "说明"]]} rows={[
+      ["ticker", ["Stock symbol", "股票代码"]],
+      ["snapshot_date", ["Date of this calendar update", "这份日历的更新日期"]],
+      ["report_date", ["Scheduled earnings report date", "预计财报发布日期"]],
+      ["report_time", ["Expected release time, such as BEFORE_MARKET", "预计发布时间，例如 BEFORE_MARKET 表示盘前"]],
+      ["estimate", ["EPS estimate, when available", "每股收益预期，可能为空"]],
+      ["declaration_date", ["Dividend declaration date", "分红宣告日"]],
+      ["dividend_date", ["Ex-dividend date", "除息日"]],
+      ["payment_date", ["Dividend payment date", "分红支付日"]],
+      ["dividend", ["Dividend amount as supplied by the source", "来源提供的分红金额"]],
+    ]} />
+    <DocDesc zh="snapshot_date 是日历的更新日期，report_date 才是公司预计发布财报的日期。例如，10 月 14 日更新的日历可以包含 10 月 21 日的财报安排。字段为空表示暂未提供，请勿当作零。" en="snapshot_date is the calendar update date; report_date is the company's expected earnings date. For example, an October 14 update may include an October 21 report. Null means unavailable, not zero." />
+    <details><summary>{heading("Record identifiers", "记录标识")}</summary><p>{isZh ? "bundle 标识数据版本，row_id 是该版本内的行号，source_sha256 是来源文件校验值。需要保存和复查历史结果时，可一并保留。" : "bundle identifies the data version, row_id identifies a row within it, and source_sha256 is the source file checksum. Keep these when saving results for later comparison."}</p></details>
+
+    <h2 id="eodhd-history" className="display-title">{heading("Query event calendar", "查询事件日历")}</h2>
+    <EndpointBadge method="GET / POST" path="/v1/events/eodhd/history" />
+    <DocDesc zh="查询指定更新日期的财报、分红或拆股日历。start 和 end 按日历更新日期筛选；公司的财报发布日期见返回记录中的 report_date。" en="Read the earnings, dividend or split calendar from a selected update date. start and end filter calendar update dates; the company's earnings date is returned as report_date." />
+    <ParamTable rows={[
+      { name: "dataset", type: "string", required: false, desc: "earnings (default), dividends or splits", zh: "earnings（财报，默认）、dividends（分红）或 splits（拆股）" },
+      { name: "start / end", type: "date", required: false, desc: "Calendar update dates, inclusive. Use YYYY-MM-DD. Without symbols, select at most 7 days.", zh: "日历更新日期，包含起止日期，格式 YYYY-MM-DD。不指定股票时，最多查询 7 天。" },
+      { name: "symbols", type: "string", required: false, desc: "Up to 100 comma-separated symbols, e.g. AAPL,MSFT", zh: "股票代码，逗号分隔，最多 100 只，例如 AAPL,MSFT" },
+      { name: "limit", type: "integer", required: false, desc: "Records per page. Default and maximum: 500.", zh: "每页记录数，默认及最大值为 500。" },
+      { name: "offset", type: "integer", required: false, desc: "Starting record, default 0. Use next_offset for the next page.", zh: "从第几条记录开始，默认 0。下一页使用返回的 next_offset。" },
+      { name: "bundle", type: "string", required: false, desc: "Optional data version from coverage. Use it to keep pages on the same version.", zh: "可选数据版本，从覆盖范围接口获取。分页时可固定同一版本。" },
+    ]} />
+    <h3>{heading("Request example", "请求示例")}</h3>
+    <DocDesc zh="以下示例查询 2026-10-14 更新的财报日历。使用时请换成覆盖范围接口返回的最新日期。" en="This example reads the earnings calendar updated on 2026-10-14. Replace the date with the latest date returned by coverage." />
+    <pre className="code">{`curl --get "https://api.leandata.uk/v1/events/eodhd/history" \\
   -H "Authorization: Bearer $LEANDATA_TOKEN" \\
-  --data-urlencode dataset=earnings --data-urlencode "bundle=$EODHD_BUNDLE" \\
-  --data-urlencode "start=$SNAPSHOT_DATE" --data-urlencode "end=$SNAPSHOT_DATE" \\
-  --data-urlencode limit=100 --data-urlencode offset=0
+  --data-urlencode "dataset=earnings" \\
+  --data-urlencode "start=2026-10-14" \\
+  --data-urlencode "end=2026-10-14" \\
+  --data-urlencode "limit=100"`}</pre>
+    <h3>{heading("Response example", "响应示例")}</h3>
+    <p>{heading("Values are illustrative.", "以下数值仅作示意。")}</p>
+    <pre className="code">{`{
+  "count": 1,
+  "truncated": false,
+  "next_offset": null,
+  "data": [
+    {
+      "bundle": "<data version>",
+      "row_id": 0,
+      "source_sha256": "<source checksum>",
+      "payload": {
+        "dataset": "earnings",
+        "ticker": "ABT",
+        "snapshot_date": "2026-10-14",
+        "report_date": "2026-10-21",
+        "report_time": "BEFORE_MARKET"
+      }
+    }
+  ]
+}`}</pre>
+    <DocDesc zh="truncated 为 true 时还有下一页，将 next_offset 填入下一次请求的 offset；其他参数保持不变。为空的结果只表示所选范围没有记录。" en="When truncated is true, request the next page using next_offset as offset and keep the other parameters unchanged. An empty result means no records were returned for the selected range." />
+    <details><summary>{heading("Limits and delivery options", "查询限制与交付选项")}</summary>
+      <p>{isZh ? "建议始终传入 start 和 end。省略日期时默认查询最近 31 天；不指定股票的查询最多 7 天。offset 最大为 100000，超过时请缩小日期或股票范围。此接口不支持 fields 字段筛选，也不支持 cache-only 或 upstream-only。日期参数使用 start/end，不使用 start_date/end_date。" : "Always send start and end. Omitting dates selects the latest 31 days, while requests without symbols allow at most 7 days. offset is capped at 100000; narrow the date or symbol range if needed. fields, cache-only and upstream-only are unsupported. Use start/end, not start_date/end_date."}</p>
+      <p>{isZh ? "接口默认直接返回 JSON。需要签名下载时，请参阅 " : "The API returns JSON directly by default. For optional signed downloads, see "}<a href={docArticlePath("market-overview", "response-delivery")}>{heading("response delivery", "响应交付说明")}</a>。</p>
+    </details>
 
-# POST uses the same selectors. This snapshot date is illustrative.
-curl --fail-with-body --silent --show-error \\
-  "https://api.leandata.uk/v1/events/eodhd/history" \\
-  -H "Authorization: Bearer $LEANDATA_TOKEN" -H "Content-Type: application/json" \\
-  --data '{"dataset":"dividends","start":"2026-10-09","end":"2026-10-09","limit":100}'`}</pre>
-    <p><code>truncated=true</code> 时使用返回的 <code>next_offset</code>，固定 bundle、日期、symbols、limit。<code>truncated=false</code> 时停止。offset 最大 100000；达到上限应缩小日期或股票范围。<br/>Follow returned next_offset only while truncated=true. Pin bundle and keep all other selectors fixed; narrow the window or symbol scope before exceeding offset 100000.</p>
-    <pre className="code">{`import json, os
-from decimal import Decimal
-import requests
-
-base = "https://api.leandata.uk/v1/events/eodhd/"
-params = {
-    "dataset": os.environ.get("EODHD_DATASET", "earnings"),
-    "bundle": os.environ["EODHD_BUNDLE"],
-    "start": os.environ["SNAPSHOT_DATE"],
-    "end": os.environ["SNAPSHOT_DATE"],
-    "limit": 100, "offset": 0,
-}
-with requests.Session() as session:
-    session.headers["Authorization"] = "Bearer " + os.environ["LEANDATA_TOKEN"]
-    for page in range(10):  # bounded example; narrow scope for larger results
-        response = session.get(base + "history", params=params,
-                               timeout=30, allow_redirects=False)
-        if response.status_code != 200:
-            raise SystemExit("HTTP " + str(response.status_code))
-        # Keep response.content for exact byte custody. Decimal avoids float loss.
-        result = json.loads(response.content, parse_float=Decimal)
-        print("page", page, "records", result["count"])
-        if not result["truncated"]:
-            break
-        next_offset = result["next_offset"]
-        if not isinstance(next_offset, int) or not params["offset"] < next_offset <= 100000:
-            raise SystemExit("Narrow snapshot dates or symbols before continuing")
-        params["offset"] = next_offset
-    else:
-        raise SystemExit("Page budget reached; narrow the selected scope")`}</pre>
-    <p>400：修正 dataset、日期或分页参数；403：核对 Premium 权限；429：遵守 Retry-After，使用有限退避重试。空 200 只是所选切片无记录。<br/>Correct permanent errors instead of retrying unchanged requests. An empty 200 describes only the selected slice.</p>
-    <h2 id="eodhd-coverage" className="display-title">GET / POST /v1/events/eodhd/coverage</h2>
-    <ParamTable rows={(operations.find(op => op.id === "eodhd-coverage")?.parameters || []).map(p => ({ name: p.name, type: "string", required: p.required, desc: p.description }))} />
-    <p>Schema <code>qc_native_coverage_v1</code>. Each data entry includes bundle, family, dataset, rows, first_date, last_date, source_sha256 and metadata (run, source_csv, source_csv_sha256). <code>count</code> counts manifests; <code>data[].rows</code> counts captured event records. Empty datasets can have zero rows and null date bounds. Coverage is not paginated.<br/>count 为清单数，rows 为抓取记录数；空数据集日期边界可能为 null。</p>
-    <p>Only dataset and optional bundle select coverage. History start/end, symbols, limit, offset and fields do not filter it. Inspect the complete capture manifests before narrowing history.<br/>coverage 只接受 dataset 和 bundle 选择；历史过滤条件不会限制覆盖结果。<code>upstream_completeness_verified=false</code>，<code>research_admission=false</code>。</p>
-    <pre className="code">{`curl --fail-with-body --silent --show-error --get \\
-  "https://api.leandata.uk/v1/events/eodhd/coverage" \\
-  -H "Authorization: Bearer $LEANDATA_TOKEN" --data-urlencode dataset=earnings
-
-curl --fail-with-body --silent --show-error --get \\
-  "https://api.leandata.uk/v1/events/eodhd/coverage" \\
-  -H "Authorization: Bearer $LEANDATA_TOKEN" --data-urlencode dataset=dividends
-
-curl --fail-with-body --silent --show-error --get \\
-  "https://api.leandata.uk/v1/events/eodhd/coverage" \\
-  -H "Authorization: Bearer $LEANDATA_TOKEN" --data-urlencode dataset=splits`}</pre>
+    <h2 id="eodhd-coverage" className="display-title">{heading("Check data coverage", "查询数据范围")}</h2>
+    <EndpointBadge method="GET / POST" path="/v1/events/eodhd/coverage" />
+    <DocDesc zh="查看各数据集可查询的日期、记录数量和版本。首次接入或检查数据是否更新时，先调用这个接口。" en="Check available dates, record counts and data versions. Call this endpoint when getting started or checking for a new update." />
+    <ParamTable rows={[
+      { name: "dataset", type: "string", required: false, desc: "earnings (default), dividends or splits", zh: "earnings（默认）、dividends 或 splits" },
+      { name: "bundle", type: "string", required: false, desc: "Optional: look up a single data version", zh: "可选：仅查询指定数据版本" },
+    ]} />
+    <pre className="code">{`curl --get "https://api.leandata.uk/v1/events/eodhd/coverage" \\
+  -H "Authorization: Bearer $LEANDATA_TOKEN" \\
+  --data-urlencode "dataset=earnings"`}</pre>
+    <BilingualDataTable columns={[["Response field", "返回字段"], ["Description", "说明"]]} rows={[
+      ["data[].first_date", ["Earliest calendar update date in this version", "该版本最早的日历更新日期"]],
+      ["data[].last_date", ["Latest calendar update date in this version", "该版本最新的日历更新日期"]],
+      ["data[].rows", ["Number of event records", "事件记录数"]],
+      ["data[].bundle", ["Data version to use in history requests", "可用于查询事件日历的数据版本"]],
+    ]} />
+    <DocDesc zh="从有记录的版本中选择最新的 last_date，作为事件查询的 start 和 end。记录数为 0 的数据集可能没有日期范围。这个接口不分页，日期和股票筛选条件不会限制它的结果。" en="Choose the latest last_date from a version with records and use it as start and end in your history request. A version with zero records may have no date range. Coverage is not paginated and is not filtered by history dates or symbols." />
   </DocContent>;
 }
 

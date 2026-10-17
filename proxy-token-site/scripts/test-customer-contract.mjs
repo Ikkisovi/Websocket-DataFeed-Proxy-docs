@@ -26,18 +26,18 @@ for (const schedule of Object.values(contract.refresh_schedules)) {
   assert.equal(schedule.frequency, "daily");
 }
 const cases = [
-  ["/docs/financial/morningstar/morningstar-overview/", [/06:00/, /America\/Los_Angeles/, /PST\/PDT/, /Financial statement data/, /Upcoming earnings dates/]],
-  ["/docs/financial/eodhd/eodhd-overview/", [/Premium/, /earnings/, /dividends/, /splits/, /future earnings dates/i, /Morningstar/, /303/, /307/]],
-  ["/docs/financial/eodhd/eodhd-fields/", [/snapshot_date/, /report_time/, /dividend_date/, /source_sha256/, /null separate from zero/]],
-  ["/docs/financial/eodhd/eodhd-history/", [/qc_native_history_v1/, /next_offset/, /100000/, /start_date\/end_date are not supported aliases/, /parse_float=Decimal/]],
-  ["/docs/financial/eodhd/eodhd-coverage/", [/qc_native_coverage_v1/, /History start\/end/, /Coverage is not paginated/, /upstream_completeness_verified=false/]],
+  ["/docs/financial/morningstar/morningstar-overview/", [/06:00/, /PST\/PDT/, /Morningstar/]],
+  ["/docs/financial/eodhd/eodhd-overview/", [/Premium/, /earnings/, /dividends/, /splits/, /upcoming US earnings dates/i, /Morningstar/, /06:00/]],
+  ["/docs/financial/eodhd/eodhd-fields/", [/snapshot_date/, /report_time/, /dividend_date/, /source_sha256/, /not zero/]],
+  ["/docs/financial/eodhd/eodhd-history/", [/start and end filter calendar update dates/, /next_offset/, /100000/, /Response example/, /ABT/]],
+  ["/docs/financial/eodhd/eodhd-coverage/", [/latest last_date/, /Coverage is not paginated/, /data\[\].rows/]],
   ["/docs/realtime/websocket/", [/original JSON in binary WebSocket frames/, /MessagePack control acknowledgements only/, /json.loads/, /frame and byte budgets/]],
   ["/docs/realtime/subscriptions/", [/replaces the full subscription set/, /Unsubscribe clears all subscriptions without an acknowledgement/, /bars subscriptions/]],
   ["/docs/market/overview/api-contract/", [/Live API contract/, /X-Leandata-Contract-SHA256/, /X-Leandata-Data-Tier/, /route_not_migrated/, /endpoint_unavailable/]],
   ["/docs/market/overview/response-delivery/", [/direct=1/, /archive-direct\.leandata\.uk/, /303/, /307/, /without Authorization/, /counts once/]],
   ["/docs/market/options/option-oi-latest/", [/06:30/, /previous trading session/, /retrieval time/, /missing records are not zero/i]],
   ["/docs/market/options/post-v1-options-snapshots-open-interest/", [/not an implemented OI interface/, /v3\/option\/snapshot\/open_interest/]],
-  ["/docs/financial/regular/fmp-calendar-support/", [/earnings-calendar/, /dividends-calendar/, /501/, /not a plan-upgrade prompt/, /events\/eodhd\/history/, /events\/eodhd\/coverage/, /snapshot_date/, /report_date/, /dividend_date/, /future report dates/, /Morningstar/, /research_admission=false/, /without an Authorization header/]],
+  ["/docs/financial/regular/fmp-calendar-support/", [/earnings-calendar/, /dividends-calendar/, /501/, /EODHD/, /Morningstar/, /06:00/]],
   ["/docs/market/overview/tiers-permissions/", [/GET \/api\/product-catalog/, /Permanent/, /independent.*expiry/i, /Trial is retired/, /31 days/, /nearest 2 upcoming expiries/]],
   ["/docs/market/overview/free-plan-usage/", [/31 calendar days/, /nearest 2 upcoming expiration/, /All six channels/, /boats/]],
   ["/docs/market/crypto-news/post-v1-history-news/", [/Premium only/]],
@@ -86,20 +86,26 @@ for (const [path, patterns] of cases) {
     const schedule = main.querySelector("[data-financial-refresh-schedule]");
     assert(schedule, path);
     assert.match(schedule.textContent, /06:00 Pacific time/);
-    assert.match(schedule.textContent, /not a guaranteed completion time/);
-    assert.equal(schedule.querySelectorAll("tbody tr").length, 2);
+    assert.match(schedule.textContent, /latest data date/);
+    assert(schedule.textContent.length < 220, "Refresh guidance should be one short sentence");
     assert.doesNotMatch(schedule.textContent, /UTC-8|UTC-7/);
+  }
+  if (path.endsWith("/eodhd-overview/")) {
+    assert.doesNotMatch(main.textContent, /research_admission|source_sha256|upstream_completeness|303|307|PIT|cookies/i);
+    assert(main.querySelector('a[href="/docs/financial/morningstar/"]'));
   }
   if (path.endsWith("/eodhd-history/")) {
     const examples = [...main.querySelectorAll("pre.code")].map(node => node.textContent);
-    const python = examples.find(code => code.startsWith("import json, os"));
-    assert(python);
-    const parsed = spawnSync("python3", ["-c", "import ast,sys; ast.parse(sys.stdin.read())"], { input: python, encoding: "utf8" });
-    assert.equal(parsed.status, 0, parsed.stderr);
     const curl = examples.find(code => code.includes("curl "));
     assert(curl.includes("\\\n"), "Multiline curl must preserve shell continuations");
-    assert(curl.includes('"start=$SNAPSHOT_DATE"'));
+    assert(curl.includes('"start=2026-10-14"'));
     assert.doesNotMatch(curl, /--location|start_date=/);
+    assert.equal(spawnSync("bash", ["-n"], { input: curl, encoding: "utf8" }).status, 0);
+    const response = JSON.parse(examples.find(code => code.startsWith("{")));
+    assert.equal(response.data[0].payload.report_date, "2026-10-21");
+    assert.equal(response.data[0].payload.snapshot_date, "2026-10-14");
+    assert.equal(response.next_offset, null);
+    assert(main.querySelector("details"), "Advanced delivery details stay collapsed by default");
   }
   if (path.endsWith("/websocket/")) {
     assert.doesNotMatch(main.textContent, /msgpack.unpackb|200 messages|50–80%/);
