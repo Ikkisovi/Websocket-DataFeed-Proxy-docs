@@ -135,6 +135,8 @@ const SECTION_ZH_LABELS = {
   "Cash daily history": "派生日线历史",
   "Cash daily coverage": "派生日线覆盖范围",
   "Research Signals": "研究信号",
+  "Brain Stock Ranking": "Brain 股票排名",
+  "Spectral Tick-Flow": "Spectral 逐笔交易流",
   "Brain overview": "Brain 概览",
   "Brain universe snapshot": "Brain 时点股票池",
   "Brain history": "Brain 历史评分",
@@ -368,7 +370,10 @@ function getDocSections(tab, page) {
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news", "stock trade+quote"] },
     { title: "Index Data", items: ["index history", "Cash minute archive", "Cash minute history", "Cash minute coverage", "Cash daily history", "Cash daily coverage"] },
-    { title: "Research Signals", items: ["Brain overview", "Brain universe snapshot", "Brain history", "Brain latest", "Brain securities", "Brain coverage", "Spectral overview", "Spectral methodology", "Spectral processing", "Spectral fields", "Spectral history", "Spectral coverage", "Spectral workflows"] },
+    { title: "Research Signals", children: [
+      { title: "Brain Stock Ranking", items: ["Brain overview", "Brain universe snapshot", "Brain history", "Brain latest", "Brain securities", "Brain coverage"] },
+      { title: "Spectral Tick-Flow", items: ["Spectral overview", "Spectral methodology", "Spectral processing", "Spectral fields", "Spectral history", "Spectral coverage", "Spectral workflows"] },
+    ]},
     { title: "Stock Data", items: ["Market · US / World"], children: [
       { title: "US market", items: ["overview"], children: [
         { title: "Multi-symbol", items: ["auctions", "multi bars", "multi latest bars", "multi quotes", "multi latest quotes", "multi snapshots", "multi trades", "multi latest trades"] },
