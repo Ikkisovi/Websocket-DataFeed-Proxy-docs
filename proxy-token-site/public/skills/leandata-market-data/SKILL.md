@@ -194,3 +194,32 @@ as `offset`, keeping the date/identity/field/version filters unchanged. The
 selection is immutable even if a late backfill arrives. Narrow the window if
 more than 128 source bundles would be needed. Coverage `daily_coverage` separates
 `latest_capture_date` and `latest_nonempty_date`; empty is not no-events proof.
+
+
+## Contract reference and dividend field limits
+
+`/v1/options/contracts` and native `/v2/options/contracts` use Alpaca only.
+Other provider selectors fail with 400. List requests accept
+`show_deliverables=true`, adjusted `root_symbol`, and `page_token` with unchanged
+filters (Free pagination remains unavailable). Exact lookup uses `symbol_or_id`
+on v1 or `/v1/options/contracts/{symbol_or_id}` / its native v2 alias.
+No historical reference as-of selector is available. Theta
+`/v3/option/list/contracts/{quote,trade}` lists dated activity and supplies no
+adjusted status, deliverables or settlement terms. Never synthesize these fields
+or mix providers to imply a complete contract master.
+
+Alpaca deliverables can be missing or stale. Equity amount is shares per contract;
+cash amount is in the indicated currency. multiplier=100 does not certify
+standard/unadjusted status. delayed_settlement is about settlement delay, not
+feed freshness; an unknown delayed amount may be zero. OI and close prices have
+separate date fields. Use [Alpaca reference](https://docs.alpaca.markets/us/reference/get-options-contracts)
+and [OCC notices](https://infomemo.theocc.com/infomemo/search-memo) for definitions
+and corporate-action checks.
+
+EODHD Upcoming earnings/dividends focus roughly seven days ahead. These captures
+are not a complete all-announced future calendar or a change-only feed. In
+`dataset=dividends`, report_date is the shareholder record date in the source
+schema, not the earnings date. dividend is per share; currency, source_updated_at
+and explicit confirmed/cancelled state are not supplied by this capture. Do not
+infer missing values or carry past observations into a certified current calendar.
+Pagination exhaustion and a committed bundle do not prove stock-event completeness.

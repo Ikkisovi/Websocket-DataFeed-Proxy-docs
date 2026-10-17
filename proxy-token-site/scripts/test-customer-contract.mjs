@@ -26,12 +26,17 @@ for (const schedule of Object.values(contract.refresh_schedules)) {
   assert.equal(schedule.frequency, "daily");
 }
 const cases = [
+  ["/docs/market/options/post-v1-options-contracts/", [/Alpaca/, /show_deliverables/, /page_token/, /stale/, /settlement delay, not data latency/, /historical contract master/]],
+  ["/docs/financial/eodhd/eodhd-fields/", [/shareholder record date/, /currency/, /source_updated_at/, /per share/]],
+  ["/docs/financial/eodhd/eodhd-history/", [/snapshot_date/, /not event dates/, /symbols=PG,MSFT/, /no separate event-date filter/]],
+  ["/docs/financial/eodhd/eodhd-coverage/", [/pagination ended/, /no reconciliation/, /not completion/]],
+
   ["/docs/financial/morningstar/morningstar-overview/", [/06:00/, /PST\/PDT/, /Morningstar/]],
   ["/docs/financial/morningstar/morningstar-daily-history/", [/daily\/history/, /one row per stock and day/, /snapshot/, /source_dates/]],
   ["/docs/financial/morningstar/morningstar-daily-coverage/", [/unobserved_weekdays/, /missing_by_field/, /stock_coverage_ratio/]],
-  ["/docs/financial/eodhd/eodhd-overview/", [/Premium/, /earnings/, /dividends/, /splits/, /upcoming US earnings dates/i, /Morningstar/, /06:00/]],
-  ["/docs/financial/eodhd/eodhd-fields/", [/snapshot_date/, /report_time/, /dividend_date/, /source_sha256/, /not zero/]],
-  ["/docs/financial/eodhd/eodhd-history/", [/start and end filter calendar update dates/, /next_offset/, /100000/, /Response example/, /ABT/]],
+  ["/docs/financial/eodhd/eodhd-overview/", [/Premium/, /earnings/, /dividends/, /splits/, /near-term US earnings/i, /Morningstar/, /06:00/]],
+  ["/docs/financial/eodhd/eodhd-fields/", [/snapshot_date/, /report_time/, /dividend_date/, /row_id/, /not zero/]],
+  ["/docs/financial/eodhd/eodhd-history/", [/start\/end filter snapshot_date/, /next_offset/, /100000/, /Response example/, /ABT/]],
   ["/docs/financial/eodhd/eodhd-coverage/", [/latest_capture_date/, /Coverage is not paginated/, /data\[\].rows/]],
   ["/docs/realtime/websocket/", [/original JSON in binary WebSocket frames/, /MessagePack control acknowledgements only/, /json.loads/, /frame and byte budgets/]],
   ["/docs/realtime/subscriptions/", [/replaces the full subscription set/, /Unsubscribe clears all subscriptions without an acknowledgement/, /bars subscriptions/]],
@@ -142,6 +147,19 @@ for (const [path, patterns] of cases) {
         assert(!text.includes("undefined"));
       }
     }
+  }
+  if (path.endsWith("/post-v1-options-contracts/")) {
+    const note = main.querySelector("[data-option-reference-note]");
+    assert(note);
+    for (const host of ["docs.alpaca.markets", "infomemo.theocc.com", "www.theocc.com"]) {
+      const link = [...note.querySelectorAll("a")].find(a => new URL(a.href).hostname === host);
+      assert(link, host); assert.equal(link.style.color, "rgb(37, 99, 235)");
+      assert.equal(link.target, "_blank"); assert.match(link.rel, /noopener/);
+    }
+  }
+  if (path.endsWith("/eodhd-history/")) {
+    const example = [...main.querySelectorAll("pre.code")].find(n => n.textContent.includes("symbols=PG,MSFT"));
+    assert(example.textContent.includes("\\\n"), "Copied curl must preserve shell line continuations");
   }
   dom.window.LeandataI18n.destroy(); dom.window.close();
 }

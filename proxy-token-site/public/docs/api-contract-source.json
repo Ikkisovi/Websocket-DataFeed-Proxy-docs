@@ -1,6 +1,6 @@
 {
   "source_repository": "openalice",
-  "source_commit": "317ad91a31c982b778cad785eae354c8b0c68625",
+  "source_commit": "4084b80886d4e3307da39d2c584a824cedf03239",
   "source_path": "services/leandata-v2/rest-rs/src/public-api-contract.json",
-  "sha256": "7b5f3befc5ff6073a745c4d11aa2c15bed5f483e7278c3b28e3af7721ef2ebab"
+  "sha256": "790f724993f4180811b3ba51e7a7219054d666298ecae84291333c9c9504417f"
 }

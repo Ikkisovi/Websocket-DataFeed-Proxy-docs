@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "2026-10-16.5",
+  "version": "2026-10-17.1",
   "title": "LeanData public REST integration contract",
   "scope": "Reviewed option OI/discovery, financial archive endpoints and shared REST delivery/error metadata. Other product endpoints remain in their documentation; absence here is not an unavailable verdict.",
   "catalog_path": "/v1/api/contract",
@@ -199,7 +199,7 @@
       ],
       "status": "available",
       "access": "options",
-      "summary": "Discover listed option contracts.",
+      "summary": "Current Alpaca contract reference and available deliverables; not a historical contract master.",
       "parameters": [
         {
           "name": "underlying_symbols",
@@ -220,6 +220,66 @@
           "name": "type",
           "required": false,
           "description": "call or put filter."
+        },
+        {
+          "name": "provider",
+          "required": false,
+          "description": "Optional alpaca only. Other providers return 400 before cache or provider access."
+        },
+        {
+          "name": "show_deliverables",
+          "required": false,
+          "description": "true includes available source delivery components on list responses; false omits them."
+        },
+        {
+          "name": "root_symbol",
+          "required": false,
+          "description": "Exact root, including adjusted roots such as SOUN2."
+        },
+        {
+          "name": "expiration_date",
+          "required": false,
+          "description": "Exact expiry YYYY-MM-DD, not a reference as-of date."
+        },
+        {
+          "name": "expiration_date_gte",
+          "required": false,
+          "description": "Lower expiry bound."
+        },
+        {
+          "name": "expiration_date_lte",
+          "required": false,
+          "description": "Upper expiry bound; set explicitly for later expiries."
+        },
+        {
+          "name": "strike_price_gte",
+          "required": false,
+          "description": "Minimum strike."
+        },
+        {
+          "name": "strike_price_lte",
+          "required": false,
+          "description": "Maximum strike."
+        },
+        {
+          "name": "status",
+          "required": false,
+          "description": "active (default) or inactive."
+        },
+        {
+          "name": "style",
+          "required": false,
+          "description": "american or european."
+        },
+        {
+          "name": "ppind",
+          "required": false,
+          "description": "Boolean penny-program eligibility filter."
+        },
+        {
+          "name": "page_token",
+          "required": false,
+          "description": "Reuse next_page_token with unchanged filters; unavailable on Free."
         }
       ],
       "example": {
@@ -227,9 +287,123 @@
         "params": {
           "underlying_symbols": "AAPL",
           "limit": "1",
-          "type": "call"
+          "type": "call",
+          "show_deliverables": "true",
+          "expiration_date": "2026-11-20"
         }
-      }
+      },
+      "notes": "Alpaca only, including /v2/options/contracts and exact /v1 or /v2/options/contracts/{symbol_or_id} lookups. No historical as-of date selector. Theta quote/trade activity lists are different APIs and do not provide deliverables. Delivery components can be missing or stale. multiplier=100 does not certify standard/unadjusted status. delayed_settlement concerns settlement, not data latency. Undetermined delayed amounts may be zero. Check open_interest_date and close_price_date independently; no deliverable update clock or OCC memo linkage is supplied.",
+      "docs": "/docs/market/options/post-v1-options-contracts/",
+      "references": [
+        "https://docs.alpaca.markets/us/reference/get-options-contracts",
+        "https://infomemo.theocc.com/infomemo/search-memo",
+        "https://docs.alpaca.markets/us/changelog/2026-10-07-option-deliverable-amount-c94a723"
+      ]
+    },
+    {
+      "id": "option-contracts-native",
+      "path": "/v2/options/contracts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "status": "available",
+      "access": "options",
+      "summary": "Native Alpaca contract-list alias; same provider and freshness limitations.",
+      "parameters": [
+        {
+          "name": "underlying_symbols",
+          "required": false,
+          "description": "Underlying symbols; required unless symbol_or_id is supplied."
+        },
+        {
+          "name": "limit",
+          "required": false,
+          "description": "Bounded result count."
+        },
+        {
+          "name": "type",
+          "required": false,
+          "description": "call or put filter."
+        },
+        {
+          "name": "provider",
+          "required": false,
+          "description": "Optional alpaca only. Other providers return 400 before cache or provider access."
+        },
+        {
+          "name": "show_deliverables",
+          "required": false,
+          "description": "true includes available source delivery components on list responses; false omits them."
+        },
+        {
+          "name": "root_symbol",
+          "required": false,
+          "description": "Exact root, including adjusted roots such as SOUN2."
+        },
+        {
+          "name": "expiration_date",
+          "required": false,
+          "description": "Exact expiry YYYY-MM-DD, not a reference as-of date."
+        },
+        {
+          "name": "expiration_date_gte",
+          "required": false,
+          "description": "Lower expiry bound."
+        },
+        {
+          "name": "expiration_date_lte",
+          "required": false,
+          "description": "Upper expiry bound; set explicitly for later expiries."
+        },
+        {
+          "name": "strike_price_gte",
+          "required": false,
+          "description": "Minimum strike."
+        },
+        {
+          "name": "strike_price_lte",
+          "required": false,
+          "description": "Maximum strike."
+        },
+        {
+          "name": "status",
+          "required": false,
+          "description": "active (default) or inactive."
+        },
+        {
+          "name": "style",
+          "required": false,
+          "description": "american or european."
+        },
+        {
+          "name": "ppind",
+          "required": false,
+          "description": "Boolean penny-program eligibility filter."
+        },
+        {
+          "name": "page_token",
+          "required": false,
+          "description": "Reuse next_page_token with unchanged filters; unavailable on Free."
+        }
+      ],
+      "example": {
+        "method": "GET",
+        "params": {
+          "underlying_symbols": "AAPL",
+          "limit": "1",
+          "type": "call",
+          "show_deliverables": "true",
+          "expiration_date": "2026-11-20"
+        }
+      },
+      "notes": "Alpaca only, including /v2/options/contracts and exact /v1 or /v2/options/contracts/{symbol_or_id} lookups. No historical as-of date selector. Theta quote/trade activity lists are different APIs and do not provide deliverables. Delivery components can be missing or stale. multiplier=100 does not certify standard/unadjusted status. delayed_settlement concerns settlement, not data latency. Undetermined delayed amounts may be zero. Check open_interest_date and close_price_date independently; no deliverable update clock or OCC memo linkage is supplied.",
+      "docs": "/docs/market/options/post-v1-options-contracts/",
+      "references": [
+        "https://docs.alpaca.markets/us/reference/get-options-contracts",
+        "https://infomemo.theocc.com/infomemo/search-memo",
+        "https://docs.alpaca.markets/us/changelog/2026-10-07-option-deliverable-amount-c94a723"
+      ]
     },
     {
       "id": "option-oi-unavailable",
@@ -1485,7 +1659,7 @@
       ],
       "status": "available",
       "access": "premium_financial",
-      "summary": "Upcoming earnings, dividends and splits; latest committed capture per snapshot date by default.",
+      "summary": "Captured near-term event observations; latest committed capture per source date, not a complete future calendar.",
       "parameters": [
         {
           "name": "dataset",
@@ -1537,9 +1711,9 @@
         }
       ],
       "docs": "/docs/financial/eodhd/eodhd-history/",
-      "clocks": "start/end select snapshot_date. Event dates (report_date, dividend_date, payment_date or split date) are separate native payload fields. Capture time is not a verified vendor publication timestamp.",
+      "clocks": "start/end select source snapshot_date, not collection completion, vendor announcement time or event date. earnings.report_date is earnings date; dividends.report_date is shareholder record date. Event-date filtering is client-side.",
       "response_schema": "qc_native_history_v1: source=eodhd, dataset, count, data, truncated, next_offset, research_admission=false. Each data row contains bundle, row_id, source_sha256 and original payload. Numeric JSON bytes and null values are retained.",
-      "notes": "Capture-date filters, not event-date filters. Latest selection does not infer upstream completeness. Pin snapshot for subsequent pages; bundle keeps exact raw capture semantics. GET/POST and optional signed delivery share the same selectors. Financial values use Morningstar daily/history. Expected daily refresh starts 06:00 America/Los_Angeles; coverage reports actual available captures.",
+      "notes": "Capture-date filters, not event-date filters. Latest selection does not infer upstream completeness. Pin snapshot for subsequent pages; bundle keeps exact raw capture semantics. GET/POST and optional signed delivery share the same selectors. Financial values use Morningstar daily/history. Expected daily refresh starts 06:00 America/Los_Angeles; coverage reports actual available captures. Upcoming earnings/dividend source datasets focus roughly seven days ahead. No complete all-announced calendar, verified per-stock event completeness, currency, source_updated_at or confirmed/cancelled dividend state is supplied. Preserve nulls and original field names.",
       "example": {
         "method": "GET",
         "params": {
@@ -1575,7 +1749,7 @@
       ],
       "docs": "/docs/financial/eodhd/eodhd-coverage/",
       "response_schema": "qc_native_coverage_v1: data rows contain bundle, family, dataset, rows, first_date, last_date, source_sha256 and metadata (run, source_csv, source_csv_sha256, upstream_completeness_verified=false). Date bounds describe observed snapshots; empty datasets can have null bounds. daily_coverage separates latest_capture_date from latest_nonempty_date and reports selected batch, row count and captured-empty state per day for the latest 31-day capture window. Reader failure returns 503 rather than omitting selected-capture freshness.",
-      "notes": "Future earnings dates are provided through daily event snapshots; financial statement data is updated through Morningstar routes. Read the latest available snapshot and filter payload.report_date for upcoming earnings. Event dates may change in subsequent snapshots. Empty data does not prove no events. research_admission remains false. Default delivery is same-origin; direct=1 optionally uses the shared signed GET delivery contract. Cache-only/upstream-only controls are unsupported. Coverage applies only dataset and optional bundle; history dates, symbols, limit, offset and fields do not filter it. Coverage count is dataset manifest count, not event row count. No pagination is applied. EODHD and Morningstar updates are expected to start daily at 06:00 America/Los_Angeles (PST/PDT); actual published snapshots are reported by the matching coverage endpoint.",
+      "notes": "Future earnings dates are provided through daily event snapshots; financial statement data is updated through Morningstar routes. Read the latest available snapshot and filter payload.report_date for upcoming earnings. Event dates may change in subsequent snapshots. Empty data does not prove no events. research_admission remains false. Default delivery is same-origin; direct=1 optionally uses the shared signed GET delivery contract. Cache-only/upstream-only controls are unsupported. Coverage applies only dataset and optional bundle; history dates, symbols, limit, offset and fields do not filter it. Coverage count is dataset manifest count, not event row count. No pagination is applied. EODHD and Morningstar updates are expected to start daily at 06:00 America/Los_Angeles (PST/PDT); actual published snapshots are reported by the matching coverage endpoint. A queryable committed bundle proves publication of captured contents only. Pagination completion is not stock-event completeness. Checksums identify source objects, not business verification; upstream_completeness_verified=false is a retained unverified-upstream assertion, not a failed transfer check.",
       "example": {
         "method": "GET",
         "params": {

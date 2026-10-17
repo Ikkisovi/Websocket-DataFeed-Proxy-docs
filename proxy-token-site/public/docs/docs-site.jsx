@@ -2045,7 +2045,7 @@ function EodhdEventsBody({ articleId } = {}) {
   const heading = (en, zh) => isZh ? zh : en;
   return <DocContent articleId={articleId} style={{ maxWidth: 860 }}>
     <h2 id="eodhd-overview" className="display-title">{heading("Earnings & company events", "财报与公司事件")}</h2>
-    <DocDesc zh="查询美股公司未来的财报发布日期，以及分红、除息和拆股安排。适用于财报日历、事件提醒和交易前检查，需要 Premium 套餐。" en="Look up upcoming US earnings dates, dividends and stock splits. Use the data for earnings calendars, event alerts and pre-trade checks. Requires Premium." />
+    <DocDesc zh="查询已收录的美股近期财报、分红和拆股事件。需要 Premium；这套 Upcoming 数据不是所有已公告远期事件的完整日历。" en="Query captured near-term US earnings, dividend and split events. Requires Premium. This Upcoming feed is not a complete calendar of every announced future event." />
     <DailyFinancialRefresh />
     <BilingualDataTable columns={[["Dataset", "数据集"], ["Content", "内容"]]} rows={[
       ["earnings", ["Upcoming earnings dates and EPS estimates (default)", "未来财报日期及每股收益预期（默认）"]],
@@ -2060,25 +2060,31 @@ function EodhdEventsBody({ articleId } = {}) {
     </ol>
     <p><a href={docArticlePath("financial-eodhd", "eodhd-history")}>{heading("Query event calendar →", "查询事件日历 →")}</a> · <a href={docArticlePath("financial-eodhd", "eodhd-coverage")}>{heading("Check data coverage →", "查询覆盖范围 →")}</a></p>
 
+    <p>{isZh ? "来源说明：财报与股息 Upcoming 数据面向未来约 7 天的事件，我们只提供实际收录的股票与记录。PG、MSFT 等股票在某天返回空，不证明它们没有已公告股息，也不能用另一只股票有记录来证明这两只的覆盖。" : "Source scope: the earnings and dividend Upcoming feeds focus on events roughly seven days ahead. We serve captured symbols and records only. An empty day for PG, MSFT or another stock does not prove no announced dividend; records for another stock do not establish coverage for it."}</p>
+    <p><a style={{ color: "#2563eb", textDecoration: "underline" }} href="https://www.quantconnect.com/docs/v2/writing-algorithms/datasets/eod-historical-data/upcoming-earnings" target="_blank" rel="noopener noreferrer">Upcoming earnings source</a>{" · "}<a style={{ color: "#2563eb", textDecoration: "underline" }} href="https://www.quantconnect.com/docs/v2/writing-algorithms/datasets/eod-historical-data/upcoming-dividends" target="_blank" rel="noopener noreferrer">Upcoming dividends source</a></p>
+
     <h2 id="eodhd-fields" className="display-title">{heading("Response fields", "返回字段")}</h2>
     <DocDesc zh="事件信息在每条记录的 payload 中。财报日期可能调整，设置提醒时请使用最近一次更新的数据。" en="Event details are in each record's payload. Earnings dates can change; use the latest data when setting alerts." />
     <BilingualDataTable columns={[["Field", "字段"], ["Description", "说明"]]} rows={[
       ["ticker", ["Stock symbol", "股票代码"]],
       ["snapshot_date", ["Date of this calendar update", "这份日历的更新日期"]],
-      ["report_date", ["Scheduled earnings report date", "预计财报发布日期"]],
+      ["report_date", ["earnings: expected report date; dividends: shareholder record date in the source schema", "earnings：预计财报发布日期；dividends：来源命名的股权登记日"]],
       ["report_time", ["Expected release time, such as BEFORE_MARKET", "预计发布时间，例如 BEFORE_MARKET 表示盘前"]],
       ["estimate", ["EPS estimate, when available", "每股收益预期，可能为空"]],
       ["declaration_date", ["Dividend declaration date", "分红宣告日"]],
-      ["dividend_date", ["Ex-dividend date", "除息日"]],
+      ["dividend_date", ["Source dividend-event date; see dividend field notes", "来源股息事件日期，见下方字段说明"]],
       ["payment_date", ["Dividend payment date", "分红支付日"]],
-      ["dividend", ["Dividend amount as supplied by the source", "来源提供的分红金额"]],
+      ["dividend", ["Cash dividend per share as supplied; this capture does not include currency", "来源提供的每股现金分红；当前采集不含币种"]],
     ]} />
     <DocDesc zh="snapshot_date 是日历的更新日期，report_date 才是公司预计发布财报的日期。例如，10 月 14 日更新的日历可以包含 10 月 21 日的财报安排。字段为空表示暂未提供，请勿当作零。" en="snapshot_date is the calendar update date; report_date is the company's expected earnings date. For example, an October 14 update may include an October 21 report. Null means unavailable, not zero." />
-    <details><summary>{heading("Record identifiers", "记录标识")}</summary><p>{isZh ? "bundle 标识数据版本，row_id 是该版本内的行号，source_sha256 是来源文件校验值。需要保存和复查历史结果时，可一并保留。" : "bundle identifies the data version, row_id identifies a row within it, and source_sha256 is the source file checksum. Keep these when saving results for later comparison."}</p></details>
+    <p>{isZh ? "股息字段说明：dividends 的 report_date 对应股权登记日，保留了来源的字段名；不是财报日。dividend_date 为来源的股息事件日期，payment_date 为支付日。来源未在此记录中独立标明所有特殊分红的除息规则，请以公司公告为准。" : "Dividend fields: report_date is the shareholder record date, retaining the source's name; it is not an earnings date. dividend_date is the source dividend-event date and payment_date is payment date. This record does not independently establish ex-date rules for every special distribution; check the issuer notice."}</p>
+    <p>{isZh ? "当前记录不提供 currency、source_updated_at 或 confirmed/cancelled 状态，也没有另一个完整现金股息接口。缺字段表示本接口没有这项信息；null 表示该记录未提供值，不代表零或已确认。snapshot_date 也不是公告发布时间。因此不能把它单独当作已验证、完整的期权定价现金流日程。" : "These captures do not supply currency, source_updated_at or confirmed/cancelled status; there is no separate full cash-dividend endpoint. An absent field is unavailable from this API; null is unavailable for that record, not zero or confirmation. snapshot_date is not the announcement timestamp. This feed alone is not a verified complete cash-flow schedule for option pricing."}</p>
+    <p><a style={{ color: "#2563eb", textDecoration: "underline" }} href="https://github.com/QuantConnect/Lean.DataSource.EODHD/blob/master/EODHDUpcomingDividends.cs" target="_blank" rel="noopener noreferrer">Dividend source field definitions</a></p>
+    <details><summary>{heading("Record identifiers", "记录标识")}</summary><p>{isZh ? "bundle 标识数据版本，row_id 是该版本内的行号。保存结果时保留这两个值和原始 payload 即可；旧校验字段的说明见覆盖范围页。" : "bundle identifies a data version and row_id identifies a row within it. Keep both with the original payload; legacy checksum fields are explained on the coverage page."}</p></details>
 
     <h2 id="eodhd-history" className="display-title">{heading("Query event calendar", "查询事件日历")}</h2>
     <EndpointBadge method="GET / POST" path="/v1/events/eodhd/history" />
-    <DocDesc zh="查询指定更新日期的财报、分红或拆股日历。start 和 end 按日历更新日期筛选；公司的财报发布日期见返回记录中的 report_date。" en="Read the earnings, dividend or split calendar from a selected update date. start and end filter calendar update dates; the company's earnings date is returned as report_date." />
+    <DocDesc zh="查询指定采集日期收录的财报、分红或拆股记录。start/end 按 snapshot_date 筛选，不按事件日期，也不表示当天新增或变更。单日响应不承诺包含该时点所有已公告的未来事件。" en="Read records captured on selected source dates. start/end filter snapshot_date, not event dates or changes made that day. A daily result does not promise every future event announced by that time." />
     <ParamTable rows={[
       { name: "dataset", type: "string", required: false, desc: "earnings (default), dividends or splits", zh: "earnings（财报，默认）、dividends（分红）或 splits（拆股）" },
       { name: "start / end", type: "date", required: false, desc: "Calendar update dates, inclusive. Use YYYY-MM-DD. Without symbols, select at most 7 days.", zh: "日历更新日期，包含起止日期，格式 YYYY-MM-DD。不指定股票时，最多查询 7 天。" },
@@ -2107,7 +2113,6 @@ function EodhdEventsBody({ articleId } = {}) {
     {
       "bundle": "<data version>",
       "row_id": 0,
-      "source_sha256": "<source checksum>",
       "payload": {
         "dataset": "earnings",
         "ticker": "ABT",
@@ -2119,6 +2124,15 @@ function EodhdEventsBody({ articleId } = {}) {
   ]
 }`}</pre>
     <DocDesc zh="truncated 为 true 时还有下一页，同时传回 snapshot，并将 next_offset 填入 offset；其他参数保持不变。默认每个更新日期只返回最新采集版本；需要全部版本时传 versions=all。为空的结果只表示所选范围没有记录。" en="When truncated is true, reuse snapshot and pass next_offset as offset with unchanged filters. Each update date uses its latest capture by default; use versions=all for preserved versions. An empty result means no records were returned for the selected range." />
+    <h3>{heading("Find all captured observations for a stock", "查一只股票已收录的记录")}</h3>
+    <p>{isZh ? "先查 coverage，再用 symbols 和明确的采集日期范围取历史。分页时固定 snapshot 或 bundle；读完后按 dataset 选择 report_date、dividend_date 或 split_date 筛选未来事件。同一事件可能多次出现或修订，请保留采集日期和版本，不能把较早记录自动当作今天仍有效，也不能据此补成完整日历。当前没有按事件日期筛选或返回完整当前日历的独立接口。" : "Check coverage, then request history with symbols and explicit capture-date bounds. Pin snapshot or bundle across pages. After reading all pages, filter future events using report_date, dividend_date or split_date for the selected dataset. Repeated observations and revisions can occur; retain capture dates and versions. Do not automatically carry old observations into today's calendar. There is no separate event-date filter or complete-current-calendar endpoint."}</p>
+    <pre className="code">{`curl --get "https://api.leandata.uk/v1/events/eodhd/history" \\
+  -H "Authorization: Bearer $LEANDATA_TOKEN" \\
+  --data-urlencode "dataset=dividends" \\
+  --data-urlencode "symbols=PG,MSFT" \\
+  --data-urlencode "start=2026-10-09" \\
+  --data-urlencode "end=2026-10-16" \\
+  --data-urlencode "limit=500"`}</pre>
     <details><summary>{heading("Limits and delivery options", "查询限制与交付选项")}</summary>
       <p>{isZh ? "建议始终传入 start 和 end。省略日期时，不指定股票默认最近 7 天，指定股票默认最近 31 天。offset 最大为 100000，超过时请缩小日期或股票范围。此接口不支持 fields 字段筛选，也不支持 cache-only 或 upstream-only。日期参数使用 start/end，不使用 start_date/end_date。" : "Always send start and end. Without dates, requests without symbols default to the latest 7 days; requests with symbols default to 31 days. offset is capped at 100000; narrow the date or symbol range if needed. fields, cache-only and upstream-only are unsupported. Use start/end, not start_date/end_date."}</p>
       <p>{isZh ? "接口默认直接返回 JSON。需要签名下载时，请参阅 " : "The API returns JSON directly by default. For optional signed downloads, see "}<a href={docArticlePath("market-overview", "response-delivery")}>{heading("response delivery", "响应交付说明")}</a>。</p>
@@ -2141,6 +2155,13 @@ function EodhdEventsBody({ articleId } = {}) {
       ["data[].bundle", ["Data version to use in history requests", "可用于查询事件日历的数据版本"]],
     ]} />
     <DocDesc zh="使用 daily_coverage.latest_capture_date 获取最新采集日期，包括返回空结果的日期；latest_nonempty_date 仅表示最近有记录的日期。不能把采集为空解释为上游没有事件。这个接口不分页，日期和股票筛选条件不会限制它的结果。" en="Use daily_coverage.latest_capture_date for the latest capture date, including empty captures. latest_nonempty_date is the latest date with records. An empty capture does not prove no upstream events. Coverage is not paginated and is not filtered by history dates or symbols." />
+    <h3>{heading("What coverage proves", "覆盖结果能证明什么")}</h3>
+    <p>{isZh ? "bundle 可查询，表示该批采集内容已提交并可读取；daily_coverage.by_date 给出所选日期、版本与记录数。truncated=false、next_offset=null 只表示当前筛选的分页结束。这些都不证明某只股票的全部已公告事件已收录。当前没有按股票验证事件完整性、预期股票池或每日全量发布完成的字段。" : "A queryable bundle has committed captured contents. daily_coverage.by_date identifies the selected dates, versions and row counts. truncated=false and next_offset=null mean only that pagination ended for the filters used. None proves that every announced event for a stock was captured. Per-stock event completeness, an expected universe and a daily full-calendar completion marker are not supplied."}</p>
+    <p>{isZh ? "06:00 美西时间是预计开始更新，不是完成时间。判断有无新数据请比较 latest_capture_date 和对应 bundle；日期未推进、空采集与来源抓取失败是不同情况。只凭当前接口不能证明当天上游全量更新已完成。" : "06:00 Pacific is the expected update start, not completion. Compare latest_capture_date and its bundle for a new capture. An unchanged date, an empty capture and a source collection failure are different states. This API alone cannot certify completion of the day's full upstream calendar."}</p>
+    <details><summary>{heading("Checksums and legacy verification fields", "校验值与旧验证字段")}</summary>
+      <p>{isZh ? "metadata.source_csv_sha256 用于核对 metadata.source_csv 所指的转录 CSV；source_sha256 是历史导入保留的来源标识，并非所有批次都表示该 CSV。这两个值不能直接要求相等，也不表示覆盖率、业务正确性或股息确认状态。业务查询只需用 bundle 固定版本。" : "metadata.source_csv_sha256 checks the transcribed CSV named by metadata.source_csv. The retained source_sha256 is a legacy import source identifier and does not denote that CSV in every batch. Equality is not required. Neither is a coverage, business-correctness or dividend-confirmation flag. Use bundle to pin a version."}</p>
+      <p>{isZh ? "upstream_completeness_verified=false 是保留的旧字段，表示没有上游事件全集对照验证；不表示该文件没有完成传输校验，也不表示已经确认缺失。业务接入不需要计算这些校验值。" : "The retained upstream_completeness_verified=false means no reconciliation against the full upstream event set. It does not mean file-transfer verification failed or that missing events were confirmed. Applications do not need to calculate these checksums."}</p>
+    </details>
   </DocContent>;
 }
 
@@ -3736,7 +3757,7 @@ for row in resp.json()["rows"]:
           {[
             ["Standard options (OCC)",        "/v1beta1/options/*",                                            "Bars, historical trades, latest quotes/trades, snapshots, and chain snapshots. Historical availability begins 2024-02-01."],
             ["Option bars (1Min)",            "/v1/history/options/bars",                                      "Canonical 1Min bars with source and coverage roles reported in the response. Sparse traded-activity fallback is eligible only for ranges starting on or after 2024-02-01; earlier or boundary-crossing ranges fail closed if dense historical coverage is unavailable. /v1/options/bars is an alias."],
-            ["Contracts discovery",           "/v1/options/contracts",                                         "Current active contracts with strikes and expirations. Use /v3/option/list/contracts/* with a historical date for expired contracts."],
+            ["Alpaca contract reference", "/v1/options/contracts · /v2/options/contracts", "Current contract terms and available deliverables. Theta /v3/option/list/contracts/* lists quote/trade activity by date, not delivery terms."],
             ["Full snapshots / Greeks",       "/v1/options/snapshots",                                         "Latest quote, trade, Greeks, and implied volatility where available."],
             ["Quote / trade snapshots",       "/v1/options/snapshots/{quote,trade}",                           "Normalized latest quote and trade per OCC contract."],
             ["OI / OHLC snapshots",           "/v3/option/snapshot/open_interest, /v3/option/snapshot/ohlc",    "Exact-contract open-interest and OHLC snapshots."],
@@ -3770,49 +3791,67 @@ curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v2/stocks/quotes?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&feed=sip"`}
       </pre>
 
-      <h2 id="post-v1-options-contracts" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/contracts</h2>
+      <h2 id="post-v1-options-contracts" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET / POST /v1/options/contracts</h2>
       <DocDesc
-        zh="查询指定标的当前活跃期权合约列表（包含 OCC 标准代码、行权价、到期日、未平仓合约数及行情字段）。返回的 symbol 可直接作为期权快照与历史 K 线的入参。Free 用户自动返回最近 2 轮有效到期日合约。"
-        en="List current active option contracts for one or more underlying symbols. Returns OCC symbol, strike, expiration, option type, open interest where available, and pricing fields. Free users receive the nearest 2 upcoming expiration cycles."
+        zh="查询 Alpaca 当前合约资料。列表请求传 show_deliverables=true 可包含来源提供的交割组成；symbol_or_id 用于查询单张合约。这不是历史时点的合约主数据。Free 用户限最近两个有效到期日。"
+        en="Query current Alpaca contract reference. Set show_deliverables=true on list requests for available delivery components; use symbol_or_id for one contract. This is not a historical contract master. Free users are limited to the nearest two eligible expiries."
       />
-      <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/contracts`} />
+      <EndpointBadge method="GET / POST" path={`${REST_BASE}/v1/options/contracts`} />
       <ParamTable rows={[
-        { name: "underlying_symbols",  type: "string",  required: false, desc: "Comma-separated underlyings (e.g. AAPL,TSLA). Required if symbol_or_id not set.", zh: "正股或指数代码（如 AAPL, TSLA），与 symbol_or_id 二选一" },
-        { name: "symbol_or_id",        type: "string",  required: false, desc: "Lookup a single OCC symbol or contract ID directly", zh: "直接查询单张期权的 OCC 代码或合约 ID" },
-        { name: "expiration_date",     type: "string",  required: false, desc: "Exact expiry YYYY-MM-DD", zh: "精确匹配目标到期日 YYYY-MM-DD" },
-        { name: "expiration_date_gte", type: "string",  required: false, desc: "Expiry on or after date", zh: "到期日大于等于指定日期" },
-        { name: "expiration_date_lte", type: "string",  required: false, desc: "Expiry on or before date", zh: "到期日小于等于指定日期" },
-        { name: "strike_price_gte",    type: "number",  required: false, desc: "Minimum strike price", zh: "最低行权价" },
-        { name: "strike_price_lte",    type: "number",  required: false, desc: "Maximum strike price", zh: "最高行权价" },
-        { name: "type",                type: "string",  required: false, desc: "call | put", zh: "期权类型：call（看涨）或 put（看跌）" },
-        { name: "limit",               type: "integer", required: false, desc: "1–10000 (default: 1000)", zh: "返回合约条数上限（1-10000，默认 1000）" },
+        { name: "underlying_symbols", type: "string", required: false, desc: "Comma-separated equity underlyings; required unless symbol_or_id is supplied.", zh: "正股代码，逗号分隔；与 symbol_or_id 二选一。" },
+        { name: "symbol_or_id", type: "string", required: false, desc: "One exact OCC symbol or Alpaca contract ID.", zh: "一张合约的 OCC 代码或 Alpaca 合约 ID。" },
+        { name: "provider", type: "string", required: false, desc: "alpaca only; optional. Other values return 400, without provider fallback.", zh: "可省略；仅接受 alpaca，其他值返回 400，不会切换来源。" },
+        { name: "show_deliverables", type: "boolean", required: false, desc: "true includes available deliverables in list responses. Exact contract lookup returns the source's contract object.", zh: "true 时列表包含可用的交割组成；单张查询返回来源合约对象。" },
+        { name: "expiration_date", type: "date", required: false, desc: "Exact expiry, YYYY-MM-DD; not a reference as-of date.", zh: "精确到期日，不是资料的历史查询时点。" },
+        { name: "expiration_date_gte / expiration_date_lte", type: "date", required: false, desc: "Expiry bounds. Set them explicitly for later expiries; Alpaca otherwise defaults to the upcoming weekend.", zh: "到期日范围。查询远月请明确填写；来源默认上限为即将到来的周末。" },
+        { name: "root_symbol", type: "string", required: false, desc: "Exact option root, including adjusted roots such as SOUN2.", zh: "期权根代码，可查询 SOUN2 等调整后的代码。" },
+        { name: "strike_price_gte / strike_price_lte", type: "number", required: false, desc: "Strike bounds.", zh: "行权价范围。" },
+        { name: "type / style / status", type: "string", required: false, desc: "call or put; american or european; active (default) or inactive.", zh: "看涨/看跌、美式/欧式、active（默认）/inactive。" },
+        { name: "ppind", type: "boolean", required: false, desc: "Filter penny-program eligibility.", zh: "按最小报价单位计划资格筛选。" },
+        { name: "limit", type: "integer", required: false, desc: "1–10000; default 1000.", zh: "每页 1–10000 条，默认 1000。" },
+        { name: "page_token", type: "string", required: false, desc: "Pass next_page_token with unchanged filters. Free accounts must use bounded expiry requests instead of pagination.", zh: "后续分页传回 next_page_token，其他条件保持一致。Free 使用限定到期日查询，不开放分页。" },
       ]} />
+      <div data-option-reference-note className="card" style={{ padding: "14px 16px", marginBottom: 20 }}>
+        <h3>{isZh ? "交割信息与更新时间" : "Delivery terms and freshness"}</h3>
+        <p>{isZh ? "deliverables 来自 Alpaca，可能缺失、滞后，或尚未反映最新公司行动。它不是 LeanData 对合约交割条款的独立确认。HTTP 请求成功或缓存更新，不代表每个字段都是最新。" : "Alpaca deliverables may be missing, stale, or not yet reflect a recent corporate action. They are not an independent LeanData confirmation of delivery terms. A successful request or refreshed cache does not establish freshness of every field."}</p>
+        <p>{isZh ? "equity 的 amount 是每张合约交割股数，cash 的 amount 是相应币种的现金金额。multiplier=100 或股数为 100，都不足以单独证明合约未调整。delayed_settlement 指交割结算是否延期，不表示数据是否延迟。" : "For equity components, amount is shares delivered per contract; for cash it is an amount in the indicated currency. multiplier=100 or a 100-share amount alone does not prove an unadjusted contract. delayed_settlement concerns settlement delay, not data latency."}</p>
+        <p>{isZh ? "金额未知且交割延期时，上游可能返回 amount=0、delayed_settlement=true；不要将其视为已确认的零交割。OI 和收盘价分别查看 open_interest_date、close_price_date；交割信息没有独立的更新时间字段。" : "An undetermined amount can be returned as amount=0 with delayed_settlement=true; do not treat it as confirmed zero delivery. Check open_interest_date and close_price_date separately. Deliverables have no independent update timestamp in this response."}</p>
+        <p>{isZh ? "v2 原生别名同样使用 Alpaca。Theta 的 quote/trade 合约列表只表示指定日期存在相应行情记录，不提供交割组成、调整状态或结算条款。两个来源不会互相补填这些字段。" : "The native v2 alias also uses Alpaca. Theta quote/trade contract lists identify activity on a date; they do not supply deliverables, adjusted status or settlement terms. These fields are not filled from one provider into the other."}</p>
+        <p>{isZh ? "本接口不提供独立的 standard/adjusted 认证、OCC 公告关联、生效时刻或券商行权截止时间。涉及公司行动或到期处理，请核对官方公告及券商规则。" : "This endpoint does not certify standard/adjusted status or supply OCC memo links, effective timestamps or broker exercise cutoffs. Check official notices and broker rules for corporate actions and expiry handling."}</p>
+        <p>
+          <a style={{ color: "#2563eb", textDecoration: "underline" }} href="https://docs.alpaca.markets/us/reference/get-options-contracts" target="_blank" rel="noopener noreferrer">Alpaca contract reference</a>{" · "}
+          <a style={{ color: "#2563eb", textDecoration: "underline" }} href="https://docs.alpaca.markets/us/changelog/2026-10-07-option-deliverable-amount-c94a723" target="_blank" rel="noopener noreferrer">Alpaca delayed amounts</a>{" · "}
+          <a style={{ color: "#2563eb", textDecoration: "underline" }} href="https://infomemo.theocc.com/infomemo/search-memo" target="_blank" rel="noopener noreferrer">OCC adjustment notices</a>{" · "}
+          <a style={{ color: "#2563eb", textDecoration: "underline" }} href="https://www.theocc.com/clearance-and-settlement/clearing/equity-options-product-specifications" target="_blank" rel="noopener noreferrer">OCC equity option specifications</a>
+        </p>
+      </div>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/contracts \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
-  -d '{"underlying_symbols":"AAPL","limit":2}'`}
+  -d '{"underlying_symbols":"AAPL","expiration_date":"2026-11-20","show_deliverables":true,"limit":2}'`}
       </pre>
       <pre className="code" style={{ marginBottom: 40 }}>
 {`// Response
 {
   "option_contracts": [
     {
-      "symbol":           "AAPL260522C00110000",
-      "name":             "AAPL May 22 2026 110 Call",
+      "symbol":           "AAPL261120C00110000",
+      "name":             "AAPL Nov 20 2026 110 Call",
       "status":           "active",
       "tradable":         true,
       "type":             "call",
       "style":            "american",
       "strike_price":     "110",
-      "expiration_date":  "2026-05-22",
+      "expiration_date":  "2026-11-20",
       "root_symbol":      "AAPL",
       "underlying_symbol":"AAPL",
       "multiplier":       "100",
+      "deliverables": [{"type":"equity","symbol":"AAPL","amount":"100","allocation_percentage":"100","settlement_type":"T+1","settlement_method":"CCC","delayed_settlement":false}],
       "open_interest":    "3",
-      "open_interest_date":"2026-05-20",
+      "open_interest_date":"2026-10-14",
       "close_price":      "192.05",
-      "close_price_date": "2026-05-21"
+      "close_price_date": "2026-10-15"
     }
   ],
   "next_page_token": null
