@@ -1585,7 +1585,7 @@ function FinancialSourceSelector({ active }) {
   const sources = [
     { id: "morningstar", title: "Morningstar", zh: "日度宽表快照", meta: "v3: 64 slots · 898 symbols · 2011–present · v1: 28 metrics · 550 symbols · 2020–2026-09 (frozen)", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo", recommended: true },
     { id: "eodhd", title: "EODHD", zh: "财报、除息与拆股事件", meta: "Future earnings dates · Daily 06:00 Pacific · Premium", href: DOC_PATHS.financialEodhd },
-    { id: "regular", title: "Regular / FMP", zh: "标准财务数据", meta: "50+ endpoints · statements · ratios · profiles", href: DOC_PATHS.financialRegular, logo: PROVIDER_LOGOS.fmp, alt: "FMP Data logo" },
+    { id: "regular", title: "Regular / FMP", zh: "财务数据快照（不自动更新）", meta: "Fixed snapshot · No automatic updates · 50+ endpoints", href: DOC_PATHS.financialRegular, logo: PROVIDER_LOGOS.fmp, alt: "FMP Data logo" },
   ];
   return (
     <section id="financial-source-selector" style={{ marginBottom: 26 }}>
@@ -1631,8 +1631,8 @@ function FmpDataOverview({ articleId } = {}) {
         eyebrow="Regular financial provider · Premium"
         title="FMP financial data"
         zhTitle="FMP 标准财务数据"
-        en="A broad endpoint catalog for US company statements, ratios, growth, profiles, market reference data, and historical prices. Authenticate with the same Leandata token—no separate upstream API key is required."
-        zh="覆盖美股财务三表、比率、增长、公司资料、市场参考数据和历史价格的标准接口目录。统一使用 Leandata Token，无需另行配置上游 API Key。"
+        en="A fixed snapshot of US company statements, ratios, profiles and historical prices. These FMP data do not update automatically. Use your existing LeanData token."
+        zh="提供美股财务三表、比率、公司资料和历史价格的固定快照。FMP 数据不自动更新，使用现有 LeanData Token 即可查询。"
         chips={["50+ endpoints", "statements", "ratios & growth", "company profiles", "Premium"]}
         alt="FMP Data provider logo"
       />
@@ -1658,20 +1658,25 @@ function FmpDataOverview({ articleId } = {}) {
         <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> 左侧 Financial data API 部分包含所有接口的详细参数、返回示例和使用说明。<br/>See the Financial data API section for complete documentation with parameters and examples.</span>
         <a href={DOC_PATHS.financialRegular} className="btn" style={{ marginLeft: 12, padding: "7px 11px", fontSize: 12 }}>打开文档 / Open Docs →</a>
       </div>
-      <h3 id="fmp-snapshot-boundary" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>数据更新说明 / Data Updates</h3>
+      <h3 id="fmp-snapshot-boundary" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>固定快照，不自动更新 / Fixed snapshot, no automatic updates</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, margin: "0 0 22px" }}>
-        财务数据基于公司公开披露的财报。公司可能会修订过往财报（如重述、更正等），我们会定期更新数据以反映这些变化。如需特定日期的历史数据版本，请联系我们。
+        FMP 接口读取已保存的固定快照，不会随新财报、公司更正或最新行情自动更新。接口中的报价、评级和分析师预测也属于快照，不代表当前值。
         <br/><br/>
-        Financial data is based on publicly filed company reports. Companies may revise past statements (restatements, corrections), and we update our data accordingly. Contact us if you need historical data as of a specific date.
+        FMP endpoints read a fixed saved snapshot. New reports, restatements and market prices are not added automatically. Quotes, ratings and analyst estimates are snapshot values, not current values.
       </p>
-      <h3 id="fmp-future-data-families" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>即将推出 / Coming Soon</h3>
-      <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-        仅以当前接口目录中标明的已上线能力为准。分析师预测已在目录中；机构持仓、ETF 持仓或未来日历等额外需求不构成已交付承诺，请先确认具体覆盖。
-        <br/><br/>
-        We're expanding coverage to include: analyst estimates, institutional holdings, ETF holdings, and more. Contact us with your specific data needs.
-      </p>
+      <p>需要更新的财报数据，请使用 <a href={DOC_PATHS.financialMorningstar}>Morningstar</a>；未来财报日期请使用 <a href={DOC_PATHS.financialEodhd}>EODHD</a>。两者预计每天美西早上 06:00 起更新。<br/>For updated financial statement data use Morningstar; for upcoming earnings dates use EODHD. Both are expected to refresh daily from 06:00 Pacific time.</p>
+      <h3 id="fmp-future-data-families" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>选择其他数据源 / Other data sources</h3>
+      <DocDesc zh="FMP 保留快照查询。持续更新的财报与事件数据分别由 Morningstar 和 EODHD 提供，请按所需数据选择接口。" en="FMP remains available for snapshot queries. Morningstar and EODHD provide the separately updated financial statement and event data." />
     </DocContent>
   );
+}
+
+function FmpSnapshotNotice() {
+  const isZh = useCurrentLanguage() === "zh";
+  return <p data-fmp-snapshot-notice style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 16 }}>
+    <strong>{isZh ? "固定快照，不自动更新。" : "Fixed snapshot. No automatic updates."}</strong>{" "}
+    {isZh ? "此 FMP 接口不会自动加入新财报、修订或最新行情。" : "This FMP endpoint does not automatically receive new reports, revisions or market prices."}
+  </p>;
 }
 
 function FmpEndpointSection({ id, route, title, params, note }) {
@@ -1686,6 +1691,7 @@ function FmpEndpointSection({ id, route, title, params, note }) {
     <section style={{ padding: "20px 0", borderTop: "1px solid var(--rule)" }}>
       <h3 id={id} className="display-title" style={{ fontSize: 25, margin: "0 0 7px" }}>{title}</h3>
       <div style={{ fontFamily: "var(--f-mono)", fontSize: 13, color: "var(--accent-ink)", marginBottom: 8 }}>{route}</div>
+      <FmpSnapshotNotice />
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65, margin: "0 0 10px" }}>
         <code>GET</code> or <code>POST</code> with <code>Authorization: Bearer TOKEN</code>. Parameters: {params}.
       </p>
@@ -1770,11 +1776,12 @@ function FmpFundamentalsBody({ focus, articleId }) {
         eyebrow="Regular / FMP provider · Premium"
         title="Regular / FMP Financial API"
         zhTitle="Regular / FMP 财务数据 API"
-        en="Premium access includes company statements, ratios, growth metrics, profiles, market reference data, analyst research, and valuation endpoints through one Leandata token."
-        zh="Premium 账户可通过一个 Leandata Token 访问公司财报、财务比率、增长指标、公司资料、市场参考、分析师研究与估值接口。"
+        en="Query a fixed snapshot of company statements, ratios, profiles, analyst research and valuation data with your Premium token. FMP data do not update automatically."
+        zh="Premium 账户可查询公司财报、比率、资料、分析师研究与估值数据的固定快照。FMP 数据不自动更新。"
         chips={["50+ endpoints", "GET + POST", "statements", "ratios & growth", "Premium"]}
         alt="FMP Data provider logo"
       />
+      <FmpSnapshotNotice />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 28 }}>
         <div style={panel}>
@@ -1999,6 +2006,7 @@ Content-Type: application/json
 
       <h3 id="fmp-response-metadata" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>数据覆盖说明 / Coverage Notes</h3>
       <ul style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
+        <li><strong>更新方式 / Updates:</strong> 固定快照，不自动更新。<br/>Fixed snapshot; no automatic updates.</li>
         <li><strong style={{ color: "var(--ink-strong)" }}>当前覆盖范围 / Current coverage:</strong> Beta 版本覆盖主要美股的财报、财务指标、股票报价、公司资料、分析师预测、评级、DCF 估值、收入分部等数据。<br/>Beta version covers major US stocks with statements, metrics, quotes, profiles, analyst estimates, ratings, DCF valuations, revenue segments.</li>
         <li><strong style={{ color: "var(--ink-strong)" }}>空结果处理 / Empty results:</strong> 如果返回空数组 <code>[]</code>，表示该股票暂无此类数据，非接口错误。<br/>Empty array <code>[]</code> means no data available for the stock, not an error.</li>
         <li><strong style={{ color: "var(--ink-strong)" }}>暂未提供 / Not yet available:</strong> 机构持仓（institutional holdings）、ETF 持仓数据暂未提供。<br/>Institutional holdings and ETF holdings are not yet available.</li>
@@ -2007,23 +2015,13 @@ Content-Type: application/json
 
       <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>注意事项 / Important Notes</h3>
       <ul style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
-        <li><strong style={{ color: "var(--ink-strong)" }}>历史数据可能修订 / Historical data may be revised:</strong> 公司可能因重述、更正等原因修订历史财务数据。后续将提供版本化查询功能，记录每次数据更新的时间。<br/>Companies may revise historical financials due to restatements or corrections. Future versions will provide timestamped versioned queries.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>公司修订 / Company revisions:</strong> 公司后续发布的新财报或修订不会自动加入 FMP 快照。<br/>New reports and later company revisions are not automatically added to the FMP snapshot.</li>
         <li><strong style={{ color: "var(--ink-strong)" }}>不同数据类型独立 / Data types are independent:</strong> 股价数据、财报数据、财务比率、预测数据等来自不同数据集。某股票有股价数据不代表一定有财报数据。<br/>Price data, statements, ratios, and estimates are separate datasets. Having price data doesn't guarantee statement data.</li>
         <li><strong style={{ color: "var(--ink-strong)" }}>字段可能缺失 / Fields may be missing:</strong> 不同公司、不同时期的财报字段可能不同。代码应容忍字段缺失或为 null，不要将其当作 0 处理。<br/>Company, period, and filing availability vary. Code should handle missing or null fields, not infer zero.</li>
       </ul>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>后续计划 / Future Plans</h3>
-      <ol style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
-        <li>扩展股票覆盖范围，增加更多美股和字段验证。<br/>Expand stock coverage and add more US stocks with field validation.</li>
-        <li>为预测、业绩公告、评级、DCF 等数据提供版本化历史查询，记录数据更新时间。<br/>Provide versioned historical queries for estimates, earnings, ratings, DCF with capture timestamps.</li>
-        <li>添加更多数据源支持，提供更广泛的接口覆盖。数据源将有独立的更新和修订策略。<br/>Add more data source support for broader endpoint coverage with independent refresh and revision policies.</li>
-        <li>发布定期更新的历史数据版本，公开每次更新的时间戳，保留历史版本供查询。<br/>Publish regularly updated data versions with public timestamps, preserving historical versions for queries.</li>
-      </ol>
-
-      <div style={{ ...panel, marginBottom: 8 }}>
-        <strong style={{ color: "var(--accent-ink)" }}>Ultimate 计划 / Ultimate Plan</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> Ultimate 套餐将包含机构持仓披露、ETF 持仓等数据。这些数据也会遵循版本化管理和时间戳记录。<br/>Ultimate tier will include institutional holdings disclosures and ETF holdings, also with versioned management and timestamps.</span>
-      </div>
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>需要更新的数据 / Updated data</h3>
+      <p>财报基本面数据使用 <a href={DOC_PATHS.financialMorningstar}>Morningstar</a>，未来财报节点使用 <a href={DOC_PATHS.financialEodhd}>EODHD</a>。每日美西早上 06:00 的预计更新安排不适用于 FMP 快照。<br/>Use Morningstar for updated financial statement data and EODHD for upcoming earnings dates. The expected daily 06:00 Pacific refresh does not apply to FMP snapshots.</p>
 
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 8 }}>
         <strong style={{ color: "var(--accent-ink)" }}>使用提示 / Usage Tip</strong>

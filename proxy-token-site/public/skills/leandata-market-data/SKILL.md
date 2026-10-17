@@ -71,6 +71,14 @@ curl "https://api.leandata.uk/v1/indices/daily?symbol=VIX&start=2026-09-15&end=2
 - Future earnings dates use EODHD event routes; financial statement data uses Morningstar. The compatibility `/stable/earnings-calendar` and `/stable/dividends-calendar` endpoints remain unavailable (501); use the documented EODHD routes.
 - Premium covers documented available endpoints, not every upstream interface; CN remains a separate plan.
 
+## FMP snapshots
+
+FMP `/stable/*` endpoints serve a fixed snapshot and do not update automatically.
+New company reports, restatements, quotes, ratings and analyst estimates are not
+automatically added. Use Morningstar for updated financial statement data and
+EODHD for upcoming earnings dates. The expected daily 06:00 Pacific update
+schedule does not apply to FMP snapshots.
+
 ## Daily financial updates
 
 EODHD future earnings dates and Morningstar financial statement data are both

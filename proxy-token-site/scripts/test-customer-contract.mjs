@@ -37,6 +37,10 @@ const cases = [
   ["/docs/market/overview/response-delivery/", [/direct=1/, /archive-direct\.leandata\.uk/, /303/, /307/, /without Authorization/, /counts once/]],
   ["/docs/market/options/option-oi-latest/", [/06:30/, /previous trading session/, /retrieval time/, /missing records are not zero/i]],
   ["/docs/market/options/post-v1-options-snapshots-open-interest/", [/not an implemented OI interface/, /v3\/option\/snapshot\/open_interest/]],
+  ["/docs/financial/regular/fmp-fundamentals-overview/", [/fixed snapshot/i, /do not update automatically/i]],
+  ["/docs/financial/regular/fmp-snapshot-boundary/", [/Fixed snapshot, no automatic updates/, /not current values/, /Morningstar/, /EODHD/]],
+  ["/docs/financial/regular/fmp-quote/", [/Fixed snapshot/, /No automatic updates/, /does not automatically receive/]],
+  ["/docs/financial/statements/fmp-income-statement/", [/Fixed snapshot/, /No automatic updates/, /does not automatically receive/]],
   ["/docs/financial/regular/fmp-calendar-support/", [/earnings-calendar/, /dividends-calendar/, /501/, /EODHD/, /Morningstar/, /06:00/]],
   ["/docs/market/overview/tiers-permissions/", [/GET \/api\/product-catalog/, /Permanent/, /independent.*expiry/i, /Trial is retired/, /31 days/, /nearest 2 upcoming expiries/]],
   ["/docs/market/overview/free-plan-usage/", [/31 calendar days/, /nearest 2 upcoming expiration/, /All six channels/, /boats/]],
@@ -62,6 +66,9 @@ for (const [path, patterns] of cases) {
   const main = dom.window.document.querySelector("main");
   assert(main, path); assert.deepEqual(errors, []);
   for (const pattern of patterns) assert.match(main.textContent, pattern, path);
+  if (/\/fmp-(?:fundamentals-overview|snapshot-boundary|quote|income-statement)\/$/.test(path)) {
+    assert.doesNotMatch(main.textContent, /we update our data accordingly|我们会定期更新|Publish regularly updated|Ultimate Plan/);
+  }
   if (path.endsWith("/tiers-permissions/")) {
     const rows = [...main.querySelectorAll("[data-product-catalog] tbody tr")];
     assert.equal(rows.length, Object.keys(commercialCatalog.tiers).length);
@@ -140,3 +147,5 @@ console.log("Customer delivery, OI clocks, calendar availability and retired ope
 
 const marketSkill = fs.readFileSync(new URL("skills/leandata-market-data/SKILL.md", root), "utf8");
 for (const pattern of [/events\/eodhd\/coverage/, /events\/eodhd\/history/, /next_offset/, /start_date.*not supported aliases/, /research_admission=false/, /06:00 Pacific time/, /America\/Los_Angeles/]) assert.match(marketSkill, pattern);
+
+assert.match(marketSkill, /fixed snapshot and do not update automatically/);
