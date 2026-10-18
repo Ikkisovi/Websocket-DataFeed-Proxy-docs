@@ -39,10 +39,10 @@ data = {
 a.output.mkdir(parents=True, exist_ok=True)
 (a.output / 'analysis.json').write_text(json.dumps(data, indent=2, allow_nan=False)+'\n')
 with (a.output / 'annual-diagnostic.csv').open('w') as f:
-    writer = csv.DictWriter(f, fieldnames=['year', 'brain', 'spy', 'difference', 'partial_year'])
+    writer = csv.DictWriter(f, fieldnames=['year', 'brain', 'spy', 'difference', 'partial_year'], lineterminator='\n')
     writer.writeheader(); writer.writerows(data['archived_diagnostic']['annual_returns'])
 with (a.output / 'reconstruction.csv').open('w') as f:
-    writer = csv.writer(f); writer.writerow(['model', 'stage', 'mean_daily_spearman', 'top50_mean_overlap', 'dates', 'rows', 'securities'])
+    writer = csv.writer(f, lineterminator='\n'); writer.writerow(['model', 'stage', 'mean_daily_spearman', 'top50_mean_overlap', 'dates', 'rows', 'securities'])
     for model in data['reconstruction']['models']:
         for stage, value in model['stages'].items(): writer.writerow([model['id'], stage, *value.values()])
 print('Public report aggregates written; source identities, source digests and row-level predictions excluded')
