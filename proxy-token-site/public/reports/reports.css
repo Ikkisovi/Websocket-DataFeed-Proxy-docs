@@ -45,6 +45,15 @@ body { margin: 0; }
 .author-mark { width: 34px; height: 34px; border-radius: 50%; background: #e0e8d9; color: #486455; display: grid; place-items: center; font-family: var(--f-display); font-size: 22px; }
 .story-body { max-width: 740px; padding: 0 28px 50px; margin: auto; font-size: 17px; line-height: 1.95; color: #384735; }
 .story-body p { margin: 0 0 26px; }
+.story-body strong { color: #1c3022; font-weight: 600; }
+.story-body .text-fund { color: #285535; font-weight: 600; }
+.story-body .text-momentum { color: #1a5265; font-weight: 600; }
+.story-body .text-stat { color: #1c3022; font-family: var(--f-mono); font-weight: 600; font-size: 0.95em; }
+.story-body .text-caveat { color: #915434; font-weight: 500; }
+.story-body .split-tag { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 0.88em; font-family: var(--f-mono); vertical-align: baseline; margin: 0 2px; }
+.story-body .split-tag.train { background: #edf2ea; color: #3f563d; border: 1px solid #d4ded0; }
+.story-body .split-tag.val { background: #f5eee2; color: #6b5030; border: 1px solid #e4d8c6; }
+.story-body .split-tag.later { background: #e5f0f3; color: #1a4c5d; border: 1px solid #c8dce2; }
 .story-body .story-opening { font-size: 21px; color: #2a3d2c; line-height: 1.85; }
 .story-body h2 { font-family: var(--f-display); font-size: 31px; font-weight: 400; line-height: 1.4; margin: 60px 0 25px; color: #263d2c; scroll-margin-top: 30px; }
 .story-note { border-left: 3px solid #84997a; background: #f0f3e9; padding: 22px 24px; margin: 36px 0 46px; font-size: 14px; line-height: 1.9; }
