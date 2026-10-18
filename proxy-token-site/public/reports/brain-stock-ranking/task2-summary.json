@@ -318,7 +318,8 @@
     }
   },
   "selection_warning": "34 configurations were compared on the displayed OOS period; not nested selection",
-  "price_warning": "IC and legacy books use corpus raw close; Yahoo chart is conditional on static ticker identity",
+  "price_warning": "IC and legacy books use QC split/cash-dividend Adjusted corpus close; Yahoo chart remains conditional on static ticker identity. This corrects the earlier raw-close description, not the legacy future-availability filtering.",
+  "price_definition_correction": "Source-traced common-rule audit: brain-same-basis-20261018T210211Z. Legacy numeric results and saved-input hashes are retained; this preview revision corrects the normalization description.",
   "publication_inputs_sha256": {
     "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/all__blend__hgb.json": "1554d2fe7ea5bfa3fb446785d89fad5eb08f63f399e9943f5cc5162d903ed6db",
     "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/all__blend__ridge.json": "e6f193a8b526fbf99f63a505e5f6b913f66d2d788e529cb12a9245473a43349c",

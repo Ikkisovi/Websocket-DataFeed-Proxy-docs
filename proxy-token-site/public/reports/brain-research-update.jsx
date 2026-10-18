@@ -1,5 +1,6 @@
 import React from "react";
 import results from "./brain-stock-ranking/task2-summary.json";
+import { BrainSameBasisUpdate } from "./brain-same-basis-update.jsx";
 
 const ic = value => `${value >= 0 ? "+" : ""}${value.toFixed(4)}`;
 const decimal = value => value.toFixed(3);
@@ -9,6 +10,7 @@ export function BrainResearchUpdate({ t }) {
   const direct = results.best_direct_return;
   const yahoo = results.yahoo_source_diagnostics;
   return <section className="research-update" aria-labelledby="return-experiment">
+    <BrainSameBasisUpdate t={t} />
     <h2 id="expanded-reconstruction">{t("扩展实验一：还原排名，不等于还原收益", "Extension 1: recovering rankings is not recovering returns")}</h2>
     <p>{t(
       "15 个特征只是最初的基线。后续我们重建了 44 个日频技术变量，加入基本面及其时间字段，再与原有价量特征合并。扩展窗口实验从至少 500 个交易日开始训练，每 126 个交易日重新拟合，20 个时点分别预测下一段从未参与该次拟合的数据。对 Brain 排名的日均相关提升至 0.8565，但这仍是老师分数的拟合，不是未来收益的预测准确率。",
@@ -34,8 +36,8 @@ export function BrainResearchUpdate({ t }) {
       <li>{t("IC 在当日信号和对应未来价格共同有限的证券上计算，每日平均，不将重叠的 21 / 63 日标签视为独立观测。收益定义为 close[r+1+h] / close[r+1] − 1。", "Compute each date’s IC on jointly finite signal/return pairs and average over dates. Overlapping 21-/63-session labels are not independent observations. Returns are close[r+1+h] / close[r+1] − 1.")}</li>
     </ol>
     <aside className="story-note research-warning"><strong>{t("OOS 不等于从未看过的最终测试集", "OOS does not mean an untouched final test")}</strong><p>{t(
-      "每个时点的模型没有拟合该时点的未来标签，但 34 个配置是在这段已展示的 OOS 上比较、挑选的，并非嵌套模型选择或预注册的前瞻检验。特征覆盖率筛选也使用了完整面板，而非每个训练窗口内重新准入。当前价格标签来自内部特征语料的原始 close：未复权公司行动和非执行时点会影响其经济含义。下列 IC 是既有标签上的探索性结果，不是已认证的可投资收益预测。",
-      "Each dated model excludes its future labels, but the 34 configurations were compared and selected on the displayed OOS period, not through nested selection or a preregistered prospective test. Feature-coverage admission also used the full panel rather than each training window alone. Return labels use the internal corpus’s raw close: unadjusted corporate actions and non-execution timestamps affect their economic meaning. The ICs below are exploratory on those labels, not certified investable-return predictions."
+      "每个时点的模型没有拟合该时点的未来标签，但 34 个配置是在这段已展示的 OOS 上比较、挑选的，并非嵌套模型选择或预注册的前瞻检验。特征覆盖率筛选也使用了完整面板，而非每个训练窗口内重新准入。经追溯，价格标签来自内部特征语料的 QC 拆分／现金分红复权 close，而非未复权价格；这里更正此前的原价描述。来源时钟、历史版本与可执行公司行为账务仍需分别验证。下列 IC 是既有标签上的探索性结果，不是已认证的可投资收益预测。",
+      "Each dated model excludes its future labels, but the 34 configurations were compared and selected on the displayed OOS period, not through nested selection or a preregistered prospective test. Feature-coverage admission also used the full panel rather than each training window alone. The traced return labels use the internal corpus’s QC split/cash-dividend Adjusted close, not raw unadjusted prices; this corrects the earlier raw-close description. Source clocks, vintages and executable corporate-action accounting remain separate checks. The ICs below are exploratory on those labels, not certified investable-return predictions."
     )}</p></aside>
 
     <h3 id="label-purge">{t("先修正一个足以改变结论的标签穿越", "First fix a label-boundary leak that changes the conclusion")}</h3>

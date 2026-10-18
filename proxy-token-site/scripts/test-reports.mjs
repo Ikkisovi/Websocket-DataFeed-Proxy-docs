@@ -35,6 +35,20 @@ const nav=fs.readFileSync(path.join(root,'reports/brain-stock-ranking/yahoo-cond
 assert.equal(nav.length,490);
 assert.equal(nav.at(-1).split(',')[5],''); // no full NAV after the equal-weight book's held quote gap
 for(const name of ['task2-research.png','task2-research.svg'])assert(fs.statSync(path.join(root,'reports/brain-stock-ranking',name)).size>10000,name);
+const same=JSON.parse(fs.readFileSync(path.join(root,'reports/brain-stock-ranking/same-basis-summary.json')));
+assert.equal(same.not_single_vendor_parity,true);
+assert.equal(same.windows['2024-07+'].five_session_periods,111);
+for(const fee of ['0','2','5'])for(const arm of ['broad_blend_ridge','brain_rank5days','SPY_buy_hold']){
+ assert.equal(same.windows['2024-07+'].fees[fee][arm].status,'PASS_ALL_MARKS');
+ if(arm!=='SPY_buy_hold')assert.equal(same.windows.full.fees[fee][arm].terminal_nav,null);
+}
+const primary=same.windows['2024-07+'].fees['2'];
+assert(primary.broad_blend_ridge.cagr<primary.SPY_buy_hold.cagr);
+assert(primary.broad_blend_ridge.daily_sharpe<primary.SPY_buy_hold.daily_sharpe);
+assert.equal(primary.broad_blend_ridge.cash_conversions,1);
+assert.equal(fs.readFileSync(path.join(root,'reports/brain-stock-ranking/same-basis-daily-nav.csv'),'utf8').trim().split(/\r?\n/).length,557);
+for(const name of ['same-basis-research.svg','same-basis-research.png'])assert(fs.statSync(path.join(root,'reports/brain-stock-ranking',name)).size>10000);
+for(const forbidden of ['events-private','trades-private','predictions.npz','spy-adjusted-monthly'])assert(!JSON.stringify(same).includes(forbidden));
 const tick=()=>new Promise(r=>setTimeout(r,15));
 const checks=[];
 for(const page of ['/reports/','/reports/brain-stock-ranking/','/research-data'])for(const lang of ['en','zh']){
@@ -57,6 +71,11 @@ for(const page of ['/reports/','/reports/brain-stock-ranking/','/research-data']
   await click(lang==='en'?'All years':'全区间');assert.equal(w.document.querySelectorAll('.story-body .report-chart svg rect').length,17);
   const show=buttons().find(x=>x.classList.contains('report-text-button'));show.click();await tick();assert.equal(w.document.querySelectorAll('[data-research-table="archive-annual"] tbody tr').length,17);
   for(const [table,count] of [['teacher',4],['purge',4],['configurations',10],['yahoo',3],['stability',2]])assert.equal(w.document.querySelectorAll('[data-research-table="'+table+'"] tbody tr').length,count,table);
+  assert.equal(w.document.querySelectorAll('[data-research-table="same-basis"] tbody tr').length,3);
+  assert.equal(w.document.querySelectorAll('[data-research-table="same-basis-fees"] tbody tr').length,3);
+  const latest=w.document.querySelector('.same-basis-update');assert(latest);
+  for(const value of ['17.40','17.54','0.936','1.064','2017-03-13','2018-01-03','$210'])assert(latest.textContent.includes(value),value);
+  assert.equal(latest.querySelector('img').getAttribute('width'),'1440');
   const body=w.document.body.textContent;
   for(const value of ['0.8565','+0.0217','4.16','0.836','0.899','0.1094','423 / 489'])assert(body.includes(value),value);
   assert.match(body,lang==='en'?/Formal full-period NAV/:/正式全期净值/);
