@@ -363,7 +363,7 @@
     "data/quant-research/reports/brain-rank-gp-20261018T080537Z/walkforward.json": "2365f8c35af29f574e4ee3c643d4bd1b73b6e830bb54fcdbcf5c042ff6f7ead5"
   },
   "current_audit_source_sha256_not_historical_execution_proof": {
-    "scripts/brain_rank_article_artifacts.py": "3cf0b5825bcdf1ead6e2194f74a2a97361dd26b3e3bfb6a9849d69541cfe178f",
+    "scripts/brain_rank_article_artifacts.py": "27815bb604600d576328bdc7696cb7c5be1871f420fccbe29d9d36b21876866f",
     "scripts/brain_rank_yfinance_nav_audit.py": "70090c0ef2ea49c8390017c98e33ab2739b46bd7ef312b7708cb5a66cc9f66d8",
     "quantresearch/brain_rank_signal_walkforward.py": "db9908e17cc189c3a58939f2cc9338fa91b65b969195587e2b6f9eefb80f6e04"
   }
