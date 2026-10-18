@@ -1,0 +1,370 @@
+{
+  "version": 2,
+  "as_of": "2026-10-18",
+  "config_count": 34,
+  "teacher_reconstruction": {
+    "first": "2016-12-27",
+    "last": "2026-09-28",
+    "oos_sessions": 2339,
+    "rows": [
+      {
+        "model": "hgb_pool",
+        "feature_count": 90,
+        "ic_brain": 0.6487424262151771
+      },
+      {
+        "model": "hgb_both",
+        "feature_count": 72,
+        "ic_brain": 0.8492263448608921
+      },
+      {
+        "model": "hgb_all",
+        "feature_count": 134,
+        "ic_brain": 0.8565310305035324
+      },
+      {
+        "model": "ridge_all",
+        "feature_count": 134,
+        "ic_brain": 0.7722767032334341
+      }
+    ]
+  },
+  "first_signal": "2016-12-27",
+  "last_signal": "2026-09-14",
+  "n_rebalances": 489,
+  "first_entry": "2016-12-28",
+  "last_exit": "2026-09-22",
+  "refits": 20,
+  "refit_step_sessions": 126,
+  "min_train_sessions": 500,
+  "corpus_entry_sha256": "1b4c8c8528d9e1bed8dfec528524f5a2a1a45f76bd8f950ffe92f322e2fb4155",
+  "top_configs_by_ic5": [
+    {
+      "features": "broad",
+      "target": "blend",
+      "model": "ridge",
+      "feature_count": 351,
+      "ic5": 0.02170297002058956,
+      "ic21": 0.02436696266853442,
+      "ic63": 0.030100679566239075,
+      "diagnostic_lo_sharpe": 0.8129423062293247,
+      "diagnostic_ls_sharpe": 0.21922981391606752,
+      "diagnostic_terminal_nav": 4.3134649925522845
+    },
+    {
+      "features": "all",
+      "target": "brain",
+      "model": "hgb",
+      "feature_count": 134,
+      "ic5": 0.020629814623685638,
+      "ic21": 0.019653235312809093,
+      "ic63": 0.02092510831742612,
+      "diagnostic_lo_sharpe": 0.8232771693310473,
+      "diagnostic_ls_sharpe": 0.16815297069331442,
+      "diagnostic_terminal_nav": 4.244968511491604
+    },
+    {
+      "features": "broad",
+      "target": "brain",
+      "model": "hgb",
+      "feature_count": 351,
+      "ic5": 0.02060940217112211,
+      "ic21": 0.019667657949004727,
+      "ic63": 0.020927843340845666,
+      "diagnostic_lo_sharpe": 0.8149056518468448,
+      "diagnostic_ls_sharpe": 0.13680516169914345,
+      "diagnostic_terminal_nav": 4.190284911165762
+    },
+    {
+      "features": "broad",
+      "target": "blend",
+      "model": "hgb",
+      "feature_count": 351,
+      "ic5": 0.02057570099619532,
+      "ic21": 0.02251910906614719,
+      "ic63": 0.022937240007957237,
+      "diagnostic_lo_sharpe": 0.8195278259818771,
+      "diagnostic_ls_sharpe": 0.3451154413192339,
+      "diagnostic_terminal_nav": 4.581315045275779
+    },
+    {
+      "features": "both",
+      "target": "brain",
+      "model": "hgb",
+      "feature_count": 72,
+      "ic5": 0.020415958926919785,
+      "ic21": 0.018745465514648053,
+      "ic63": 0.0180960317977961,
+      "diagnostic_lo_sharpe": 0.845725320582288,
+      "diagnostic_ls_sharpe": 0.18878626694360834,
+      "diagnostic_terminal_nav": 4.431936034587761
+    },
+    {
+      "features": "all",
+      "target": "blend",
+      "model": "hgb",
+      "feature_count": 134,
+      "ic5": 0.020409202667932697,
+      "ic21": 0.021658167278646955,
+      "ic63": 0.021326848470206383,
+      "diagnostic_lo_sharpe": 0.8281645513563998,
+      "diagnostic_ls_sharpe": 0.2769385029199321,
+      "diagnostic_terminal_nav": 4.625069934672296
+    },
+    {
+      "features": "broad",
+      "target": "brain",
+      "model": "ridge",
+      "feature_count": 351,
+      "ic5": 0.020243311655435633,
+      "ic21": 0.019178692971540987,
+      "ic63": 0.022194846956034468,
+      "diagnostic_lo_sharpe": 0.8579229944443199,
+      "diagnostic_ls_sharpe": 0.12083498611919204,
+      "diagnostic_terminal_nav": 4.496795724461139
+    },
+    {
+      "features": "all",
+      "target": "blend",
+      "model": "ridge",
+      "feature_count": 134,
+      "ic5": 0.020179233889911823,
+      "ic21": 0.01948119927639809,
+      "ic63": 0.02262310832210493,
+      "diagnostic_lo_sharpe": 0.895833842599375,
+      "diagnostic_ls_sharpe": 0.242427763990277,
+      "diagnostic_terminal_nav": 4.9100320443537795
+    },
+    {
+      "features": "pool",
+      "target": "blend",
+      "model": "hgb",
+      "feature_count": 90,
+      "ic5": 0.019340335539253285,
+      "ic21": 0.025498897641035398,
+      "ic63": 0.027885349744015714,
+      "diagnostic_lo_sharpe": 0.9570139377009687,
+      "diagnostic_ls_sharpe": 0.34538340089121555,
+      "diagnostic_terminal_nav": 5.510750933294722
+    },
+    {
+      "features": "both",
+      "target": "blend",
+      "model": "hgb",
+      "feature_count": 72,
+      "ic5": 0.01877422853168188,
+      "ic21": 0.018162462490080352,
+      "ic63": 0.014489185652923734,
+      "diagnostic_lo_sharpe": 0.8575826603358053,
+      "diagnostic_ls_sharpe": 0.3145515589050022,
+      "diagnostic_terminal_nav": 4.7708665933652155
+    }
+  ],
+  "best_direct_return": {
+    "features": "broad",
+    "target": "ret5",
+    "model": "ridge",
+    "feature_count": 351,
+    "ic5": 0.013919075669863662,
+    "ic21": 0.027197446273696795,
+    "ic63": 0.034899336059163184,
+    "diagnostic_lo_sharpe": 0.7038650280487856,
+    "diagnostic_ls_sharpe": 0.3671564074356728,
+    "diagnostic_terminal_nav": 4.151263901246218
+  },
+  "windows_diagnostic_only": [
+    {
+      "name": "full",
+      "n": 489,
+      "brain_lo": 0.6609885732464974,
+      "brain_ls": 0.12946796817379017,
+      "median_lo": 0.7771302798789834,
+      "median_ls": 0.24658362945609671
+    },
+    {
+      "name": "CLEAN 2024-07+",
+      "n": 111,
+      "brain_lo": 0.7412101315887937,
+      "brain_ls": 0.08810877528512931,
+      "median_lo": 1.0200578198390835,
+      "median_ls": 0.01445690800567301
+    }
+  ],
+  "years_diagnostic_only": [
+    {
+      "year": 2017,
+      "n": 50,
+      "restricted_brain_diagnostic_lo": 3.029601532899371,
+      "median_model_diagnostic_lo": 2.05460151713649
+    },
+    {
+      "year": 2018,
+      "n": 51,
+      "restricted_brain_diagnostic_lo": -0.026900243902478815,
+      "median_model_diagnostic_lo": 0.005459897594191285
+    },
+    {
+      "year": 2019,
+      "n": 50,
+      "restricted_brain_diagnostic_lo": 1.5036170102241435,
+      "median_model_diagnostic_lo": 1.8288295519324835
+    },
+    {
+      "year": 2020,
+      "n": 51,
+      "restricted_brain_diagnostic_lo": 0.7944461572057718,
+      "median_model_diagnostic_lo": 0.8081608802234305
+    },
+    {
+      "year": 2021,
+      "n": 50,
+      "restricted_brain_diagnostic_lo": 0.8264708908024504,
+      "median_model_diagnostic_lo": 1.3074529151198089
+    },
+    {
+      "year": 2022,
+      "n": 50,
+      "restricted_brain_diagnostic_lo": -0.384251065352537,
+      "median_model_diagnostic_lo": -0.2887024360134155
+    },
+    {
+      "year": 2023,
+      "n": 50,
+      "restricted_brain_diagnostic_lo": 0.7798727746580423,
+      "median_model_diagnostic_lo": 1.2275692616417535
+    },
+    {
+      "year": 2024,
+      "n": 51,
+      "restricted_brain_diagnostic_lo": 1.4719382402452845,
+      "median_model_diagnostic_lo": 1.251974391551214
+    },
+    {
+      "year": 2025,
+      "n": 50,
+      "restricted_brain_diagnostic_lo": 0.6988035944456346,
+      "median_model_diagnostic_lo": 0.8521388925913973
+    },
+    {
+      "year": 2026,
+      "n": 35,
+      "restricted_brain_diagnostic_lo": 0.7921978976690742,
+      "median_model_diagnostic_lo": 1.5562454794062557
+    }
+  ],
+  "year_sign_test": {
+    "wins": 8,
+    "years": 10,
+    "two_sided_p": 0.109375
+  },
+  "purge_ablation": [
+    {
+      "target": "ret5",
+      "unpurged": 0.005040993420659192,
+      "purged": 0.0005637969535955183
+    },
+    {
+      "target": "ret21",
+      "unpurged": 0.03169318419118327,
+      "purged": 0.0014573669810479422
+    },
+    {
+      "target": "blend",
+      "unpurged": 0.024061005264068822,
+      "purged": 0.015096848995629797
+    },
+    {
+      "target": "ret63",
+      "unpurged": 0.0763512379794808,
+      "purged": 0.0027511119127795916
+    }
+  ],
+  "yahoo_source_diagnostics": {
+    "broad_blend_ridge": {
+      "conditional_terminal_nav": 4.159107871682967,
+      "conditional_sharpe": 0.8362444200098553,
+      "formal_nav": null,
+      "status": "BLOCKED_IDENTITY_OR_QUOTE_GAPS",
+      "invalid_identity_or_quote_periods": 423,
+      "failed_entries": 1457,
+      "conditional_missing_exit_periods": 0
+    },
+    "brain_restricted": {
+      "conditional_terminal_nav": 3.197099409599685,
+      "conditional_sharpe": 0.6774500661026168,
+      "formal_nav": null,
+      "status": "BLOCKED_IDENTITY_OR_QUOTE_GAPS",
+      "invalid_identity_or_quote_periods": 267,
+      "failed_entries": 1302,
+      "conditional_missing_exit_periods": 0
+    },
+    "uniform_restricted": {
+      "conditional_terminal_nav": null,
+      "conditional_sharpe": null,
+      "formal_nav": null,
+      "status": "BLOCKED_IDENTITY_OR_QUOTE_GAPS",
+      "invalid_identity_or_quote_periods": 489,
+      "failed_entries": 20412,
+      "conditional_missing_exit_periods": 1
+    },
+    "spy_reference": {
+      "conditional_terminal_nav": 4.012012234507386,
+      "conditional_sharpe": 0.8985629059961693,
+      "formal_nav": null,
+      "status": "ADJUSTMENT_VINTAGE_UNADMITTED_REFERENCE_ONLY",
+      "invalid_identity_or_quote_periods": null,
+      "failed_entries": null,
+      "conditional_missing_exit_periods": 0
+    }
+  },
+  "selection_warning": "34 configurations were compared on the displayed OOS period; not nested selection",
+  "price_warning": "IC and legacy books use corpus raw close; Yahoo chart is conditional on static ticker identity",
+  "publication_inputs_sha256": {
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/all__blend__hgb.json": "1554d2fe7ea5bfa3fb446785d89fad5eb08f63f399e9943f5cc5162d903ed6db",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/all__blend__ridge.json": "e6f193a8b526fbf99f63a505e5f6b913f66d2d788e529cb12a9245473a43349c",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/all__brain__hgb.json": "9fe9c376f196df48cc11bcf9cc09cc3160542a6ab239b6a3845d095b7941cea1",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/all__ret21__hgb.json": "aec10b6e6196d632db320f6711c22fd611b4701e275506f81d0fc48a71fbab05",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/all__ret21__ridge.json": "005f7afda54d1d90b4f2291a240ce196e555295115e49cef24cc1b62ff3d41ca",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/all__ret5__hgb.json": "06e55d46be6f816b628b8727cb206bc7d6f39162d60b8728f6bfdbe48e8afecc",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/all__ret5__ridge.json": "dba60a187c5d73167f5ee8955a35dd88f5b836caff150715b3100428d06acfb6",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/all__ret63__hgb.json": "974a708673f396354a24d1e3b9b9e962cb4de58f6049d7cb37972f1ae6dddfcf",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/both__blend__hgb.json": "da35b070bc7ba00651b282f5c10fb46312b3b81f58e3038a58cf2bec75b061d4",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/both__brain__hgb.json": "e50ae54e3da49efd2e078823cc49e9492a7c50cc424c5215941655d05267f5b7",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/both__ret21__hgb.json": "64f04b5c2ed8ca63b7aa78e2057233236826b1d2eafd697cbf42def42d1430c6",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/both__ret5__hgb.json": "4db1a78a98836a7592c2a829c4d1934436046322af409aedf12f57077f8414e8",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/both__ret63__hgb.json": "fcdadccddf7c5094fd9927b087635c7f88966a25263006dd1c32215c413d7298",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/broad__blend__hgb.json": "9caeb4d965a8f9f4ad2274dcfbd0b9e00f48b534407f64788660af455910a54e",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/broad__blend__ridge.json": "c3746f0280ae64579f8ff6daa62ffdd5601e4917876a76329ee0358180290e41",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/broad__brain__hgb.json": "a2d5dd7b858209a7c6cf177236ff5a8eddea06a984d849e94e73b07b160a642f",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/broad__brain__ridge.json": "ffac1f8cb983b71799c4ef158f1fb4cb71a94b13e81bdb8e20496feab03c8d32",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/broad__ret21__hgb.json": "3799815472c962b7d574172bd92684967b7c7fdbd1928459d01085e2f341afc6",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/broad__ret5__hgb.json": "bc35e5d732df29c2f30c13e555b51f7b68c2da93fd6fb0678ed3fef409982b92",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/broad__ret5__ridge.json": "e33efe530701c84af8a9dc2e2afc0f24bbb6ac672df350bd0a397ef7e5abb6a2",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/broad__ret63__hgb.json": "c1f191673cc00c91257146a2254f66ebb948b26d5533fe25bd003f534148b470",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/fund__blend__hgb.json": "94a79be8aac7950e5c696ff93445a1a1c3e48f2e00347b1ffec5a9aa195030c2",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/fund__brain__hgb.json": "0d190377c9c2369d360dca88ba1802dc797ae2a78eab2d5da6c43deb745f4387",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/fund__ret21__hgb.json": "eac46184b299e3d3fe43b4432f0d801ad5f63d26ac903688dc944671977b675f",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/fund__ret5__hgb.json": "9ab2f8333a6d5e7202f7cc6daf8badb6162dce01c947d7c5d5c9a4069be2648c",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/fund__ret63__hgb.json": "9675ce6c145613a11cd5fc4e627774de7778d9836c3424999ee7b32111ba60ca",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/pool__blend__hgb.json": "31fa7bc85e65e78bda014870a7c63d45f6ce4639d2b6bd0bfbaa21cf9764eb34",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/pool__brain__hgb.json": "f2951feba0a24aeda14c2d75e6c5c2d2481633156e791702140006f01cd09938",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/pool__ret5__hgb.json": "2d8cc28694ef558071d7f341215b4d3891b54949c4df371674ef130d95aae337",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/tech__blend__hgb.json": "d0514c469c1ef27bc1e91666d73cbdba6172ca65ed529c618f10e1647b20c750",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/tech__brain__hgb.json": "db26e65cc0d69f22919b726590f59709860a97cce4bb3493d3873eca8f240377",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/tech__ret21__hgb.json": "3b20c14cbd8979f28a8befc412f05c3a1f847b85e03b42c2d6043c6ff9df8024",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/tech__ret5__hgb.json": "d03454b4826e88bf98c8f880ad527c6484b9682a75bfaeb0c20e6731ae171665",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals/tech__ret63__hgb.json": "a675d7f86fd43311f69556b7f8cf318e964163850bdb34d0d9ada024d5c67cd1",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals_nopurge/fund__ret5__hgb.json": "f91d416dea35bc04d955050f9f9a8edef0607611fc6d893f561273026bc41960",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals_nopurge/fund__ret21__hgb.json": "13c53781280ca52c4ab0b1ae8cf8c68d4da754f00e5ddeeb8b6836e5fb0ffba1",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals_nopurge/fund__blend__hgb.json": "e92f9a241d61f0ce526f6fcba01edc860fba2ed3ed7747845a4f5b187a6a8616",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/signals_nopurge/fund__ret63__hgb.json": "5a39b1fc57cafbfe1c034adc457e9f79fb231bad4e7a1e8fe5158cc0344eaa37",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/stability.json": "161cd0127ffea5af72ca7e701e8ef996fb8f00245aabec88fc8ba6d2b8e3e229",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/article-20261018-v2/yahoo-valuation-audit-v3.json": "bc4db79b73ab2013d31ced83eb8c4690e06e495a611682e9374617131733ac71",
+    "data/quant-research/reports/brain-rank-gp-20261018T080537Z/walkforward.json": "2365f8c35af29f574e4ee3c643d4bd1b73b6e830bb54fcdbcf5c042ff6f7ead5"
+  },
+  "current_audit_source_sha256_not_historical_execution_proof": {
+    "scripts/brain_rank_article_artifacts.py": "3cf0b5825bcdf1ead6e2194f74a2a97361dd26b3e3bfb6a9849d69541cfe178f",
+    "scripts/brain_rank_yfinance_nav_audit.py": "70090c0ef2ea49c8390017c98e33ab2739b46bd7ef312b7708cb5a66cc9f66d8",
+    "quantresearch/brain_rank_signal_walkforward.py": "db9908e17cc189c3a58939f2cc9338fa91b65b969195587e2b6f9eefb80f6e04"
+  }
+}

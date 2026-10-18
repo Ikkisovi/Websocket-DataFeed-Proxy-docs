@@ -281,5 +281,7002 @@
       "arithmetic_sharpe_zero_rf": 0.8538272506868081,
       "max_drawdown": -0.30167236129510255
     }
+  },
+  "official_comparison": {
+    "disclaimer": {
+      "en": "DISCLAIMER: the content of this presentation is not to be intended as investment advice. The material is provided for informational purposes only and does not constitute an offer to sell, a solicitation to buy, or a recommendation or endorsement for any security or strategy, nor does it constitute an offer to provide investment advisory or other services by Brain. Brain makes no guarantees regarding the accuracy and completeness of the information expressed in this document.",
+      "zh": "\u514d\u8d23\u58f0\u660e\uff1a\u672c\u6f14\u793a\u5185\u5bb9\u4e0d\u6784\u6210\u6295\u8d44\u5efa\u8bae\u3002\u672c\u8d44\u6599\u4ec5\u4f9b\u4fe1\u606f\u53c2\u8003\u4e4b\u7528\uff0c\u4e0d\u6784\u6210 Brain \u5bf9\u4efb\u4f55\u8bc1\u5238\u6216\u6295\u8d44\u7b56\u7565\u7684\u8981\u7ea6\u51fa\u552e\u3001\u8d2d\u4e70\u8981\u7ea6\u9080\u8bf7\u3001\u63a8\u8350\u6216\u80cc\u4e66\uff0c\u4ea6\u4e0d\u6784\u6210\u63d0\u4f9b\u6295\u8d44\u54a8\u8be2\u6216\u5176\u4ed6\u670d\u52a1\u7684\u8981\u7ea6\u3002Brain \u5bf9\u672c\u6587\u6863\u6240\u8868\u8fbe\u4fe1\u606f\u7684\u51c6\u786e\u6027\u4e0e\u5b8c\u6574\u6027\u4e0d\u4f5c\u4efb\u4f55\u4fdd\u8bc1\u3002"
+    },
+    "metrics_overlap_2010_2025": {
+      "official_top50": {
+        "start": "2010-01-06",
+        "end": "2025-04-10",
+        "sessions": 3839,
+        "start_nav": 1.0,
+        "end_nav": 10.750000000000002,
+        "total_return": 9.750000000000002,
+        "cagr": 0.168702065711114,
+        "annualized_volatility": 0.05936438865848172,
+        "sharpe": 2.6565560162530293,
+        "max_drawdown": -0.2848722986247544
+      },
+      "official_uniform": {
+        "start": "2010-01-06",
+        "end": "2025-04-10",
+        "sessions": 3839,
+        "start_nav": 1.008,
+        "end_nav": 5.76,
+        "total_return": 4.714285714285714,
+        "cagr": 0.1212141442157244,
+        "annualized_volatility": 0.060112413159482125,
+        "sharpe": 1.933850939912855,
+        "max_drawdown": -0.31961120640365925
+      },
+      "actual_top50": {
+        "start": "2010-01-06",
+        "end": "2025-04-10",
+        "sessions": 3839,
+        "start_nav": 0.9998,
+        "end_nav": 6.917721734197118,
+        "total_return": 5.91910555530818,
+        "cagr": 0.1353836565840154,
+        "annualized_volatility": 0.2095195450401786,
+        "sharpe": 0.7110957222273628,
+        "max_drawdown": -0.3483889686995424
+      },
+      "spy": {
+        "start": "2010-01-06",
+        "end": "2025-04-10",
+        "sessions": 3839,
+        "start_nav": 1.000704,
+        "end_nav": 5.254872379080276,
+        "total_return": 4.251175551492025,
+        "cagr": 0.11501098886035499,
+        "annualized_volatility": 0.15834136424821782,
+        "sharpe": 0.7670329123845429,
+        "max_drawdown": -0.30167236129510255
+      }
+    },
+    "metrics_full_2010_2026": {
+      "actual_top50": {
+        "start": "2010-01-06",
+        "end": "2026-09-29",
+        "sessions": 4207,
+        "start_nav": 0.9998,
+        "end_nav": 9.52044537602628,
+        "total_return": 8.52234984599548,
+        "cagr": 0.14452935618443497,
+        "annualized_volatility": 0.20862477285765063,
+        "sharpe": 0.7516759115330816,
+        "max_drawdown": -0.3483889686995424
+      },
+      "spy": {
+        "start": "2010-01-06",
+        "end": "2026-09-29",
+        "sessions": 4207,
+        "start_nav": 1.000704,
+        "end_nav": 7.461515296320614,
+        "total_return": 6.456266084996776,
+        "cagr": 0.1278833274962805,
+        "annualized_volatility": 0.1551341767964347,
+        "sharpe": 0.8536569039758811,
+        "max_drawdown": -0.30167236129510255
+      }
+    },
+    "annual_comparison": [
+      {
+        "year": 2010,
+        "official_top50": 0.475,
+        "official_uniform": 0.2004,
+        "actual_top50": 0.1636,
+        "spy": 0.1258,
+        "gap_official_vs_actual": 0.3114,
+        "actual_minus_spy": 0.0378
+      },
+      {
+        "year": 2011,
+        "official_top50": 0.0626,
+        "official_uniform": 0.005,
+        "actual_top50": 0.092,
+        "spy": 0.0083,
+        "gap_official_vs_actual": -0.0294,
+        "actual_minus_spy": 0.0838
+      },
+      {
+        "year": 2012,
+        "official_top50": 0.1068,
+        "official_uniform": 0.1667,
+        "actual_top50": 0.1361,
+        "spy": 0.137,
+        "gap_official_vs_actual": -0.0293,
+        "actual_minus_spy": -0.0009
+      },
+      {
+        "year": 2013,
+        "official_top50": 0.3397,
+        "official_uniform": 0.3194,
+        "actual_top50": 0.3561,
+        "spy": 0.2719,
+        "gap_official_vs_actual": -0.0164,
+        "actual_minus_spy": 0.0842
+      },
+      {
+        "year": 2014,
+        "official_top50": 0.1116,
+        "official_uniform": 0.1137,
+        "actual_top50": 0.0575,
+        "spy": 0.1361,
+        "gap_official_vs_actual": 0.0541,
+        "actual_minus_spy": -0.0786
+      },
+      {
+        "year": 2015,
+        "official_top50": 0.0267,
+        "official_uniform": -0.0795,
+        "actual_top50": 0.0202,
+        "spy": 0.0122,
+        "gap_official_vs_actual": 0.0065,
+        "actual_minus_spy": 0.0079
+      },
+      {
+        "year": 2016,
+        "official_top50": 0.1665,
+        "official_uniform": 0.2529,
+        "actual_top50": 0.0854,
+        "spy": 0.1228,
+        "gap_official_vs_actual": 0.0811,
+        "actual_minus_spy": -0.0374
+      },
+      {
+        "year": 2017,
+        "official_top50": 0.3735,
+        "official_uniform": 0.2015,
+        "actual_top50": 0.3006,
+        "spy": 0.1863,
+        "gap_official_vs_actual": 0.0728,
+        "actual_minus_spy": 0.1143
+      },
+      {
+        "year": 2018,
+        "official_top50": -0.0098,
+        "official_uniform": -0.0793,
+        "actual_top50": 0.0267,
+        "spy": -0.0461,
+        "gap_official_vs_actual": -0.0365,
+        "actual_minus_spy": 0.0728
+      },
+      {
+        "year": 2019,
+        "official_top50": 0.3212,
+        "official_uniform": 0.2772,
+        "actual_top50": 0.3094,
+        "spy": 0.2721,
+        "gap_official_vs_actual": 0.0118,
+        "actual_minus_spy": 0.0373
+      },
+      {
+        "year": 2020,
+        "official_top50": 0.393,
+        "official_uniform": 0.217,
+        "actual_top50": 0.3446,
+        "spy": 0.1501,
+        "gap_official_vs_actual": 0.0485,
+        "actual_minus_spy": 0.1944
+      },
+      {
+        "year": 2021,
+        "official_top50": 0.0884,
+        "official_uniform": 0.1874,
+        "actual_top50": 0.2082,
+        "spy": 0.2703,
+        "gap_official_vs_actual": -0.1199,
+        "actual_minus_spy": -0.062
+      },
+      {
+        "year": 2022,
+        "official_top50": -0.1335,
+        "official_uniform": -0.138,
+        "actual_top50": -0.2345,
+        "spy": -0.1683,
+        "gap_official_vs_actual": 0.101,
+        "actual_minus_spy": -0.0662
+      },
+      {
+        "year": 2023,
+        "official_top50": 0.1608,
+        "official_uniform": 0.1582,
+        "actual_top50": 0.167,
+        "spy": 0.2309,
+        "gap_official_vs_actual": -0.0062,
+        "actual_minus_spy": -0.0638
+      },
+      {
+        "year": 2024,
+        "official_top50": 0.3334,
+        "official_uniform": 0.1625,
+        "actual_top50": 0.3106,
+        "spy": 0.2246,
+        "gap_official_vs_actual": 0.0228,
+        "actual_minus_spy": 0.086
+      },
+      {
+        "year": 2025,
+        "official_top50": -0.0796,
+        "official_uniform": -0.0221,
+        "actual_top50": 0.051,
+        "spy": 0.1595,
+        "gap_official_vs_actual": -0.1306,
+        "actual_minus_spy": -0.1085
+      },
+      {
+        "year": 2026,
+        "official_top50": null,
+        "official_uniform": null,
+        "actual_top50": 0.1622,
+        "spy": 0.1138,
+        "gap_official_vs_actual": null,
+        "actual_minus_spy": 0.0485
+      }
+    ],
+    "key_findings": {
+      "end_nav_2025_04": {
+        "official_top50": 10.750000000000002,
+        "official_uniform": 5.76,
+        "actual_top50": 6.917721734197118,
+        "spy": 5.254872379080276
+      },
+      "end_nav_2026_09": {
+        "actual_top50": 9.52044537602628,
+        "spy": 7.461515296320614
+      },
+      "official_top50_vs_uniform_alpha": 0.8663194444444449,
+      "official_top50_vs_actual_gap": 3.8322782658028833
+    },
+    "nav_curve_samples": [
+      {
+        "date": "2010-01-06",
+        "official_top50": 1.0,
+        "official_uniform": 1.008,
+        "gross_top50": 1.0,
+        "actual_top50": 1.0,
+        "spy": 1.001
+      },
+      {
+        "date": "2010-01-13",
+        "official_top50": 1.0,
+        "official_uniform": 0.994,
+        "gross_top50": 0.996,
+        "actual_top50": 0.996,
+        "spy": 1.009
+      },
+      {
+        "date": "2010-01-21",
+        "official_top50": 1.0,
+        "official_uniform": 0.97,
+        "gross_top50": 0.972,
+        "actual_top50": 0.972,
+        "spy": 0.982
+      },
+      {
+        "date": "2010-01-28",
+        "official_top50": 1.0,
+        "official_uniform": 0.963,
+        "gross_top50": 0.932,
+        "actual_top50": 0.931,
+        "spy": 0.955
+      },
+      {
+        "date": "2010-02-04",
+        "official_top50": 1.017,
+        "official_uniform": 0.966,
+        "gross_top50": 0.908,
+        "actual_top50": 0.908,
+        "spy": 0.937
+      },
+      {
+        "date": "2010-02-11",
+        "official_top50": 1.037,
+        "official_uniform": 0.996,
+        "gross_top50": 0.934,
+        "actual_top50": 0.933,
+        "spy": 0.951
+      },
+      {
+        "date": "2010-02-19",
+        "official_top50": 1.06,
+        "official_uniform": 1.015,
+        "gross_top50": 0.966,
+        "actual_top50": 0.965,
+        "spy": 0.978
+      },
+      {
+        "date": "2010-02-26",
+        "official_top50": 1.08,
+        "official_uniform": 1.03,
+        "gross_top50": 0.96,
+        "actual_top50": 0.959,
+        "spy": 0.975
+      },
+      {
+        "date": "2010-03-05",
+        "official_top50": 1.099,
+        "official_uniform": 1.062,
+        "gross_top50": 1.001,
+        "actual_top50": 1.0,
+        "spy": 1.005
+      },
+      {
+        "date": "2010-03-12",
+        "official_top50": 1.119,
+        "official_uniform": 1.07,
+        "gross_top50": 1.011,
+        "actual_top50": 1.01,
+        "spy": 1.016
+      },
+      {
+        "date": "2010-03-19",
+        "official_top50": 1.125,
+        "official_uniform": 1.072,
+        "gross_top50": 0.989,
+        "actual_top50": 0.987,
+        "spy": 1.024
+      },
+      {
+        "date": "2010-03-26",
+        "official_top50": 1.132,
+        "official_uniform": 1.086,
+        "gross_top50": 0.983,
+        "actual_top50": 0.981,
+        "spy": 1.031
+      },
+      {
+        "date": "2010-04-05",
+        "official_top50": 1.124,
+        "official_uniform": 1.09,
+        "gross_top50": 1.048,
+        "actual_top50": 1.046,
+        "spy": 1.049
+      },
+      {
+        "date": "2010-04-12",
+        "official_top50": 1.113,
+        "official_uniform": 1.102,
+        "gross_top50": 1.053,
+        "actual_top50": 1.051,
+        "spy": 1.058
+      },
+      {
+        "date": "2010-04-19",
+        "official_top50": 1.102,
+        "official_uniform": 1.11,
+        "gross_top50": 1.05,
+        "actual_top50": 1.047,
+        "spy": 1.058
+      },
+      {
+        "date": "2010-04-26",
+        "official_top50": 1.091,
+        "official_uniform": 1.08,
+        "gross_top50": 1.085,
+        "actual_top50": 1.083,
+        "spy": 1.072
+      },
+      {
+        "date": "2010-05-03",
+        "official_top50": 1.068,
+        "official_uniform": 1.06,
+        "gross_top50": 1.056,
+        "actual_top50": 1.054,
+        "spy": 1.063
+      },
+      {
+        "date": "2010-05-10",
+        "official_top50": 1.045,
+        "official_uniform": 1.04,
+        "gross_top50": 1.003,
+        "actual_top50": 1.001,
+        "spy": 1.026
+      },
+      {
+        "date": "2010-05-17",
+        "official_top50": 1.041,
+        "official_uniform": 1.026,
+        "gross_top50": 0.972,
+        "actual_top50": 0.97,
+        "spy": 1.007
+      },
+      {
+        "date": "2010-05-24",
+        "official_top50": 1.034,
+        "official_uniform": 1.02,
+        "gross_top50": 0.903,
+        "actual_top50": 0.9,
+        "spy": 0.952
+      },
+      {
+        "date": "2010-06-01",
+        "official_top50": 1.034,
+        "official_uniform": 1.02,
+        "gross_top50": 0.91,
+        "actual_top50": 0.908,
+        "spy": 0.95
+      },
+      {
+        "date": "2010-06-08",
+        "official_top50": 1.046,
+        "official_uniform": 1.02,
+        "gross_top50": 0.921,
+        "actual_top50": 0.919,
+        "spy": 0.942
+      },
+      {
+        "date": "2010-06-15",
+        "official_top50": 1.062,
+        "official_uniform": 1.006,
+        "gross_top50": 1.003,
+        "actual_top50": 0.999,
+        "spy": 0.989
+      },
+      {
+        "date": "2010-06-22",
+        "official_top50": 1.079,
+        "official_uniform": 0.99,
+        "gross_top50": 0.983,
+        "actual_top50": 0.979,
+        "spy": 0.973
+      },
+      {
+        "date": "2010-06-29",
+        "official_top50": 1.096,
+        "official_uniform": 0.99,
+        "gross_top50": 0.924,
+        "actual_top50": 0.921,
+        "spy": 0.926
+      },
+      {
+        "date": "2010-07-07",
+        "official_top50": 1.114,
+        "official_uniform": 0.99,
+        "gross_top50": 0.942,
+        "actual_top50": 0.939,
+        "spy": 0.943
+      },
+      {
+        "date": "2010-07-14",
+        "official_top50": 1.131,
+        "official_uniform": 1.0,
+        "gross_top50": 0.974,
+        "actual_top50": 0.97,
+        "spy": 0.974
+      },
+      {
+        "date": "2010-07-21",
+        "official_top50": 1.148,
+        "official_uniform": 1.02,
+        "gross_top50": 0.947,
+        "actual_top50": 0.943,
+        "spy": 0.951
+      },
+      {
+        "date": "2010-07-28",
+        "official_top50": 1.164,
+        "official_uniform": 1.026,
+        "gross_top50": 0.97,
+        "actual_top50": 0.967,
+        "spy": 0.984
+      },
+      {
+        "date": "2010-08-04",
+        "official_top50": 1.181,
+        "official_uniform": 1.012,
+        "gross_top50": 0.991,
+        "actual_top50": 0.986,
+        "spy": 1.003
+      },
+      {
+        "date": "2010-08-11",
+        "official_top50": 1.197,
+        "official_uniform": 0.986,
+        "gross_top50": 0.956,
+        "actual_top50": 0.951,
+        "spy": 0.971
+      },
+      {
+        "date": "2010-08-18",
+        "official_top50": 1.214,
+        "official_uniform": 0.988,
+        "gross_top50": 0.963,
+        "actual_top50": 0.958,
+        "spy": 0.975
+      },
+      {
+        "date": "2010-08-25",
+        "official_top50": 1.23,
+        "official_uniform": 0.992,
+        "gross_top50": 0.928,
+        "actual_top50": 0.923,
+        "spy": 0.941
+      },
+      {
+        "date": "2010-09-01",
+        "official_top50": 1.247,
+        "official_uniform": 1.015,
+        "gross_top50": 0.972,
+        "actual_top50": 0.967,
+        "spy": 0.963
+      },
+      {
+        "date": "2010-09-09",
+        "official_top50": 1.266,
+        "official_uniform": 1.048,
+        "gross_top50": 0.994,
+        "actual_top50": 0.988,
+        "spy": 0.985
+      },
+      {
+        "date": "2010-09-16",
+        "official_top50": 1.282,
+        "official_uniform": 1.06,
+        "gross_top50": 1.004,
+        "actual_top50": 0.998,
+        "spy": 1.004
+      },
+      {
+        "date": "2010-09-23",
+        "official_top50": 1.299,
+        "official_uniform": 1.073,
+        "gross_top50": 1.002,
+        "actual_top50": 0.996,
+        "spy": 1.004
+      },
+      {
+        "date": "2010-09-30",
+        "official_top50": 1.315,
+        "official_uniform": 1.088,
+        "gross_top50": 1.032,
+        "actual_top50": 1.026,
+        "spy": 1.018
+      },
+      {
+        "date": "2010-10-07",
+        "official_top50": 1.332,
+        "official_uniform": 1.09,
+        "gross_top50": 1.046,
+        "actual_top50": 1.039,
+        "spy": 1.034
+      },
+      {
+        "date": "2010-10-14",
+        "official_top50": 1.349,
+        "official_uniform": 1.096,
+        "gross_top50": 1.07,
+        "actual_top50": 1.063,
+        "spy": 1.048
+      },
+      {
+        "date": "2010-10-21",
+        "official_top50": 1.365,
+        "official_uniform": 1.114,
+        "gross_top50": 1.064,
+        "actual_top50": 1.057,
+        "spy": 1.053
+      },
+      {
+        "date": "2010-10-28",
+        "official_top50": 1.382,
+        "official_uniform": 1.136,
+        "gross_top50": 1.073,
+        "actual_top50": 1.065,
+        "spy": 1.056
+      },
+      {
+        "date": "2010-11-04",
+        "official_top50": 1.386,
+        "official_uniform": 1.13,
+        "gross_top50": 1.12,
+        "actual_top50": 1.112,
+        "spy": 1.09
+      },
+      {
+        "date": "2010-11-11",
+        "official_top50": 1.381,
+        "official_uniform": 1.115,
+        "gross_top50": 1.132,
+        "actual_top50": 1.124,
+        "spy": 1.085
+      },
+      {
+        "date": "2010-11-18",
+        "official_top50": 1.398,
+        "official_uniform": 1.12,
+        "gross_top50": 1.119,
+        "actual_top50": 1.11,
+        "spy": 1.07
+      },
+      {
+        "date": "2010-11-26",
+        "official_top50": 1.416,
+        "official_uniform": 1.146,
+        "gross_top50": 1.126,
+        "actual_top50": 1.117,
+        "spy": 1.064
+      },
+      {
+        "date": "2010-12-03",
+        "official_top50": 1.432,
+        "official_uniform": 1.17,
+        "gross_top50": 1.162,
+        "actual_top50": 1.153,
+        "spy": 1.095
+      },
+      {
+        "date": "2010-12-10",
+        "official_top50": 1.439,
+        "official_uniform": 1.176,
+        "gross_top50": 1.168,
+        "actual_top50": 1.158,
+        "spy": 1.11
+      },
+      {
+        "date": "2010-12-17",
+        "official_top50": 1.443,
+        "official_uniform": 1.19,
+        "gross_top50": 1.158,
+        "actual_top50": 1.148,
+        "spy": 1.114
+      },
+      {
+        "date": "2010-12-27",
+        "official_top50": 1.466,
+        "official_uniform": 1.21,
+        "gross_top50": 1.175,
+        "actual_top50": 1.165,
+        "spy": 1.125
+      },
+      {
+        "date": "2011-01-03",
+        "official_top50": 1.489,
+        "official_uniform": 1.21,
+        "gross_top50": 1.186,
+        "actual_top50": 1.175,
+        "spy": 1.137
+      },
+      {
+        "date": "2011-01-10",
+        "official_top50": 1.5,
+        "official_uniform": 1.22,
+        "gross_top50": 1.184,
+        "actual_top50": 1.174,
+        "spy": 1.137
+      },
+      {
+        "date": "2011-01-18",
+        "official_top50": 1.507,
+        "official_uniform": 1.23,
+        "gross_top50": 1.239,
+        "actual_top50": 1.228,
+        "spy": 1.16
+      },
+      {
+        "date": "2011-01-25",
+        "official_top50": 1.534,
+        "official_uniform": 1.23,
+        "gross_top50": 1.191,
+        "actual_top50": 1.179,
+        "spy": 1.156
+      },
+      {
+        "date": "2011-02-01",
+        "official_top50": 1.575,
+        "official_uniform": 1.256,
+        "gross_top50": 1.268,
+        "actual_top50": 1.257,
+        "spy": 1.17
+      },
+      {
+        "date": "2011-02-08",
+        "official_top50": 1.591,
+        "official_uniform": 1.28,
+        "gross_top50": 1.297,
+        "actual_top50": 1.285,
+        "spy": 1.187
+      },
+      {
+        "date": "2011-02-15",
+        "official_top50": 1.602,
+        "official_uniform": 1.28,
+        "gross_top50": 1.325,
+        "actual_top50": 1.312,
+        "spy": 1.19
+      },
+      {
+        "date": "2011-02-23",
+        "official_top50": 1.609,
+        "official_uniform": 1.278,
+        "gross_top50": 1.309,
+        "actual_top50": 1.295,
+        "spy": 1.173
+      },
+      {
+        "date": "2011-03-02",
+        "official_top50": 1.591,
+        "official_uniform": 1.264,
+        "gross_top50": 1.337,
+        "actual_top50": 1.324,
+        "spy": 1.174
+      },
+      {
+        "date": "2011-03-09",
+        "official_top50": 1.591,
+        "official_uniform": 1.25,
+        "gross_top50": 1.325,
+        "actual_top50": 1.311,
+        "spy": 1.185
+      },
+      {
+        "date": "2011-03-16",
+        "official_top50": 1.614,
+        "official_uniform": 1.26,
+        "gross_top50": 1.27,
+        "actual_top50": 1.257,
+        "spy": 1.13
+      },
+      {
+        "date": "2011-03-23",
+        "official_top50": 1.648,
+        "official_uniform": 1.29,
+        "gross_top50": 1.329,
+        "actual_top50": 1.315,
+        "spy": 1.165
+      },
+      {
+        "date": "2011-03-30",
+        "official_top50": 1.648,
+        "official_uniform": 1.3,
+        "gross_top50": 1.381,
+        "actual_top50": 1.366,
+        "spy": 1.192
+      },
+      {
+        "date": "2011-04-06",
+        "official_top50": 1.639,
+        "official_uniform": 1.3,
+        "gross_top50": 1.384,
+        "actual_top50": 1.369,
+        "spy": 1.201
+      },
+      {
+        "date": "2011-04-13",
+        "official_top50": 1.641,
+        "official_uniform": 1.308,
+        "gross_top50": 1.336,
+        "actual_top50": 1.321,
+        "spy": 1.181
+      },
+      {
+        "date": "2011-04-20",
+        "official_top50": 1.657,
+        "official_uniform": 1.32,
+        "gross_top50": 1.374,
+        "actual_top50": 1.358,
+        "spy": 1.196
+      },
+      {
+        "date": "2011-04-28",
+        "official_top50": 1.648,
+        "official_uniform": 1.33,
+        "gross_top50": 1.377,
+        "actual_top50": 1.361,
+        "spy": 1.222
+      },
+      {
+        "date": "2011-05-05",
+        "official_top50": 1.636,
+        "official_uniform": 1.33,
+        "gross_top50": 1.31,
+        "actual_top50": 1.295,
+        "spy": 1.201
+      },
+      {
+        "date": "2011-05-12",
+        "official_top50": 1.625,
+        "official_uniform": 1.312,
+        "gross_top50": 1.317,
+        "actual_top50": 1.301,
+        "spy": 1.213
+      },
+      {
+        "date": "2011-05-19",
+        "official_top50": 1.616,
+        "official_uniform": 1.3,
+        "gross_top50": 1.323,
+        "actual_top50": 1.307,
+        "spy": 1.21
+      },
+      {
+        "date": "2011-05-26",
+        "official_top50": 1.614,
+        "official_uniform": 1.288,
+        "gross_top50": 1.327,
+        "actual_top50": 1.311,
+        "spy": 1.195
+      },
+      {
+        "date": "2011-06-03",
+        "official_top50": 1.591,
+        "official_uniform": 1.26,
+        "gross_top50": 1.306,
+        "actual_top50": 1.29,
+        "spy": 1.172
+      },
+      {
+        "date": "2011-06-10",
+        "official_top50": 1.573,
+        "official_uniform": 1.26,
+        "gross_top50": 1.274,
+        "actual_top50": 1.258,
+        "spy": 1.147
+      },
+      {
+        "date": "2011-06-17",
+        "official_top50": 1.607,
+        "official_uniform": 1.268,
+        "gross_top50": 1.256,
+        "actual_top50": 1.24,
+        "spy": 1.148
+      },
+      {
+        "date": "2011-06-24",
+        "official_top50": 1.652,
+        "official_uniform": 1.294,
+        "gross_top50": 1.291,
+        "actual_top50": 1.275,
+        "spy": 1.146
+      },
+      {
+        "date": "2011-07-01",
+        "official_top50": 1.668,
+        "official_uniform": 1.308,
+        "gross_top50": 1.379,
+        "actual_top50": 1.362,
+        "spy": 1.209
+      },
+      {
+        "date": "2011-07-11",
+        "official_top50": 1.691,
+        "official_uniform": 1.31,
+        "gross_top50": 1.37,
+        "actual_top50": 1.352,
+        "spy": 1.191
+      },
+      {
+        "date": "2011-07-18",
+        "official_top50": 1.675,
+        "official_uniform": 1.254,
+        "gross_top50": 1.356,
+        "actual_top50": 1.338,
+        "spy": 1.179
+      },
+      {
+        "date": "2011-07-25",
+        "official_top50": 1.648,
+        "official_uniform": 1.176,
+        "gross_top50": 1.379,
+        "actual_top50": 1.36,
+        "spy": 1.208
+      },
+      {
+        "date": "2011-08-01",
+        "official_top50": 1.591,
+        "official_uniform": 1.14,
+        "gross_top50": 1.296,
+        "actual_top50": 1.278,
+        "spy": 1.163
+      },
+      {
+        "date": "2011-08-08",
+        "official_top50": 1.503,
+        "official_uniform": 1.108,
+        "gross_top50": 1.068,
+        "actual_top50": 1.053,
+        "spy": 1.018
+      },
+      {
+        "date": "2011-08-15",
+        "official_top50": 1.48,
+        "official_uniform": 1.112,
+        "gross_top50": 1.211,
+        "actual_top50": 1.194,
+        "spy": 1.091
+      },
+      {
+        "date": "2011-08-22",
+        "official_top50": 1.495,
+        "official_uniform": 1.12,
+        "gross_top50": 1.088,
+        "actual_top50": 1.072,
+        "spy": 1.022
+      },
+      {
+        "date": "2011-08-29",
+        "official_top50": 1.5,
+        "official_uniform": 1.14,
+        "gross_top50": 1.232,
+        "actual_top50": 1.214,
+        "spy": 1.098
+      },
+      {
+        "date": "2011-09-06",
+        "official_top50": 1.514,
+        "official_uniform": 1.132,
+        "gross_top50": 1.201,
+        "actual_top50": 1.183,
+        "spy": 1.06
+      },
+      {
+        "date": "2011-09-13",
+        "official_top50": 1.507,
+        "official_uniform": 1.114,
+        "gross_top50": 1.228,
+        "actual_top50": 1.209,
+        "spy": 1.065
+      },
+      {
+        "date": "2011-09-20",
+        "official_top50": 1.475,
+        "official_uniform": 1.084,
+        "gross_top50": 1.245,
+        "actual_top50": 1.225,
+        "spy": 1.093
+      },
+      {
+        "date": "2011-09-27",
+        "official_top50": 1.436,
+        "official_uniform": 1.062,
+        "gross_top50": 1.197,
+        "actual_top50": 1.178,
+        "spy": 1.071
+      },
+      {
+        "date": "2011-10-04",
+        "official_top50": 1.468,
+        "official_uniform": 1.088,
+        "gross_top50": 1.095,
+        "actual_top50": 1.077,
+        "spy": 1.022
+      },
+      {
+        "date": "2011-10-11",
+        "official_top50": 1.5,
+        "official_uniform": 1.15,
+        "gross_top50": 1.218,
+        "actual_top50": 1.198,
+        "spy": 1.089
+      },
+      {
+        "date": "2011-10-18",
+        "official_top50": 1.557,
+        "official_uniform": 1.18,
+        "gross_top50": 1.244,
+        "actual_top50": 1.224,
+        "spy": 1.115
+      },
+      {
+        "date": "2011-10-25",
+        "official_top50": 1.568,
+        "official_uniform": 1.21,
+        "gross_top50": 1.254,
+        "actual_top50": 1.233,
+        "spy": 1.119
+      },
+      {
+        "date": "2011-11-01",
+        "official_top50": 1.568,
+        "official_uniform": 1.2,
+        "gross_top50": 1.252,
+        "actual_top50": 1.23,
+        "spy": 1.11
+      },
+      {
+        "date": "2011-11-08",
+        "official_top50": 1.55,
+        "official_uniform": 1.192,
+        "gross_top50": 1.288,
+        "actual_top50": 1.266,
+        "spy": 1.161
+      },
+      {
+        "date": "2011-11-15",
+        "official_top50": 1.53,
+        "official_uniform": 1.156,
+        "gross_top50": 1.284,
+        "actual_top50": 1.261,
+        "spy": 1.146
+      },
+      {
+        "date": "2011-11-22",
+        "official_top50": 1.514,
+        "official_uniform": 1.15,
+        "gross_top50": 1.204,
+        "actual_top50": 1.183,
+        "spy": 1.085
+      },
+      {
+        "date": "2011-11-30",
+        "official_top50": 1.534,
+        "official_uniform": 1.174,
+        "gross_top50": 1.292,
+        "actual_top50": 1.268,
+        "spy": 1.137
+      },
+      {
+        "date": "2011-12-07",
+        "official_top50": 1.534,
+        "official_uniform": 1.18,
+        "gross_top50": 1.308,
+        "actual_top50": 1.284,
+        "spy": 1.151
+      },
+      {
+        "date": "2011-12-14",
+        "official_top50": 1.534,
+        "official_uniform": 1.18,
+        "gross_top50": 1.254,
+        "actual_top50": 1.231,
+        "spy": 1.107
+      },
+      {
+        "date": "2011-12-21",
+        "official_top50": 1.552,
+        "official_uniform": 1.188,
+        "gross_top50": 1.3,
+        "actual_top50": 1.275,
+        "spy": 1.135
+      },
+      {
+        "date": "2011-12-29",
+        "official_top50": 1.577,
+        "official_uniform": 1.214,
+        "gross_top50": 1.312,
+        "actual_top50": 1.287,
+        "spy": 1.152
+      },
+      {
+        "date": "2012-01-06",
+        "official_top50": 1.607,
+        "official_uniform": 1.242,
+        "gross_top50": 1.351,
+        "actual_top50": 1.324,
+        "spy": 1.167
+      },
+      {
+        "date": "2012-01-13",
+        "official_top50": 1.632,
+        "official_uniform": 1.262,
+        "gross_top50": 1.361,
+        "actual_top50": 1.335,
+        "spy": 1.178
+      },
+      {
+        "date": "2012-01-23",
+        "official_top50": 1.665,
+        "official_uniform": 1.29,
+        "gross_top50": 1.39,
+        "actual_top50": 1.363,
+        "spy": 1.2
+      },
+      {
+        "date": "2012-01-30",
+        "official_top50": 1.675,
+        "official_uniform": 1.312,
+        "gross_top50": 1.39,
+        "actual_top50": 1.362,
+        "spy": 1.199
+      },
+      {
+        "date": "2012-02-06",
+        "official_top50": 1.7,
+        "official_uniform": 1.326,
+        "gross_top50": 1.424,
+        "actual_top50": 1.395,
+        "spy": 1.226
+      },
+      {
+        "date": "2012-02-13",
+        "official_top50": 1.727,
+        "official_uniform": 1.34,
+        "gross_top50": 1.432,
+        "actual_top50": 1.403,
+        "spy": 1.234
+      },
+      {
+        "date": "2012-02-21",
+        "official_top50": 1.739,
+        "official_uniform": 1.34,
+        "gross_top50": 1.469,
+        "actual_top50": 1.439,
+        "spy": 1.243
+      },
+      {
+        "date": "2012-02-28",
+        "official_top50": 1.727,
+        "official_uniform": 1.34,
+        "gross_top50": 1.488,
+        "actual_top50": 1.457,
+        "spy": 1.253
+      },
+      {
+        "date": "2012-03-06",
+        "official_top50": 1.736,
+        "official_uniform": 1.347,
+        "gross_top50": 1.429,
+        "actual_top50": 1.399,
+        "spy": 1.228
+      },
+      {
+        "date": "2012-03-13",
+        "official_top50": 1.739,
+        "official_uniform": 1.352,
+        "gross_top50": 1.489,
+        "actual_top50": 1.457,
+        "spy": 1.275
+      },
+      {
+        "date": "2012-03-20",
+        "official_top50": 1.732,
+        "official_uniform": 1.36,
+        "gross_top50": 1.483,
+        "actual_top50": 1.451,
+        "spy": 1.283
+      },
+      {
+        "date": "2012-03-27",
+        "official_top50": 1.716,
+        "official_uniform": 1.36,
+        "gross_top50": 1.482,
+        "actual_top50": 1.45,
+        "spy": 1.29
+      },
+      {
+        "date": "2012-04-03",
+        "official_top50": 1.686,
+        "official_uniform": 1.334,
+        "gross_top50": 1.484,
+        "actual_top50": 1.451,
+        "spy": 1.291
+      },
+      {
+        "date": "2012-04-11",
+        "official_top50": 1.682,
+        "official_uniform": 1.332,
+        "gross_top50": 1.409,
+        "actual_top50": 1.378,
+        "spy": 1.253
+      },
+      {
+        "date": "2012-04-18",
+        "official_top50": 1.69,
+        "official_uniform": 1.34,
+        "gross_top50": 1.436,
+        "actual_top50": 1.404,
+        "spy": 1.267
+      },
+      {
+        "date": "2012-04-25",
+        "official_top50": 1.693,
+        "official_uniform": 1.346,
+        "gross_top50": 1.457,
+        "actual_top50": 1.424,
+        "spy": 1.273
+      },
+      {
+        "date": "2012-05-02",
+        "official_top50": 1.68,
+        "official_uniform": 1.306,
+        "gross_top50": 1.497,
+        "actual_top50": 1.463,
+        "spy": 1.282
+      },
+      {
+        "date": "2012-05-09",
+        "official_top50": 1.648,
+        "official_uniform": 1.27,
+        "gross_top50": 1.416,
+        "actual_top50": 1.383,
+        "spy": 1.242
+      },
+      {
+        "date": "2012-05-16",
+        "official_top50": 1.595,
+        "official_uniform": 1.25,
+        "gross_top50": 1.369,
+        "actual_top50": 1.337,
+        "spy": 1.217
+      },
+      {
+        "date": "2012-05-23",
+        "official_top50": 1.591,
+        "official_uniform": 1.25,
+        "gross_top50": 1.379,
+        "actual_top50": 1.347,
+        "spy": 1.212
+      },
+      {
+        "date": "2012-05-31",
+        "official_top50": 1.582,
+        "official_uniform": 1.232,
+        "gross_top50": 1.344,
+        "actual_top50": 1.312,
+        "spy": 1.205
+      },
+      {
+        "date": "2012-06-07",
+        "official_top50": 1.591,
+        "official_uniform": 1.25,
+        "gross_top50": 1.351,
+        "actual_top50": 1.319,
+        "spy": 1.21
+      },
+      {
+        "date": "2012-06-14",
+        "official_top50": 1.591,
+        "official_uniform": 1.25,
+        "gross_top50": 1.333,
+        "actual_top50": 1.3,
+        "spy": 1.223
+      },
+      {
+        "date": "2012-06-21",
+        "official_top50": 1.591,
+        "official_uniform": 1.25,
+        "gross_top50": 1.332,
+        "actual_top50": 1.299,
+        "spy": 1.219
+      },
+      {
+        "date": "2012-06-28",
+        "official_top50": 1.614,
+        "official_uniform": 1.266,
+        "gross_top50": 1.335,
+        "actual_top50": 1.302,
+        "spy": 1.222
+      },
+      {
+        "date": "2012-07-06",
+        "official_top50": 1.62,
+        "official_uniform": 1.28,
+        "gross_top50": 1.408,
+        "actual_top50": 1.373,
+        "spy": 1.247
+      },
+      {
+        "date": "2012-07-13",
+        "official_top50": 1.602,
+        "official_uniform": 1.272,
+        "gross_top50": 1.4,
+        "actual_top50": 1.365,
+        "spy": 1.248
+      },
+      {
+        "date": "2012-07-20",
+        "official_top50": 1.602,
+        "official_uniform": 1.27,
+        "gross_top50": 1.407,
+        "actual_top50": 1.371,
+        "spy": 1.255
+      },
+      {
+        "date": "2012-07-27",
+        "official_top50": 1.609,
+        "official_uniform": 1.282,
+        "gross_top50": 1.412,
+        "actual_top50": 1.376,
+        "spy": 1.275
+      },
+      {
+        "date": "2012-08-03",
+        "official_top50": 1.614,
+        "official_uniform": 1.29,
+        "gross_top50": 1.414,
+        "actual_top50": 1.377,
+        "spy": 1.281
+      },
+      {
+        "date": "2012-08-10",
+        "official_top50": 1.632,
+        "official_uniform": 1.326,
+        "gross_top50": 1.419,
+        "actual_top50": 1.382,
+        "spy": 1.293
+      },
+      {
+        "date": "2012-08-17",
+        "official_top50": 1.636,
+        "official_uniform": 1.33,
+        "gross_top50": 1.448,
+        "actual_top50": 1.41,
+        "spy": 1.305
+      },
+      {
+        "date": "2012-08-24",
+        "official_top50": 1.648,
+        "official_uniform": 1.335,
+        "gross_top50": 1.448,
+        "actual_top50": 1.41,
+        "spy": 1.299
+      },
+      {
+        "date": "2012-08-31",
+        "official_top50": 1.682,
+        "official_uniform": 1.35,
+        "gross_top50": 1.445,
+        "actual_top50": 1.407,
+        "spy": 1.297
+      },
+      {
+        "date": "2012-09-10",
+        "official_top50": 1.693,
+        "official_uniform": 1.38,
+        "gross_top50": 1.477,
+        "actual_top50": 1.438,
+        "spy": 1.317
+      },
+      {
+        "date": "2012-09-17",
+        "official_top50": 1.688,
+        "official_uniform": 1.37,
+        "gross_top50": 1.5,
+        "actual_top50": 1.46,
+        "spy": 1.345
+      },
+      {
+        "date": "2012-09-24",
+        "official_top50": 1.682,
+        "official_uniform": 1.36,
+        "gross_top50": 1.499,
+        "actual_top50": 1.458,
+        "spy": 1.342
+      },
+      {
+        "date": "2012-10-01",
+        "official_top50": 1.67,
+        "official_uniform": 1.36,
+        "gross_top50": 1.483,
+        "actual_top50": 1.442,
+        "spy": 1.33
+      },
+      {
+        "date": "2012-10-08",
+        "official_top50": 1.682,
+        "official_uniform": 1.36,
+        "gross_top50": 1.491,
+        "actual_top50": 1.451,
+        "spy": 1.343
+      },
+      {
+        "date": "2012-10-15",
+        "official_top50": 1.677,
+        "official_uniform": 1.36,
+        "gross_top50": 1.477,
+        "actual_top50": 1.436,
+        "spy": 1.328
+      },
+      {
+        "date": "2012-10-22",
+        "official_top50": 1.661,
+        "official_uniform": 1.352,
+        "gross_top50": 1.475,
+        "actual_top50": 1.435,
+        "spy": 1.323
+      },
+      {
+        "date": "2012-10-31",
+        "official_top50": 1.659,
+        "official_uniform": 1.343,
+        "gross_top50": 1.459,
+        "actual_top50": 1.418,
+        "spy": 1.303
+      },
+      {
+        "date": "2012-11-07",
+        "official_top50": 1.648,
+        "official_uniform": 1.32,
+        "gross_top50": 1.46,
+        "actual_top50": 1.419,
+        "spy": 1.291
+      },
+      {
+        "date": "2012-11-14",
+        "official_top50": 1.655,
+        "official_uniform": 1.332,
+        "gross_top50": 1.415,
+        "actual_top50": 1.375,
+        "spy": 1.257
+      },
+      {
+        "date": "2012-11-21",
+        "official_top50": 1.659,
+        "official_uniform": 1.352,
+        "gross_top50": 1.483,
+        "actual_top50": 1.441,
+        "spy": 1.288
+      },
+      {
+        "date": "2012-11-29",
+        "official_top50": 1.668,
+        "official_uniform": 1.368,
+        "gross_top50": 1.511,
+        "actual_top50": 1.468,
+        "spy": 1.312
+      },
+      {
+        "date": "2012-12-06",
+        "official_top50": 1.698,
+        "official_uniform": 1.39,
+        "gross_top50": 1.511,
+        "actual_top50": 1.468,
+        "spy": 1.31
+      },
+      {
+        "date": "2012-12-13",
+        "official_top50": 1.724,
+        "official_uniform": 1.397,
+        "gross_top50": 1.515,
+        "actual_top50": 1.47,
+        "spy": 1.316
+      },
+      {
+        "date": "2012-12-20",
+        "official_top50": 1.732,
+        "official_uniform": 1.4,
+        "gross_top50": 1.559,
+        "actual_top50": 1.513,
+        "spy": 1.338
+      },
+      {
+        "date": "2012-12-28",
+        "official_top50": 1.759,
+        "official_uniform": 1.424,
+        "gross_top50": 1.519,
+        "actual_top50": 1.475,
+        "spy": 1.301
+      },
+      {
+        "date": "2013-01-07",
+        "official_top50": 1.795,
+        "official_uniform": 1.45,
+        "gross_top50": 1.579,
+        "actual_top50": 1.532,
+        "spy": 1.354
+      },
+      {
+        "date": "2013-01-14",
+        "official_top50": 1.816,
+        "official_uniform": 1.484,
+        "gross_top50": 1.596,
+        "actual_top50": 1.549,
+        "spy": 1.363
+      },
+      {
+        "date": "2013-01-22",
+        "official_top50": 1.852,
+        "official_uniform": 1.51,
+        "gross_top50": 1.632,
+        "actual_top50": 1.583,
+        "spy": 1.382
+      },
+      {
+        "date": "2013-01-29",
+        "official_top50": 1.859,
+        "official_uniform": 1.516,
+        "gross_top50": 1.649,
+        "actual_top50": 1.6,
+        "spy": 1.396
+      },
+      {
+        "date": "2013-02-05",
+        "official_top50": 1.875,
+        "official_uniform": 1.52,
+        "gross_top50": 1.66,
+        "actual_top50": 1.609,
+        "spy": 1.399
+      },
+      {
+        "date": "2013-02-12",
+        "official_top50": 1.875,
+        "official_uniform": 1.53,
+        "gross_top50": 1.674,
+        "actual_top50": 1.623,
+        "spy": 1.407
+      },
+      {
+        "date": "2013-02-20",
+        "official_top50": 1.891,
+        "official_uniform": 1.53,
+        "gross_top50": 1.665,
+        "actual_top50": 1.613,
+        "spy": 1.401
+      },
+      {
+        "date": "2013-02-27",
+        "official_top50": 1.923,
+        "official_uniform": 1.536,
+        "gross_top50": 1.677,
+        "actual_top50": 1.625,
+        "spy": 1.407
+      },
+      {
+        "date": "2013-03-06",
+        "official_top50": 1.943,
+        "official_uniform": 1.56,
+        "gross_top50": 1.716,
+        "actual_top50": 1.662,
+        "spy": 1.429
+      },
+      {
+        "date": "2013-03-13",
+        "official_top50": 1.966,
+        "official_uniform": 1.576,
+        "gross_top50": 1.734,
+        "actual_top50": 1.679,
+        "spy": 1.441
+      },
+      {
+        "date": "2013-03-20",
+        "official_top50": 1.977,
+        "official_uniform": 1.58,
+        "gross_top50": 1.735,
+        "actual_top50": 1.68,
+        "spy": 1.445
+      },
+      {
+        "date": "2013-03-27",
+        "official_top50": 1.972,
+        "official_uniform": 1.58,
+        "gross_top50": 1.744,
+        "actual_top50": 1.688,
+        "spy": 1.45
+      },
+      {
+        "date": "2013-04-04",
+        "official_top50": 1.955,
+        "official_uniform": 1.578,
+        "gross_top50": 1.697,
+        "actual_top50": 1.643,
+        "spy": 1.447
+      },
+      {
+        "date": "2013-04-11",
+        "official_top50": 1.955,
+        "official_uniform": 1.57,
+        "gross_top50": 1.754,
+        "actual_top50": 1.697,
+        "spy": 1.477
+      },
+      {
+        "date": "2013-04-18",
+        "official_top50": 1.955,
+        "official_uniform": 1.57,
+        "gross_top50": 1.67,
+        "actual_top50": 1.616,
+        "spy": 1.432
+      },
+      {
+        "date": "2013-04-25",
+        "official_top50": 1.998,
+        "official_uniform": 1.608,
+        "gross_top50": 1.738,
+        "actual_top50": 1.681,
+        "spy": 1.472
+      },
+      {
+        "date": "2013-05-02",
+        "official_top50": 2.023,
+        "official_uniform": 1.64,
+        "gross_top50": 1.75,
+        "actual_top50": 1.692,
+        "spy": 1.481
+      },
+      {
+        "date": "2013-05-09",
+        "official_top50": 2.062,
+        "official_uniform": 1.67,
+        "gross_top50": 1.811,
+        "actual_top50": 1.751,
+        "spy": 1.51
+      },
+      {
+        "date": "2013-05-16",
+        "official_top50": 2.068,
+        "official_uniform": 1.67,
+        "gross_top50": 1.846,
+        "actual_top50": 1.784,
+        "spy": 1.531
+      },
+      {
+        "date": "2013-05-23",
+        "official_top50": 2.059,
+        "official_uniform": 1.662,
+        "gross_top50": 1.865,
+        "actual_top50": 1.802,
+        "spy": 1.532
+      },
+      {
+        "date": "2013-05-31",
+        "official_top50": 2.045,
+        "official_uniform": 1.65,
+        "gross_top50": 1.832,
+        "actual_top50": 1.77,
+        "spy": 1.512
+      },
+      {
+        "date": "2013-06-07",
+        "official_top50": 2.039,
+        "official_uniform": 1.644,
+        "gross_top50": 1.844,
+        "actual_top50": 1.781,
+        "spy": 1.526
+      },
+      {
+        "date": "2013-06-14",
+        "official_top50": 2.034,
+        "official_uniform": 1.62,
+        "gross_top50": 1.827,
+        "actual_top50": 1.764,
+        "spy": 1.512
+      },
+      {
+        "date": "2013-06-21",
+        "official_top50": 2.028,
+        "official_uniform": 1.62,
+        "gross_top50": 1.778,
+        "actual_top50": 1.716,
+        "spy": 1.483
+      },
+      {
+        "date": "2013-06-28",
+        "official_top50": 2.045,
+        "official_uniform": 1.65,
+        "gross_top50": 1.809,
+        "actual_top50": 1.746,
+        "spy": 1.491
+      },
+      {
+        "date": "2013-07-08",
+        "official_top50": 2.091,
+        "official_uniform": 1.69,
+        "gross_top50": 1.847,
+        "actual_top50": 1.783,
+        "spy": 1.526
+      },
+      {
+        "date": "2013-07-15",
+        "official_top50": 2.114,
+        "official_uniform": 1.715,
+        "gross_top50": 1.907,
+        "actual_top50": 1.84,
+        "spy": 1.564
+      },
+      {
+        "date": "2013-07-22",
+        "official_top50": 2.148,
+        "official_uniform": 1.72,
+        "gross_top50": 1.906,
+        "actual_top50": 1.839,
+        "spy": 1.575
+      },
+      {
+        "date": "2013-07-29",
+        "official_top50": 2.152,
+        "official_uniform": 1.73,
+        "gross_top50": 1.929,
+        "actual_top50": 1.861,
+        "spy": 1.566
+      },
+      {
+        "date": "2013-08-05",
+        "official_top50": 2.148,
+        "official_uniform": 1.72,
+        "gross_top50": 1.966,
+        "actual_top50": 1.896,
+        "spy": 1.586
+      },
+      {
+        "date": "2013-08-12",
+        "official_top50": 2.136,
+        "official_uniform": 1.71,
+        "gross_top50": 1.949,
+        "actual_top50": 1.879,
+        "spy": 1.571
+      },
+      {
+        "date": "2013-08-19",
+        "official_top50": 2.118,
+        "official_uniform": 1.702,
+        "gross_top50": 1.898,
+        "actual_top50": 1.829,
+        "spy": 1.533
+      },
+      {
+        "date": "2013-08-26",
+        "official_top50": 2.131,
+        "official_uniform": 1.702,
+        "gross_top50": 1.929,
+        "actual_top50": 1.859,
+        "spy": 1.544
+      },
+      {
+        "date": "2013-09-03",
+        "official_top50": 2.182,
+        "official_uniform": 1.72,
+        "gross_top50": 1.898,
+        "actual_top50": 1.828,
+        "spy": 1.53
+      },
+      {
+        "date": "2013-09-10",
+        "official_top50": 2.207,
+        "official_uniform": 1.758,
+        "gross_top50": 1.974,
+        "actual_top50": 1.902,
+        "spy": 1.569
+      },
+      {
+        "date": "2013-09-17",
+        "official_top50": 2.239,
+        "official_uniform": 1.77,
+        "gross_top50": 2.002,
+        "actual_top50": 1.928,
+        "spy": 1.589
+      },
+      {
+        "date": "2013-09-24",
+        "official_top50": 2.234,
+        "official_uniform": 1.77,
+        "gross_top50": 2.001,
+        "actual_top50": 1.927,
+        "spy": 1.583
+      },
+      {
+        "date": "2013-10-01",
+        "official_top50": 2.236,
+        "official_uniform": 1.762,
+        "gross_top50": 2.032,
+        "actual_top50": 1.957,
+        "spy": 1.581
+      },
+      {
+        "date": "2013-10-08",
+        "official_top50": 2.267,
+        "official_uniform": 1.775,
+        "gross_top50": 1.975,
+        "actual_top50": 1.9,
+        "spy": 1.547
+      },
+      {
+        "date": "2013-10-15",
+        "official_top50": 2.293,
+        "official_uniform": 1.806,
+        "gross_top50": 2.021,
+        "actual_top50": 1.945,
+        "spy": 1.584
+      },
+      {
+        "date": "2013-10-22",
+        "official_top50": 2.318,
+        "official_uniform": 1.83,
+        "gross_top50": 2.091,
+        "actual_top50": 2.012,
+        "spy": 1.634
+      },
+      {
+        "date": "2013-10-29",
+        "official_top50": 2.31,
+        "official_uniform": 1.83,
+        "gross_top50": 2.1,
+        "actual_top50": 2.02,
+        "spy": 1.65
+      },
+      {
+        "date": "2013-11-05",
+        "official_top50": 2.309,
+        "official_uniform": 1.832,
+        "gross_top50": 2.102,
+        "actual_top50": 2.021,
+        "spy": 1.642
+      },
+      {
+        "date": "2013-11-12",
+        "official_top50": 2.318,
+        "official_uniform": 1.84,
+        "gross_top50": 2.089,
+        "actual_top50": 2.008,
+        "spy": 1.648
+      },
+      {
+        "date": "2013-11-19",
+        "official_top50": 2.33,
+        "official_uniform": 1.84,
+        "gross_top50": 2.09,
+        "actual_top50": 2.009,
+        "spy": 1.666
+      },
+      {
+        "date": "2013-11-26",
+        "official_top50": 2.323,
+        "official_uniform": 1.844,
+        "gross_top50": 2.117,
+        "actual_top50": 2.034,
+        "spy": 1.68
+      },
+      {
+        "date": "2013-12-04",
+        "official_top50": 2.295,
+        "official_uniform": 1.85,
+        "gross_top50": 2.104,
+        "actual_top50": 2.021,
+        "spy": 1.672
+      },
+      {
+        "date": "2013-12-11",
+        "official_top50": 2.312,
+        "official_uniform": 1.865,
+        "gross_top50": 2.064,
+        "actual_top50": 1.982,
+        "spy": 1.663
+      },
+      {
+        "date": "2013-12-18",
+        "official_top50": 2.334,
+        "official_uniform": 1.876,
+        "gross_top50": 2.111,
+        "actual_top50": 2.027,
+        "spy": 1.69
+      },
+      {
+        "date": "2013-12-26",
+        "official_top50": 2.37,
+        "official_uniform": 1.9,
+        "gross_top50": 2.16,
+        "actual_top50": 2.074,
+        "spy": 1.717
+      },
+      {
+        "date": "2014-01-03",
+        "official_top50": 2.381,
+        "official_uniform": 1.9,
+        "gross_top50": 2.145,
+        "actual_top50": 2.059,
+        "spy": 1.709
+      },
+      {
+        "date": "2014-01-10",
+        "official_top50": 2.364,
+        "official_uniform": 1.91,
+        "gross_top50": 2.185,
+        "actual_top50": 2.097,
+        "spy": 1.72
+      },
+      {
+        "date": "2014-01-17",
+        "official_top50": 2.355,
+        "official_uniform": 1.892,
+        "gross_top50": 2.164,
+        "actual_top50": 2.076,
+        "spy": 1.715
+      },
+      {
+        "date": "2014-01-27",
+        "official_top50": 2.311,
+        "official_uniform": 1.854,
+        "gross_top50": 2.087,
+        "actual_top50": 2.002,
+        "spy": 1.666
+      },
+      {
+        "date": "2014-02-03",
+        "official_top50": 2.33,
+        "official_uniform": 1.86,
+        "gross_top50": 2.038,
+        "actual_top50": 1.954,
+        "spy": 1.632
+      },
+      {
+        "date": "2014-02-10",
+        "official_top50": 2.364,
+        "official_uniform": 1.91,
+        "gross_top50": 2.106,
+        "actual_top50": 2.019,
+        "spy": 1.683
+      },
+      {
+        "date": "2014-02-18",
+        "official_top50": 2.414,
+        "official_uniform": 1.952,
+        "gross_top50": 2.184,
+        "actual_top50": 2.094,
+        "spy": 1.721
+      },
+      {
+        "date": "2014-02-25",
+        "official_top50": 2.445,
+        "official_uniform": 1.966,
+        "gross_top50": 2.211,
+        "actual_top50": 2.119,
+        "spy": 1.726
+      },
+      {
+        "date": "2014-03-04",
+        "official_top50": 2.455,
+        "official_uniform": 1.97,
+        "gross_top50": 2.276,
+        "actual_top50": 2.181,
+        "spy": 1.75
+      },
+      {
+        "date": "2014-03-11",
+        "official_top50": 2.436,
+        "official_uniform": 1.964,
+        "gross_top50": 2.286,
+        "actual_top50": 2.19,
+        "spy": 1.747
+      },
+      {
+        "date": "2014-03-18",
+        "official_top50": 2.409,
+        "official_uniform": 1.96,
+        "gross_top50": 2.306,
+        "actual_top50": 2.208,
+        "spy": 1.751
+      },
+      {
+        "date": "2014-03-25",
+        "official_top50": 2.42,
+        "official_uniform": 1.96,
+        "gross_top50": 2.259,
+        "actual_top50": 2.163,
+        "spy": 1.746
+      },
+      {
+        "date": "2014-04-01",
+        "official_top50": 2.398,
+        "official_uniform": 1.95,
+        "gross_top50": 2.296,
+        "actual_top50": 2.198,
+        "spy": 1.763
+      },
+      {
+        "date": "2014-04-08",
+        "official_top50": 2.37,
+        "official_uniform": 1.934,
+        "gross_top50": 2.184,
+        "actual_top50": 2.09,
+        "spy": 1.736
+      },
+      {
+        "date": "2014-04-15",
+        "official_top50": 2.375,
+        "official_uniform": 1.96,
+        "gross_top50": 2.162,
+        "actual_top50": 2.069,
+        "spy": 1.728
+      },
+      {
+        "date": "2014-04-23",
+        "official_top50": 2.375,
+        "official_uniform": 1.96,
+        "gross_top50": 2.237,
+        "actual_top50": 2.14,
+        "spy": 1.756
+      },
+      {
+        "date": "2014-04-30",
+        "official_top50": 2.375,
+        "official_uniform": 1.96,
+        "gross_top50": 2.217,
+        "actual_top50": 2.121,
+        "spy": 1.765
+      },
+      {
+        "date": "2014-05-07",
+        "official_top50": 2.398,
+        "official_uniform": 1.97,
+        "gross_top50": 2.224,
+        "actual_top50": 2.127,
+        "spy": 1.76
+      },
+      {
+        "date": "2014-05-14",
+        "official_top50": 2.398,
+        "official_uniform": 1.97,
+        "gross_top50": 2.228,
+        "actual_top50": 2.13,
+        "spy": 1.77
+      },
+      {
+        "date": "2014-05-21",
+        "official_top50": 2.441,
+        "official_uniform": 1.998,
+        "gross_top50": 2.237,
+        "actual_top50": 2.138,
+        "spy": 1.771
+      },
+      {
+        "date": "2014-05-29",
+        "official_top50": 2.48,
+        "official_uniform": 2.032,
+        "gross_top50": 2.292,
+        "actual_top50": 2.191,
+        "spy": 1.8
+      },
+      {
+        "date": "2014-06-05",
+        "official_top50": 2.502,
+        "official_uniform": 2.046,
+        "gross_top50": 2.332,
+        "actual_top50": 2.228,
+        "spy": 1.818
+      },
+      {
+        "date": "2014-06-12",
+        "official_top50": 2.523,
+        "official_uniform": 2.06,
+        "gross_top50": 2.336,
+        "actual_top50": 2.232,
+        "spy": 1.81
+      },
+      {
+        "date": "2014-06-19",
+        "official_top50": 2.552,
+        "official_uniform": 2.076,
+        "gross_top50": 2.384,
+        "actual_top50": 2.277,
+        "spy": 1.836
+      },
+      {
+        "date": "2014-06-26",
+        "official_top50": 2.568,
+        "official_uniform": 2.08,
+        "gross_top50": 2.374,
+        "actual_top50": 2.267,
+        "spy": 1.835
+      },
+      {
+        "date": "2014-07-03",
+        "official_top50": 2.557,
+        "official_uniform": 2.08,
+        "gross_top50": 2.425,
+        "actual_top50": 2.315,
+        "spy": 1.859
+      },
+      {
+        "date": "2014-07-11",
+        "official_top50": 2.557,
+        "official_uniform": 2.07,
+        "gross_top50": 2.375,
+        "actual_top50": 2.267,
+        "spy": 1.845
+      },
+      {
+        "date": "2014-07-18",
+        "official_top50": 2.55,
+        "official_uniform": 2.064,
+        "gross_top50": 2.387,
+        "actual_top50": 2.278,
+        "spy": 1.855
+      },
+      {
+        "date": "2014-07-25",
+        "official_top50": 2.523,
+        "official_uniform": 2.04,
+        "gross_top50": 2.391,
+        "actual_top50": 2.282,
+        "spy": 1.855
+      },
+      {
+        "date": "2014-08-01",
+        "official_top50": 2.511,
+        "official_uniform": 2.04,
+        "gross_top50": 2.314,
+        "actual_top50": 2.208,
+        "spy": 1.809
+      },
+      {
+        "date": "2014-08-08",
+        "official_top50": 2.534,
+        "official_uniform": 2.06,
+        "gross_top50": 2.322,
+        "actual_top50": 2.215,
+        "spy": 1.815
+      },
+      {
+        "date": "2014-08-15",
+        "official_top50": 2.573,
+        "official_uniform": 2.092,
+        "gross_top50": 2.352,
+        "actual_top50": 2.242,
+        "spy": 1.837
+      },
+      {
+        "date": "2014-08-22",
+        "official_top50": 2.625,
+        "official_uniform": 2.12,
+        "gross_top50": 2.398,
+        "actual_top50": 2.286,
+        "spy": 1.868
+      },
+      {
+        "date": "2014-08-29",
+        "official_top50": 2.62,
+        "official_uniform": 2.12,
+        "gross_top50": 2.445,
+        "actual_top50": 2.33,
+        "spy": 1.881
+      },
+      {
+        "date": "2014-09-08",
+        "official_top50": 2.585,
+        "official_uniform": 2.1,
+        "gross_top50": 2.442,
+        "actual_top50": 2.327,
+        "spy": 1.88
+      },
+      {
+        "date": "2014-09-15",
+        "official_top50": 2.568,
+        "official_uniform": 2.07,
+        "gross_top50": 2.397,
+        "actual_top50": 2.284,
+        "spy": 1.866
+      },
+      {
+        "date": "2014-09-22",
+        "official_top50": 2.53,
+        "official_uniform": 2.04,
+        "gross_top50": 2.4,
+        "actual_top50": 2.286,
+        "spy": 1.876
+      },
+      {
+        "date": "2014-09-29",
+        "official_top50": 2.489,
+        "official_uniform": 1.99,
+        "gross_top50": 2.377,
+        "actual_top50": 2.264,
+        "spy": 1.861
+      },
+      {
+        "date": "2014-10-06",
+        "official_top50": 2.448,
+        "official_uniform": 1.97,
+        "gross_top50": 2.317,
+        "actual_top50": 2.206,
+        "spy": 1.851
+      },
+      {
+        "date": "2014-10-13",
+        "official_top50": 2.473,
+        "official_uniform": 1.978,
+        "gross_top50": 2.107,
+        "actual_top50": 2.005,
+        "spy": 1.773
+      },
+      {
+        "date": "2014-10-20",
+        "official_top50": 2.514,
+        "official_uniform": 2.038,
+        "gross_top50": 2.236,
+        "actual_top50": 2.128,
+        "spy": 1.798
+      },
+      {
+        "date": "2014-10-27",
+        "official_top50": 2.541,
+        "official_uniform": 2.076,
+        "gross_top50": 2.32,
+        "actual_top50": 2.208,
+        "spy": 1.849
+      },
+      {
+        "date": "2014-11-03",
+        "official_top50": 2.575,
+        "official_uniform": 2.122,
+        "gross_top50": 2.376,
+        "actual_top50": 2.261,
+        "spy": 1.899
+      },
+      {
+        "date": "2014-11-10",
+        "official_top50": 2.619,
+        "official_uniform": 2.138,
+        "gross_top50": 2.373,
+        "actual_top50": 2.257,
+        "spy": 1.918
+      },
+      {
+        "date": "2014-11-17",
+        "official_top50": 2.648,
+        "official_uniform": 2.148,
+        "gross_top50": 2.372,
+        "actual_top50": 2.255,
+        "spy": 1.922
+      },
+      {
+        "date": "2014-11-24",
+        "official_top50": 2.648,
+        "official_uniform": 2.134,
+        "gross_top50": 2.425,
+        "actual_top50": 2.306,
+        "spy": 1.947
+      },
+      {
+        "date": "2014-12-02",
+        "official_top50": 2.625,
+        "official_uniform": 2.106,
+        "gross_top50": 2.324,
+        "actual_top50": 2.209,
+        "spy": 1.946
+      },
+      {
+        "date": "2014-12-09",
+        "official_top50": 2.625,
+        "official_uniform": 2.1,
+        "gross_top50": 2.316,
+        "actual_top50": 2.202,
+        "spy": 1.94
+      },
+      {
+        "date": "2014-12-16",
+        "official_top50": 2.627,
+        "official_uniform": 2.114,
+        "gross_top50": 2.188,
+        "actual_top50": 2.079,
+        "spy": 1.865
+      },
+      {
+        "date": "2014-12-23",
+        "official_top50": 2.645,
+        "official_uniform": 2.138,
+        "gross_top50": 2.293,
+        "actual_top50": 2.178,
+        "spy": 1.961
+      },
+      {
+        "date": "2014-12-31",
+        "official_top50": 2.643,
+        "official_uniform": 2.116,
+        "gross_top50": 2.289,
+        "actual_top50": 2.175,
+        "spy": 1.942
+      },
+      {
+        "date": "2015-01-08",
+        "official_top50": 2.636,
+        "official_uniform": 2.11,
+        "gross_top50": 2.317,
+        "actual_top50": 2.2,
+        "spy": 1.945
+      },
+      {
+        "date": "2015-01-15",
+        "official_top50": 2.65,
+        "official_uniform": 2.126,
+        "gross_top50": 2.227,
+        "actual_top50": 2.114,
+        "spy": 1.884
+      },
+      {
+        "date": "2015-01-23",
+        "official_top50": 2.675,
+        "official_uniform": 2.142,
+        "gross_top50": 2.322,
+        "actual_top50": 2.204,
+        "spy": 1.937
+      },
+      {
+        "date": "2015-01-30",
+        "official_top50": 2.714,
+        "official_uniform": 2.162,
+        "gross_top50": 2.298,
+        "actual_top50": 2.181,
+        "spy": 1.889
+      },
+      {
+        "date": "2015-02-06",
+        "official_top50": 2.745,
+        "official_uniform": 2.202,
+        "gross_top50": 2.373,
+        "actual_top50": 2.251,
+        "spy": 1.942
+      },
+      {
+        "date": "2015-02-13",
+        "official_top50": 2.786,
+        "official_uniform": 2.222,
+        "gross_top50": 2.412,
+        "actual_top50": 2.288,
+        "spy": 1.979
+      },
+      {
+        "date": "2015-02-23",
+        "official_top50": 2.787,
+        "official_uniform": 2.225,
+        "gross_top50": 2.446,
+        "actual_top50": 2.32,
+        "spy": 1.992
+      },
+      {
+        "date": "2015-03-02",
+        "official_top50": 2.786,
+        "official_uniform": 2.2,
+        "gross_top50": 2.452,
+        "actual_top50": 2.325,
+        "spy": 1.999
+      },
+      {
+        "date": "2015-03-09",
+        "official_top50": 2.802,
+        "official_uniform": 2.212,
+        "gross_top50": 2.42,
+        "actual_top50": 2.294,
+        "spy": 1.967
+      },
+      {
+        "date": "2015-03-16",
+        "official_top50": 2.809,
+        "official_uniform": 2.222,
+        "gross_top50": 2.445,
+        "actual_top50": 2.317,
+        "spy": 1.969
+      },
+      {
+        "date": "2015-03-23",
+        "official_top50": 2.825,
+        "official_uniform": 2.23,
+        "gross_top50": 2.489,
+        "actual_top50": 2.358,
+        "spy": 1.989
+      },
+      {
+        "date": "2015-03-30",
+        "official_top50": 2.83,
+        "official_uniform": 2.24,
+        "gross_top50": 2.477,
+        "actual_top50": 2.347,
+        "spy": 1.974
+      },
+      {
+        "date": "2015-04-07",
+        "official_top50": 2.83,
+        "official_uniform": 2.257,
+        "gross_top50": 2.47,
+        "actual_top50": 2.339,
+        "spy": 1.966
+      },
+      {
+        "date": "2015-04-14",
+        "official_top50": 2.816,
+        "official_uniform": 2.26,
+        "gross_top50": 2.477,
+        "actual_top50": 2.345,
+        "spy": 1.985
+      },
+      {
+        "date": "2015-04-21",
+        "official_top50": 2.8,
+        "official_uniform": 2.254,
+        "gross_top50": 2.479,
+        "actual_top50": 2.347,
+        "spy": 1.986
+      },
+      {
+        "date": "2015-04-28",
+        "official_top50": 2.807,
+        "official_uniform": 2.25,
+        "gross_top50": 2.463,
+        "actual_top50": 2.331,
+        "spy": 2.002
+      },
+      {
+        "date": "2015-05-05",
+        "official_top50": 2.827,
+        "official_uniform": 2.256,
+        "gross_top50": 2.437,
+        "actual_top50": 2.306,
+        "spy": 1.98
+      },
+      {
+        "date": "2015-05-12",
+        "official_top50": 2.841,
+        "official_uniform": 2.26,
+        "gross_top50": 2.469,
+        "actual_top50": 2.336,
+        "spy": 1.989
+      },
+      {
+        "date": "2015-05-19",
+        "official_top50": 2.834,
+        "official_uniform": 2.26,
+        "gross_top50": 2.515,
+        "actual_top50": 2.379,
+        "spy": 2.016
+      },
+      {
+        "date": "2015-05-27",
+        "official_top50": 2.832,
+        "official_uniform": 2.25,
+        "gross_top50": 2.512,
+        "actual_top50": 2.376,
+        "spy": 2.013
+      },
+      {
+        "date": "2015-06-03",
+        "official_top50": 2.841,
+        "official_uniform": 2.25,
+        "gross_top50": 2.522,
+        "actual_top50": 2.385,
+        "spy": 2.006
+      },
+      {
+        "date": "2015-06-10",
+        "official_top50": 2.864,
+        "official_uniform": 2.248,
+        "gross_top50": 2.517,
+        "actual_top50": 2.379,
+        "spy": 1.998
+      },
+      {
+        "date": "2015-06-17",
+        "official_top50": 2.857,
+        "official_uniform": 2.234,
+        "gross_top50": 2.514,
+        "actual_top50": 2.376,
+        "spy": 1.995
+      },
+      {
+        "date": "2015-06-24",
+        "official_top50": 2.841,
+        "official_uniform": 2.22,
+        "gross_top50": 2.518,
+        "actual_top50": 2.379,
+        "spy": 2.003
+      },
+      {
+        "date": "2015-07-01",
+        "official_top50": 2.811,
+        "official_uniform": 2.194,
+        "gross_top50": 2.486,
+        "actual_top50": 2.348,
+        "spy": 1.977
+      },
+      {
+        "date": "2015-07-09",
+        "official_top50": 2.818,
+        "official_uniform": 2.19,
+        "gross_top50": 2.419,
+        "actual_top50": 2.285,
+        "spy": 1.954
+      },
+      {
+        "date": "2015-07-16",
+        "official_top50": 2.818,
+        "official_uniform": 2.184,
+        "gross_top50": 2.478,
+        "actual_top50": 2.339,
+        "spy": 2.019
+      },
+      {
+        "date": "2015-07-23",
+        "official_top50": 2.818,
+        "official_uniform": 2.17,
+        "gross_top50": 2.439,
+        "actual_top50": 2.302,
+        "spy": 2.0
+      },
+      {
+        "date": "2015-07-30",
+        "official_top50": 2.832,
+        "official_uniform": 2.176,
+        "gross_top50": 2.458,
+        "actual_top50": 2.32,
+        "spy": 2.006
+      },
+      {
+        "date": "2015-08-06",
+        "official_top50": 2.75,
+        "official_uniform": 2.1,
+        "gross_top50": 2.431,
+        "actual_top50": 2.293,
+        "spy": 1.984
+      },
+      {
+        "date": "2015-08-13",
+        "official_top50": 2.725,
+        "official_uniform": 2.078,
+        "gross_top50": 2.445,
+        "actual_top50": 2.307,
+        "spy": 1.987
+      },
+      {
+        "date": "2015-08-20",
+        "official_top50": 2.716,
+        "official_uniform": 2.06,
+        "gross_top50": 2.385,
+        "actual_top50": 2.249,
+        "spy": 1.946
+      },
+      {
+        "date": "2015-08-27",
+        "official_top50": 2.676,
+        "official_uniform": 2.045,
+        "gross_top50": 2.354,
+        "actual_top50": 2.219,
+        "spy": 1.904
+      },
+      {
+        "date": "2015-09-03",
+        "official_top50": 2.705,
+        "official_uniform": 2.06,
+        "gross_top50": 2.308,
+        "actual_top50": 2.176,
+        "spy": 1.871
+      },
+      {
+        "date": "2015-09-11",
+        "official_top50": 2.702,
+        "official_uniform": 2.042,
+        "gross_top50": 2.334,
+        "actual_top50": 2.2,
+        "spy": 1.882
+      },
+      {
+        "date": "2015-09-18",
+        "official_top50": 2.67,
+        "official_uniform": 2.01,
+        "gross_top50": 2.326,
+        "actual_top50": 2.192,
+        "spy": 1.88
+      },
+      {
+        "date": "2015-09-25",
+        "official_top50": 2.689,
+        "official_uniform": 2.016,
+        "gross_top50": 2.296,
+        "actual_top50": 2.163,
+        "spy": 1.857
+      },
+      {
+        "date": "2015-10-02",
+        "official_top50": 2.705,
+        "official_uniform": 2.06,
+        "gross_top50": 2.321,
+        "actual_top50": 2.186,
+        "spy": 1.876
+      },
+      {
+        "date": "2015-10-09",
+        "official_top50": 2.767,
+        "official_uniform": 2.09,
+        "gross_top50": 2.379,
+        "actual_top50": 2.24,
+        "spy": 1.931
+      },
+      {
+        "date": "2015-10-16",
+        "official_top50": 2.807,
+        "official_uniform": 2.1,
+        "gross_top50": 2.395,
+        "actual_top50": 2.254,
+        "spy": 1.949
+      },
+      {
+        "date": "2015-10-23",
+        "official_top50": 2.845,
+        "official_uniform": 2.108,
+        "gross_top50": 2.397,
+        "actual_top50": 2.255,
+        "spy": 1.986
+      },
+      {
+        "date": "2015-10-30",
+        "official_top50": 2.841,
+        "official_uniform": 2.11,
+        "gross_top50": 2.397,
+        "actual_top50": 2.255,
+        "spy": 1.99
+      },
+      {
+        "date": "2015-11-06",
+        "official_top50": 2.83,
+        "official_uniform": 2.09,
+        "gross_top50": 2.403,
+        "actual_top50": 2.26,
+        "spy": 2.008
+      },
+      {
+        "date": "2015-11-13",
+        "official_top50": 2.839,
+        "official_uniform": 2.098,
+        "gross_top50": 2.324,
+        "actual_top50": 2.185,
+        "spy": 1.942
+      },
+      {
+        "date": "2015-11-20",
+        "official_top50": 2.855,
+        "official_uniform": 2.098,
+        "gross_top50": 2.403,
+        "actual_top50": 2.259,
+        "spy": 2.002
+      },
+      {
+        "date": "2015-11-30",
+        "official_top50": 2.852,
+        "official_uniform": 2.052,
+        "gross_top50": 2.413,
+        "actual_top50": 2.268,
+        "spy": 1.996
+      },
+      {
+        "date": "2015-12-07",
+        "official_top50": 2.843,
+        "official_uniform": 2.032,
+        "gross_top50": 2.407,
+        "actual_top50": 2.263,
+        "spy": 1.993
+      },
+      {
+        "date": "2015-12-14",
+        "official_top50": 2.841,
+        "official_uniform": 2.034,
+        "gross_top50": 2.344,
+        "actual_top50": 2.202,
+        "spy": 1.946
+      },
+      {
+        "date": "2015-12-21",
+        "official_top50": 2.795,
+        "official_uniform": 2.024,
+        "gross_top50": 2.34,
+        "actual_top50": 2.198,
+        "spy": 1.945
+      },
+      {
+        "date": "2015-12-29",
+        "official_top50": 2.718,
+        "official_uniform": 1.952,
+        "gross_top50": 2.4,
+        "actual_top50": 2.254,
+        "spy": 1.996
+      },
+      {
+        "date": "2016-01-06",
+        "official_top50": 2.641,
+        "official_uniform": 1.902,
+        "gross_top50": 2.296,
+        "actual_top50": 2.156,
+        "spy": 1.92
+      },
+      {
+        "date": "2016-01-13",
+        "official_top50": 2.6,
+        "official_uniform": 1.858,
+        "gross_top50": 2.17,
+        "actual_top50": 2.037,
+        "spy": 1.833
+      },
+      {
+        "date": "2016-01-21",
+        "official_top50": 2.56,
+        "official_uniform": 1.867,
+        "gross_top50": 2.161,
+        "actual_top50": 2.028,
+        "spy": 1.813
+      },
+      {
+        "date": "2016-01-28",
+        "official_top50": 2.525,
+        "official_uniform": 1.852,
+        "gross_top50": 2.154,
+        "actual_top50": 2.022,
+        "spy": 1.835
+      },
+      {
+        "date": "2016-02-04",
+        "official_top50": 2.516,
+        "official_uniform": 1.834,
+        "gross_top50": 2.174,
+        "actual_top50": 2.04,
+        "spy": 1.856
+      },
+      {
+        "date": "2016-02-11",
+        "official_top50": 2.548,
+        "official_uniform": 1.862,
+        "gross_top50": 2.068,
+        "actual_top50": 1.941,
+        "spy": 1.781
+      },
+      {
+        "date": "2016-02-19",
+        "official_top50": 2.63,
+        "official_uniform": 1.958,
+        "gross_top50": 2.173,
+        "actual_top50": 2.038,
+        "spy": 1.86
+      },
+      {
+        "date": "2016-02-26",
+        "official_top50": 2.664,
+        "official_uniform": 1.978,
+        "gross_top50": 2.25,
+        "actual_top50": 2.11,
+        "spy": 1.887
+      },
+      {
+        "date": "2016-03-04",
+        "official_top50": 2.707,
+        "official_uniform": 2.033,
+        "gross_top50": 2.262,
+        "actual_top50": 2.121,
+        "spy": 1.934
+      },
+      {
+        "date": "2016-03-11",
+        "official_top50": 2.734,
+        "official_uniform": 2.056,
+        "gross_top50": 2.283,
+        "actual_top50": 2.14,
+        "spy": 1.955
+      },
+      {
+        "date": "2016-03-18",
+        "official_top50": 2.784,
+        "official_uniform": 2.07,
+        "gross_top50": 2.312,
+        "actual_top50": 2.166,
+        "spy": 1.979
+      },
+      {
+        "date": "2016-03-28",
+        "official_top50": 2.793,
+        "official_uniform": 2.072,
+        "gross_top50": 2.311,
+        "actual_top50": 2.165,
+        "spy": 1.968
+      },
+      {
+        "date": "2016-04-04",
+        "official_top50": 2.784,
+        "official_uniform": 2.096,
+        "gross_top50": 2.34,
+        "actual_top50": 2.193,
+        "spy": 1.995
+      },
+      {
+        "date": "2016-04-11",
+        "official_top50": 2.795,
+        "official_uniform": 2.124,
+        "gross_top50": 2.316,
+        "actual_top50": 2.169,
+        "spy": 1.975
+      },
+      {
+        "date": "2016-04-18",
+        "official_top50": 2.787,
+        "official_uniform": 2.132,
+        "gross_top50": 2.362,
+        "actual_top50": 2.212,
+        "spy": 2.021
+      },
+      {
+        "date": "2016-04-25",
+        "official_top50": 2.768,
+        "official_uniform": 2.126,
+        "gross_top50": 2.345,
+        "actual_top50": 2.196,
+        "spy": 2.015
+      },
+      {
+        "date": "2016-05-02",
+        "official_top50": 2.743,
+        "official_uniform": 2.11,
+        "gross_top50": 2.338,
+        "actual_top50": 2.188,
+        "spy": 2.01
+      },
+      {
+        "date": "2016-05-09",
+        "official_top50": 2.739,
+        "official_uniform": 2.1,
+        "gross_top50": 2.332,
+        "actual_top50": 2.183,
+        "spy": 1.992
+      },
+      {
+        "date": "2016-05-16",
+        "official_top50": 2.739,
+        "official_uniform": 2.132,
+        "gross_top50": 2.336,
+        "actual_top50": 2.186,
+        "spy": 2.0
+      },
+      {
+        "date": "2016-05-23",
+        "official_top50": 2.75,
+        "official_uniform": 2.15,
+        "gross_top50": 2.316,
+        "actual_top50": 2.166,
+        "spy": 1.985
+      },
+      {
+        "date": "2016-05-31",
+        "official_top50": 2.776,
+        "official_uniform": 2.17,
+        "gross_top50": 2.373,
+        "actual_top50": 2.22,
+        "spy": 2.028
+      },
+      {
+        "date": "2016-06-07",
+        "official_top50": 2.757,
+        "official_uniform": 2.154,
+        "gross_top50": 2.39,
+        "actual_top50": 2.235,
+        "spy": 2.043
+      },
+      {
+        "date": "2016-06-14",
+        "official_top50": 2.739,
+        "official_uniform": 2.124,
+        "gross_top50": 2.346,
+        "actual_top50": 2.194,
+        "spy": 2.011
+      },
+      {
+        "date": "2016-06-21",
+        "official_top50": 2.739,
+        "official_uniform": 2.12,
+        "gross_top50": 2.374,
+        "actual_top50": 2.219,
+        "spy": 2.023
+      },
+      {
+        "date": "2016-06-28",
+        "official_top50": 2.786,
+        "official_uniform": 2.16,
+        "gross_top50": 2.309,
+        "actual_top50": 2.159,
+        "spy": 1.978
+      },
+      {
+        "date": "2016-07-06",
+        "official_top50": 2.868,
+        "official_uniform": 2.206,
+        "gross_top50": 2.378,
+        "actual_top50": 2.223,
+        "spy": 2.035
+      },
+      {
+        "date": "2016-07-13",
+        "official_top50": 2.903,
+        "official_uniform": 2.238,
+        "gross_top50": 2.449,
+        "actual_top50": 2.288,
+        "spy": 2.081
+      },
+      {
+        "date": "2016-07-20",
+        "official_top50": 2.923,
+        "official_uniform": 2.24,
+        "gross_top50": 2.478,
+        "actual_top50": 2.316,
+        "spy": 2.1
+      },
+      {
+        "date": "2016-07-27",
+        "official_top50": 2.945,
+        "official_uniform": 2.246,
+        "gross_top50": 2.477,
+        "actual_top50": 2.313,
+        "spy": 2.094
+      },
+      {
+        "date": "2016-08-03",
+        "official_top50": 2.966,
+        "official_uniform": 2.25,
+        "gross_top50": 2.494,
+        "actual_top50": 2.329,
+        "spy": 2.092
+      },
+      {
+        "date": "2016-08-10",
+        "official_top50": 2.966,
+        "official_uniform": 2.26,
+        "gross_top50": 2.504,
+        "actual_top50": 2.337,
+        "spy": 2.104
+      },
+      {
+        "date": "2016-08-17",
+        "official_top50": 2.966,
+        "official_uniform": 2.26,
+        "gross_top50": 2.485,
+        "actual_top50": 2.319,
+        "spy": 2.111
+      },
+      {
+        "date": "2016-08-24",
+        "official_top50": 2.926,
+        "official_uniform": 2.255,
+        "gross_top50": 2.496,
+        "actual_top50": 2.33,
+        "spy": 2.107
+      },
+      {
+        "date": "2016-08-31",
+        "official_top50": 2.898,
+        "official_uniform": 2.25,
+        "gross_top50": 2.476,
+        "actual_top50": 2.311,
+        "spy": 2.103
+      },
+      {
+        "date": "2016-09-08",
+        "official_top50": 2.893,
+        "official_uniform": 2.246,
+        "gross_top50": 2.486,
+        "actual_top50": 2.32,
+        "spy": 2.112
+      },
+      {
+        "date": "2016-09-15",
+        "official_top50": 2.909,
+        "official_uniform": 2.25,
+        "gross_top50": 2.443,
+        "actual_top50": 2.279,
+        "spy": 2.084
+      },
+      {
+        "date": "2016-09-22",
+        "official_top50": 2.898,
+        "official_uniform": 2.25,
+        "gross_top50": 2.485,
+        "actual_top50": 2.318,
+        "spy": 2.11
+      },
+      {
+        "date": "2016-09-29",
+        "official_top50": 2.898,
+        "official_uniform": 2.25,
+        "gross_top50": 2.444,
+        "actual_top50": 2.279,
+        "spy": 2.088
+      },
+      {
+        "date": "2016-10-06",
+        "official_top50": 2.881,
+        "official_uniform": 2.24,
+        "gross_top50": 2.469,
+        "actual_top50": 2.302,
+        "spy": 2.098
+      },
+      {
+        "date": "2016-10-13",
+        "official_top50": 2.864,
+        "official_uniform": 2.23,
+        "gross_top50": 2.432,
+        "actual_top50": 2.268,
+        "spy": 2.073
+      },
+      {
+        "date": "2016-10-20",
+        "official_top50": 2.859,
+        "official_uniform": 2.21,
+        "gross_top50": 2.436,
+        "actual_top50": 2.27,
+        "spy": 2.081
+      },
+      {
+        "date": "2016-10-27",
+        "official_top50": 2.87,
+        "official_uniform": 2.21,
+        "gross_top50": 2.403,
+        "actual_top50": 2.239,
+        "spy": 2.075
+      },
+      {
+        "date": "2016-11-03",
+        "official_top50": 2.934,
+        "official_uniform": 2.252,
+        "gross_top50": 2.382,
+        "actual_top50": 2.219,
+        "spy": 2.036
+      },
+      {
+        "date": "2016-11-10",
+        "official_top50": 2.991,
+        "official_uniform": 2.294,
+        "gross_top50": 2.444,
+        "actual_top50": 2.276,
+        "spy": 2.108
+      },
+      {
+        "date": "2016-11-17",
+        "official_top50": 3.048,
+        "official_uniform": 2.335,
+        "gross_top50": 2.527,
+        "actual_top50": 2.354,
+        "spy": 2.126
+      },
+      {
+        "date": "2016-11-25",
+        "official_top50": 3.08,
+        "official_uniform": 2.36,
+        "gross_top50": 2.567,
+        "actual_top50": 2.389,
+        "spy": 2.148
+      },
+      {
+        "date": "2016-12-02",
+        "official_top50": 3.084,
+        "official_uniform": 2.374,
+        "gross_top50": 2.514,
+        "actual_top50": 2.34,
+        "spy": 2.132
+      },
+      {
+        "date": "2016-12-09",
+        "official_top50": 3.1,
+        "official_uniform": 2.38,
+        "gross_top50": 2.565,
+        "actual_top50": 2.387,
+        "spy": 2.192
+      },
+      {
+        "date": "2016-12-16",
+        "official_top50": 3.098,
+        "official_uniform": 2.38,
+        "gross_top50": 2.562,
+        "actual_top50": 2.384,
+        "spy": 2.191
+      },
+      {
+        "date": "2016-12-23",
+        "official_top50": 3.091,
+        "official_uniform": 2.388,
+        "gross_top50": 2.572,
+        "actual_top50": 2.392,
+        "spy": 2.197
+      },
+      {
+        "date": "2017-01-03",
+        "official_top50": 3.116,
+        "official_uniform": 2.412,
+        "gross_top50": 2.547,
+        "actual_top50": 2.369,
+        "spy": 2.193
+      },
+      {
+        "date": "2017-01-10",
+        "official_top50": 3.139,
+        "official_uniform": 2.42,
+        "gross_top50": 2.599,
+        "actual_top50": 2.417,
+        "spy": 2.203
+      },
+      {
+        "date": "2017-01-18",
+        "official_top50": 3.152,
+        "official_uniform": 2.43,
+        "gross_top50": 2.586,
+        "actual_top50": 2.405,
+        "spy": 2.206
+      },
+      {
+        "date": "2017-01-25",
+        "official_top50": 3.188,
+        "official_uniform": 2.43,
+        "gross_top50": 2.658,
+        "actual_top50": 2.471,
+        "spy": 2.231
+      },
+      {
+        "date": "2017-02-01",
+        "official_top50": 3.218,
+        "official_uniform": 2.464,
+        "gross_top50": 2.617,
+        "actual_top50": 2.433,
+        "spy": 2.214
+      },
+      {
+        "date": "2017-02-08",
+        "official_top50": 3.248,
+        "official_uniform": 2.492,
+        "gross_top50": 2.615,
+        "actual_top50": 2.43,
+        "spy": 2.228
+      },
+      {
+        "date": "2017-02-15",
+        "official_top50": 3.286,
+        "official_uniform": 2.502,
+        "gross_top50": 2.7,
+        "actual_top50": 2.509,
+        "spy": 2.278
+      },
+      {
+        "date": "2017-02-23",
+        "official_top50": 3.295,
+        "official_uniform": 2.502,
+        "gross_top50": 2.691,
+        "actual_top50": 2.5,
+        "spy": 2.291
+      },
+      {
+        "date": "2017-03-02",
+        "official_top50": 3.282,
+        "official_uniform": 2.49,
+        "gross_top50": 2.73,
+        "actual_top50": 2.536,
+        "spy": 2.307
+      },
+      {
+        "date": "2017-03-09",
+        "official_top50": 3.264,
+        "official_uniform": 2.49,
+        "gross_top50": 2.699,
+        "actual_top50": 2.506,
+        "spy": 2.295
+      },
+      {
+        "date": "2017-03-16",
+        "official_top50": 3.261,
+        "official_uniform": 2.48,
+        "gross_top50": 2.722,
+        "actual_top50": 2.528,
+        "spy": 2.309
+      },
+      {
+        "date": "2017-03-23",
+        "official_top50": 3.268,
+        "official_uniform": 2.48,
+        "gross_top50": 2.667,
+        "actual_top50": 2.476,
+        "spy": 2.279
+      },
+      {
+        "date": "2017-03-30",
+        "official_top50": 3.261,
+        "official_uniform": 2.48,
+        "gross_top50": 2.714,
+        "actual_top50": 2.519,
+        "spy": 2.299
+      },
+      {
+        "date": "2017-04-06",
+        "official_top50": 3.282,
+        "official_uniform": 2.486,
+        "gross_top50": 2.687,
+        "actual_top50": 2.494,
+        "spy": 2.291
+      },
+      {
+        "date": "2017-04-13",
+        "official_top50": 3.307,
+        "official_uniform": 2.49,
+        "gross_top50": 2.648,
+        "actual_top50": 2.458,
+        "spy": 2.266
+      },
+      {
+        "date": "2017-04-21",
+        "official_top50": 3.355,
+        "official_uniform": 2.518,
+        "gross_top50": 2.714,
+        "actual_top50": 2.518,
+        "spy": 2.284
+      },
+      {
+        "date": "2017-04-28",
+        "official_top50": 3.389,
+        "official_uniform": 2.518,
+        "gross_top50": 2.765,
+        "actual_top50": 2.565,
+        "spy": 2.315
+      },
+      {
+        "date": "2017-05-05",
+        "official_top50": 3.398,
+        "official_uniform": 2.51,
+        "gross_top50": 2.774,
+        "actual_top50": 2.573,
+        "spy": 2.329
+      },
+      {
+        "date": "2017-05-12",
+        "official_top50": 3.402,
+        "official_uniform": 2.512,
+        "gross_top50": 2.791,
+        "actual_top50": 2.588,
+        "spy": 2.323
+      },
+      {
+        "date": "2017-05-19",
+        "official_top50": 3.448,
+        "official_uniform": 2.532,
+        "gross_top50": 2.777,
+        "actual_top50": 2.574,
+        "spy": 2.317
+      },
+      {
+        "date": "2017-05-26",
+        "official_top50": 3.477,
+        "official_uniform": 2.55,
+        "gross_top50": 2.823,
+        "actual_top50": 2.616,
+        "spy": 2.347
+      },
+      {
+        "date": "2017-06-05",
+        "official_top50": 3.5,
+        "official_uniform": 2.56,
+        "gross_top50": 2.862,
+        "actual_top50": 2.653,
+        "spy": 2.367
+      },
+      {
+        "date": "2017-06-12",
+        "official_top50": 3.507,
+        "official_uniform": 2.56,
+        "gross_top50": 2.844,
+        "actual_top50": 2.634,
+        "spy": 2.361
+      },
+      {
+        "date": "2017-06-19",
+        "official_top50": 3.5,
+        "official_uniform": 2.56,
+        "gross_top50": 2.904,
+        "actual_top50": 2.69,
+        "spy": 2.383
+      },
+      {
+        "date": "2017-06-26",
+        "official_top50": 3.541,
+        "official_uniform": 2.56,
+        "gross_top50": 2.903,
+        "actual_top50": 2.689,
+        "spy": 2.371
+      },
+      {
+        "date": "2017-07-03",
+        "official_top50": 3.568,
+        "official_uniform": 2.58,
+        "gross_top50": 2.867,
+        "actual_top50": 2.655,
+        "spy": 2.361
+      },
+      {
+        "date": "2017-07-11",
+        "official_top50": 3.611,
+        "official_uniform": 2.602,
+        "gross_top50": 2.92,
+        "actual_top50": 2.703,
+        "spy": 2.361
+      },
+      {
+        "date": "2017-07-18",
+        "official_top50": 3.65,
+        "official_uniform": 2.616,
+        "gross_top50": 2.962,
+        "actual_top50": 2.742,
+        "spy": 2.392
+      },
+      {
+        "date": "2017-07-25",
+        "official_top50": 3.652,
+        "official_uniform": 2.594,
+        "gross_top50": 2.997,
+        "actual_top50": 2.774,
+        "spy": 2.407
+      },
+      {
+        "date": "2017-08-01",
+        "official_top50": 3.636,
+        "official_uniform": 2.58,
+        "gross_top50": 2.97,
+        "actual_top50": 2.748,
+        "spy": 2.406
+      },
+      {
+        "date": "2017-08-08",
+        "official_top50": 3.655,
+        "official_uniform": 2.554,
+        "gross_top50": 2.996,
+        "actual_top50": 2.772,
+        "spy": 2.406
+      },
+      {
+        "date": "2017-08-15",
+        "official_top50": 3.67,
+        "official_uniform": 2.55,
+        "gross_top50": 2.991,
+        "actual_top50": 2.767,
+        "spy": 2.399
+      },
+      {
+        "date": "2017-08-22",
+        "official_top50": 3.675,
+        "official_uniform": 2.578,
+        "gross_top50": 2.989,
+        "actual_top50": 2.765,
+        "spy": 2.39
+      },
+      {
+        "date": "2017-08-29",
+        "official_top50": 3.716,
+        "official_uniform": 2.61,
+        "gross_top50": 2.969,
+        "actual_top50": 2.745,
+        "spy": 2.385
+      },
+      {
+        "date": "2017-09-06",
+        "official_top50": 3.739,
+        "official_uniform": 2.616,
+        "gross_top50": 3.006,
+        "actual_top50": 2.779,
+        "spy": 2.403
+      },
+      {
+        "date": "2017-09-13",
+        "official_top50": 3.784,
+        "official_uniform": 2.65,
+        "gross_top50": 3.055,
+        "actual_top50": 2.824,
+        "spy": 2.431
+      },
+      {
+        "date": "2017-09-20",
+        "official_top50": 3.82,
+        "official_uniform": 2.666,
+        "gross_top50": 3.074,
+        "actual_top50": 2.841,
+        "spy": 2.441
+      },
+      {
+        "date": "2017-09-27",
+        "official_top50": 3.852,
+        "official_uniform": 2.68,
+        "gross_top50": 3.075,
+        "actual_top50": 2.841,
+        "spy": 2.441
+      },
+      {
+        "date": "2017-10-04",
+        "official_top50": 3.93,
+        "official_uniform": 2.7,
+        "gross_top50": 3.15,
+        "actual_top50": 2.91,
+        "spy": 2.469
+      },
+      {
+        "date": "2017-10-11",
+        "official_top50": 3.966,
+        "official_uniform": 2.71,
+        "gross_top50": 3.182,
+        "actual_top50": 2.939,
+        "spy": 2.485
+      },
+      {
+        "date": "2017-10-18",
+        "official_top50": 4.009,
+        "official_uniform": 2.71,
+        "gross_top50": 3.199,
+        "actual_top50": 2.956,
+        "spy": 2.491
+      },
+      {
+        "date": "2017-10-25",
+        "official_top50": 4.041,
+        "official_uniform": 2.718,
+        "gross_top50": 3.214,
+        "actual_top50": 2.969,
+        "spy": 2.487
+      },
+      {
+        "date": "2017-11-01",
+        "official_top50": 4.073,
+        "official_uniform": 2.72,
+        "gross_top50": 3.283,
+        "actual_top50": 3.031,
+        "spy": 2.507
+      },
+      {
+        "date": "2017-11-08",
+        "official_top50": 4.098,
+        "official_uniform": 2.728,
+        "gross_top50": 3.313,
+        "actual_top50": 3.059,
+        "spy": 2.521
+      },
+      {
+        "date": "2017-11-15",
+        "official_top50": 4.114,
+        "official_uniform": 2.744,
+        "gross_top50": 3.283,
+        "actual_top50": 3.03,
+        "spy": 2.497
+      },
+      {
+        "date": "2017-11-22",
+        "official_top50": 4.114,
+        "official_uniform": 2.775,
+        "gross_top50": 3.369,
+        "actual_top50": 3.11,
+        "spy": 2.527
+      },
+      {
+        "date": "2017-11-30",
+        "official_top50": 4.109,
+        "official_uniform": 2.794,
+        "gross_top50": 3.361,
+        "actual_top50": 3.101,
+        "spy": 2.573
+      },
+      {
+        "date": "2017-12-07",
+        "official_top50": 4.111,
+        "official_uniform": 2.808,
+        "gross_top50": 3.333,
+        "actual_top50": 3.075,
+        "spy": 2.565
+      },
+      {
+        "date": "2017-12-14",
+        "official_top50": 4.155,
+        "official_uniform": 2.834,
+        "gross_top50": 3.313,
+        "actual_top50": 3.056,
+        "spy": 2.579
+      },
+      {
+        "date": "2017-12-21",
+        "official_top50": 4.218,
+        "official_uniform": 2.864,
+        "gross_top50": 3.352,
+        "actual_top50": 3.091,
+        "spy": 2.607
+      },
+      {
+        "date": "2017-12-29",
+        "official_top50": 4.28,
+        "official_uniform": 2.898,
+        "gross_top50": 3.341,
+        "actual_top50": 3.081,
+        "spy": 2.601
+      },
+      {
+        "date": "2018-01-08",
+        "official_top50": 4.407,
+        "official_uniform": 2.952,
+        "gross_top50": 3.474,
+        "actual_top50": 3.203,
+        "spy": 2.663
+      },
+      {
+        "date": "2018-01-16",
+        "official_top50": 4.395,
+        "official_uniform": 2.954,
+        "gross_top50": 3.492,
+        "actual_top50": 3.219,
+        "spy": 2.69
+      },
+      {
+        "date": "2018-01-23",
+        "official_top50": 4.282,
+        "official_uniform": 2.878,
+        "gross_top50": 3.61,
+        "actual_top50": 3.328,
+        "spy": 2.746
+      },
+      {
+        "date": "2018-01-30",
+        "official_top50": 4.236,
+        "official_uniform": 2.84,
+        "gross_top50": 3.552,
+        "actual_top50": 3.273,
+        "spy": 2.732
+      },
+      {
+        "date": "2018-02-06",
+        "official_top50": 4.189,
+        "official_uniform": 2.806,
+        "gross_top50": 3.417,
+        "actual_top50": 3.149,
+        "spy": 2.621
+      },
+      {
+        "date": "2018-02-13",
+        "official_top50": 4.261,
+        "official_uniform": 2.85,
+        "gross_top50": 3.38,
+        "actual_top50": 3.113,
+        "spy": 2.594
+      },
+      {
+        "date": "2018-02-21",
+        "official_top50": 4.347,
+        "official_uniform": 2.868,
+        "gross_top50": 3.475,
+        "actual_top50": 3.2,
+        "spy": 2.629
+      },
+      {
+        "date": "2018-02-28",
+        "official_top50": 4.364,
+        "official_uniform": 2.878,
+        "gross_top50": 3.471,
+        "actual_top50": 3.196,
+        "spy": 2.643
+      },
+      {
+        "date": "2018-03-07",
+        "official_top50": 4.35,
+        "official_uniform": 2.858,
+        "gross_top50": 3.511,
+        "actual_top50": 3.233,
+        "spy": 2.653
+      },
+      {
+        "date": "2018-03-14",
+        "official_top50": 4.33,
+        "official_uniform": 2.84,
+        "gross_top50": 3.543,
+        "actual_top50": 3.261,
+        "spy": 2.675
+      },
+      {
+        "date": "2018-03-21",
+        "official_top50": 4.3,
+        "official_uniform": 2.814,
+        "gross_top50": 3.555,
+        "actual_top50": 3.271,
+        "spy": 2.642
+      },
+      {
+        "date": "2018-03-28",
+        "official_top50": 4.25,
+        "official_uniform": 2.81,
+        "gross_top50": 3.364,
+        "actual_top50": 3.096,
+        "spy": 2.549
+      },
+      {
+        "date": "2018-04-05",
+        "official_top50": 4.298,
+        "official_uniform": 2.826,
+        "gross_top50": 3.436,
+        "actual_top50": 3.16,
+        "spy": 2.6
+      },
+      {
+        "date": "2018-04-12",
+        "official_top50": 4.33,
+        "official_uniform": 2.85,
+        "gross_top50": 3.473,
+        "actual_top50": 3.195,
+        "spy": 2.603
+      },
+      {
+        "date": "2018-04-19",
+        "official_top50": 4.336,
+        "official_uniform": 2.85,
+        "gross_top50": 3.527,
+        "actual_top50": 3.243,
+        "spy": 2.629
+      },
+      {
+        "date": "2018-04-26",
+        "official_top50": 4.364,
+        "official_uniform": 2.84,
+        "gross_top50": 3.462,
+        "actual_top50": 3.183,
+        "spy": 2.606
+      },
+      {
+        "date": "2018-05-03",
+        "official_top50": 4.398,
+        "official_uniform": 2.875,
+        "gross_top50": 3.411,
+        "actual_top50": 3.135,
+        "spy": 2.573
+      },
+      {
+        "date": "2018-05-10",
+        "official_top50": 4.5,
+        "official_uniform": 2.91,
+        "gross_top50": 3.57,
+        "actual_top50": 3.281,
+        "spy": 2.656
+      },
+      {
+        "date": "2018-05-17",
+        "official_top50": 4.575,
+        "official_uniform": 2.914,
+        "gross_top50": 3.602,
+        "actual_top50": 3.31,
+        "spy": 2.656
+      },
+      {
+        "date": "2018-05-24",
+        "official_top50": 4.63,
+        "official_uniform": 2.928,
+        "gross_top50": 3.645,
+        "actual_top50": 3.348,
+        "spy": 2.663
+      },
+      {
+        "date": "2018-06-01",
+        "official_top50": 4.677,
+        "official_uniform": 2.956,
+        "gross_top50": 3.719,
+        "actual_top50": 3.417,
+        "spy": 2.67
+      },
+      {
+        "date": "2018-06-08",
+        "official_top50": 4.705,
+        "official_uniform": 2.97,
+        "gross_top50": 3.785,
+        "actual_top50": 3.477,
+        "spy": 2.71
+      },
+      {
+        "date": "2018-06-15",
+        "official_top50": 4.666,
+        "official_uniform": 2.956,
+        "gross_top50": 3.785,
+        "actual_top50": 3.476,
+        "spy": 2.712
+      },
+      {
+        "date": "2018-06-22",
+        "official_top50": 4.648,
+        "official_uniform": 2.94,
+        "gross_top50": 3.702,
+        "actual_top50": 3.399,
+        "spy": 2.691
+      },
+      {
+        "date": "2018-06-29",
+        "official_top50": 4.664,
+        "official_uniform": 2.964,
+        "gross_top50": 3.629,
+        "actual_top50": 3.332,
+        "spy": 2.661
+      },
+      {
+        "date": "2018-07-09",
+        "official_top50": 4.714,
+        "official_uniform": 2.998,
+        "gross_top50": 3.743,
+        "actual_top50": 3.436,
+        "spy": 2.719
+      },
+      {
+        "date": "2018-07-16",
+        "official_top50": 4.716,
+        "official_uniform": 3.01,
+        "gross_top50": 3.776,
+        "actual_top50": 3.466,
+        "spy": 2.732
+      },
+      {
+        "date": "2018-07-23",
+        "official_top50": 4.711,
+        "official_uniform": 3.01,
+        "gross_top50": 3.83,
+        "actual_top50": 3.514,
+        "spy": 2.739
+      },
+      {
+        "date": "2018-07-30",
+        "official_top50": 4.723,
+        "official_uniform": 3.026,
+        "gross_top50": 3.727,
+        "actual_top50": 3.419,
+        "spy": 2.737
+      },
+      {
+        "date": "2018-08-06",
+        "official_top50": 4.818,
+        "official_uniform": 3.033,
+        "gross_top50": 3.863,
+        "actual_top50": 3.544,
+        "spy": 2.778
+      },
+      {
+        "date": "2018-08-13",
+        "official_top50": 4.914,
+        "official_uniform": 3.056,
+        "gross_top50": 3.863,
+        "actual_top50": 3.543,
+        "spy": 2.756
+      },
+      {
+        "date": "2018-08-20",
+        "official_top50": 4.966,
+        "official_uniform": 3.072,
+        "gross_top50": 3.887,
+        "actual_top50": 3.565,
+        "spy": 2.787
+      },
+      {
+        "date": "2018-08-27",
+        "official_top50": 5.045,
+        "official_uniform": 3.08,
+        "gross_top50": 4.045,
+        "actual_top50": 3.709,
+        "spy": 2.823
+      },
+      {
+        "date": "2018-09-04",
+        "official_top50": 5.095,
+        "official_uniform": 3.08,
+        "gross_top50": 4.11,
+        "actual_top50": 3.768,
+        "spy": 2.824
+      },
+      {
+        "date": "2018-09-11",
+        "official_top50": 5.093,
+        "official_uniform": 3.088,
+        "gross_top50": 4.11,
+        "actual_top50": 3.767,
+        "spy": 2.817
+      },
+      {
+        "date": "2018-09-18",
+        "official_top50": 5.011,
+        "official_uniform": 3.082,
+        "gross_top50": 4.111,
+        "actual_top50": 3.768,
+        "spy": 2.833
+      },
+      {
+        "date": "2018-09-25",
+        "official_top50": 4.849,
+        "official_uniform": 2.998,
+        "gross_top50": 4.133,
+        "actual_top50": 3.787,
+        "spy": 2.844
+      },
+      {
+        "date": "2018-10-02",
+        "official_top50": 4.809,
+        "official_uniform": 2.948,
+        "gross_top50": 4.088,
+        "actual_top50": 3.746,
+        "spy": 2.851
+      },
+      {
+        "date": "2018-10-09",
+        "official_top50": 4.666,
+        "official_uniform": 2.882,
+        "gross_top50": 3.933,
+        "actual_top50": 3.603,
+        "spy": 2.814
+      },
+      {
+        "date": "2018-10-16",
+        "official_top50": 4.614,
+        "official_uniform": 2.85,
+        "gross_top50": 3.923,
+        "actual_top50": 3.593,
+        "spy": 2.753
+      },
+      {
+        "date": "2018-10-23",
+        "official_top50": 4.598,
+        "official_uniform": 2.85,
+        "gross_top50": 3.79,
+        "actual_top50": 3.471,
+        "spy": 2.693
+      },
+      {
+        "date": "2018-10-30",
+        "official_top50": 4.614,
+        "official_uniform": 2.87,
+        "gross_top50": 3.654,
+        "actual_top50": 3.346,
+        "spy": 2.642
+      },
+      {
+        "date": "2018-11-06",
+        "official_top50": 4.598,
+        "official_uniform": 2.87,
+        "gross_top50": 3.775,
+        "actual_top50": 3.456,
+        "spy": 2.706
+      },
+      {
+        "date": "2018-11-13",
+        "official_top50": 4.545,
+        "official_uniform": 2.84,
+        "gross_top50": 3.777,
+        "actual_top50": 3.457,
+        "spy": 2.679
+      },
+      {
+        "date": "2018-11-20",
+        "official_top50": 4.555,
+        "official_uniform": 2.866,
+        "gross_top50": 3.541,
+        "actual_top50": 3.24,
+        "spy": 2.609
+      },
+      {
+        "date": "2018-11-28",
+        "official_top50": 4.58,
+        "official_uniform": 2.85,
+        "gross_top50": 3.773,
+        "actual_top50": 3.453,
+        "spy": 2.701
+      },
+      {
+        "date": "2018-12-06",
+        "official_top50": 4.349,
+        "official_uniform": 2.688,
+        "gross_top50": 3.718,
+        "actual_top50": 3.401,
+        "spy": 2.66
+      },
+      {
+        "date": "2018-12-13",
+        "official_top50": 4.22,
+        "official_uniform": 2.61,
+        "gross_top50": 3.636,
+        "actual_top50": 3.326,
+        "spy": 2.62
+      },
+      {
+        "date": "2018-12-20",
+        "official_top50": 4.155,
+        "official_uniform": 2.582,
+        "gross_top50": 3.397,
+        "actual_top50": 3.106,
+        "spy": 2.46
+      },
+      {
+        "date": "2018-12-28",
+        "official_top50": 4.216,
+        "official_uniform": 2.644,
+        "gross_top50": 3.446,
+        "actual_top50": 3.15,
+        "spy": 2.478
+      },
+      {
+        "date": "2019-01-07",
+        "official_top50": 4.37,
+        "official_uniform": 2.762,
+        "gross_top50": 3.532,
+        "actual_top50": 3.228,
+        "spy": 2.536
+      },
+      {
+        "date": "2019-01-14",
+        "official_top50": 4.486,
+        "official_uniform": 2.834,
+        "gross_top50": 3.606,
+        "actual_top50": 3.295,
+        "spy": 2.563
+      },
+      {
+        "date": "2019-01-22",
+        "official_top50": 4.57,
+        "official_uniform": 2.888,
+        "gross_top50": 3.671,
+        "actual_top50": 3.354,
+        "spy": 2.611
+      },
+      {
+        "date": "2019-01-29",
+        "official_top50": 4.67,
+        "official_uniform": 2.94,
+        "gross_top50": 3.659,
+        "actual_top50": 3.343,
+        "spy": 2.616
+      },
+      {
+        "date": "2019-02-05",
+        "official_top50": 4.75,
+        "official_uniform": 2.978,
+        "gross_top50": 3.796,
+        "actual_top50": 3.468,
+        "spy": 2.701
+      },
+      {
+        "date": "2019-02-12",
+        "official_top50": 4.82,
+        "official_uniform": 3.014,
+        "gross_top50": 3.873,
+        "actual_top50": 3.537,
+        "spy": 2.71
+      },
+      {
+        "date": "2019-02-20",
+        "official_top50": 4.847,
+        "official_uniform": 3.02,
+        "gross_top50": 3.919,
+        "actual_top50": 3.579,
+        "spy": 2.748
+      },
+      {
+        "date": "2019-02-27",
+        "official_top50": 4.83,
+        "official_uniform": 3.02,
+        "gross_top50": 3.962,
+        "actual_top50": 3.617,
+        "spy": 2.755
+      },
+      {
+        "date": "2019-03-06",
+        "official_top50": 4.868,
+        "official_uniform": 3.024,
+        "gross_top50": 3.921,
+        "actual_top50": 3.578,
+        "spy": 2.738
+      },
+      {
+        "date": "2019-03-13",
+        "official_top50": 4.911,
+        "official_uniform": 3.046,
+        "gross_top50": 3.974,
+        "actual_top50": 3.627,
+        "spy": 2.774
+      },
+      {
+        "date": "2019-03-20",
+        "official_top50": 4.959,
+        "official_uniform": 3.054,
+        "gross_top50": 4.005,
+        "actual_top50": 3.654,
+        "spy": 2.786
+      },
+      {
+        "date": "2019-03-27",
+        "official_top50": 4.984,
+        "official_uniform": 3.092,
+        "gross_top50": 3.996,
+        "actual_top50": 3.645,
+        "spy": 2.77
+      },
+      {
+        "date": "2019-04-03",
+        "official_top50": 5.016,
+        "official_uniform": 3.122,
+        "gross_top50": 4.127,
+        "actual_top50": 3.765,
+        "spy": 2.829
+      },
+      {
+        "date": "2019-04-10",
+        "official_top50": 5.026,
+        "official_uniform": 3.145,
+        "gross_top50": 4.159,
+        "actual_top50": 3.792,
+        "spy": 2.846
+      },
+      {
+        "date": "2019-04-17",
+        "official_top50": 5.025,
+        "official_uniform": 3.15,
+        "gross_top50": 4.081,
+        "actual_top50": 3.721,
+        "spy": 2.856
+      },
+      {
+        "date": "2019-04-25",
+        "official_top50": 5.016,
+        "official_uniform": 3.126,
+        "gross_top50": 4.128,
+        "actual_top50": 3.763,
+        "spy": 2.879
+      },
+      {
+        "date": "2019-05-02",
+        "official_top50": 4.994,
+        "official_uniform": 3.105,
+        "gross_top50": 4.125,
+        "actual_top50": 3.76,
+        "spy": 2.871
+      },
+      {
+        "date": "2019-05-09",
+        "official_top50": 4.959,
+        "official_uniform": 3.074,
+        "gross_top50": 4.094,
+        "actual_top50": 3.731,
+        "spy": 2.831
+      },
+      {
+        "date": "2019-05-16",
+        "official_top50": 4.93,
+        "official_uniform": 3.046,
+        "gross_top50": 4.098,
+        "actual_top50": 3.733,
+        "spy": 2.84
+      },
+      {
+        "date": "2019-05-23",
+        "official_top50": 4.955,
+        "official_uniform": 3.03,
+        "gross_top50": 4.005,
+        "actual_top50": 3.649,
+        "spy": 2.791
+      },
+      {
+        "date": "2019-05-31",
+        "official_top50": 5.002,
+        "official_uniform": 3.038,
+        "gross_top50": 3.99,
+        "actual_top50": 3.635,
+        "spy": 2.731
+      },
+      {
+        "date": "2019-06-07",
+        "official_top50": 5.114,
+        "official_uniform": 3.106,
+        "gross_top50": 4.177,
+        "actual_top50": 3.804,
+        "spy": 2.84
+      },
+      {
+        "date": "2019-06-14",
+        "official_top50": 5.2,
+        "official_uniform": 3.134,
+        "gross_top50": 4.201,
+        "actual_top50": 3.825,
+        "spy": 2.854
+      },
+      {
+        "date": "2019-06-21",
+        "official_top50": 5.236,
+        "official_uniform": 3.158,
+        "gross_top50": 4.265,
+        "actual_top50": 3.883,
+        "spy": 2.908
+      },
+      {
+        "date": "2019-06-28",
+        "official_top50": 5.275,
+        "official_uniform": 3.186,
+        "gross_top50": 4.261,
+        "actual_top50": 3.879,
+        "spy": 2.9
+      },
+      {
+        "date": "2019-07-08",
+        "official_top50": 5.375,
+        "official_uniform": 3.21,
+        "gross_top50": 4.352,
+        "actual_top50": 3.96,
+        "spy": 2.933
+      },
+      {
+        "date": "2019-07-15",
+        "official_top50": 5.366,
+        "official_uniform": 3.217,
+        "gross_top50": 4.405,
+        "actual_top50": 4.008,
+        "spy": 2.968
+      },
+      {
+        "date": "2019-07-22",
+        "official_top50": 5.27,
+        "official_uniform": 3.148,
+        "gross_top50": 4.392,
+        "actual_top50": 3.995,
+        "spy": 2.943
+      },
+      {
+        "date": "2019-07-29",
+        "official_top50": 5.261,
+        "official_uniform": 3.128,
+        "gross_top50": 4.424,
+        "actual_top50": 4.024,
+        "spy": 2.974
+      },
+      {
+        "date": "2019-08-05",
+        "official_top50": 5.273,
+        "official_uniform": 3.07,
+        "gross_top50": 4.168,
+        "actual_top50": 3.79,
+        "spy": 2.819
+      },
+      {
+        "date": "2019-08-12",
+        "official_top50": 5.307,
+        "official_uniform": 3.06,
+        "gross_top50": 4.324,
+        "actual_top50": 3.931,
+        "spy": 2.856
+      },
+      {
+        "date": "2019-08-19",
+        "official_top50": 5.386,
+        "official_uniform": 3.06,
+        "gross_top50": 4.366,
+        "actual_top50": 3.97,
+        "spy": 2.894
+      },
+      {
+        "date": "2019-08-26",
+        "official_top50": 5.382,
+        "official_uniform": 3.096,
+        "gross_top50": 4.371,
+        "actual_top50": 3.973,
+        "spy": 2.856
+      },
+      {
+        "date": "2019-09-03",
+        "official_top50": 5.373,
+        "official_uniform": 3.154,
+        "gross_top50": 4.395,
+        "actual_top50": 3.995,
+        "spy": 2.88
+      },
+      {
+        "date": "2019-09-10",
+        "official_top50": 5.323,
+        "official_uniform": 3.194,
+        "gross_top50": 4.282,
+        "actual_top50": 3.891,
+        "spy": 2.945
+      },
+      {
+        "date": "2019-09-17",
+        "official_top50": 5.239,
+        "official_uniform": 3.16,
+        "gross_top50": 4.358,
+        "actual_top50": 3.959,
+        "spy": 2.969
+      },
+      {
+        "date": "2019-09-24",
+        "official_top50": 5.216,
+        "official_uniform": 3.14,
+        "gross_top50": 4.32,
+        "actual_top50": 3.924,
+        "spy": 2.937
+      },
+      {
+        "date": "2019-10-01",
+        "official_top50": 5.239,
+        "official_uniform": 3.12,
+        "gross_top50": 4.256,
+        "actual_top50": 3.865,
+        "spy": 2.914
+      },
+      {
+        "date": "2019-10-08",
+        "official_top50": 5.264,
+        "official_uniform": 3.138,
+        "gross_top50": 4.258,
+        "actual_top50": 3.867,
+        "spy": 2.872
+      },
+      {
+        "date": "2019-10-15",
+        "official_top50": 5.293,
+        "official_uniform": 3.182,
+        "gross_top50": 4.402,
+        "actual_top50": 3.997,
+        "spy": 2.963
+      },
+      {
+        "date": "2019-10-22",
+        "official_top50": 5.305,
+        "official_uniform": 3.232,
+        "gross_top50": 4.312,
+        "actual_top50": 3.914,
+        "spy": 2.965
+      },
+      {
+        "date": "2019-10-29",
+        "official_top50": 5.355,
+        "official_uniform": 3.258,
+        "gross_top50": 4.381,
+        "actual_top50": 3.976,
+        "spy": 3.002
+      },
+      {
+        "date": "2019-11-05",
+        "official_top50": 5.402,
+        "official_uniform": 3.286,
+        "gross_top50": 4.351,
+        "actual_top50": 3.948,
+        "spy": 3.035
+      },
+      {
+        "date": "2019-11-12",
+        "official_top50": 5.463,
+        "official_uniform": 3.317,
+        "gross_top50": 4.414,
+        "actual_top50": 4.005,
+        "spy": 3.053
+      },
+      {
+        "date": "2019-11-19",
+        "official_top50": 5.527,
+        "official_uniform": 3.33,
+        "gross_top50": 4.506,
+        "actual_top50": 4.087,
+        "spy": 3.078
+      },
+      {
+        "date": "2019-11-26",
+        "official_top50": 5.545,
+        "official_uniform": 3.336,
+        "gross_top50": 4.575,
+        "actual_top50": 4.149,
+        "spy": 3.097
+      },
+      {
+        "date": "2019-12-04",
+        "official_top50": 5.562,
+        "official_uniform": 3.355,
+        "gross_top50": 4.509,
+        "actual_top50": 4.089,
+        "spy": 3.074
+      },
+      {
+        "date": "2019-12-11",
+        "official_top50": 5.589,
+        "official_uniform": 3.394,
+        "gross_top50": 4.534,
+        "actual_top50": 4.11,
+        "spy": 3.1
+      },
+      {
+        "date": "2019-12-18",
+        "official_top50": 5.618,
+        "official_uniform": 3.424,
+        "gross_top50": 4.56,
+        "actual_top50": 4.134,
+        "spy": 3.146
+      },
+      {
+        "date": "2019-12-26",
+        "official_top50": 5.664,
+        "official_uniform": 3.448,
+        "gross_top50": 4.618,
+        "actual_top50": 4.185,
+        "spy": 3.189
+      },
+      {
+        "date": "2020-01-03",
+        "official_top50": 5.716,
+        "official_uniform": 3.475,
+        "gross_top50": 4.608,
+        "actual_top50": 4.176,
+        "spy": 3.184
+      },
+      {
+        "date": "2020-01-10",
+        "official_top50": 5.75,
+        "official_uniform": 3.49,
+        "gross_top50": 4.679,
+        "actual_top50": 4.239,
+        "spy": 3.213
+      },
+      {
+        "date": "2020-01-17",
+        "official_top50": 5.73,
+        "official_uniform": 3.482,
+        "gross_top50": 4.762,
+        "actual_top50": 4.314,
+        "spy": 3.268
+      },
+      {
+        "date": "2020-01-27",
+        "official_top50": 5.739,
+        "official_uniform": 3.465,
+        "gross_top50": 4.663,
+        "actual_top50": 4.225,
+        "spy": 3.194
+      },
+      {
+        "date": "2020-02-03",
+        "official_top50": 5.784,
+        "official_uniform": 3.49,
+        "gross_top50": 4.696,
+        "actual_top50": 4.253,
+        "spy": 3.199
+      },
+      {
+        "date": "2020-02-10",
+        "official_top50": 5.707,
+        "official_uniform": 3.456,
+        "gross_top50": 4.837,
+        "actual_top50": 4.38,
+        "spy": 3.292
+      },
+      {
+        "date": "2020-02-18",
+        "official_top50": 5.614,
+        "official_uniform": 3.35,
+        "gross_top50": 4.87,
+        "actual_top50": 4.409,
+        "spy": 3.31
+      },
+      {
+        "date": "2020-02-25",
+        "official_top50": 5.136,
+        "official_uniform": 2.996,
+        "gross_top50": 4.535,
+        "actual_top50": 4.105,
+        "spy": 3.098
+      },
+      {
+        "date": "2020-03-03",
+        "official_top50": 4.682,
+        "official_uniform": 2.74,
+        "gross_top50": 4.377,
+        "actual_top50": 3.962,
+        "spy": 2.989
+      },
+      {
+        "date": "2020-03-10",
+        "official_top50": 4.534,
+        "official_uniform": 2.594,
+        "gross_top50": 4.201,
+        "actual_top50": 3.801,
+        "spy": 2.885
+      },
+      {
+        "date": "2020-03-17",
+        "official_top50": 4.136,
+        "official_uniform": 2.38,
+        "gross_top50": 3.548,
+        "actual_top50": 3.21,
+        "spy": 2.572
+      },
+      {
+        "date": "2020-03-24",
+        "official_top50": 4.252,
+        "official_uniform": 2.418,
+        "gross_top50": 3.573,
+        "actual_top50": 3.231,
+        "spy": 2.499
+      },
+      {
+        "date": "2020-03-31",
+        "official_top50": 4.518,
+        "official_uniform": 2.556,
+        "gross_top50": 3.818,
+        "actual_top50": 3.451,
+        "spy": 2.628
+      },
+      {
+        "date": "2020-04-07",
+        "official_top50": 4.628,
+        "official_uniform": 2.62,
+        "gross_top50": 3.907,
+        "actual_top50": 3.531,
+        "spy": 2.693
+      },
+      {
+        "date": "2020-04-15",
+        "official_top50": 5.102,
+        "official_uniform": 2.82,
+        "gross_top50": 4.049,
+        "actual_top50": 3.658,
+        "spy": 2.804
+      },
+      {
+        "date": "2020-04-22",
+        "official_top50": 5.125,
+        "official_uniform": 2.84,
+        "gross_top50": 4.074,
+        "actual_top50": 3.681,
+        "spy": 2.816
+      },
+      {
+        "date": "2020-04-29",
+        "official_top50": 5.207,
+        "official_uniform": 2.88,
+        "gross_top50": 4.416,
+        "actual_top50": 3.987,
+        "spy": 2.94
+      },
+      {
+        "date": "2020-05-06",
+        "official_top50": 5.261,
+        "official_uniform": 2.873,
+        "gross_top50": 4.312,
+        "actual_top50": 3.893,
+        "spy": 2.861
+      },
+      {
+        "date": "2020-05-13",
+        "official_top50": 5.42,
+        "official_uniform": 2.944,
+        "gross_top50": 4.282,
+        "actual_top50": 3.866,
+        "spy": 2.838
+      },
+      {
+        "date": "2020-05-20",
+        "official_top50": 5.657,
+        "official_uniform": 3.092,
+        "gross_top50": 4.615,
+        "actual_top50": 4.164,
+        "spy": 2.973
+      },
+      {
+        "date": "2020-05-28",
+        "official_top50": 5.93,
+        "official_uniform": 3.268,
+        "gross_top50": 4.76,
+        "actual_top50": 4.294,
+        "spy": 3.026
+      },
+      {
+        "date": "2020-06-04",
+        "official_top50": 6.139,
+        "official_uniform": 3.31,
+        "gross_top50": 4.88,
+        "actual_top50": 4.401,
+        "spy": 3.1
+      },
+      {
+        "date": "2020-06-11",
+        "official_top50": 6.15,
+        "official_uniform": 3.302,
+        "gross_top50": 4.726,
+        "actual_top50": 4.261,
+        "spy": 3.005
+      },
+      {
+        "date": "2020-06-18",
+        "official_top50": 6.102,
+        "official_uniform": 3.208,
+        "gross_top50": 4.907,
+        "actual_top50": 4.422,
+        "spy": 3.103
+      },
+      {
+        "date": "2020-06-25",
+        "official_top50": 6.111,
+        "official_uniform": 3.2,
+        "gross_top50": 4.799,
+        "actual_top50": 4.324,
+        "spy": 3.076
+      },
+      {
+        "date": "2020-07-02",
+        "official_top50": 6.236,
+        "official_uniform": 3.244,
+        "gross_top50": 4.916,
+        "actual_top50": 4.429,
+        "spy": 3.119
+      },
+      {
+        "date": "2020-07-10",
+        "official_top50": 6.291,
+        "official_uniform": 3.268,
+        "gross_top50": 4.889,
+        "actual_top50": 4.404,
+        "spy": 3.166
+      },
+      {
+        "date": "2020-07-17",
+        "official_top50": 6.335,
+        "official_uniform": 3.312,
+        "gross_top50": 5.14,
+        "actual_top50": 4.629,
+        "spy": 3.203
+      },
+      {
+        "date": "2020-07-24",
+        "official_top50": 6.414,
+        "official_uniform": 3.39,
+        "gross_top50": 5.166,
+        "actual_top50": 4.651,
+        "spy": 3.195
+      },
+      {
+        "date": "2020-07-31",
+        "official_top50": 6.457,
+        "official_uniform": 3.424,
+        "gross_top50": 5.29,
+        "actual_top50": 4.762,
+        "spy": 3.245
+      },
+      {
+        "date": "2020-08-07",
+        "official_top50": 6.573,
+        "official_uniform": 3.458,
+        "gross_top50": 5.34,
+        "actual_top50": 4.806,
+        "spy": 3.316
+      },
+      {
+        "date": "2020-08-14",
+        "official_top50": 6.636,
+        "official_uniform": 3.48,
+        "gross_top50": 5.328,
+        "actual_top50": 4.794,
+        "spy": 3.336
+      },
+      {
+        "date": "2020-08-21",
+        "official_top50": 6.639,
+        "official_uniform": 3.506,
+        "gross_top50": 5.444,
+        "actual_top50": 4.898,
+        "spy": 3.359
+      },
+      {
+        "date": "2020-08-28",
+        "official_top50": 6.568,
+        "official_uniform": 3.5,
+        "gross_top50": 5.49,
+        "actual_top50": 4.938,
+        "spy": 3.457
+      },
+      {
+        "date": "2020-09-04",
+        "official_top50": 6.564,
+        "official_uniform": 3.482,
+        "gross_top50": 5.299,
+        "actual_top50": 4.765,
+        "spy": 3.386
+      },
+      {
+        "date": "2020-09-14",
+        "official_top50": 6.43,
+        "official_uniform": 3.408,
+        "gross_top50": 5.309,
+        "actual_top50": 4.773,
+        "spy": 3.35
+      },
+      {
+        "date": "2020-09-21",
+        "official_top50": 6.511,
+        "official_uniform": 3.4,
+        "gross_top50": 5.217,
+        "actual_top50": 4.689,
+        "spy": 3.261
+      },
+      {
+        "date": "2020-09-28",
+        "official_top50": 6.695,
+        "official_uniform": 3.468,
+        "gross_top50": 5.379,
+        "actual_top50": 4.834,
+        "spy": 3.324
+      },
+      {
+        "date": "2020-10-05",
+        "official_top50": 6.852,
+        "official_uniform": 3.54,
+        "gross_top50": 5.505,
+        "actual_top50": 4.946,
+        "spy": 3.373
+      },
+      {
+        "date": "2020-10-12",
+        "official_top50": 6.875,
+        "official_uniform": 3.558,
+        "gross_top50": 5.771,
+        "actual_top50": 5.184,
+        "spy": 3.485
+      },
+      {
+        "date": "2020-10-19",
+        "official_top50": 6.814,
+        "official_uniform": 3.532,
+        "gross_top50": 5.689,
+        "actual_top50": 5.109,
+        "spy": 3.393
+      },
+      {
+        "date": "2020-10-26",
+        "official_top50": 6.844,
+        "official_uniform": 3.567,
+        "gross_top50": 5.611,
+        "actual_top50": 5.037,
+        "spy": 3.37
+      },
+      {
+        "date": "2020-11-02",
+        "official_top50": 6.861,
+        "official_uniform": 3.652,
+        "gross_top50": 5.409,
+        "actual_top50": 4.856,
+        "spy": 3.289
+      },
+      {
+        "date": "2020-11-09",
+        "official_top50": 6.989,
+        "official_uniform": 3.794,
+        "gross_top50": 5.683,
+        "actual_top50": 5.1,
+        "spy": 3.503
+      },
+      {
+        "date": "2020-11-16",
+        "official_top50": 7.191,
+        "official_uniform": 3.898,
+        "gross_top50": 5.783,
+        "actual_top50": 5.189,
+        "spy": 3.574
+      },
+      {
+        "date": "2020-11-23",
+        "official_top50": 7.318,
+        "official_uniform": 4.01,
+        "gross_top50": 5.832,
+        "actual_top50": 5.232,
+        "spy": 3.529
+      },
+      {
+        "date": "2020-12-01",
+        "official_top50": 7.47,
+        "official_uniform": 4.056,
+        "gross_top50": 5.964,
+        "actual_top50": 5.349,
+        "spy": 3.604
+      },
+      {
+        "date": "2020-12-08",
+        "official_top50": 7.607,
+        "official_uniform": 4.104,
+        "gross_top50": 6.046,
+        "actual_top50": 5.423,
+        "spy": 3.641
+      },
+      {
+        "date": "2020-12-15",
+        "official_top50": 7.639,
+        "official_uniform": 4.126,
+        "gross_top50": 6.111,
+        "actual_top50": 5.479,
+        "spy": 3.636
+      },
+      {
+        "date": "2020-12-22",
+        "official_top50": 7.784,
+        "official_uniform": 4.152,
+        "gross_top50": 6.252,
+        "actual_top50": 5.606,
+        "spy": 3.629
+      },
+      {
+        "date": "2020-12-30",
+        "official_top50": 7.948,
+        "official_uniform": 4.216,
+        "gross_top50": 6.288,
+        "actual_top50": 5.636,
+        "spy": 3.671
+      },
+      {
+        "date": "2021-01-07",
+        "official_top50": 8.025,
+        "official_uniform": 4.244,
+        "gross_top50": 6.527,
+        "actual_top50": 5.849,
+        "spy": 3.733
+      },
+      {
+        "date": "2021-01-14",
+        "official_top50": 8.148,
+        "official_uniform": 4.3,
+        "gross_top50": 6.652,
+        "actual_top50": 5.961,
+        "spy": 3.728
+      },
+      {
+        "date": "2021-01-22",
+        "official_top50": 8.184,
+        "official_uniform": 4.296,
+        "gross_top50": 6.768,
+        "actual_top50": 6.062,
+        "spy": 3.767
+      },
+      {
+        "date": "2021-01-29",
+        "official_top50": 8.352,
+        "official_uniform": 4.34,
+        "gross_top50": 6.441,
+        "actual_top50": 5.769,
+        "spy": 3.654
+      },
+      {
+        "date": "2021-02-05",
+        "official_top50": 8.426,
+        "official_uniform": 4.389,
+        "gross_top50": 6.812,
+        "actual_top50": 6.1,
+        "spy": 3.809
+      },
+      {
+        "date": "2021-02-12",
+        "official_top50": 8.511,
+        "official_uniform": 4.49,
+        "gross_top50": 7.108,
+        "actual_top50": 6.364,
+        "spy": 3.852
+      },
+      {
+        "date": "2021-02-22",
+        "official_top50": 8.045,
+        "official_uniform": 4.46,
+        "gross_top50": 6.669,
+        "actual_top50": 5.969,
+        "spy": 3.803
+      },
+      {
+        "date": "2021-03-01",
+        "official_top50": 7.948,
+        "official_uniform": 4.466,
+        "gross_top50": 6.737,
+        "actual_top50": 6.028,
+        "spy": 3.825
+      },
+      {
+        "date": "2021-03-08",
+        "official_top50": 7.875,
+        "official_uniform": 4.51,
+        "gross_top50": 5.781,
+        "actual_top50": 5.173,
+        "spy": 3.756
+      },
+      {
+        "date": "2021-03-15",
+        "official_top50": 7.73,
+        "official_uniform": 4.55,
+        "gross_top50": 6.393,
+        "actual_top50": 5.72,
+        "spy": 3.886
+      },
+      {
+        "date": "2021-03-22",
+        "official_top50": 7.845,
+        "official_uniform": 4.558,
+        "gross_top50": 6.31,
+        "actual_top50": 5.645,
+        "spy": 3.863
+      },
+      {
+        "date": "2021-03-29",
+        "official_top50": 7.912,
+        "official_uniform": 4.595,
+        "gross_top50": 6.162,
+        "actual_top50": 5.511,
+        "spy": 3.891
+      },
+      {
+        "date": "2021-04-06",
+        "official_top50": 8.045,
+        "official_uniform": 4.67,
+        "gross_top50": 6.538,
+        "actual_top50": 5.844,
+        "spy": 3.982
+      },
+      {
+        "date": "2021-04-13",
+        "official_top50": 8.309,
+        "official_uniform": 4.732,
+        "gross_top50": 6.621,
+        "actual_top50": 5.918,
+        "spy": 4.042
+      },
+      {
+        "date": "2021-04-20",
+        "official_top50": 8.391,
+        "official_uniform": 4.766,
+        "gross_top50": 6.565,
+        "actual_top50": 5.866,
+        "spy": 4.035
+      },
+      {
+        "date": "2021-04-27",
+        "official_top50": 8.35,
+        "official_uniform": 4.768,
+        "gross_top50": 6.874,
+        "actual_top50": 6.143,
+        "spy": 4.083
+      },
+      {
+        "date": "2021-05-04",
+        "official_top50": 8.243,
+        "official_uniform": 4.742,
+        "gross_top50": 6.563,
+        "actual_top50": 5.864,
+        "spy": 4.066
+      },
+      {
+        "date": "2021-05-11",
+        "official_top50": 8.15,
+        "official_uniform": 4.742,
+        "gross_top50": 6.481,
+        "actual_top50": 5.788,
+        "spy": 4.053
+      },
+      {
+        "date": "2021-05-18",
+        "official_top50": 8.168,
+        "official_uniform": 4.75,
+        "gross_top50": 6.395,
+        "actual_top50": 5.711,
+        "spy": 4.033
+      },
+      {
+        "date": "2021-05-25",
+        "official_top50": 8.245,
+        "official_uniform": 4.81,
+        "gross_top50": 6.586,
+        "actual_top50": 5.88,
+        "spy": 4.089
+      },
+      {
+        "date": "2021-06-02",
+        "official_top50": 8.3,
+        "official_uniform": 4.858,
+        "gross_top50": 6.649,
+        "actual_top50": 5.936,
+        "spy": 4.107
+      },
+      {
+        "date": "2021-06-09",
+        "official_top50": 8.273,
+        "official_uniform": 4.85,
+        "gross_top50": 6.623,
+        "actual_top50": 5.91,
+        "spy": 4.119
+      },
+      {
+        "date": "2021-06-16",
+        "official_top50": 8.281,
+        "official_uniform": 4.857,
+        "gross_top50": 6.606,
+        "actual_top50": 5.894,
+        "spy": 4.123
+      },
+      {
+        "date": "2021-06-23",
+        "official_top50": 8.3,
+        "official_uniform": 4.878,
+        "gross_top50": 6.606,
+        "actual_top50": 5.894,
+        "spy": 4.139
+      },
+      {
+        "date": "2021-06-30",
+        "official_top50": 8.391,
+        "official_uniform": 4.904,
+        "gross_top50": 6.692,
+        "actual_top50": 5.97,
+        "spy": 4.187
+      },
+      {
+        "date": "2021-07-08",
+        "official_top50": 8.398,
+        "official_uniform": 4.862,
+        "gross_top50": 6.701,
+        "actual_top50": 5.978,
+        "spy": 4.213
+      },
+      {
+        "date": "2021-07-15",
+        "official_top50": 8.416,
+        "official_uniform": 4.84,
+        "gross_top50": 6.714,
+        "actual_top50": 5.987,
+        "spy": 4.246
+      },
+      {
+        "date": "2021-07-22",
+        "official_top50": 8.445,
+        "official_uniform": 4.854,
+        "gross_top50": 6.868,
+        "actual_top50": 6.123,
+        "spy": 4.253
+      },
+      {
+        "date": "2021-07-29",
+        "official_top50": 8.609,
+        "official_uniform": 4.916,
+        "gross_top50": 6.987,
+        "actual_top50": 6.228,
+        "spy": 4.298
+      },
+      {
+        "date": "2021-08-05",
+        "official_top50": 8.723,
+        "official_uniform": 4.926,
+        "gross_top50": 7.073,
+        "actual_top50": 6.304,
+        "spy": 4.308
+      },
+      {
+        "date": "2021-08-12",
+        "official_top50": 8.798,
+        "official_uniform": 4.916,
+        "gross_top50": 7.128,
+        "actual_top50": 6.352,
+        "spy": 4.337
+      },
+      {
+        "date": "2021-08-19",
+        "official_top50": 8.852,
+        "official_uniform": 4.93,
+        "gross_top50": 7.01,
+        "actual_top50": 6.245,
+        "spy": 4.291
+      },
+      {
+        "date": "2021-08-26",
+        "official_top50": 8.898,
+        "official_uniform": 4.96,
+        "gross_top50": 7.217,
+        "actual_top50": 6.428,
+        "spy": 4.348
+      },
+      {
+        "date": "2021-09-02",
+        "official_top50": 8.966,
+        "official_uniform": 4.99,
+        "gross_top50": 7.276,
+        "actual_top50": 6.479,
+        "spy": 4.409
+      },
+      {
+        "date": "2021-09-10",
+        "official_top50": 8.873,
+        "official_uniform": 4.938,
+        "gross_top50": 7.184,
+        "actual_top50": 6.397,
+        "spy": 4.34
+      },
+      {
+        "date": "2021-09-17",
+        "official_top50": 8.682,
+        "official_uniform": 4.9,
+        "gross_top50": 7.123,
+        "actual_top50": 6.342,
+        "spy": 4.317
+      },
+      {
+        "date": "2021-09-24",
+        "official_top50": 8.614,
+        "official_uniform": 4.885,
+        "gross_top50": 7.177,
+        "actual_top50": 6.389,
+        "spy": 4.339
+      },
+      {
+        "date": "2021-10-01",
+        "official_top50": 8.568,
+        "official_uniform": 4.88,
+        "gross_top50": 6.845,
+        "actual_top50": 6.092,
+        "spy": 4.254
+      },
+      {
+        "date": "2021-10-08",
+        "official_top50": 8.577,
+        "official_uniform": 4.936,
+        "gross_top50": 6.817,
+        "actual_top50": 6.066,
+        "spy": 4.286
+      },
+      {
+        "date": "2021-10-15",
+        "official_top50": 8.627,
+        "official_uniform": 4.992,
+        "gross_top50": 6.991,
+        "actual_top50": 6.221,
+        "spy": 4.357
+      },
+      {
+        "date": "2021-10-22",
+        "official_top50": 8.811,
+        "official_uniform": 5.078,
+        "gross_top50": 7.235,
+        "actual_top50": 6.436,
+        "spy": 4.421
+      },
+      {
+        "date": "2021-10-29",
+        "official_top50": 9.002,
+        "official_uniform": 5.098,
+        "gross_top50": 7.338,
+        "actual_top50": 6.527,
+        "spy": 4.474
+      },
+      {
+        "date": "2021-11-05",
+        "official_top50": 9.057,
+        "official_uniform": 5.14,
+        "gross_top50": 7.443,
+        "actual_top50": 6.62,
+        "spy": 4.556
+      },
+      {
+        "date": "2021-11-12",
+        "official_top50": 9.102,
+        "official_uniform": 5.133,
+        "gross_top50": 7.444,
+        "actual_top50": 6.618,
+        "spy": 4.545
+      },
+      {
+        "date": "2021-11-19",
+        "official_top50": 8.916,
+        "official_uniform": 5.006,
+        "gross_top50": 7.511,
+        "actual_top50": 6.677,
+        "spy": 4.559
+      },
+      {
+        "date": "2021-11-29",
+        "official_top50": 8.855,
+        "official_uniform": 4.946,
+        "gross_top50": 7.442,
+        "actual_top50": 6.615,
+        "spy": 4.522
+      },
+      {
+        "date": "2021-12-06",
+        "official_top50": 8.784,
+        "official_uniform": 4.938,
+        "gross_top50": 7.29,
+        "actual_top50": 6.477,
+        "spy": 4.47
+      },
+      {
+        "date": "2021-12-13",
+        "official_top50": 8.752,
+        "official_uniform": 4.962,
+        "gross_top50": 7.362,
+        "actual_top50": 6.541,
+        "spy": 4.539
+      },
+      {
+        "date": "2021-12-20",
+        "official_top50": 8.807,
+        "official_uniform": 4.976,
+        "gross_top50": 7.078,
+        "actual_top50": 6.287,
+        "spy": 4.451
+      },
+      {
+        "date": "2021-12-28",
+        "official_top50": 8.748,
+        "official_uniform": 5.0,
+        "gross_top50": 7.623,
+        "actual_top50": 6.77,
+        "spy": 4.644
+      },
+      {
+        "date": "2022-01-04",
+        "official_top50": 8.616,
+        "official_uniform": 5.025,
+        "gross_top50": 7.449,
+        "actual_top50": 6.615,
+        "spy": 4.65
+      },
+      {
+        "date": "2022-01-11",
+        "official_top50": 8.223,
+        "official_uniform": 4.884,
+        "gross_top50": 7.088,
+        "actual_top50": 6.294,
+        "spy": 4.581
+      },
+      {
+        "date": "2022-01-19",
+        "official_top50": 7.841,
+        "official_uniform": 4.804,
+        "gross_top50": 6.643,
+        "actual_top50": 5.896,
+        "spy": 4.423
+      },
+      {
+        "date": "2022-01-26",
+        "official_top50": 7.625,
+        "official_uniform": 4.722,
+        "gross_top50": 6.311,
+        "actual_top50": 5.603,
+        "spy": 4.261
+      },
+      {
+        "date": "2022-02-02",
+        "official_top50": 7.634,
+        "official_uniform": 4.756,
+        "gross_top50": 6.827,
+        "actual_top50": 6.058,
+        "spy": 4.472
+      },
+      {
+        "date": "2022-02-09",
+        "official_top50": 7.699,
+        "official_uniform": 4.803,
+        "gross_top50": 6.902,
+        "actual_top50": 6.123,
+        "spy": 4.474
+      },
+      {
+        "date": "2022-02-16",
+        "official_top50": 7.605,
+        "official_uniform": 4.734,
+        "gross_top50": 6.729,
+        "actual_top50": 5.97,
+        "spy": 4.377
+      },
+      {
+        "date": "2022-02-24",
+        "official_top50": 7.491,
+        "official_uniform": 4.652,
+        "gross_top50": 6.529,
+        "actual_top50": 5.789,
+        "spy": 4.216
+      },
+      {
+        "date": "2022-03-03",
+        "official_top50": 7.524,
+        "official_uniform": 4.602,
+        "gross_top50": 6.644,
+        "actual_top50": 5.892,
+        "spy": 4.282
+      },
+      {
+        "date": "2022-03-10",
+        "official_top50": 7.65,
+        "official_uniform": 4.624,
+        "gross_top50": 6.495,
+        "actual_top50": 5.757,
+        "spy": 4.192
+      },
+      {
+        "date": "2022-03-17",
+        "official_top50": 7.743,
+        "official_uniform": 4.67,
+        "gross_top50": 6.78,
+        "actual_top50": 6.009,
+        "spy": 4.329
+      },
+      {
+        "date": "2022-03-24",
+        "official_top50": 7.896,
+        "official_uniform": 4.838,
+        "gross_top50": 6.919,
+        "actual_top50": 6.13,
+        "spy": 4.424
+      },
+      {
+        "date": "2022-03-31",
+        "official_top50": 8.025,
+        "official_uniform": 4.874,
+        "gross_top50": 6.905,
+        "actual_top50": 6.117,
+        "spy": 4.434
+      },
+      {
+        "date": "2022-04-07",
+        "official_top50": 7.975,
+        "official_uniform": 4.82,
+        "gross_top50": 6.822,
+        "actual_top50": 6.043,
+        "spy": 4.409
+      },
+      {
+        "date": "2022-04-14",
+        "official_top50": 7.744,
+        "official_uniform": 4.695,
+        "gross_top50": 6.708,
+        "actual_top50": 5.94,
+        "spy": 4.312
+      },
+      {
+        "date": "2022-04-22",
+        "official_top50": 7.609,
+        "official_uniform": 4.616,
+        "gross_top50": 6.553,
+        "actual_top50": 5.803,
+        "spy": 4.209
+      },
+      {
+        "date": "2022-04-29",
+        "official_top50": 7.439,
+        "official_uniform": 4.444,
+        "gross_top50": 6.34,
+        "actual_top50": 5.612,
+        "spy": 4.085
+      },
+      {
+        "date": "2022-05-06",
+        "official_top50": 7.304,
+        "official_uniform": 4.367,
+        "gross_top50": 6.145,
+        "actual_top50": 5.438,
+        "spy": 4.079
+      },
+      {
+        "date": "2022-05-13",
+        "official_top50": 7.277,
+        "official_uniform": 4.32,
+        "gross_top50": 6.063,
+        "actual_top50": 5.364,
+        "spy": 3.995
+      },
+      {
+        "date": "2022-05-20",
+        "official_top50": 7.259,
+        "official_uniform": 4.318,
+        "gross_top50": 5.897,
+        "actual_top50": 5.216,
+        "spy": 3.888
+      },
+      {
+        "date": "2022-05-27",
+        "official_top50": 7.287,
+        "official_uniform": 4.357,
+        "gross_top50": 6.325,
+        "actual_top50": 5.594,
+        "spy": 4.114
+      },
+      {
+        "date": "2022-06-06",
+        "official_top50": 7.15,
+        "official_uniform": 4.242,
+        "gross_top50": 6.289,
+        "actual_top50": 5.56,
+        "spy": 4.083
+      },
+      {
+        "date": "2022-06-13",
+        "official_top50": 7.06,
+        "official_uniform": 4.185,
+        "gross_top50": 5.824,
+        "actual_top50": 5.149,
+        "spy": 3.76
+      },
+      {
+        "date": "2022-06-21",
+        "official_top50": 6.75,
+        "official_uniform": 4.09,
+        "gross_top50": 5.806,
+        "actual_top50": 5.131,
+        "spy": 3.774
+      },
+      {
+        "date": "2022-06-28",
+        "official_top50": 6.668,
+        "official_uniform": 4.13,
+        "gross_top50": 5.891,
+        "actual_top50": 5.204,
+        "spy": 3.823
+      },
+      {
+        "date": "2022-07-06",
+        "official_top50": 6.636,
+        "official_uniform": 4.15,
+        "gross_top50": 5.6,
+        "actual_top50": 4.947,
+        "spy": 3.846
+      },
+      {
+        "date": "2022-07-13",
+        "official_top50": 6.675,
+        "official_uniform": 4.206,
+        "gross_top50": 5.623,
+        "actual_top50": 4.965,
+        "spy": 3.807
+      },
+      {
+        "date": "2022-07-20",
+        "official_top50": 6.761,
+        "official_uniform": 4.26,
+        "gross_top50": 5.855,
+        "actual_top50": 5.171,
+        "spy": 3.947
+      },
+      {
+        "date": "2022-07-27",
+        "official_top50": 6.92,
+        "official_uniform": 4.365,
+        "gross_top50": 5.932,
+        "actual_top50": 5.236,
+        "spy": 4.003
+      },
+      {
+        "date": "2022-08-03",
+        "official_top50": 7.091,
+        "official_uniform": 4.54,
+        "gross_top50": 5.973,
+        "actual_top50": 5.271,
+        "spy": 4.121
+      },
+      {
+        "date": "2022-08-10",
+        "official_top50": 7.145,
+        "official_uniform": 4.578,
+        "gross_top50": 6.048,
+        "actual_top50": 5.337,
+        "spy": 4.169
+      },
+      {
+        "date": "2022-08-17",
+        "official_top50": 7.114,
+        "official_uniform": 4.558,
+        "gross_top50": 6.076,
+        "actual_top50": 5.359,
+        "spy": 4.228
+      },
+      {
+        "date": "2022-08-24",
+        "official_top50": 7.052,
+        "official_uniform": 4.462,
+        "gross_top50": 6.016,
+        "actual_top50": 5.306,
+        "spy": 4.114
+      },
+      {
+        "date": "2022-08-31",
+        "official_top50": 7.018,
+        "official_uniform": 4.396,
+        "gross_top50": 5.802,
+        "actual_top50": 5.116,
+        "spy": 3.951
+      },
+      {
+        "date": "2022-09-08",
+        "official_top50": 6.847,
+        "official_uniform": 4.35,
+        "gross_top50": 5.907,
+        "actual_top50": 5.208,
+        "spy": 3.997
+      },
+      {
+        "date": "2022-09-15",
+        "official_top50": 6.716,
+        "official_uniform": 4.22,
+        "gross_top50": 5.733,
+        "actual_top50": 5.054,
+        "spy": 3.906
+      },
+      {
+        "date": "2022-09-22",
+        "official_top50": 6.682,
+        "official_uniform": 4.144,
+        "gross_top50": 5.502,
+        "actual_top50": 4.849,
+        "spy": 3.781
+      },
+      {
+        "date": "2022-09-29",
+        "official_top50": 6.67,
+        "official_uniform": 4.04,
+        "gross_top50": 5.454,
+        "actual_top50": 4.807,
+        "spy": 3.68
+      },
+      {
+        "date": "2022-10-06",
+        "official_top50": 6.709,
+        "official_uniform": 4.02,
+        "gross_top50": 5.747,
+        "actual_top50": 5.061,
+        "spy": 3.772
+      },
+      {
+        "date": "2022-10-13",
+        "official_top50": 6.795,
+        "official_uniform": 4.02,
+        "gross_top50": 5.607,
+        "actual_top50": 4.938,
+        "spy": 3.708
+      },
+      {
+        "date": "2022-10-20",
+        "official_top50": 6.912,
+        "official_uniform": 4.045,
+        "gross_top50": 5.559,
+        "actual_top50": 4.894,
+        "spy": 3.703
+      },
+      {
+        "date": "2022-10-27",
+        "official_top50": 7.189,
+        "official_uniform": 4.144,
+        "gross_top50": 5.788,
+        "actual_top50": 5.095,
+        "spy": 3.831
+      },
+      {
+        "date": "2022-11-03",
+        "official_top50": 7.4,
+        "official_uniform": 4.252,
+        "gross_top50": 5.567,
+        "actual_top50": 4.9,
+        "spy": 3.752
+      },
+      {
+        "date": "2022-11-10",
+        "official_top50": 7.514,
+        "official_uniform": 4.268,
+        "gross_top50": 5.989,
+        "actual_top50": 5.269,
+        "spy": 3.961
+      },
+      {
+        "date": "2022-11-17",
+        "official_top50": 7.639,
+        "official_uniform": 4.316,
+        "gross_top50": 5.969,
+        "actual_top50": 5.25,
+        "spy": 3.957
+      },
+      {
+        "date": "2022-11-25",
+        "official_top50": 7.775,
+        "official_uniform": 4.436,
+        "gross_top50": 6.081,
+        "actual_top50": 5.349,
+        "spy": 4.028
+      },
+      {
+        "date": "2022-12-02",
+        "official_top50": 7.718,
+        "official_uniform": 4.438,
+        "gross_top50": 6.112,
+        "actual_top50": 5.375,
+        "spy": 4.068
+      },
+      {
+        "date": "2022-12-09",
+        "official_top50": 7.668,
+        "official_uniform": 4.388,
+        "gross_top50": 5.843,
+        "actual_top50": 5.138,
+        "spy": 3.948
+      },
+      {
+        "date": "2022-12-16",
+        "official_top50": 7.548,
+        "official_uniform": 4.356,
+        "gross_top50": 5.86,
+        "actual_top50": 5.151,
+        "spy": 3.876
+      },
+      {
+        "date": "2022-12-23",
+        "official_top50": 7.469,
+        "official_uniform": 4.317,
+        "gross_top50": 5.859,
+        "actual_top50": 5.149,
+        "spy": 3.873
+      },
+      {
+        "date": "2023-01-03",
+        "official_top50": 7.534,
+        "official_uniform": 4.4,
+        "gross_top50": 5.759,
+        "actual_top50": 5.06,
+        "spy": 3.854
+      },
+      {
+        "date": "2023-01-10",
+        "official_top50": 7.551,
+        "official_uniform": 4.46,
+        "gross_top50": 5.897,
+        "actual_top50": 5.179,
+        "spy": 3.94
+      },
+      {
+        "date": "2023-01-18",
+        "official_top50": 7.659,
+        "official_uniform": 4.586,
+        "gross_top50": 5.929,
+        "actual_top50": 5.208,
+        "spy": 3.948
+      },
+      {
+        "date": "2023-01-25",
+        "official_top50": 7.725,
+        "official_uniform": 4.662,
+        "gross_top50": 5.992,
+        "actual_top50": 5.262,
+        "spy": 4.026
+      },
+      {
+        "date": "2023-02-01",
+        "official_top50": 7.841,
+        "official_uniform": 4.73,
+        "gross_top50": 6.115,
+        "actual_top50": 5.37,
+        "spy": 4.118
+      },
+      {
+        "date": "2023-02-08",
+        "official_top50": 7.875,
+        "official_uniform": 4.718,
+        "gross_top50": 6.113,
+        "actual_top50": 5.366,
+        "spy": 4.117
+      },
+      {
+        "date": "2023-02-15",
+        "official_top50": 7.852,
+        "official_uniform": 4.67,
+        "gross_top50": 6.235,
+        "actual_top50": 5.471,
+        "spy": 4.146
+      },
+      {
+        "date": "2023-02-23",
+        "official_top50": 7.812,
+        "official_uniform": 4.615,
+        "gross_top50": 6.038,
+        "actual_top50": 5.297,
+        "spy": 4.029
+      },
+      {
+        "date": "2023-03-02",
+        "official_top50": 7.709,
+        "official_uniform": 4.488,
+        "gross_top50": 6.117,
+        "actual_top50": 5.366,
+        "spy": 4.004
+      },
+      {
+        "date": "2023-03-09",
+        "official_top50": 7.675,
+        "official_uniform": 4.468,
+        "gross_top50": 6.044,
+        "actual_top50": 5.301,
+        "spy": 3.949
+      },
+      {
+        "date": "2023-03-16",
+        "official_top50": 7.62,
+        "official_uniform": 4.388,
+        "gross_top50": 5.879,
+        "actual_top50": 5.155,
+        "spy": 3.989
+      },
+      {
+        "date": "2023-03-23",
+        "official_top50": 7.7,
+        "official_uniform": 4.426,
+        "gross_top50": 5.826,
+        "actual_top50": 5.107,
+        "spy": 3.976
+      },
+      {
+        "date": "2023-03-30",
+        "official_top50": 7.739,
+        "official_uniform": 4.46,
+        "gross_top50": 6.009,
+        "actual_top50": 5.267,
+        "spy": 4.069
+      },
+      {
+        "date": "2023-04-06",
+        "official_top50": 7.767,
+        "official_uniform": 4.505,
+        "gross_top50": 5.886,
+        "actual_top50": 5.157,
+        "spy": 4.117
+      },
+      {
+        "date": "2023-04-14",
+        "official_top50": 7.782,
+        "official_uniform": 4.506,
+        "gross_top50": 6.025,
+        "actual_top50": 5.278,
+        "spy": 4.146
+      },
+      {
+        "date": "2023-04-21",
+        "official_top50": 7.766,
+        "official_uniform": 4.484,
+        "gross_top50": 6.039,
+        "actual_top50": 5.29,
+        "spy": 4.144
+      },
+      {
+        "date": "2023-04-28",
+        "official_top50": 7.736,
+        "official_uniform": 4.458,
+        "gross_top50": 5.977,
+        "actual_top50": 5.235,
+        "spy": 4.177
+      },
+      {
+        "date": "2023-05-05",
+        "official_top50": 7.72,
+        "official_uniform": 4.456,
+        "gross_top50": 5.972,
+        "actual_top50": 5.229,
+        "spy": 4.148
+      },
+      {
+        "date": "2023-05-12",
+        "official_top50": 7.67,
+        "official_uniform": 4.46,
+        "gross_top50": 5.964,
+        "actual_top50": 5.222,
+        "spy": 4.138
+      },
+      {
+        "date": "2023-05-19",
+        "official_top50": 7.652,
+        "official_uniform": 4.46,
+        "gross_top50": 6.04,
+        "actual_top50": 5.287,
+        "spy": 4.2
+      },
+      {
+        "date": "2023-05-26",
+        "official_top50": 7.636,
+        "official_uniform": 4.49,
+        "gross_top50": 5.894,
+        "actual_top50": 5.159,
+        "spy": 4.213
+      },
+      {
+        "date": "2023-06-05",
+        "official_top50": 7.716,
+        "official_uniform": 4.57,
+        "gross_top50": 6.0,
+        "actual_top50": 5.251,
+        "spy": 4.275
+      },
+      {
+        "date": "2023-06-12",
+        "official_top50": 7.814,
+        "official_uniform": 4.652,
+        "gross_top50": 6.076,
+        "actual_top50": 5.317,
+        "spy": 4.334
+      },
+      {
+        "date": "2023-06-20",
+        "official_top50": 7.911,
+        "official_uniform": 4.674,
+        "gross_top50": 6.12,
+        "actual_top50": 5.355,
+        "spy": 4.378
+      },
+      {
+        "date": "2023-06-27",
+        "official_top50": 7.938,
+        "official_uniform": 4.728,
+        "gross_top50": 6.184,
+        "actual_top50": 5.41,
+        "spy": 4.369
+      },
+      {
+        "date": "2023-07-05",
+        "official_top50": 8.061,
+        "official_uniform": 4.802,
+        "gross_top50": 6.272,
+        "actual_top50": 5.485,
+        "spy": 4.43
+      },
+      {
+        "date": "2023-07-12",
+        "official_top50": 8.13,
+        "official_uniform": 4.852,
+        "gross_top50": 6.376,
+        "actual_top50": 5.577,
+        "spy": 4.456
+      },
+      {
+        "date": "2023-07-19",
+        "official_top50": 8.179,
+        "official_uniform": 4.908,
+        "gross_top50": 6.501,
+        "actual_top50": 5.684,
+        "spy": 4.537
+      },
+      {
+        "date": "2023-07-26",
+        "official_top50": 8.152,
+        "official_uniform": 4.914,
+        "gross_top50": 6.383,
+        "actual_top50": 5.581,
+        "spy": 4.539
+      },
+      {
+        "date": "2023-08-02",
+        "official_top50": 8.07,
+        "official_uniform": 4.886,
+        "gross_top50": 6.304,
+        "actual_top50": 5.51,
+        "spy": 4.492
+      },
+      {
+        "date": "2023-08-09",
+        "official_top50": 7.972,
+        "official_uniform": 4.785,
+        "gross_top50": 6.195,
+        "actual_top50": 5.414,
+        "spy": 4.453
+      },
+      {
+        "date": "2023-08-16",
+        "official_top50": 7.97,
+        "official_uniform": 4.748,
+        "gross_top50": 6.132,
+        "actual_top50": 5.359,
+        "spy": 4.4
+      },
+      {
+        "date": "2023-08-23",
+        "official_top50": 8.002,
+        "official_uniform": 4.746,
+        "gross_top50": 6.192,
+        "actual_top50": 5.409,
+        "spy": 4.429
+      },
+      {
+        "date": "2023-08-30",
+        "official_top50": 8.048,
+        "official_uniform": 4.764,
+        "gross_top50": 6.359,
+        "actual_top50": 5.555,
+        "spy": 4.5
+      },
+      {
+        "date": "2023-09-07",
+        "official_top50": 8.03,
+        "official_uniform": 4.708,
+        "gross_top50": 6.296,
+        "actual_top50": 5.498,
+        "spy": 4.446
+      },
+      {
+        "date": "2023-09-14",
+        "official_top50": 7.982,
+        "official_uniform": 4.672,
+        "gross_top50": 6.256,
+        "actual_top50": 5.462,
+        "spy": 4.494
+      },
+      {
+        "date": "2023-09-21",
+        "official_top50": 7.929,
+        "official_uniform": 4.595,
+        "gross_top50": 5.994,
+        "actual_top50": 5.232,
+        "spy": 4.341
+      },
+      {
+        "date": "2023-09-28",
+        "official_top50": 7.902,
+        "official_uniform": 4.518,
+        "gross_top50": 6.056,
+        "actual_top50": 5.286,
+        "spy": 4.316
+      },
+      {
+        "date": "2023-10-05",
+        "official_top50": 7.886,
+        "official_uniform": 4.504,
+        "gross_top50": 5.958,
+        "actual_top50": 5.2,
+        "spy": 4.28
+      },
+      {
+        "date": "2023-10-12",
+        "official_top50": 7.793,
+        "official_uniform": 4.47,
+        "gross_top50": 6.135,
+        "actual_top50": 5.353,
+        "spy": 4.361
+      },
+      {
+        "date": "2023-10-19",
+        "official_top50": 7.732,
+        "official_uniform": 4.418,
+        "gross_top50": 5.971,
+        "actual_top50": 5.209,
+        "spy": 4.297
+      },
+      {
+        "date": "2023-10-26",
+        "official_top50": 7.727,
+        "official_uniform": 4.4,
+        "gross_top50": 5.788,
+        "actual_top50": 5.048,
+        "spy": 4.175
+      },
+      {
+        "date": "2023-11-02",
+        "official_top50": 7.9,
+        "official_uniform": 4.468,
+        "gross_top50": 6.095,
+        "actual_top50": 5.315,
+        "spy": 4.335
+      },
+      {
+        "date": "2023-11-09",
+        "official_top50": 8.125,
+        "official_uniform": 4.55,
+        "gross_top50": 6.181,
+        "actual_top50": 5.39,
+        "spy": 4.363
+      },
+      {
+        "date": "2023-11-16",
+        "official_top50": 8.284,
+        "official_uniform": 4.638,
+        "gross_top50": 6.381,
+        "actual_top50": 5.562,
+        "spy": 4.507
+      },
+      {
+        "date": "2023-11-24",
+        "official_top50": 8.5,
+        "official_uniform": 4.764,
+        "gross_top50": 6.468,
+        "actual_top50": 5.636,
+        "spy": 4.551
+      },
+      {
+        "date": "2023-12-01",
+        "official_top50": 8.625,
+        "official_uniform": 4.864,
+        "gross_top50": 6.545,
+        "actual_top50": 5.703,
+        "spy": 4.585
+      },
+      {
+        "date": "2023-12-08",
+        "official_top50": 8.67,
+        "official_uniform": 4.96,
+        "gross_top50": 6.576,
+        "actual_top50": 5.729,
+        "spy": 4.594
+      },
+      {
+        "date": "2023-12-15",
+        "official_top50": 8.732,
+        "official_uniform": 5.036,
+        "gross_top50": 6.699,
+        "actual_top50": 5.836,
+        "spy": 4.692
+      },
+      {
+        "date": "2023-12-22",
+        "official_top50": 8.739,
+        "official_uniform": 5.09,
+        "gross_top50": 6.757,
+        "actual_top50": 5.886,
+        "spy": 4.73
+      },
+      {
+        "date": "2024-01-02",
+        "official_top50": 8.786,
+        "official_uniform": 5.084,
+        "gross_top50": 6.663,
+        "actual_top50": 5.804,
+        "spy": 4.721
+      },
+      {
+        "date": "2024-01-09",
+        "official_top50": 8.889,
+        "official_uniform": 5.048,
+        "gross_top50": 6.774,
+        "actual_top50": 5.899,
+        "spy": 4.732
+      },
+      {
+        "date": "2024-01-17",
+        "official_top50": 9.127,
+        "official_uniform": 5.052,
+        "gross_top50": 6.865,
+        "actual_top50": 5.978,
+        "spy": 4.718
+      },
+      {
+        "date": "2024-01-24",
+        "official_top50": 9.341,
+        "official_uniform": 5.084,
+        "gross_top50": 7.039,
+        "actual_top50": 6.129,
+        "spy": 4.833
+      },
+      {
+        "date": "2024-01-31",
+        "official_top50": 9.466,
+        "official_uniform": 5.12,
+        "gross_top50": 7.097,
+        "actual_top50": 6.179,
+        "spy": 4.811
+      },
+      {
+        "date": "2024-02-07",
+        "official_top50": 9.532,
+        "official_uniform": 5.148,
+        "gross_top50": 7.306,
+        "actual_top50": 6.36,
+        "spy": 4.945
+      },
+      {
+        "date": "2024-02-14",
+        "official_top50": 9.616,
+        "official_uniform": 5.176,
+        "gross_top50": 7.372,
+        "actual_top50": 6.416,
+        "spy": 4.949
+      },
+      {
+        "date": "2024-02-22",
+        "official_top50": 9.691,
+        "official_uniform": 5.238,
+        "gross_top50": 7.414,
+        "actual_top50": 6.452,
+        "spy": 5.027
+      },
+      {
+        "date": "2024-02-29",
+        "official_top50": 9.741,
+        "official_uniform": 5.312,
+        "gross_top50": 7.536,
+        "actual_top50": 6.556,
+        "spy": 5.033
+      },
+      {
+        "date": "2024-03-07",
+        "official_top50": 9.93,
+        "official_uniform": 5.348,
+        "gross_top50": 7.586,
+        "actual_top50": 6.599,
+        "spy": 5.092
+      },
+      {
+        "date": "2024-03-14",
+        "official_top50": 10.032,
+        "official_uniform": 5.404,
+        "gross_top50": 7.571,
+        "actual_top50": 6.584,
+        "spy": 5.093
+      },
+      {
+        "date": "2024-03-21",
+        "official_top50": 10.08,
+        "official_uniform": 5.43,
+        "gross_top50": 7.765,
+        "actual_top50": 6.752,
+        "spy": 5.171
+      },
+      {
+        "date": "2024-03-28",
+        "official_top50": 10.109,
+        "official_uniform": 5.45,
+        "gross_top50": 7.704,
+        "actual_top50": 6.7,
+        "spy": 5.178
+      },
+      {
+        "date": "2024-04-05",
+        "official_top50": 10.045,
+        "official_uniform": 5.41,
+        "gross_top50": 7.612,
+        "actual_top50": 6.618,
+        "spy": 5.138
+      },
+      {
+        "date": "2024-04-12",
+        "official_top50": 9.843,
+        "official_uniform": 5.332,
+        "gross_top50": 7.416,
+        "actual_top50": 6.447,
+        "spy": 5.071
+      },
+      {
+        "date": "2024-04-19",
+        "official_top50": 9.811,
+        "official_uniform": 5.312,
+        "gross_top50": 7.053,
+        "actual_top50": 6.13,
+        "spy": 4.933
+      },
+      {
+        "date": "2024-04-26",
+        "official_top50": 9.643,
+        "official_uniform": 5.27,
+        "gross_top50": 7.322,
+        "actual_top50": 6.364,
+        "spy": 5.048
+      },
+      {
+        "date": "2024-05-03",
+        "official_top50": 9.718,
+        "official_uniform": 5.316,
+        "gross_top50": 7.29,
+        "actual_top50": 6.335,
+        "spy": 5.075
+      },
+      {
+        "date": "2024-05-10",
+        "official_top50": 9.886,
+        "official_uniform": 5.39,
+        "gross_top50": 7.462,
+        "actual_top50": 6.483,
+        "spy": 5.159
+      },
+      {
+        "date": "2024-05-17",
+        "official_top50": 9.939,
+        "official_uniform": 5.444,
+        "gross_top50": 7.544,
+        "actual_top50": 6.553,
+        "spy": 5.235
+      },
+      {
+        "date": "2024-05-24",
+        "official_top50": 10.018,
+        "official_uniform": 5.434,
+        "gross_top50": 7.62,
+        "actual_top50": 6.618,
+        "spy": 5.234
+      },
+      {
+        "date": "2024-06-03",
+        "official_top50": 9.98,
+        "official_uniform": 5.388,
+        "gross_top50": 7.467,
+        "actual_top50": 6.484,
+        "spy": 5.22
+      },
+      {
+        "date": "2024-06-10",
+        "official_top50": 9.945,
+        "official_uniform": 5.376,
+        "gross_top50": 7.514,
+        "actual_top50": 6.523,
+        "spy": 5.289
+      },
+      {
+        "date": "2024-06-17",
+        "official_top50": 9.968,
+        "official_uniform": 5.36,
+        "gross_top50": 7.617,
+        "actual_top50": 6.612,
+        "spy": 5.39
+      },
+      {
+        "date": "2024-06-25",
+        "official_top50": 10.016,
+        "official_uniform": 5.362,
+        "gross_top50": 7.723,
+        "actual_top50": 6.703,
+        "spy": 5.385
+      },
+      {
+        "date": "2024-07-02",
+        "official_top50": 10.061,
+        "official_uniform": 5.376,
+        "gross_top50": 7.638,
+        "actual_top50": 6.627,
+        "spy": 5.422
+      },
+      {
+        "date": "2024-07-10",
+        "official_top50": 10.189,
+        "official_uniform": 5.442,
+        "gross_top50": 7.754,
+        "actual_top50": 6.729,
+        "spy": 5.53
+      },
+      {
+        "date": "2024-07-17",
+        "official_top50": 10.223,
+        "official_uniform": 5.496,
+        "gross_top50": 7.79,
+        "actual_top50": 6.758,
+        "spy": 5.492
+      },
+      {
+        "date": "2024-07-24",
+        "official_top50": 10.182,
+        "official_uniform": 5.52,
+        "gross_top50": 7.624,
+        "actual_top50": 6.614,
+        "spy": 5.354
+      },
+      {
+        "date": "2024-07-31",
+        "official_top50": 9.986,
+        "official_uniform": 5.472,
+        "gross_top50": 7.754,
+        "actual_top50": 6.725,
+        "spy": 5.438
+      },
+      {
+        "date": "2024-08-07",
+        "official_top50": 9.902,
+        "official_uniform": 5.452,
+        "gross_top50": 7.433,
+        "actual_top50": 6.445,
+        "spy": 5.155
+      },
+      {
+        "date": "2024-08-14",
+        "official_top50": 9.977,
+        "official_uniform": 5.442,
+        "gross_top50": 7.916,
+        "actual_top50": 6.864,
+        "spy": 5.376
+      },
+      {
+        "date": "2024-08-21",
+        "official_top50": 10.077,
+        "official_uniform": 5.48,
+        "gross_top50": 8.201,
+        "actual_top50": 7.108,
+        "spy": 5.524
+      },
+      {
+        "date": "2024-08-28",
+        "official_top50": 10.303,
+        "official_uniform": 5.58,
+        "gross_top50": 8.233,
+        "actual_top50": 7.134,
+        "spy": 5.504
+      },
+      {
+        "date": "2024-09-05",
+        "official_top50": 10.495,
+        "official_uniform": 5.614,
+        "gross_top50": 8.119,
+        "actual_top50": 7.035,
+        "spy": 5.427
+      },
+      {
+        "date": "2024-09-12",
+        "official_top50": 10.534,
+        "official_uniform": 5.61,
+        "gross_top50": 8.325,
+        "actual_top50": 7.212,
+        "spy": 5.511
+      },
+      {
+        "date": "2024-09-19",
+        "official_top50": 10.584,
+        "official_uniform": 5.63,
+        "gross_top50": 8.64,
+        "actual_top50": 7.486,
+        "spy": 5.615
+      },
+      {
+        "date": "2024-09-26",
+        "official_top50": 10.652,
+        "official_uniform": 5.692,
+        "gross_top50": 8.643,
+        "actual_top50": 7.486,
+        "spy": 5.642
+      },
+      {
+        "date": "2024-10-03",
+        "official_top50": 10.861,
+        "official_uniform": 5.786,
+        "gross_top50": 8.587,
+        "actual_top50": 7.435,
+        "spy": 5.603
+      },
+      {
+        "date": "2024-10-10",
+        "official_top50": 10.939,
+        "official_uniform": 5.828,
+        "gross_top50": 8.735,
+        "actual_top50": 7.563,
+        "spy": 5.676
+      },
+      {
+        "date": "2024-10-17",
+        "official_top50": 10.977,
+        "official_uniform": 5.86,
+        "gross_top50": 8.919,
+        "actual_top50": 7.722,
+        "spy": 5.731
+      },
+      {
+        "date": "2024-10-24",
+        "official_top50": 11.005,
+        "official_uniform": 5.88,
+        "gross_top50": 8.802,
+        "actual_top50": 7.62,
+        "spy": 5.704
+      },
+      {
+        "date": "2024-10-31",
+        "official_top50": 11.084,
+        "official_uniform": 5.872,
+        "gross_top50": 8.696,
+        "actual_top50": 7.526,
+        "spy": 5.61
+      },
+      {
+        "date": "2024-11-07",
+        "official_top50": 11.291,
+        "official_uniform": 5.858,
+        "gross_top50": 9.142,
+        "actual_top50": 7.911,
+        "spy": 5.848
+      },
+      {
+        "date": "2024-11-14",
+        "official_top50": 11.461,
+        "official_uniform": 5.896,
+        "gross_top50": 9.244,
+        "actual_top50": 7.997,
+        "spy": 5.828
+      },
+      {
+        "date": "2024-11-21",
+        "official_top50": 11.477,
+        "official_uniform": 5.92,
+        "gross_top50": 9.293,
+        "actual_top50": 8.038,
+        "spy": 5.83
+      },
+      {
+        "date": "2024-11-29",
+        "official_top50": 11.78,
+        "official_uniform": 6.002,
+        "gross_top50": 9.429,
+        "actual_top50": 8.155,
+        "spy": 5.909
+      },
+      {
+        "date": "2024-12-06",
+        "official_top50": 11.955,
+        "official_uniform": 6.03,
+        "gross_top50": 9.485,
+        "actual_top50": 8.202,
+        "spy": 5.955
+      },
+      {
+        "date": "2024-12-13",
+        "official_top50": 12.025,
+        "official_uniform": 6.084,
+        "gross_top50": 9.244,
+        "actual_top50": 7.992,
+        "spy": 5.923
+      },
+      {
+        "date": "2024-12-20",
+        "official_top50": 11.87,
+        "official_uniform": 5.994,
+        "gross_top50": 9.014,
+        "actual_top50": 7.791,
+        "spy": 5.826
+      },
+      {
+        "date": "2024-12-30",
+        "official_top50": 11.734,
+        "official_uniform": 5.914,
+        "gross_top50": 8.862,
+        "actual_top50": 7.659,
+        "spy": 5.8
+      },
+      {
+        "date": "2025-01-07",
+        "official_top50": 11.609,
+        "official_uniform": 5.848,
+        "gross_top50": 8.916,
+        "actual_top50": 7.705,
+        "spy": 5.803
+      },
+      {
+        "date": "2025-01-15",
+        "official_top50": 11.511,
+        "official_uniform": 5.82,
+        "gross_top50": 9.099,
+        "actual_top50": 7.862,
+        "spy": 5.84
+      },
+      {
+        "date": "2025-01-23",
+        "official_top50": 11.77,
+        "official_uniform": 5.862,
+        "gross_top50": 9.499,
+        "actual_top50": 8.208,
+        "spy": 5.989
+      },
+      {
+        "date": "2025-01-30",
+        "official_top50": 11.909,
+        "official_uniform": 5.9,
+        "gross_top50": 9.537,
+        "actual_top50": 8.238,
+        "spy": 5.948
+      },
+      {
+        "date": "2025-02-06",
+        "official_top50": 11.977,
+        "official_uniform": 5.98,
+        "gross_top50": 9.5,
+        "actual_top50": 8.205,
+        "spy": 5.959
+      },
+      {
+        "date": "2025-02-13",
+        "official_top50": 12.182,
+        "official_uniform": 6.048,
+        "gross_top50": 9.352,
+        "actual_top50": 8.075,
+        "spy": 5.989
+      },
+      {
+        "date": "2025-02-21",
+        "official_top50": 12.105,
+        "official_uniform": 6.036,
+        "gross_top50": 8.89,
+        "actual_top50": 7.675,
+        "spy": 5.903
+      },
+      {
+        "date": "2025-02-28",
+        "official_top50": 11.909,
+        "official_uniform": 6.022,
+        "gross_top50": 8.908,
+        "actual_top50": 7.689,
+        "spy": 5.852
+      },
+      {
+        "date": "2025-03-07",
+        "official_top50": 11.736,
+        "official_uniform": 5.978,
+        "gross_top50": 8.317,
+        "actual_top50": 7.178,
+        "spy": 5.692
+      },
+      {
+        "date": "2025-03-14",
+        "official_top50": 11.33,
+        "official_uniform": 5.918,
+        "gross_top50": 8.184,
+        "actual_top50": 7.063,
+        "spy": 5.576
+      },
+      {
+        "date": "2025-03-21",
+        "official_top50": 10.943,
+        "official_uniform": 5.78,
+        "gross_top50": 8.366,
+        "actual_top50": 7.218,
+        "spy": 5.602
+      },
+      {
+        "date": "2025-03-28",
+        "official_top50": 10.891,
+        "official_uniform": 5.726,
+        "gross_top50": 8.308,
+        "actual_top50": 7.167,
+        "spy": 5.528
+      },
+      {
+        "date": "2025-04-04",
+        "official_top50": 10.757,
+        "official_uniform": 5.728,
+        "gross_top50": 7.669,
+        "actual_top50": 6.614,
+        "spy": 5.085
+      },
+      {
+        "date": "2025-04-11",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 8.103,
+        "actual_top50": 6.987,
+        "spy": 5.337
+      },
+      {
+        "date": "2025-04-21",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 7.973,
+        "actual_top50": 6.873,
+        "spy": 5.161
+      },
+      {
+        "date": "2025-04-28",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 8.401,
+        "actual_top50": 7.241,
+        "spy": 5.486
+      },
+      {
+        "date": "2025-05-05",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 8.654,
+        "actual_top50": 7.457,
+        "spy": 5.597
+      },
+      {
+        "date": "2025-05-12",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 8.841,
+        "actual_top50": 7.617,
+        "spy": 5.769
+      },
+      {
+        "date": "2025-05-19",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.093,
+        "actual_top50": 7.831,
+        "spy": 5.873
+      },
+      {
+        "date": "2025-05-27",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 8.979,
+        "actual_top50": 7.733,
+        "spy": 5.841
+      },
+      {
+        "date": "2025-06-03",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.059,
+        "actual_top50": 7.8,
+        "spy": 5.884
+      },
+      {
+        "date": "2025-06-10",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.017,
+        "actual_top50": 7.764,
+        "spy": 5.946
+      },
+      {
+        "date": "2025-06-17",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 8.951,
+        "actual_top50": 7.705,
+        "spy": 5.897
+      },
+      {
+        "date": "2025-06-25",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.024,
+        "actual_top50": 7.766,
+        "spy": 5.997
+      },
+      {
+        "date": "2025-07-02",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.035,
+        "actual_top50": 7.776,
+        "spy": 6.114
+      },
+      {
+        "date": "2025-07-10",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.007,
+        "actual_top50": 7.749,
+        "spy": 6.161
+      },
+      {
+        "date": "2025-07-17",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.089,
+        "actual_top50": 7.819,
+        "spy": 6.181
+      },
+      {
+        "date": "2025-07-24",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.142,
+        "actual_top50": 7.863,
+        "spy": 6.237
+      },
+      {
+        "date": "2025-07-31",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.052,
+        "actual_top50": 7.784,
+        "spy": 6.216
+      },
+      {
+        "date": "2025-08-07",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 8.943,
+        "actual_top50": 7.69,
+        "spy": 6.218
+      },
+      {
+        "date": "2025-08-14",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 8.917,
+        "actual_top50": 7.666,
+        "spy": 6.329
+      },
+      {
+        "date": "2025-08-21",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 8.907,
+        "actual_top50": 7.657,
+        "spy": 6.247
+      },
+      {
+        "date": "2025-08-28",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.163,
+        "actual_top50": 7.875,
+        "spy": 6.364
+      },
+      {
+        "date": "2025-09-05",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.218,
+        "actual_top50": 7.922,
+        "spy": 6.35
+      },
+      {
+        "date": "2025-09-12",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.319,
+        "actual_top50": 8.006,
+        "spy": 6.439
+      },
+      {
+        "date": "2025-09-19",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.381,
+        "actual_top50": 8.059,
+        "spy": 6.511
+      },
+      {
+        "date": "2025-09-26",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.256,
+        "actual_top50": 7.951,
+        "spy": 6.494
+      },
+      {
+        "date": "2025-10-03",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.285,
+        "actual_top50": 7.974,
+        "spy": 6.559
+      },
+      {
+        "date": "2025-10-10",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.051,
+        "actual_top50": 7.772,
+        "spy": 6.417
+      },
+      {
+        "date": "2025-10-17",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.121,
+        "actual_top50": 7.831,
+        "spy": 6.517
+      },
+      {
+        "date": "2025-10-24",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.336,
+        "actual_top50": 8.015,
+        "spy": 6.63
+      },
+      {
+        "date": "2025-10-31",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.44,
+        "actual_top50": 8.103,
+        "spy": 6.672
+      },
+      {
+        "date": "2025-11-07",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.37,
+        "actual_top50": 8.04,
+        "spy": 6.574
+      },
+      {
+        "date": "2025-11-14",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.141,
+        "actual_top50": 7.842,
+        "spy": 6.583
+      },
+      {
+        "date": "2025-11-21",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 8.826,
+        "actual_top50": 7.571,
+        "spy": 6.469
+      },
+      {
+        "date": "2025-12-01",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.267,
+        "actual_top50": 7.948,
+        "spy": 6.656
+      },
+      {
+        "date": "2025-12-08",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.394,
+        "actual_top50": 8.056,
+        "spy": 6.686
+      },
+      {
+        "date": "2025-12-15",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.476,
+        "actual_top50": 8.123,
+        "spy": 6.66
+      },
+      {
+        "date": "2025-12-22",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.588,
+        "actual_top50": 8.219,
+        "spy": 6.714
+      },
+      {
+        "date": "2025-12-30",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.467,
+        "actual_top50": 8.115,
+        "spy": 6.733
+      },
+      {
+        "date": "2026-01-07",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.702,
+        "actual_top50": 8.314,
+        "spy": 6.756
+      },
+      {
+        "date": "2026-01-14",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.765,
+        "actual_top50": 8.367,
+        "spy": 6.763
+      },
+      {
+        "date": "2026-01-22",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.705,
+        "actual_top50": 8.314,
+        "spy": 6.75
+      },
+      {
+        "date": "2026-01-29",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.702,
+        "actual_top50": 8.312,
+        "spy": 6.795
+      },
+      {
+        "date": "2026-02-05",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.389,
+        "actual_top50": 8.04,
+        "spy": 6.651
+      },
+      {
+        "date": "2026-02-12",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.376,
+        "actual_top50": 8.028,
+        "spy": 6.683
+      },
+      {
+        "date": "2026-02-20",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.758,
+        "actual_top50": 8.353,
+        "spy": 6.754
+      },
+      {
+        "date": "2026-02-27",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.755,
+        "actual_top50": 8.349,
+        "spy": 6.724
+      },
+      {
+        "date": "2026-03-06",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.315,
+        "actual_top50": 7.971,
+        "spy": 6.604
+      },
+      {
+        "date": "2026-03-13",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.244,
+        "actual_top50": 7.909,
+        "spy": 6.516
+      },
+      {
+        "date": "2026-03-20",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.037,
+        "actual_top50": 7.731,
+        "spy": 6.411
+      },
+      {
+        "date": "2026-03-27",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.08,
+        "actual_top50": 7.766,
+        "spy": 6.283
+      },
+      {
+        "date": "2026-04-06",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 9.449,
+        "actual_top50": 8.08,
+        "spy": 6.502
+      },
+      {
+        "date": "2026-04-13",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 10.254,
+        "actual_top50": 8.766,
+        "spy": 6.741
+      },
+      {
+        "date": "2026-04-20",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 10.47,
+        "actual_top50": 8.947,
+        "spy": 6.94
+      },
+      {
+        "date": "2026-04-27",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 10.342,
+        "actual_top50": 8.838,
+        "spy": 6.997
+      },
+      {
+        "date": "2026-05-04",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 10.193,
+        "actual_top50": 8.708,
+        "spy": 7.022
+      },
+      {
+        "date": "2026-05-11",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 10.521,
+        "actual_top50": 8.987,
+        "spy": 7.209
+      },
+      {
+        "date": "2026-05-18",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 10.15,
+        "actual_top50": 8.668,
+        "spy": 7.203
+      },
+      {
+        "date": "2026-05-26",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 10.987,
+        "actual_top50": 9.381,
+        "spy": 7.308
+      },
+      {
+        "date": "2026-06-02",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 11.213,
+        "actual_top50": 9.574,
+        "spy": 7.387
+      },
+      {
+        "date": "2026-06-09",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 10.99,
+        "actual_top50": 9.38,
+        "spy": 7.189
+      },
+      {
+        "date": "2026-06-16",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 11.264,
+        "actual_top50": 9.614,
+        "spy": 7.306
+      },
+      {
+        "date": "2026-06-24",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 11.188,
+        "actual_top50": 9.547,
+        "spy": 7.172
+      },
+      {
+        "date": "2026-07-01",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 11.447,
+        "actual_top50": 9.766,
+        "spy": 7.283
+      },
+      {
+        "date": "2026-07-09",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 11.385,
+        "actual_top50": 9.71,
+        "spy": 7.335
+      },
+      {
+        "date": "2026-07-16",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 10.626,
+        "actual_top50": 9.063,
+        "spy": 7.326
+      },
+      {
+        "date": "2026-07-23",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 11.034,
+        "actual_top50": 9.411,
+        "spy": 7.216
+      },
+      {
+        "date": "2026-07-30",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 10.788,
+        "actual_top50": 9.197,
+        "spy": 7.247
+      },
+      {
+        "date": "2026-08-06",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 10.976,
+        "actual_top50": 9.355,
+        "spy": 7.483
+      },
+      {
+        "date": "2026-08-13",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 11.33,
+        "actual_top50": 9.655,
+        "spy": 7.565
+      },
+      {
+        "date": "2026-08-20",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 11.103,
+        "actual_top50": 9.46,
+        "spy": 7.431
+      },
+      {
+        "date": "2026-08-27",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 11.136,
+        "actual_top50": 9.489,
+        "spy": 7.506
+      },
+      {
+        "date": "2026-09-03",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 11.03,
+        "actual_top50": 9.393,
+        "spy": 7.524
+      },
+      {
+        "date": "2026-09-11",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 11.094,
+        "actual_top50": 9.448,
+        "spy": 7.446
+      },
+      {
+        "date": "2026-09-18",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 11.09,
+        "actual_top50": 9.444,
+        "spy": 7.439
+      },
+      {
+        "date": "2026-09-25",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 11.237,
+        "actual_top50": 9.567,
+        "spy": 7.524
+      },
+      {
+        "date": "2026-09-29",
+        "official_top50": null,
+        "official_uniform": null,
+        "gross_top50": 11.182,
+        "actual_top50": 9.52,
+        "spy": 7.462
+      }
+    ]
   }
 }

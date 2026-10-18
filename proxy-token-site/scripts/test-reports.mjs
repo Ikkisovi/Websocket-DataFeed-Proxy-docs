@@ -17,6 +17,24 @@ function audit(value){
 }
 audit(data);
 for(const name of ['annual-diagnostic.csv','reconstruction.csv','annual-diagnostic.png','annual-diagnostic.svg','reconstruction.png','reconstruction.svg'])assert(fs.statSync(path.join(root,'reports/brain-stock-ranking',name)).size>100,name);
+const results=JSON.parse(fs.readFileSync(path.join(root,'reports/brain-stock-ranking/task2-summary.json')));
+assert.equal(results.config_count,34);
+assert.equal(results.n_rebalances,489);
+assert.equal(results.year_sign_test.two_sided_p,0.109375);
+assert.equal(results.teacher_reconstruction.rows.length,4);
+assert.equal(results.top_configs_by_ic5.length,10);
+assert(results.top_configs_by_ic5[0].ic5>0.0217&&results.top_configs_by_ic5[0].ic5<0.0218);
+for(const item of Object.values(results.yahoo_source_diagnostics))assert.equal(item.formal_nav,null);
+assert.equal(results.yahoo_source_diagnostics.uniform_restricted.conditional_terminal_nav,null);
+assert.equal(results.yahoo_source_diagnostics.uniform_restricted.conditional_missing_exit_periods,1);
+assert.equal(results.yahoo_source_diagnostics.broad_blend_ridge.invalid_identity_or_quote_periods,423);
+for(const hash of Object.values(results.publication_inputs_sha256))assert.match(hash,/^[a-f0-9]{64}$/);
+const csv=fs.readFileSync(path.join(root,'reports/brain-stock-ranking/task2-configurations.csv'),'utf8').trim().split(/\r?\n/);
+assert.equal(csv.length,35);
+const nav=fs.readFileSync(path.join(root,'reports/brain-stock-ranking/yahoo-conditional-nav.csv'),'utf8').trim().split(/\r?\n/);
+assert.equal(nav.length,490);
+assert.equal(nav.at(-1).split(',')[5],''); // no full NAV after the equal-weight book's held quote gap
+for(const name of ['task2-research.png','task2-research.svg'])assert(fs.statSync(path.join(root,'reports/brain-stock-ranking',name)).size>10000,name);
 const tick=()=>new Promise(r=>setTimeout(r,15));
 const checks=[];
 for(const page of ['/reports/','/reports/brain-stock-ranking/','/research-data'])for(const lang of ['en','zh']){
@@ -37,7 +55,15 @@ for(const page of ['/reports/','/reports/brain-stock-ranking/','/research-data']
   assert.equal(w.document.querySelectorAll('.story-body .report-chart svg rect').length,17);
   await click(lang==='en'?'Since 2021':'2021 起');assert.equal(w.document.querySelectorAll('.story-body .report-chart svg rect').length,6);
   await click(lang==='en'?'All years':'全区间');assert.equal(w.document.querySelectorAll('.story-body .report-chart svg rect').length,17);
-  const show=buttons().find(x=>x.classList.contains('report-text-button'));show.click();await tick();assert.equal(w.document.querySelectorAll('table tbody tr').length,17);
+  const show=buttons().find(x=>x.classList.contains('report-text-button'));show.click();await tick();assert.equal(w.document.querySelectorAll('[data-research-table="archive-annual"] tbody tr').length,17);
+  for(const [table,count] of [['teacher',4],['purge',4],['configurations',10],['yahoo',3],['stability',2]])assert.equal(w.document.querySelectorAll('[data-research-table="'+table+'"] tbody tr').length,count,table);
+  const body=w.document.body.textContent;
+  for(const value of ['0.8565','+0.0217','4.16','0.836','0.899','0.1094','423 / 489'])assert(body.includes(value),value);
+  assert.match(body,lang==='en'?/Formal full-period NAV/:/正式全期净值/);
+  assert.match(body,lang==='en'?/look-ahead selection error/:/前视筛选/);
+  assert.match(body,lang==='en'?/Ridge alpha=3/:/Ridge alpha=3/);
+  assert(!w.document.querySelector('.nav-comparison-chart'));
+  const figure=w.document.querySelector('.research-main-figure img');assert(figure);assert.equal(figure.getAttribute('width'),'1440');assert.equal(figure.getAttribute('height'),'1160');
   for(const href of ['https://braincompany.co/bsr.html','https://www.braincompany.co/assets/files/BSR_summary.pdf']){
    const link=w.document.querySelector(`a[href="${href}"]`);assert(link);assert(link.rel.includes('noopener'));
   }
