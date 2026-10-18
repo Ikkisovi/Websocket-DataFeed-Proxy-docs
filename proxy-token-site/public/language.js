@@ -19,6 +19,8 @@
 
     "账户管理": "Account",
     "行情图表": "Market chart",
+    "研究数据": "Research Data",
+    "研究报告": "Reports",
     "研究数据采购": "Research Data",
     "研究数据采购 →": "Research Data →",
     "继续研究数据采购 →": "Continue to Research Data →",

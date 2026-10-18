@@ -1,6 +1,7 @@
 import "./generate-product-catalog.mjs";
 import "./sync-api-contract.mjs";
 import { build } from "esbuild";
+import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +12,7 @@ const entries = [
   "register-page",
   "checkout-page",
   "research-data-page",
+  "reports-page",
   "updates-page",
   "docs-page",
   "gpu-index-page",
@@ -96,3 +98,17 @@ await writeFile(resolve(siteRoot, 'public/vendor/chart-licenses.txt'), chartNoti
 
 await import("./build-doc-pages.mjs");
 await import("./build-account-page.mjs");
+
+await import("./render-research-pages.mjs");
+
+// Research editorial entrypoints pin their own compiled assets and stylesheet.
+for (const page of ["research-data.html", "reports/index.html", "reports/brain-stock-ranking/index.html"]) {
+  const path = resolve(siteRoot, "public", page);
+  let html = await readFile(path, "utf8");
+  for (const asset of ["assets/research-data-page.js", "assets/reports-page.js", "reports/reports.css"]) {
+    const version = createHash("sha256").update(await readFile(resolve(siteRoot, "public", asset))).digest("hex").slice(0,16);
+    const pattern = new RegExp("/" + asset.replaceAll(".", "\\.") + "(?:\\?v=[^\"\\s]+)?", "g");
+    html = html.replace(pattern, "/" + asset + "?v=" + version);
+  }
+  await writeFile(path, html);
+}

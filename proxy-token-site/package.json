@@ -6,12 +6,13 @@
     "build:account": "node scripts/build-account-page.mjs",
     "test:account": "npm run build:account && node scripts/test-account-page.mjs",
     "build:public": "node scripts/build-public.mjs",
-    "test": "npm run test:catalog && npm run build:public && NODE_OPTIONS=--experimental-vm-modules jest && node scripts/verify-public-docs.mjs && node scripts/verify-public-bundles.mjs && node scripts/test-doc-subpages.mjs && node scripts/test-doc-articles.mjs && node scripts/test-customer-contract.mjs && node scripts/test-gpu-dashboard.mjs && node scripts/test-research-data.mjs && node scripts/test-chart-data.mjs && node scripts/test-chart-ui.mjs",
+    "test": "npm run test:catalog && npm run build:public && NODE_OPTIONS=--experimental-vm-modules jest && node scripts/verify-public-docs.mjs && node scripts/verify-public-bundles.mjs && node scripts/test-doc-subpages.mjs && node scripts/test-doc-articles.mjs && node scripts/test-customer-contract.mjs && node scripts/test-gpu-dashboard.mjs && node scripts/test-research-data.mjs && node scripts/test-reports.mjs && node scripts/test-chart-data.mjs && node scripts/test-chart-ui.mjs",
     "test:docs": "node scripts/verify-public-docs.mjs && node scripts/test-customer-contract.mjs",
     "test:chart": "npm run build:public && jest chart-proxy.test.js --runInBand && node scripts/test-chart-data.mjs && node scripts/test-chart-ui.mjs",
     "test:commerce": "node --test commerce/store.test.cjs && node --test commerce/payment.test.cjs",
     "test:portal": "node --test commerce/portal-store.test.cjs && node --test commerce/portal-api.test.cjs",
-    "test:catalog": "node --test commerce/product-catalog.test.cjs commerce/subscription-policy.test.cjs"
+    "test:catalog": "node --test commerce/product-catalog.test.cjs commerce/subscription-policy.test.cjs",
+    "test:reports": "node scripts/test-reports.mjs"
   },
   "dependencies": {
     "body-parser": "^1.20.2",
