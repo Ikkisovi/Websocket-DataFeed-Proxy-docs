@@ -1,4 +1,6 @@
-.reports-page { background: #fbfcf9; color: #25372c; min-height: 100vh; }
+body { margin: 0; }
+.reports-page, .reports-page * { box-sizing: border-box; }
+.reports-page { font-family: var(--f-sans); background: #fbfcf9; color: #25372c; min-height: 100vh; }
 .editorial-topbar { padding: 0 max(28px, calc((100vw - 1220px)/2)); min-height: 76px; height: auto; border-bottom: 1px solid #dfe5dc; gap: 28px; background: #fbfcf9; }
 .editorial-topbar .brand { color: #25372c; text-decoration: none; }
 .editorial-topbar .nav { display: flex; gap: 24px; margin: 0; }
