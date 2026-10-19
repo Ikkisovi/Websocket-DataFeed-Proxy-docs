@@ -18,6 +18,23 @@ the dashboard uses an inverse-CDF weighted quantile over eligible machine rows.
 These are different derived views over the same receipt-bound source. The
 dashboard does not average precomputed segment medians.
 
+## Nebius spot prices
+
+Since 2026-10-19 the collector co-tenants a second source in the same formal
+slots: the official Nebius spot price viewer API
+(`https://api.nebius.cloud/billing/v1alpha1/spot-price` and its
+`spot-price/list-series` history), which is public, unauthenticated and
+read-only. Each receipt stores it under `sources.nebius_spot` with its own
+frozen `spec_sha256`, raw segment hashes and Parquet artifacts; the exporter
+repeats the same hash/row/ownership validation before publishing the separate
+`nebius_spot` feed section (latest snapshot, per-slot snapshots, merged 24h/7d
+series, visible revision count and explicit gaps). Nebius rows are never mixed
+into the Vast.ai rental aggregates, a Nebius failure is a recorded gap rather
+than a publication blocker, and slots captured before this source existed are
+counted as `pre_source_slots`, not as gaps. The page's live panel fetches the
+same public API directly in the browser; the viewer page itself is not
+embeddable (`frame-ancestors` excludes other origins).
+
 ## Publication
 
 Run with the validated OpenAlice host Python:

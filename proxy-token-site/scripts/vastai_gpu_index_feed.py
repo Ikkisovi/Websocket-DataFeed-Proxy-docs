@@ -145,6 +145,156 @@ def aggregate_group(
     }
 
 
+def read_nebius_artifact(
+    root: Path, receipt: dict[str, Any], source: dict[str, Any], name: str
+) -> pd.DataFrame:
+    artifact = source.get('artifacts', {}).get(name)
+    if not isinstance(artifact, dict):
+        raise FeedError('nebius artifact is missing')
+    path = confined_path(root, str(artifact['path']))
+    if not artifact.get('sha256') or sha256_file(path) != artifact['sha256']:
+        raise FeedError('nebius artifact hash mismatch')
+    if pq.ParquetFile(path).metadata.num_rows != artifact.get('rows'):
+        raise FeedError('nebius artifact row count mismatch')
+    frame = pd.read_parquet(path)
+    if not frame.empty and (
+        set(frame.capture_slot) != {str(receipt['capture_slot'])}
+        or set(frame.capture_id) != {str(receipt['capture_id'])}
+    ):
+        raise FeedError('nebius artifact ownership mismatch')
+    return frame
+
+
+def read_nebius_source(
+    root: Path, receipt_path: Path, receipt: dict[str, Any]
+) -> dict[str, Any]:
+    """Read one receipt's Nebius section; never let it block the Vast.ai feed."""
+    source = (receipt.get('sources') or {}).get('nebius_spot')
+    slot = str(receipt['capture_slot'])
+    if not isinstance(source, dict):
+        return {'state': 'absent'}
+    status = str(source.get('status') or '')
+    if status != 'complete':
+        return {
+            'state': 'gap',
+            'slot': slot,
+            'reason': 'nebius source is {}'.format(status or 'unknown'),
+        }
+    try:
+        for segment in source.get('segments', []):
+            raw_path = confined_path(receipt_path.parent / 'raw', str(segment['segment']))
+            if not segment.get('raw_sha256') or sha256_file(raw_path) != segment['raw_sha256']:
+                raise FeedError('nebius raw segment hash mismatch')
+        snapshot = read_nebius_artifact(root, receipt, source, 'nebius_spot')
+        series = read_nebius_artifact(root, receipt, source, 'nebius_spot_series')
+    except Exception as error:
+        return {
+            'state': 'gap',
+            'slot': slot,
+            'reason': 'nebius artifact validation failed ({})'.format(type(error).__name__),
+        }
+    return {
+        'state': 'ok',
+        'slot': slot,
+        'capture_id': str(receipt['capture_id']),
+        'snapshot_time': source.get('snapshot_time'),
+        'spec_sha256': source.get('spec_sha256'),
+        'snapshot': snapshot,
+        'series': series,
+    }
+
+
+def build_nebius_section(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    ok = [entry for entry in entries if entry.get('state') == 'ok']
+    gaps = [
+        {'slot': slot_iso(entry['slot']), 'reason': entry['reason']}
+        for entry in entries
+        if entry.get('state') == 'gap'
+    ]
+    section = {
+        'status': 'ok' if ok else 'no_data',
+        'source': 'https://api.nebius.cloud/billing/v1alpha1/spot-price (official Nebius spot price viewer API)',
+        'methodology': {
+            'view': 'provider-listed preemptible/spot SKU price, one row per GPU platform and region',
+            'price': 'USD per GPU hour, spot price snapshot and METHOD_LAST_PRICE series',
+            'currency': 'USD',
+            'windows': 'provider-aggregated history: 15-minute last price over 24h and 1-hour last price over 7d',
+            'revision_policy': 'the most recent complete capture wins per timestamp; revisions are counted, never hidden',
+            'note': 'Nebius spot prices are market-driven per GPU platform and region and are never mixed into the Vast.ai rental aggregates',
+        },
+        'snapshot_time': None,
+        'latest': [],
+        'snapshots': [],
+        'series': [],
+        'series_revisions': 0,
+        'gaps': gaps,
+        'capture_count': len(ok),
+        'pre_source_slots': sum(1 for entry in entries if entry.get('state') == 'absent'),
+    }
+    if not ok:
+        return section
+    latest = sorted(ok, key=lambda entry: entry['slot'])[-1]
+    section['snapshot_time'] = latest.get('snapshot_time')
+    section['spec_sha256'] = latest.get('spec_sha256')
+    section['latest'] = [
+        {
+            'gpu_name': str(row.gpu_name),
+            'gpu_name_raw': str(row.gpu_name_raw),
+            'platform': str(row.platform_raw),
+            'region': str(row.region),
+            'sku_id': str(row.sku_id),
+            'price_usd_per_gpu_hour': finite_number(float(row.price_usd_per_gpu_hour)),
+            'effective_time': str(row.effective_time),
+        }
+        for row in latest['snapshot'].itertuples()
+    ]
+    for entry in sorted(ok, key=lambda item: item['slot']):
+        section['snapshots'].extend(
+            {
+                'slot': slot_iso(str(row.capture_slot)),
+                'gpu_name': str(row.gpu_name),
+                'region': str(row.region),
+                'sku_id': str(row.sku_id),
+                'price_usd_per_gpu_hour': finite_number(float(row.price_usd_per_gpu_hour)),
+            }
+            for row in entry['snapshot'].itertuples()
+        )
+    merged: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    for entry in sorted(ok, key=lambda item: item['slot']):
+        for row in entry['series'].itertuples():
+            point_key = (str(row.sku_id), str(row.window), str(row.timestamp), str(row.region))
+            value = finite_number(float(row.price_usd_per_gpu_hour))
+            previous = merged.get(point_key)
+            if previous is not None and previous['value'] != value:
+                previous['revised'] = True
+                section['series_revisions'] += 1
+            merged[point_key] = {'value': value, 'revised': bool(previous and previous.get('revised'))}
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    for (sku_id, window, _timestamp, _region), point in merged.items():
+        # Identify the series by provider SKU so two SKUs sharing a canonical
+        # GPU name can never be silently interleaved into one curve.
+        item = grouped.setdefault((sku_id, window), {'points': []})
+        item['points'].append({'time': _timestamp, 'value': point['value']})
+    label_lookup = {
+        (str(row.sku_id), str(row.window)): (str(row.gpu_name), str(row.region), str(row.granularity))
+        for entry in ok
+        for row in entry['series'].itertuples()
+    }
+    section['series'] = [
+        {
+            'key': 'spot:{}:{}:{}'.format(sku_id, window, label_lookup[(sku_id, window)][1]),
+            'sku_id': sku_id,
+            'gpu_name': label_lookup[(sku_id, window)][0],
+            'region': label_lookup[(sku_id, window)][1],
+            'window': window,
+            'granularity': label_lookup[(sku_id, window)][2],
+            'points': sorted(item['points'], key=lambda point: point['time']),
+        }
+        for (sku_id, window), item in sorted(grouped.items())
+    ]
+    return section
+
+
 def build_feed(root: Path) -> dict[str, Any]:
     root = root.resolve()
     slots_dir = root / "slots"
@@ -154,6 +304,7 @@ def build_feed(root: Path) -> dict[str, Any]:
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
     captures: list[dict[str, Any]] = []
     warnings: list[dict[str, str]] = []
+    nebius_entries: list[dict[str, Any]] = []
 
     for pointer_path in sorted(slots_dir.glob("*.json")):
         try:
@@ -200,6 +351,7 @@ def build_feed(root: Path) -> dict[str, Any]:
             slot = str(receipt["capture_slot"])
             capture_id = str(receipt["capture_id"])
             market_vram = read_market_vram(root, receipt_path, receipt)
+            nebius_entries.append(read_nebius_source(root, receipt_path, receipt))
             series_count = 0
             for keys, frame in machines.groupby(["rental_type", "gpu_name"], sort=True, dropna=False):
                 rental_type, gpu_name = (str(keys[0]), str(keys[1]))
@@ -284,6 +436,7 @@ def build_feed(root: Path) -> dict[str, Any]:
         "captures": captures,
         "rental_types": sorted({item["rental_type"] for item in series}, key=lambda value: RENTAL_ORDER.get(value, 99)),
         "series": series,
+        "nebius_spot": build_nebius_section(nebius_entries),
         "warnings": warnings,
     }
 
