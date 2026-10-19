@@ -55,6 +55,10 @@ if(!fixture){
   assert.match(doc.body.textContent,/B200/);
   assert.match(doc.body.textContent,/3\.42/);
   assert.match(doc.body.textContent,/实时接口已连接/);
+  // A missing captured price is an observation gap, never a real $0.00.
+  const nebiusBody=doc.querySelector('.gpu-index-nebius-table tbody').textContent;
+  assert.ok(!nebiusBody.includes('$0.00'),`missing captured price must render as a dash: ${nebiusBody}`);
+  assert.ok(nebiusBody.includes('—'),`expected dash placeholders: ${nebiusBody}`);
 }
 dom.window.close();
 const unavailable = new JSDOM('<div id="root"></div>', { url: 'https://leandata.uk/alternative-data/', runScripts: 'outside-only', pretendToBeVisual: true });

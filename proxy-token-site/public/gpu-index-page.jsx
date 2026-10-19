@@ -525,6 +525,8 @@ function nebiusWindowDelta(series, skuId, window) {
 }
 
 function nebiusPrice(value) {
+  // Distinguish "no observation" from a real zero: Number(null) is 0.
+  if (value === null || value === undefined || value === "") return "—";
   const numeric = Number(value);
   return Number.isFinite(numeric) ? `$${numeric.toFixed(2)}` : "—";
 }
@@ -598,16 +600,20 @@ function NebiusPanel({ nebius }) {
         <thead><tr>
           <th>GPU</th><th>区域 Region</th><th>实时价 $/GPU·h</th><th>采集价 $/GPU·h</th><th>Δ24h</th><th>Δ7d</th><th>生效时间</th>
         </tr></thead>
-        <tbody>{table.map(row => <tr key={`${row.sku_id}::${row.region}`}>
+        <tbody>{table.map(row => {
+          const delta1d = nebiusWindowDelta(series, row.sku_id, "1d");
+          const delta7d = nebiusWindowDelta(series, row.sku_id, "7d");
+          return <tr key={`${row.sku_id}::${row.region}`}>
           <td>{row.gpu_name === "unmapped" ? (row.gpu_name_raw || row.sku_id) : row.gpu_name}
             {row.gpu_name === "unmapped" ? "" : <div className="secondary">{row.sku_id}</div>}</td>
           <td>{row.region}</td>
           <td>{nebiusPrice(row.live_price)}</td>
           <td>{nebiusPrice(row.captured_price)}</td>
-          <td className={nebiusWindowDelta(series, row.sku_id, "1d") >= 0 ? "up" : "down"}>{nebiusDelta(nebiusWindowDelta(series, row.sku_id, "1d"))}</td>
-          <td className={nebiusWindowDelta(series, row.sku_id, "7d") >= 0 ? "up" : "down"}>{nebiusDelta(nebiusWindowDelta(series, row.sku_id, "7d"))}</td>
+          <td className={delta1d == null ? "" : delta1d >= 0 ? "up" : "down"}>{nebiusDelta(delta1d)}</td>
+          <td className={delta7d == null ? "" : delta7d >= 0 ? "up" : "down"}>{nebiusDelta(delta7d)}</td>
           <td>{nebiusTime(row.effective_time)}</td>
-        </tr>)}</tbody>
+        </tr>;
+        })}</tbody>
       </table> : <p className="gpu-index-nebius-empty">
         暂无 Nebius 数据。采集端自 2026-10-20 00:00 UTC 起在每个采集槽携带本源；实时接口可用时本表自动填充。
       </p>}
