@@ -46,7 +46,7 @@ Run with the validated OpenAlice host Python:
 
 The publisher validates storage residency and transfers one aggregate JSON via
 SSH, checks the returned SHA-256, and replaces only
-`/srv/leandata/proxy-token-site/public/alternative-data/gpu-index.json` atomically.
+`/srv/leandata-site-public/public/alternative-data/gpu-index.json` atomically.
 A validation or transfer failure retains the previously published feed; the page
 marks stale observations after six hours plus a 30-minute capture allowance.
 
