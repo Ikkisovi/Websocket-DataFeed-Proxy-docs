@@ -9,6 +9,7 @@ const DOC_PATHS = {
   marketResearch: "/docs/market/research-signals/",
   marketCryptoNews: "/docs/market/crypto-news/",
   marketCn: "/docs/market/cn/",
+  universes: "/docs/universes/",
   financial: "/docs/financial/",
   financialRegular: "/docs/financial/regular/",
   financialEodhd: "/docs/financial/eodhd/",
@@ -41,10 +42,11 @@ const NAV_GROUPS = [
   {
     key: "financial",
     label: "财务数据", en: "Financial data",
-    match: ["fmp", "fmp-fundamentals", "morningstar", "eodhd"],
+    match: ["fmp", "fmp-fundamentals", "morningstar", "eodhd", "universe"],
     mainTab: "fmp",
     items: [
       { label: "选择数据源", en: "Choose source", desc: "Regular / FMP · Morningstar · EODHD", href: DOC_PATHS.financial },
+      { label: "Universe 成员快照", en: "Universe snapshots", desc: "Membership · Versions · Provenance", href: DOC_PATHS.universes },
       { label: "Morningstar（推荐）", en: "Morningstar (recommended)", desc: "Daily wide fundamentals", href: DOC_PATHS.financialMorningstar },
       { label: "EODHD 事件", en: "EODHD events", desc: "Earnings · Dividends · Splits", href: DOC_PATHS.financialEodhd },
       { label: "Regular / FMP", en: "Regular / FMP", desc: "50+ standard endpoints", href: DOC_PATHS.financialRegular },
@@ -85,6 +87,7 @@ const DOC_PAGE_CONFIG = {
   "market-research": { path: DOC_PATHS.marketResearch, tab: "proxy", focus: "research" },
   "market-crypto-news": { path: DOC_PATHS.marketCryptoNews, tab: "proxy", focus: "crypto-news" },
   "market-cn": { path: DOC_PATHS.marketCn, tab: "proxy", focus: "cn" },
+  universes: { path: DOC_PATHS.universes, tab: "universe" },
   financial: { path: DOC_PATHS.financial, tab: "fmp" },
   "financial-regular": { path: DOC_PATHS.financialRegular, tab: "fmp-fundamentals" },
   "financial-eodhd": { path: DOC_PATHS.financialEodhd, tab: "eodhd" },
@@ -103,6 +106,11 @@ const DOC_PAGE_BY_PATH = Object.fromEntries(
 );
 
 const SECTION_ZH_LABELS = {
+  "Universe snapshots": "Universe 成员快照",
+  "Snapshot overview": "快照概览与边界",
+  "Read snapshots": "读取当前与固定版本",
+  "Snapshot schema": "响应结构与来源时钟",
+  "Snapshot availability": "版本范围与错误处理",
   "Market · US / World": "市场 · 美国 / 世界",
   "US market": "美国市场",
   "World · CN 中国数据": "世界 · 中国数据",
@@ -359,13 +367,13 @@ function slugify(text) {
 }
 
 function docSectionId(tab, label) {
-  return tab === "fmp-fundamentals"
+  return tab === "universe" ? ({ "Snapshot overview": "universe-overview", "Read snapshots": "universe-read", "Snapshot schema": "universe-schema", "Snapshot availability": "universe-availability" })[label] || slugify(label) : tab === "fmp-fundamentals"
     ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
     : tab === "eodhd" ? ({ "EODHD overview": "eodhd-overview", "Event fields": "eodhd-fields", "EODHD history": "eodhd-history", "EODHD coverage": "eodhd-coverage" })[label] || slugify(label) : ID_MAP[label] || slugify(label);
 }
 
 function getDocSections(tab, page) {
-  const sections = tab === "proxy" ? [
+  const sections = tab === "universe" ? [{ title: "Universe snapshots", items: ["Snapshot overview", "Read snapshots", "Snapshot schema", "Snapshot availability"] }] : tab === "proxy" ? [
     { title: "Getting started", items: ["Overview", "Authentication", "Response delivery", "API contract", "Tiers & permissions", "Free plan usage"] },
     { title: "Token API", items: ["register", "check-status", "generate-token"] },
     { title: "REST History", items: ["history/bars", "history/news", "stock trade+quote"] },
@@ -458,7 +466,7 @@ function articleItems(sections) {
 
 const DOC_ARTICLES = {};
 for (const [page, config] of Object.entries(DOC_PAGE_CONFIG)) {
-  if (!["proxy", "ws", "fmp-fundamentals", "morningstar", "eodhd"].includes(config.tab)) continue;
+  if (!["proxy", "ws", "fmp-fundamentals", "morningstar", "eodhd", "universe"].includes(config.tab)) continue;
   for (const item of articleItems(getDocSections(config.tab, page))) {
     const id = docSectionId(config.tab, item.label);
     // cn-* sidebar entries outside market-cn are cross-page links: they must

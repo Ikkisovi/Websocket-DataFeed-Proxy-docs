@@ -560,7 +560,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
     window.addEventListener("keydown", closeMenu);
     return () => window.removeEventListener("keydown", closeMenu);
   }, []);
-  const referencePage = ["proxy", "ws", "fmp-fundamentals", "morningstar", "eodhd"].includes(tab);
+  const referencePage = ["proxy", "ws", "fmp-fundamentals", "morningstar", "eodhd", "universe"].includes(tab);
   const topic = NAV_GROUPS.flatMap(group => group.items).find(item => item.href === config.path);
   const title = article ? (isZh ? SECTION_ZH_LABELS[article.label] || article.label : article.label) : topic ? (isZh ? topic.label : topic.en) : "Documentation";
 
@@ -589,6 +589,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
     : sourceOverview || page === "financial" ? <FmpDataOverview articleId={article?.id} />
     : config.tab === "proxy" ? <ProxyApiBody {...bodyProps} />
     : config.tab === "fmp-fundamentals" ? <FmpFundamentalsBody {...bodyProps} />
+    : config.tab === "universe" ? <UniverseSnapshotsBody articleId={article?.id} />
     : config.tab === "eodhd" ? <EodhdEventsBody articleId={article?.id} />
     : config.tab === "morningstar" ? <MorningstarFundamentalsBody articleId={article?.id} />
     : page === "bulk" ? <BulkOrderBody />
@@ -2059,6 +2060,7 @@ function EodhdEventsBody({ articleId } = {}) {
     <h2 id="eodhd-overview" className="display-title">{heading("Earnings & company events", "财报与公司事件")}</h2>
     <DocDesc zh="查询已收录的美股近期财报、分红和拆股事件。需要 Premium；这套 Upcoming 数据不是所有已公告远期事件的完整日历。" en="Query captured near-term US earnings, dividend and split events. Requires Premium. This Upcoming feed is not a complete calendar of every announced future event." />
     <DailyFinancialRefresh />
+    <p>{isZh ? "采集目标成员请查看 " : "For collection-target membership, see "}<a href={DOC_PATHS.universes}>{isZh ? "Universe 快照" : "universe snapshots"}</a>{isZh ? "。事件 daily/history 保留来源返回的全部事件（all_provider_returned_symbols），包括目标外股票和较早 SID；成员别名不代表完整事件覆盖范围。" : ". Event daily/history preserves all provider-returned events (all_provider_returned_symbols), including nonmembers and older SIDs. The membership alias does not describe full event coverage."}</p>
     <BilingualDataTable columns={[["Dataset", "数据集"], ["Content", "内容"]]} rows={[
       ["earnings", ["Upcoming earnings dates and EPS estimates (default)", "未来财报日期及每股收益预期（默认）"]],
       ["dividends", ["Dividend amounts, ex-dividend dates and payment dates", "分红金额、除息日及支付日"]],
@@ -2201,6 +2203,7 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
         alt="Morningstar provider logo"
       />
       <DailyFinancialRefresh />
+      <p>{isZh ? "采集目标成员及来源限制见 " : "For collection-target membership and source limitations, see "}<a href={DOC_PATHS.universes}>{isZh ? "Universe 成员快照" : "universe snapshots"}</a>{isZh ? "。基本面可用日期仍以 Morningstar 自身 coverage 为准。" : ". Available fundamental dates remain defined by Morningstar coverage."}</p>
       <p className="callout" style={{ marginBottom: 22 }}>
         {isZh ? (
           <>推荐使用 <strong>日度财报历史接口</strong>，一次查询历史归档和最近更新，字段名统一。实际日期、股票数量与缺失情况请查日度覆盖接口；原始 v3、native 和旧版 v1 保留各自的归档范围。</>
@@ -4981,3 +4984,84 @@ const agent = new Agent({ keepAliveTimeout: 30000 })`}
 
 window.DocsSite = DocsSite;
 export { DocsSite };
+
+function UniverseSnapshotsBody({ articleId } = {}) {
+  const isZh = useCurrentLanguage() === "zh";
+  const t = (en, zh) => isZh ? zh : en;
+  const id = "ca3a6c3e75980b9a66f9d71e250b37258e6713b1839e47dbdfde3163bdbc3bdd";
+  return <DocContent articleId={articleId} style={{ maxWidth: 860 }}>
+    <h2 id="universe-overview" className="display-title">{t("Universe membership snapshots", "Universe 成员快照")}</h2>
+    <DocDesc en="Read the complete, explicitly archived membership of a universe, with stable security identifiers, source clocks and a reproducible version ID. This is a general universe interface; each response declares its membership source." zh="读取明确归档的完整 universe 成员，保留稳定证券标识、来源时钟和可复现版本 ID。这是通用 universe 接口；成员来源由每份响应自行声明。" />
+    <div className="card" style={{ padding: 20, borderLeft: "3px solid var(--ink-strong)", margin: "20px 0" }}>
+      <strong>{t("Available release: NDX_SPX · ETF proxy", "本次可用：NDX_SPX · ETF 代理成员")}</strong>
+      <p>{t("As verified on October 20, 2026, one NDX_SPX root version is explicitly archived: 519 members derived from SPY/QQQ, with membership_kind=etf_proxy and is_index_exact=false. It is not certified official NDX/SPX constituent membership. The date, count and version below are a dated example, not a perpetual current value.", "截至 2026 年 10 月 20 日验证，仅一份 NDX_SPX 根版本明确归档：SPY/QQQ 衍生的 519 个成员，membership_kind=etf_proxy、is_index_exact=false，不是经认证的官方 NDX/SPX 指数成分。这是带日期的示例，日期、数量和版本不代表永久的当前值。")}</p>
+      <p>{t("Fixed-ID historical reads are available. This release does not publish the offline 2015 research membership masks or full arbitrary-date index history.", "已支持按固定 ID 读取归档历史版本。本次未发布离线 2015 研究成员掩码，也未提供完整的任意日期指数成分历史。")}</p>
+    </div>
+    <h3>{t("Choose the right membership source", "选择适合的成员来源")}</h3>
+    <p>{t("Inspect membership_kind, is_index_exact, defects and components before treating a universe as an index. The schema can describe index_constituents as well as etf_proxy; that does not mean both kinds are available in this release. membership_complete means complete for the declared source, not exact official index coverage.", "在将 universe 当作指数前，先检查 membership_kind、is_index_exact、defects 和 components。结构可描述 index_constituents 和 etf_proxy，并不表示本次两种来源都已提供。membership_complete 表示所声明来源的成员完整，不等于官方指数精确覆盖。")}</p>
+    <p>{t("Use symbol.id (QC SID) as the security identity and preserve symbol.value, the mapped Symbol.Value. Do not replace identities by ticker alone. Members describe the collection target; they do not prove that every source has data for every member or date.", "以 symbol.id（QC SID）识别证券，同时保留 symbol.value（映射后的 Symbol.Value）；不要仅靠股票代码替换证券身份。成员描述采集目标，不证明每个来源在每个成员和日期都有数据。")}</p>
+    <p><a href={docArticlePath("universes", "universe-read")}>{t("Read current or pinned snapshots →", "读取当前或固定版本 →")}</a></p>
+
+    <h2 id="universe-read" className="display-title">{t("Read current & pinned versions", "读取当前与固定版本")}</h2>
+    <DocDesc en="Use your existing active Bearer token with financial-data authorization. No new token is needed. The production API uses the public HTTPS base URL and does not require a private network connection. All four routes below are GET only." zh="使用已有且有效、具财务数据权限的 Bearer token，无需新建 token。生产 API 使用公开 HTTPS 地址，无需私有网络连接。以下四条路由均仅支持 GET。" />
+    <pre className="code">{`GET https://api.leandata.uk/v1/universes/NDX_SPX/snapshots/current
+GET https://api.leandata.uk/v1/universes/NDX_SPX/snapshots/{snapshot_id}
+GET https://api.leandata.uk/v1/fundamentals/morningstar/universe/current
+GET https://api.leandata.uk/v1/events/eodhd/universe/current`}</pre>
+    <BilingualDataTable columns={[["Route", "路由"], ["Query parameters", "查询参数"]]} rows={[
+      ["/v1/universes/{universe_id}/snapshots/{snapshot_id}", ["None. Use current or a 64-character lowercase hexadecimal snapshot ID in the path.", "不接受查询参数；路径中使用 current 或 64 位小写十六进制 snapshot ID。"]],
+      ["Morningstar / EODHD current aliases", ["Optional universe_id only; defaults to NDX_SPX. Both return the same target snapshot.", "仅可选 universe_id，默认 NDX_SPX；两者返回同一目标成员快照。"]],
+    ]} />
+    <p>{t("Unsupported or duplicate parameters return 400. There are no date selectors, listing endpoints or version-history range endpoints for this interface. Other universe IDs require their own explicitly archived root snapshot.", "不支持的参数或重复参数返回 400。本接口没有日期选择器、列表接口或版本历史范围接口。其他 universe ID 需要各自明确归档的根快照。")}</p>
+    <h3>{t("Read current, then retain its version", "读取当前并保存版本")}</h3>
+    <pre className="code">{`curl --fail-with-body --include \\
+  "https://api.leandata.uk/v1/universes/NDX_SPX/snapshots/current" \\
+  -H "Authorization: Bearer <YOUR_FINANCIAL_DATA_TOKEN>"`}</pre>
+    <h3>{t("Replay the October 20 accepted example", "重读 10 月 20 日验收的示例版本")}</h3>
+    <pre className="code">{`curl --fail-with-body --include \\
+  "https://api.leandata.uk/v1/universes/NDX_SPX/snapshots/${id}" \\
+  -H "Authorization: Bearer <YOUR_FINANCIAL_DATA_TOKEN>"`}</pre>
+    <p>{t("Save snapshot_id and the original response with your research results. A fixed ID identifies an archived version; it does not select a trading date or turn the capture into point-in-time historical index membership.", "将 snapshot_id 和原始响应与研究结果一并保存。固定 ID 标识归档版本，不是交易日期选择器，也不会将采集结果变成严格时点的历史指数成分。")}</p>
+    <h3>{t("Conditional requests", "条件请求")}</h3>
+    <pre className="code">{`curl --include \\
+  "https://api.leandata.uk/v1/universes/NDX_SPX/snapshots/current" \\
+  -H "Authorization: Bearer <YOUR_FINANCIAL_DATA_TOKEN>" \\
+  -H 'If-None-Match: "<ETAG_FROM_PREVIOUS_RESPONSE>"'`}</pre>
+    <p>{t("Reuse the returned ETag verbatim, including its quotes. A matching If-None-Match returns 304 with no response body. Keep the prior body. ETag, X-Universe-Snapshot-Id, X-Universe-Membership-Kind and Cache-Control are preserved; current uses Cache-Control: no-cache, so revalidate before reuse.", "原样复用返回的 ETag（包括引号）。If-None-Match 匹配时返回 304，无响应正文，请保留先前正文。ETag、X-Universe-Snapshot-Id、X-Universe-Membership-Kind 和 Cache-Control 均保留；current 使用 Cache-Control: no-cache，复用前应重新验证。")}</p>
+
+    <h2 id="universe-schema" className="display-title">{t("Response schema & source clocks", "响应结构与来源时钟")}</h2>
+    <DocDesc en="Schema: openalice_universe_snapshot_v1. The response preserves QC security identities, mapped symbols, member and component clocks, and producer provenance. Source times and observation time have different meanings." zh="Schema 为 openalice_universe_snapshot_v1。响应保留 QC 证券身份、映射代码、成员及组件时钟和生产者来源信息；来源时间与观察时间含义不同。" />
+    <BilingualDataTable columns={[["Field", "字段"], ["Client meaning", "客户端含义"]]} rows={[
+      ["schema / universe_id / universe_type", ["Schema version, requested universe identity and composition type (example: index_union).", "结构版本、请求的 universe 身份及组成类型（示例为 index_union）。"]],
+      ["snapshot_id", ["SHA256 of canonical JSON excluding snapshot_id: sorted keys, compact separators. Hash the full response, not this excerpt.", "对排除 snapshot_id 后的规范 JSON 求 SHA256：键排序、紧凑分隔符。计算时使用完整响应，不能用此处节选。"]],
+      ["membership_kind / is_index_exact / defects", ["Declared source and its limitations. The example is etf_proxy, false, and etf_proxy_not_index_constituents.", "声明来源及限制；示例为 etf_proxy、false 和 etf_proxy_not_index_constituents。"]],
+      ["membership_complete / member_count / members", ["Completeness and count for this declared source; members is the full union member list.", "针对所声明来源的完整性和数量；members 是完整并集成员列表。"]],
+      ["members[].symbol.id / value / permtick", ["QC SID, mapped Symbol.Value and preserved permtick. Retain all identity fields.", "QC SID、映射后的 Symbol.Value 及保留的 permtick，应一并保存。"]],
+      ["members[].indexes / time / end_time / last_update", ["Component associations and per-member source clocks; keep them separate from observation time.", "所属组件及每个成员的来源时钟，应与观察时间分别保存。"]],
+      ["components", ["Source composition and membership, including index, proxy_etf where applicable, qc_type, counts, time and end_time.", "来源组成与成员，包含 index、适用时的 proxy_etf、qc_type、数量和 time/end_time。"]],
+      ["time / end_time / time_zone", ["Collection interval clocks and declared timezone, not financial archive coverage dates.", "采集区间时钟及声明时区，不是财务归档覆盖日期。"]],
+      ["observed_at_utc", ["When the capture was observed, not the date on which all underlying datasets became current.", "观察采集结果的时间，不代表所有底层数据集均更新到该日。"]],
+      ["selection", ["How components were selected. The example uses latest available collection per component, not a lookback union or returned-data coverage.", "组件选择方式；示例取各组件最新可用采集，不是回看窗口并集，也不是返回数据覆盖范围。"]],
+      ["producer", ["Original run/script identifiers, source/config hashes and runtime provenance. Fingerprint scope is retained; a loaded-function fingerprint is not a portable source hash.", "保留原始运行/脚本标识、源码/配置哈希及运行环境来源信息；函数指纹的适用范围也保留，不能视为可移植源码哈希。"]],
+    ]} />
+    <h3>{t("Dated response excerpt", "带日期的响应节选")}</h3>
+    <p>{t("Selected fields and one member from the actual accepted snapshot; other fields and members are omitted for brevity. This excerpt is not a complete snapshot and cannot reproduce its hash.", "以下选取实际验收快照的部分字段及一个成员，省略其余字段和成员；这不是完整快照，不能据此复算哈希。")}</p>
+    <pre className="code">{JSON.stringify({schema:"openalice_universe_snapshot_v1",universe_id:"NDX_SPX",universe_type:"index_union",snapshot_id:id,membership_kind:"etf_proxy",is_index_exact:false,membership_complete:true,member_count:519,defects:["etf_proxy_not_index_constituents"],time:"2026-10-16T04:00:00+00:00",end_time:"2026-10-17T04:00:00+00:00",time_zone:"America/New_York",observed_at_utc:"2026-10-20T04:47:06.309506+00:00",members:[{symbol:{id:"AAPL R735QTJ8XC9X",permtick:"AAPL",value:"AAPL"},indexes:["SPX","NDX"],time:"2026-10-16T04:00:00+00:00",end_time:"2026-10-17T04:00:00+00:00",last_update:"2026-10-16T04:00:00+00:00"}]},null,2)}</pre>
+
+    <h2 id="universe-availability" className="display-title">{t("Availability, freshness & failures", "版本范围、新鲜度与错误处理")}</h2>
+    <DocDesc en="Current reads fail closed if the snapshot is missing, invalid, stale or unavailable. A pinned valid archived version remains readable independently of current freshness." zh="当前快照缺失、无效、过期或后端不可用时，接口返回错误。有效的固定归档版本可独立读取，不受 current 新鲜度限制。" />
+    <p>{t("For current, observed_at_utc, collection end_time and every component end_time must be no more than 96 wall-clock hours old and must not be in the future. This is elapsed time, including weekends. The service returns 503 rather than substituting an older version or inferring members from financial/event rows.", "current 要求 observed_at_utc、采集 end_time 及每个组件 end_time 均不早于当前 96 个自然小时，且不得位于未来；周末也计入经过时间。不满足时返回 503，不会用旧版本替代，也不会从财务或事件记录推断成员。")}</p>
+    <BilingualDataTable columns={[["Result", "结果"], ["Client action / meaning", "客户端处理 / 含义"]]} rows={[
+      ["200", ["Use the declared snapshot and preserve its identity and provenance.", "使用声明的快照并保留身份及来源信息。"]],
+      ["304", ["Matching ETag; reuse the previously saved body.", "ETag 匹配，复用之前保存的正文。"]],
+      ["400", ["Remove unsupported or duplicate parameters; generic routes accept no query parameters.", "移除不支持或重复的参数；通用路由不接受查询参数。"]],
+      ["Credentials denied", ["Missing, invalid or expired credentials are denied. Check the existing token and its validity.", "缺失、无效或过期凭证会被拒绝；请检查已有 token 及有效期。"]],
+      ["403", ["The token lacks financial-data entitlement.", "token 缺少财务数据权限。"]],
+      ["503", ["Snapshot missing/invalid, current stale or future-dated, or backend unavailable. Do not treat this as an empty membership list.", "快照缺失/无效、current 过期/未来时间或后端不可用；不能当作空成员列表。"]],
+    ]} />
+    <h3>{t("Version and data-source boundaries", "版本与数据源边界")}</h3>
+    <p>{t("At October 20 acceptance, only the single NDX_SPX root version shown here was available. Components within its union are not independent public root snapshots unless separately archived. Persist IDs returned by reads; no version-list or arbitrary-date history API is provided.", "10 月 20 日验收时，仅有上述一份 NDX_SPX 根版本。并集内的组件若未另行归档，不能作为独立公共根快照读取。请保存读取结果中的版本 ID；当前没有版本列表或任意日期历史接口。")}</p>
+    <p>{t("The EODHD current alias identifies target membership. EODHD daily/history independently preserves all_provider_returned_symbols, including nonmembers and older SIDs; events are not a membership census. Morningstar retains its own actual archive dates. Neither source's date range follows from this snapshot or from the other source's latest date.", "EODHD current 别名标识目标成员；EODHD daily/history 独立保留 all_provider_returned_symbols，包括非成员和较早 SID，事件记录不是成员普查。Morningstar 保留自身实际归档日期；不能由本快照或另一来源的最新日期推导其日期范围。")}</p>
+    <p><a href={DOC_PATHS.financialEodhd}>{t("EODHD events", "EODHD 事件")}</a>{" · "}<a href={DOC_PATHS.financialMorningstar}>{t("Morningstar fundamentals", "Morningstar 基本面")}</a></p>
+  </DocContent>;
+}

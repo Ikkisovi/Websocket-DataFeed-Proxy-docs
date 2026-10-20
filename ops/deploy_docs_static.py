@@ -22,6 +22,7 @@ DOC_PAGE_INDEXES = (
     "docs/market/research-signals/index.html",
     "docs/market/crypto-news/index.html",
     "docs/market/cn/index.html",
+    "docs/universes/index.html",
     "docs/financial/index.html",
     "docs/financial/regular/index.html",
     "docs/financial/eodhd/index.html",
@@ -238,6 +239,10 @@ DOC_ARTICLE_INDEXES = (
     "docs/realtime/websocket/subscribe/index.html",
     "docs/realtime/websocket/trade/index.html",
     "docs/realtime/websocket/unsubscribe/index.html",
+    "docs/universes/universe-availability/index.html",
+    "docs/universes/universe-overview/index.html",
+    "docs/universes/universe-read/index.html",
+    "docs/universes/universe-schema/index.html",
 )
 # END GENERATED ARTICLE FILES
 

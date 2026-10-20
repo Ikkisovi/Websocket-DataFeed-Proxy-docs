@@ -27,6 +27,7 @@ const pages = {
   "market/research-signals": "Research Signals API",
   "market/crypto-news": "Crypto & News API",
   "market/cn": "China Market Data API",
+  "universes": "Universe Membership Snapshots",
   "financial": "Financial Data Sources",
   "financial/regular": "Regular / FMP Financial API",
   "financial/eodhd": "EODHD Events API",

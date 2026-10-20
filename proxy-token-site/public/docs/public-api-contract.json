@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "2026-10-17.3",
+  "version": "2026-10-20.universe",
   "title": "LeanData public REST integration contract",
   "scope": "Reviewed option OI/discovery, financial archive endpoints, Brain universe snapshots and shared REST delivery/error metadata. Other product endpoints remain in their documentation; absence here is not an unavailable verdict.",
   "catalog_path": "/v1/api/contract",
@@ -1888,6 +1888,57 @@
         "Observed scoring coverage is not an official constituent list or a historical publication-vintage guarantee.",
         "The historical union contains securities absent from the selected date; they are not added to this response."
       ]
+    },
+    {
+      "id": "universe-snapshot",
+      "path": "/v1/universes/{universe_id}/snapshots/{snapshot_id}",
+      "methods": [
+        "GET"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Complete membership from explicit versioned universe metadata in committed QC captures.",
+      "parameters": [],
+      "response_schema": "openalice_universe_snapshot_v1",
+      "notes": "current requires every component to be at most 96 wall-clock hours old. An exact snapshot ID reads archived metadata independently of current age. No inference from event/fundamental row coverage. ETF proxy identity is explicit. IDs without an independently archived snapshot return 503; NDX/SPX components remain present in NDX_SPX. No provider fallback."
+    },
+    {
+      "id": "morningstar-universe-current",
+      "path": "/v1/fundamentals/morningstar/universe/current",
+      "methods": [
+        "GET"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Complete membership from explicit versioned universe metadata in committed QC captures.",
+      "parameters": [
+        {
+          "name": "universe_id",
+          "required": false,
+          "description": "Defaults to NDX_SPX on current aliases."
+        }
+      ],
+      "response_schema": "openalice_universe_snapshot_v1",
+      "notes": "current requires every component to be at most 96 wall-clock hours old. An exact snapshot ID reads archived metadata independently of current age. No inference from event/fundamental row coverage. ETF proxy identity is explicit. IDs without an independently archived snapshot return 503; NDX/SPX components remain present in NDX_SPX. No provider fallback."
+    },
+    {
+      "id": "eodhd-universe-current",
+      "path": "/v1/events/eodhd/universe/current",
+      "methods": [
+        "GET"
+      ],
+      "status": "available",
+      "access": "premium_financial",
+      "summary": "Complete membership from explicit versioned universe metadata in committed QC captures.",
+      "parameters": [
+        {
+          "name": "universe_id",
+          "required": false,
+          "description": "Defaults to NDX_SPX on current aliases."
+        }
+      ],
+      "response_schema": "openalice_universe_snapshot_v1",
+      "notes": "current requires every component to be at most 96 wall-clock hours old. An exact snapshot ID reads archived metadata independently of current age. No inference from event/fundamental row coverage. ETF proxy identity is explicit. IDs without an independently archived snapshot return 503; NDX/SPX components remain present in NDX_SPX. No provider fallback."
     }
   ],
   "browser_exposed_headers": [
@@ -1897,7 +1948,10 @@
     "X-Cache",
     "X-Cache-Tier",
     "X-Request-Id",
-    "Retry-After"
+    "Retry-After",
+    "ETag",
+    "X-Universe-Snapshot-Id",
+    "X-Universe-Membership-Kind"
   ],
   "data_source_tier_mapping": {
     "theta_sealed_response": "source"
