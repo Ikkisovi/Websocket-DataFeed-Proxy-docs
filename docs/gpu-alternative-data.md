@@ -31,11 +31,14 @@ repeats the same hash/row/ownership validation before publishing the separate
 series, visible revision count and explicit gaps). Nebius rows are never mixed
 into the Vast.ai rental aggregates, a Nebius failure is a recorded gap rather
 than a publication blocker, and slots captured before this source existed are
-counted as `pre_source_slots`, not as gaps. The page's Nebius panel refreshes the same
-public API from the browser every five minutes while keeping the captured
-snapshots as the historical record; when the live endpoint is unavailable it
-degrades to the captured rows with an explicit status line and never shows
-provider diagnostics. The viewer page itself is not embeddable (`frame-ancestors` excludes other origins).
+counted as `pre_source_slots`, not as gaps. The page's Nebius panel renders the captured
+series as the same hand-drawn SVG price plot language as the rental index: one
+line per region SKU with gaps broken at capture holes, 24h/7d window toggles,
+and browser-side live readings marked only at the "now" edge (never
+back-filled). It refreshes the same public API from the browser every five
+minutes; when the live endpoint is unavailable it degrades to the captured
+series with an explicit status line and never shows provider diagnostics. The
+viewer page itself is not embeddable (`frame-ancestors` excludes other origins).
 
 ## Publication
 

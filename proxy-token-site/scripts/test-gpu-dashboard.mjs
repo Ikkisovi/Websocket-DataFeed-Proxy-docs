@@ -30,10 +30,16 @@ dom.window.eval(fs.readFileSync(new URL('../public/assets/gpu-index-page.js',imp
 await tick();
 const doc=dom.window.document;
 assert.match(doc.body.textContent,/Alternative data/);
-assert.equal(doc.querySelector('.gpu-index-panel-title').textContent,'RTX 4090');
-assert.equal(doc.querySelectorAll('.gpu-index-history tbody tr').length,23);
-assert.equal(doc.querySelectorAll('.gpu-index-history tbody tr.provisional').length,1);
-const xLabels=[...doc.querySelectorAll('svg text')].filter(x=>x.textContent.endsWith('Z'));
+assert.match(doc.querySelector('.gpu-index-panel-title').textContent, fixture ? /\S/ : /^RTX 4090$/);
+const historyRows=doc.querySelectorAll('.gpu-index-history tbody tr').length;
+if(fixture){
+  // Real fixtures carry their own capture count; only the synthetic fixture pins 23.
+  assert.ok(historyRows>0,`fixture history rows expected, got ${historyRows}`);
+}else{
+  assert.equal(historyRows,23);
+  assert.equal(doc.querySelectorAll('.gpu-index-history tbody tr.provisional').length,1);
+}
+const xLabels=[...doc.querySelectorAll('.gpu-index-workspace svg text')].filter(x=>x.textContent.endsWith('Z'));
 assert.ok(xLabels.length<=6,`too many x-axis labels: ${xLabels.length}`);
 const meanBefore=doc.querySelector('.gpu-index-kpi-value').textContent;
 const raw=[...doc.querySelectorAll('button')].find(b=>b.textContent==='Raw audit');raw.click();await tick();
@@ -51,14 +57,18 @@ assert.equal(feedRequests,1);
 assert.equal(liveRequests,1);
 assert.match(doc.body.textContent,/Nebius spot prices/);
 if(!fixture){
-  // Live panel renders the provider snapshot read through the browser fetch.
+  // Live plot renders the provider snapshot read through the browser fetch.
   assert.match(doc.body.textContent,/B200/);
   assert.match(doc.body.textContent,/3\.42/);
   assert.match(doc.body.textContent,/实时接口已连接/);
+  assert.ok(doc.querySelector('.gpu-index-nebius svg.gpu-index-chart'),'nebius plot must render');
+  assert.ok(doc.querySelectorAll('.gpu-index-nebius svg circle').length>=1,'nebius live markers must render');
   // A missing captured price is an observation gap, never a real $0.00.
-  const nebiusBody=doc.querySelector('.gpu-index-nebius-table tbody').textContent;
-  assert.ok(!nebiusBody.includes('$0.00'),`missing captured price must render as a dash: ${nebiusBody}`);
-  assert.ok(nebiusBody.includes('—'),`expected dash placeholders: ${nebiusBody}`);
+  const nebiusText=doc.querySelector('.gpu-index-nebius').textContent;
+  assert.ok(!nebiusText.includes('$0.00'),`missing captured price must render as a dash: ${nebiusText}`);
+  assert.ok(nebiusText.includes('—'),`expected dash placeholders: ${nebiusText}`);
+  const nebiusX=[...doc.querySelectorAll('.gpu-index-nebius svg text')].filter(x=>x.textContent.endsWith('Z'));
+  assert.ok(nebiusX.length<=6,`too many nebius x-axis labels: ${nebiusX.length}`);
 }
 dom.window.close();
 const unavailable = new JSDOM('<div id="root"></div>', { url: 'https://leandata.uk/alternative-data/', runScripts: 'outside-only', pretendToBeVisual: true });

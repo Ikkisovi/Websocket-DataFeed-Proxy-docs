@@ -132,31 +132,17 @@ button { font: inherit; }
   .gpu-index-card-price { font-size: 25px; }
 }
 
-/* Nebius spot live panel — provider snapshot + captured history */
+/* Nebius spot live plot — provider series + browser-side live readings */
 .gpu-index-nebius { margin-top: 14px; }
-.gpu-index-nebius-status {
-  display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 12px 22px;
-  border-bottom: 1px solid var(--rule); font: 11px/1.6 var(--f-mono); color: var(--ink-muted);
+.gpu-index-nebius-toolbar {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
+  padding: 14px 22px 2px;
 }
-.gpu-index-nebius-status .live { color: var(--ok); }
-.gpu-index-nebius-status .warn { color: var(--warn); }
-.gpu-index-nebius-body { padding: 16px 22px 20px; }
-.gpu-index-nebius-table { width: 100%; border-collapse: collapse; font: 11px/1.5 var(--f-mono); white-space: nowrap; }
-.gpu-index-nebius-table th, .gpu-index-nebius-table td {
-  padding: 7px 10px; border-bottom: 1px solid var(--rule); text-align: right; color: var(--ink-strong);
-  font-variant-numeric: tabular-nums;
-}
-.gpu-index-nebius-table th:first-child, .gpu-index-nebius-table td:first-child,
-.gpu-index-nebius-table th:nth-child(2), .gpu-index-nebius-table td:nth-child(2) { text-align: left; }
-.gpu-index-nebius-table thead th {
-  background: var(--bg-sunken); color: var(--ink-soft); font-weight: 600;
-  text-transform: uppercase; letter-spacing: .05em; font-size: 10px;
-}
-.gpu-index-nebius-table td .secondary { color: var(--ink-soft); }
-.gpu-index-nebius-table td.up { color: var(--danger); }
-.gpu-index-nebius-table td.down { color: var(--ok); }
-.gpu-index-nebius-empty { margin: 0; color: var(--ink-muted); font-size: 12px; }
-.gpu-index-nebius-note { margin: 10px 0 0; color: var(--ink-soft); font: 10.5px/1.6 var(--f-mono); }
-@media (max-width: 860px) {
-  .gpu-index-nebius-body { overflow-x: auto; }
-}
+.gpu-index-nebius-toolbar-right { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.gpu-index-nebius-live { font: 500 10.5px/1 var(--f-mono); letter-spacing: .04em; color: var(--ink-muted); }
+.gpu-index-nebius-live.live { color: var(--ok); }
+.gpu-index-nebius-live.unavailable { color: var(--warn); }
+.gpu-index-nebius-note { margin: 0; padding: 4px 22px 18px; color: var(--ink-soft); font: 10.5px/1.6 var(--f-mono); }
+.gpu-index-nebius-empty { margin: 0; padding: 18px 22px 22px; color: var(--ink-muted); font-size: 12px; }
+.gpu-index-kpi-value.up { color: var(--danger); }
+.gpu-index-kpi-value.down { color: var(--ok); }
