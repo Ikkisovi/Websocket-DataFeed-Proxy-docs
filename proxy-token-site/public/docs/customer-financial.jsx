@@ -16,19 +16,20 @@ export function UniverseCustomerBody({ articleId, isZh }) {
   return <DocContent articleId={articleId} data-no-i18n="true" style={{ maxWidth: 860 }}>
     <h2 id="universe-overview" className="display-title">{t("Universe member lists", "Universe 股票名单")}</h2>
     <Premium isZh={isZh} />
-    <p>{t("Get the stocks in a supported universe, with their symbols, security IDs and a version you can save. NDX_SPX is currently available.", "查询支持的 universe 包含哪些股票，获取股票代码、证券 ID 和可保存的版本。目前可查 NDX_SPX。")}</p>
+    <p>{t("Get a snapshot of a stock list or universe, with symbols, security IDs and a version you can save. Choose a universe_id that has been published or provided to you.", "查询一份股票名单或股票池的快照，获取股票代码、证券 ID 和可保存的版本。具体可查哪些名单，以已发布或提供给你的 universe_id 为准。")}</p>
     <div className="card" style={{ padding: 20, margin: "20px 0" }}>
-      <strong>{t("What this list covers", "这份名单覆盖什么")}</strong>
-      <p>{t("NDX_SPX currently combines SPY and QQQ holdings as an approximation of the S&P 500 and Nasdaq-100. It can differ from the official index lists.", "NDX_SPX 目前合并 SPY、QQQ 的持仓，近似标普 500 和纳斯达克 100；它和指数官方名单可能不同。")}</p>
-      <p>{t("The October 20, 2026 example has 519 stocks. The count can change. Only one saved NDX_SPX version was available on that date. History reads saved versions; it does not provide a member list for any date you choose.", "2026 年 10 月 20 日的示例包含 519 只股票，数量会变化。当时仅有一份已保存的 NDX_SPX 版本。历史查询只能读取已保存版本，不能任选日期获取当日名单。")}</p>
+      <strong>{t("Current example: NDX_SPX", "当前示例：NDX_SPX")}</strong>
+      <p>{t("This example combines SPY and QQQ holdings as an approximation of the S&P 500 and Nasdaq-100. It can differ from the official index lists. Other lists may have different sources; check the response for the list you request.", "这个示例合并 SPY、QQQ 的持仓，近似标普 500 和纳斯达克 100，和指数官方名单可能不同。其他名单的来源可能不同，请查看各自的返回说明。")}</p>
+      <p>{t("The version provided on October 20, 2026 has one independently available list, NDX_SPX, with 519 stocks. This is a dated example; counts and versions can change.", "2026 年 10 月 20 日这次提供的版本中，仅有 NDX_SPX 这一份可独立查询的名单，共 519 只股票。这是带日期的示例，数量和版本会变化。")}</p>
     </div>
+    <p>{t("History reads saved versions. It does not provide a member list for any date you choose.", "历史查询只能读取已保存版本，不能任选日期获取当日名单。")}</p>
     <h3>{t("Useful response fields", "值得保存的字段")}</h3>
     <Fields isZh={isZh} rows={[
-      ["universe_id", "Which list you requested, such as NDX_SPX.", "请求的名单，例如 NDX_SPX。"],
+      ["universe_id", "The published or provided ID of the stock list you requested.", "请求的股票名单 ID，使用已发布或提供给你的值。"],
       ["snapshot_id", "The version of this list. Save it to read the same version again.", "这份名单的版本；保存它，以后可以读回同一版本。"],
       ["member_count / members", "How many stocks the list contains, and the stocks themselves.", "股票数量和完整股票列表。"],
       ["members[].symbol.id / value", "The security ID and display symbol. Keep the ID as well as the ticker, since tickers can change.", "证券 ID 和显示代码。代码可能变更，保存时请同时保留 ID。"],
-      ["membership_kind / is_index_exact", "How the list was formed. etf_proxy and false mean ETF holdings are used as an approximation.", "名单来源；etf_proxy 和 false 表示使用 ETF 持仓近似指数。"],
+      ["membership_kind / is_index_exact", "How this list was formed. In the example, etf_proxy and false indicate an approximation based on ETF holdings.", "这份名单的来源。示例中的 etf_proxy 和 false 表示使用 ETF 持仓近似指数。"],
       ["time / end_time / observed_at_utc", "The list's time range and when it was recorded. These do not tell you the latest available financial or event date.", "名单对应的时间范围及记录时间，不能据此判断基本面或事件数据更新到了哪一天。"],
     ]} />
     <h3>{t("A short example", "简短示例")}</h3>
@@ -38,25 +39,28 @@ export function UniverseCustomerBody({ articleId, isZh }) {
 
     <h2 id="universe-read" className="display-title">{t("Get and save a member list", "查询与保存名单")}</h2>
     {articleId && <Premium isZh={isZh} />}
+    <p>{t("Use these routes for any published or provided universe_id:", "对已发布或提供的 universe_id，统一使用以下路由：")}</p>
+    <pre className="code">{`GET /v1/universes/{universe_id}/snapshots/current
+GET /v1/universes/{universe_id}/snapshots/{snapshot_id}`}</pre>
     <h3>{t("1. Get the latest available list", "1. 获取最新可用名单")}</h3>
-    <p>{t("Replace the token placeholder with your existing token. This saves the response to universe.json and the headers to headers.txt.", "将 token 占位符换成现有 token。下面会把名单保存为 universe.json，响应头保存为 headers.txt。")}</p>
+    <p>{t("Replace <UNIVERSE_ID> with a published or provided list ID and the token placeholder with your existing token. This saves the response to universe.json and the headers to headers.txt.", "将 <UNIVERSE_ID> 换成已发布或提供给你的名单 ID，token 占位符换成现有 token。下面会把名单保存为 universe.json，响应头保存为 headers.txt。")}</p>
     <pre className="code">{`curl --fail-with-body \\
-  "https://api.leandata.uk/v1/universes/NDX_SPX/snapshots/current" \\
+  "https://api.leandata.uk/v1/universes/<UNIVERSE_ID>/snapshots/current" \\
   ${auth} \\
   -D headers.txt -o universe.json`}</pre>
     <h3>{t("2. Keep the version for later", "2. 保存版本，方便以后重读")}</h3>
-    <p>{t("Keep the JSON file and its snapshot_id. To read that same version later, replace <SNAPSHOT_ID> below with the returned value. A saved older version can still be read when current is too old.", "保留 JSON 文件和其中的 snapshot_id。以后要读回同一版本，把下面的 <SNAPSHOT_ID> 换成返回值。即使 current 已过期，仍可以按已保存的 ID 读取旧版本。")}</p>
+    <p>{t("Keep the JSON file, universe_id and snapshot_id. To read that same version later, use the same <UNIVERSE_ID> and replace <SNAPSHOT_ID> with the returned value. A saved older version can still be read when current is too old.", "保留 JSON 文件、universe_id 和 snapshot_id。以后要读回同一版本，使用相同的 <UNIVERSE_ID>，把 <SNAPSHOT_ID> 换成返回值。即使 current 已过期，仍可以按已保存的 ID 读取旧版本。")}</p>
     <pre className="code">{`curl --fail-with-body \\
-  "https://api.leandata.uk/v1/universes/NDX_SPX/snapshots/<SNAPSHOT_ID>" \\
+  "https://api.leandata.uk/v1/universes/<UNIVERSE_ID>/snapshots/<SNAPSHOT_ID>" \\
   ${auth}`}</pre>
-    <p>{t("These two shortcuts return the same NDX_SPX member list. They do not list every stock that has financial or event data.", "下面两个便捷地址返回同一份 NDX_SPX 名单。这份股票名单不代表这些数据接口有记录的全部股票。")}</p>
+    <p>{t("These shortcuts also return a universe member list. You can choose a published or provided list with the optional universe_id parameter; when omitted, they currently default to NDX_SPX. A member list does not describe all available financial or event data.", "下面两个便捷地址也可返回 universe 股票名单。可选传 universe_id 来指定已发布或提供的名单；省略时目前默认使用 NDX_SPX。股票名单不代表基本面或事件数据的完整覆盖范围。")}</p>
     <pre className="code">{`GET https://api.leandata.uk/v1/fundamentals/morningstar/universe/current
 GET https://api.leandata.uk/v1/events/eodhd/universe/current`}</pre>
-    <p>{t("All four routes use GET. The shortcuts accept only optional universe_id=NDX_SPX. The other routes accept no query parameters. There is no date or version-list endpoint. NDX and SPX inside this combined list are not separately available lists in this release.", "以上四条路由均使用 GET。两个便捷地址仅可选传 universe_id=NDX_SPX，其余路由不接受查询参数。目前没有按日期查询或列出所有版本的接口，也不能将组合名单内的 NDX、SPX 单独作为名单读取。")}</p>
+    <p>{t("All four routes use GET. The shortcuts accept only the optional universe_id parameter; the generic routes accept no query parameters. There is no date or version-list endpoint. Components of a list are only separately queryable if their own universe_id has been provided.", "以上四条路由均使用 GET。两个便捷地址仅接受可选的 universe_id 参数；通用路由不接受查询参数。目前没有按日期查询或列出所有版本的接口。名单的组成部分只有单独提供了 universe_id 才能独立查询。")}</p>
     <h3>{t("Check whether the list changed", "检查名单是否变化")}</h3>
     <p>{t("Save the ETag from the response headers. Send it back as If-None-Match on your next request, keeping the quotes. A 304 response means you can reuse your saved file; it has no new response body. current uses Cache-Control: no-cache, so check before reusing it.", "保存响应头里的 ETag，下次请求通过 If-None-Match 原样传回，保留引号。返回 304 时可继续使用保存的文件，没有新的正文。current 的 Cache-Control 为 no-cache，复用前应重新检查。")}</p>
     <pre className="code">{`curl --include \\
-  "https://api.leandata.uk/v1/universes/NDX_SPX/snapshots/current" \\
+  "https://api.leandata.uk/v1/universes/<UNIVERSE_ID>/snapshots/current" \\
   ${auth} \\
   -H 'If-None-Match: "<PREVIOUS_ETAG>"'`}</pre>
     <h3>{t("If you cannot get a list", "拿不到名单时怎么办")}</h3>
@@ -77,7 +81,7 @@ export function MorningstarCustomerBody({ articleId, isZh }) {
     <Premium isZh={isZh} />
     <p>{t("Look up daily company fundamentals such as revenue, net income, cash flow and valuation metrics. Start with available dates, then request the stocks and fields you need.", "查询公司每天可用的营收、净利润、现金流和估值等基本面指标。先查看可用日期，再选择股票和需要的字段。")}</p>
     <p><a href={docArticlePath("financial-morningstar", "morningstar-history")}>{t("Query daily fundamentals →", "查询日度基本面 →")}</a>{" · "}<a href={docArticlePath("financial-morningstar", "morningstar-coverage")}>{t("Check available dates →", "查看可用日期 →")}</a></p>
-    <p>{t("The universe member list can help you choose stocks. It does not guarantee that every stock has data on every date, and its date is not Morningstar's latest data date.", "Universe 名单可用于选择股票，但不保证每只股票在每一天都有基本面数据；名单日期也不是 Morningstar 的最新数据日期。")}</p>
+    <p>{t("A universe member list can help you choose stocks. Morningstar coverage is checked separately: a list does not guarantee data for every member and date, and its date is not Morningstar's latest data date.", "Universe 名单可用于选择股票，Morningstar 的覆盖范围则需单独查看；名单不保证每个成员在每一天都有基本面数据，名单日期也不是 Morningstar 的最新数据日期。")}</p>
     <p><a href={DOC_PATHS.universes}>{t("About universe member lists →", "了解 universe 股票名单 →")}</a></p>
 
     <h2 id="morningstar-history" className="display-title">{t("Query daily fundamentals", "查询日度基本面")}</h2>
@@ -113,7 +117,7 @@ export function EodhdCustomerBody({ articleId, isZh }) {
     <h2 id="eodhd-overview" className="display-title">{t("Earnings, dividends and splits", "财报、分红与拆股")}</h2>
     <Premium isZh={isZh} />
     <p>{t("Query recorded upcoming earnings, dividend and split events. For revenue, profit and other financial statement values, use Morningstar instead.", "查询已收录的近期财报、分红和拆股事件。营收、利润等财报数值请使用 Morningstar。")}</p>
-    <p>{t("Event results can include stocks outside the universe member list. Filter by the stocks you need. This feed is not a complete calendar of every announced future event, and dates can change.", "事件结果也可能包含 universe 名单外的股票，请按关心的股票筛选。这不是所有已公告未来事件的完整日历，事件日期也可能调整。")}</p>
+    <p>{t("Event coverage is independent of the example universe. Results can include stocks outside its member list; filter by the stocks you need. This feed is not a complete calendar of every announced future event, and dates can change.", "事件数据的覆盖范围独立于示例 universe，结果可能包含其名单外的股票，请按关心的股票筛选。这不是所有已公告未来事件的完整日历，事件日期也可能调整。")}</p>
     <p><a href={docArticlePath("financial-eodhd", "eodhd-history")}>{t("Find company events →", "查询公司事件 →")}</a>{" · "}<a href={DOC_PATHS.universes}>{t("Universe member lists", "Universe 股票名单")}</a></p>
 
     <h2 id="eodhd-history" className="display-title">{t("Find company events", "查询公司事件")}</h2>
