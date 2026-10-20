@@ -2053,12 +2053,20 @@ function DailyFinancialRefresh() {
   </p>;
 }
 
+function PremiumFinancialAccess() {
+  return <div data-no-i18n="true"><DocDesc
+    en="Your existing active Premium account includes Morningstar fundamentals, EODHD events and general universe snapshots. Use your existing valid Bearer token; no separate universe plan, additional data purchase or new token is required."
+    zh="现有有效 Premium 账户已包含 Morningstar 基本面、EODHD 事件和通用 universe 快照访问。使用已有有效 Bearer token 即可，无需额外购买 universe 套餐或这些数据，也无需新建 token。"
+  /></div>;
+}
+
 function EodhdEventsBody({ articleId } = {}) {
   const isZh = useCurrentLanguage() === "zh";
   const heading = (en, zh) => isZh ? zh : en;
   return <DocContent articleId={articleId} style={{ maxWidth: 860 }}>
     <h2 id="eodhd-overview" className="display-title">{heading("Earnings & company events", "财报与公司事件")}</h2>
     <DocDesc zh="查询已收录的美股近期财报、分红和拆股事件。需要 Premium；这套 Upcoming 数据不是所有已公告远期事件的完整日历。" en="Query captured near-term US earnings, dividend and split events. Requires Premium. This Upcoming feed is not a complete calendar of every announced future event." />
+    <PremiumFinancialAccess />
     <DailyFinancialRefresh />
     <p>{isZh ? "采集目标成员请查看 " : "For collection-target membership, see "}<a href={DOC_PATHS.universes}>{isZh ? "Universe 快照" : "universe snapshots"}</a>{isZh ? "。事件 daily/history 保留来源返回的全部事件（all_provider_returned_symbols），包括目标外股票和较早 SID；成员别名不代表完整事件覆盖范围。" : ". Event daily/history preserves all provider-returned events (all_provider_returned_symbols), including nonmembers and older SIDs. The membership alias does not describe full event coverage."}</p>
     <BilingualDataTable columns={[["Dataset", "数据集"], ["Content", "内容"]]} rows={[
@@ -2098,6 +2106,7 @@ function EodhdEventsBody({ articleId } = {}) {
 
     <h2 id="eodhd-history" className="display-title">{heading("Query event calendar", "查询事件日历")}</h2>
     <EndpointBadge method="GET / POST" path="/v1/events/eodhd/history" />
+    <PremiumFinancialAccess />
     <DocDesc zh="查询指定采集日期收录的财报、分红或拆股记录。start/end 按 snapshot_date 筛选，不按事件日期，也不表示当天新增或变更。单日响应不承诺包含该时点所有已公告的未来事件。" en="Read records captured on selected source dates. start/end filter snapshot_date, not event dates or changes made that day. A daily result does not promise every future event announced by that time." />
     <ParamTable rows={[
       { name: "dataset", type: "string", required: false, desc: "earnings (default), dividends or splits", zh: "earnings（财报，默认）、dividends（分红）或 splits（拆股）" },
@@ -2202,6 +2211,7 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
         chips={isZh ? ["日度快照", "64 个财务指标", "标普与纳指成分池", "无前填", "Premium"] : ["Daily snapshots", "64 financial metrics", "SPX & NDX scope", "No forward-fill", "Premium"]}
         alt="Morningstar provider logo"
       />
+      <PremiumFinancialAccess />
       <DailyFinancialRefresh />
       <p>{isZh ? "采集目标成员及来源限制见 " : "For collection-target membership and source limitations, see "}<a href={DOC_PATHS.universes}>{isZh ? "Universe 成员快照" : "universe snapshots"}</a>{isZh ? "。基本面可用日期仍以 Morningstar 自身 coverage 为准。" : ". Available fundamental dates remain defined by Morningstar coverage."}</p>
       <p className="callout" style={{ marginBottom: 22 }}>
@@ -2214,6 +2224,7 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
 
       <h2 id="morningstar-daily-history" className="display-title">{isZh ? "日度财报历史" : "Daily financial history"}</h2>
       <EndpointBadge method="GET / POST" path="/v1/fundamentals/morningstar/daily/history" />
+      <PremiumFinancialAccess />
       <DocDesc zh="一次查询某只股票一段时间内的营收、利润、资产和估值指标。接口自动读取历史归档及最近更新，每只股票每天返回一行；没有数据的日期保持缺失。需要 Premium。" en="Query revenue, earnings, assets and valuation metrics across a date range. The endpoint reads the historical archive and recent updates and returns one row per stock and day. Missing dates remain missing. Requires Premium." />
       <DailyFinancialRefresh />
       <ParamTable rows={[
@@ -2587,8 +2598,8 @@ function MorningstarFundamentalsBody({ articleId } = {}) {
       <h3 className="display-title" style={{ fontSize: 27, margin: "0 0 10px" }}>{isZh ? "权限与响应说明" : "Access & Headers"}</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, marginBottom: 14 }}>
         {isZh
-          ? "接口需要 Premium 计划 Token。支持并发限制与用量统计，未授权访问返回 403 morningstar_premium_required。"
-          : "Both endpoints require a Premium plan token. Requests use historical concurrency, admission pools, and access logging. Unauthorized requests receive 403 morningstar_premium_required."}
+          ? "现有有效 Premium 账户已包含 Morningstar 基本面与对应 universe 访问；复用已有有效 token，无需额外购买 universe 套餐或这些数据，也无需新建 token。支持并发限制与用量统计，未授权访问返回 403 morningstar_premium_required。"
+          : "Your existing active Premium account includes Morningstar fundamentals and its universe access. Reuse your existing valid token; no separate universe plan, additional data purchase or new token is required. Requests use historical concurrency, admission pools, and access logging. Unauthorized requests receive 403 morningstar_premium_required."}
       </p>
       <pre className="code">{`X-Cache: HIT
 X-Cache-Tier: archive_clickhouse
@@ -4991,6 +5002,7 @@ function UniverseSnapshotsBody({ articleId } = {}) {
   const id = "ca3a6c3e75980b9a66f9d71e250b37258e6713b1839e47dbdfde3163bdbc3bdd";
   return <DocContent articleId={articleId} style={{ maxWidth: 860 }}>
     <h2 id="universe-overview" className="display-title">{t("Universe membership snapshots", "Universe 成员快照")}</h2>
+    <PremiumFinancialAccess />
     <DocDesc en="Read the complete, explicitly archived membership of a universe, with stable security identifiers, source clocks and a reproducible version ID. This is a general universe interface; each response declares its membership source." zh="读取明确归档的完整 universe 成员，保留稳定证券标识、来源时钟和可复现版本 ID。这是通用 universe 接口；成员来源由每份响应自行声明。" />
     <div className="card" style={{ padding: 20, borderLeft: "3px solid var(--ink-strong)", margin: "20px 0" }}>
       <strong>{t("Available release: NDX_SPX · ETF proxy", "本次可用：NDX_SPX · ETF 代理成员")}</strong>
@@ -5003,7 +5015,8 @@ function UniverseSnapshotsBody({ articleId } = {}) {
     <p><a href={docArticlePath("universes", "universe-read")}>{t("Read current or pinned snapshots →", "读取当前或固定版本 →")}</a></p>
 
     <h2 id="universe-read" className="display-title">{t("Read current & pinned versions", "读取当前与固定版本")}</h2>
-    <DocDesc en="Use your existing active Bearer token with financial-data authorization. No new token is needed. The production API uses the public HTTPS base URL and does not require a private network connection. All four routes below are GET only." zh="使用已有且有效、具财务数据权限的 Bearer token，无需新建 token。生产 API 使用公开 HTTPS 地址，无需私有网络连接。以下四条路由均仅支持 GET。" />
+    <PremiumFinancialAccess />
+    <DocDesc en="The production API uses the public HTTPS base URL and does not require a private network connection. All four routes below are GET only." zh="生产 API 使用公开 HTTPS 地址，无需私有网络连接。以下四条路由均仅支持 GET。" />
     <pre className="code">{`GET https://api.leandata.uk/v1/universes/NDX_SPX/snapshots/current
 GET https://api.leandata.uk/v1/universes/NDX_SPX/snapshots/{snapshot_id}
 GET https://api.leandata.uk/v1/fundamentals/morningstar/universe/current
@@ -5016,16 +5029,16 @@ GET https://api.leandata.uk/v1/events/eodhd/universe/current`}</pre>
     <h3>{t("Read current, then retain its version", "读取当前并保存版本")}</h3>
     <pre className="code">{`curl --fail-with-body --include \\
   "https://api.leandata.uk/v1/universes/NDX_SPX/snapshots/current" \\
-  -H "Authorization: Bearer <YOUR_FINANCIAL_DATA_TOKEN>"`}</pre>
+  -H "Authorization: Bearer <YOUR_PREMIUM_TOKEN>"`}</pre>
     <h3>{t("Replay the October 20 accepted example", "重读 10 月 20 日验收的示例版本")}</h3>
     <pre className="code">{`curl --fail-with-body --include \\
   "https://api.leandata.uk/v1/universes/NDX_SPX/snapshots/${id}" \\
-  -H "Authorization: Bearer <YOUR_FINANCIAL_DATA_TOKEN>"`}</pre>
+  -H "Authorization: Bearer <YOUR_PREMIUM_TOKEN>"`}</pre>
     <p>{t("Save snapshot_id and the original response with your research results. A fixed ID identifies an archived version; it does not select a trading date or turn the capture into point-in-time historical index membership.", "将 snapshot_id 和原始响应与研究结果一并保存。固定 ID 标识归档版本，不是交易日期选择器，也不会将采集结果变成严格时点的历史指数成分。")}</p>
     <h3>{t("Conditional requests", "条件请求")}</h3>
     <pre className="code">{`curl --include \\
   "https://api.leandata.uk/v1/universes/NDX_SPX/snapshots/current" \\
-  -H "Authorization: Bearer <YOUR_FINANCIAL_DATA_TOKEN>" \\
+  -H "Authorization: Bearer <YOUR_PREMIUM_TOKEN>" \\
   -H 'If-None-Match: "<ETAG_FROM_PREVIOUS_RESPONSE>"'`}</pre>
     <p>{t("Reuse the returned ETag verbatim, including its quotes. A matching If-None-Match returns 304 with no response body. Keep the prior body. ETag, X-Universe-Snapshot-Id, X-Universe-Membership-Kind and Cache-Control are preserved; current uses Cache-Control: no-cache, so revalidate before reuse.", "原样复用返回的 ETag（包括引号）。If-None-Match 匹配时返回 304，无响应正文，请保留先前正文。ETag、X-Universe-Snapshot-Id、X-Universe-Membership-Kind 和 Cache-Control 均保留；current 使用 Cache-Control: no-cache，复用前应重新验证。")}</p>
 
@@ -5056,7 +5069,7 @@ GET https://api.leandata.uk/v1/events/eodhd/universe/current`}</pre>
       ["304", ["Matching ETag; reuse the previously saved body.", "ETag 匹配，复用之前保存的正文。"]],
       ["400", ["Remove unsupported or duplicate parameters; generic routes accept no query parameters.", "移除不支持或重复的参数；通用路由不接受查询参数。"]],
       ["Credentials denied", ["Missing, invalid or expired credentials are denied. Check the existing token and its validity.", "缺失、无效或过期凭证会被拒绝；请检查已有 token 及有效期。"]],
-      ["403", ["The token lacks financial-data entitlement.", "token 缺少财务数据权限。"]],
+      ["403", ["Premium access is not effective for this token; check the active plan and token permissions.", "此 token 的 Premium 访问未生效；请检查有效套餐及 token 权限。"]],
       ["503", ["Snapshot missing/invalid, current stale or future-dated, or backend unavailable. Do not treat this as an empty membership list.", "快照缺失/无效、current 过期/未来时间或后端不可用；不能当作空成员列表。"]],
     ]} />
     <h3>{t("Version and data-source boundaries", "版本与数据源边界")}</h3>
