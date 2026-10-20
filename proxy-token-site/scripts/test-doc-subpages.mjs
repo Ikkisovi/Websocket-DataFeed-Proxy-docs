@@ -80,8 +80,8 @@ subscriptions.window.close();
 
 const morningstar = await render("/docs/financial/morningstar/");
 assert(isVisible(morningstar.window.document.getElementById("morningstar-overview")));
-assert(isVisible(morningstar.window.document.getElementById("morningstar-daily-history")));
-assert(isVisible(morningstar.window.document.getElementById("morningstar-daily-coverage")));
+assert(isVisible(morningstar.window.document.getElementById("morningstar-history")));
+assert(isVisible(morningstar.window.document.getElementById("morningstar-coverage")));
 assert.match(morningstar.window.document.querySelector("main").textContent, /有效 Premium 账户已包含/);
 assert.match(morningstar.window.document.querySelector("main").textContent, /null/);
 assert.equal(morningstar.window.document.getElementById("fmp-fundamentals-overview"), null);

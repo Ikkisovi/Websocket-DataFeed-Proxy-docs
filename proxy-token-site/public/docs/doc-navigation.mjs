@@ -356,7 +356,7 @@ function slugify(text) {
 function docSectionId(tab, label) {
   return tab === "universe" ? ({"What you can get":"universe-overview","Get and save a member list":"universe-read"})[label] || slugify(label)
     : tab === "eodhd" ? ({"Event overview":"eodhd-overview","Find company events":"eodhd-history","Event dates and coverage":"eodhd-coverage"})[label] || slugify(label)
-    : ({"Daily financial history":"morningstar-daily-history","Available financial dates":"morningstar-daily-coverage"})[label] || (tab === "fmp-fundamentals"
+    : ({"Daily financial history":"morningstar-history","Available financial dates":"morningstar-coverage"})[label] || (tab === "fmp-fundamentals"
     ? FMP_ID_MAP[label] || `fmp-${slugify(label)}`
     : ID_MAP[label] || slugify(label));
 }
@@ -387,7 +387,7 @@ function getDocSections(tab, page) {
     { title: "Admin endpoints", items: ["login", "pending", "approve", "reject"] },
     { title: "Reference", items: ["Error codes", "Rate limits"] },
   ] : tab === "morningstar" ? [
-    { title: "Morningstar fundamentals", items: ["Morningstar overview", "Daily financial history", "Available financial dates", "What is PIT?", "Deduplication", "Morningstar fields", "Morningstar history", "Morningstar coverage"] },
+    { title: "Morningstar fundamentals", items: ["Morningstar overview", "Daily financial history", "Available financial dates"] },
   ] : tab === "fmp-fundamentals" ? [
     { title: "Financial data API", items: ["Financial data overview", "Request contract", "Response metadata"] },
     { title: "Market history", items: ["historical-price-eod/full"] },

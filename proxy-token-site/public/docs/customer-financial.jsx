@@ -76,11 +76,11 @@ export function MorningstarCustomerBody({ articleId, isZh }) {
     <h2 id="morningstar-overview" className="display-title">{t("Morningstar fundamentals", "Morningstar 基本面")}</h2>
     <Premium isZh={isZh} />
     <p>{t("Look up daily company fundamentals such as revenue, net income, cash flow and valuation metrics. Start with available dates, then request the stocks and fields you need.", "查询公司每天可用的营收、净利润、现金流和估值等基本面指标。先查看可用日期，再选择股票和需要的字段。")}</p>
-    <p><a href={docArticlePath("financial-morningstar", "morningstar-daily-history")}>{t("Query daily fundamentals →", "查询日度基本面 →")}</a>{" · "}<a href={docArticlePath("financial-morningstar", "morningstar-daily-coverage")}>{t("Check available dates →", "查看可用日期 →")}</a></p>
+    <p><a href={docArticlePath("financial-morningstar", "morningstar-history")}>{t("Query daily fundamentals →", "查询日度基本面 →")}</a>{" · "}<a href={docArticlePath("financial-morningstar", "morningstar-coverage")}>{t("Check available dates →", "查看可用日期 →")}</a></p>
     <p>{t("The universe member list can help you choose stocks. It does not guarantee that every stock has data on every date, and its date is not Morningstar's latest data date.", "Universe 名单可用于选择股票，但不保证每只股票在每一天都有基本面数据；名单日期也不是 Morningstar 的最新数据日期。")}</p>
     <p><a href={DOC_PATHS.universes}>{t("About universe member lists →", "了解 universe 股票名单 →")}</a></p>
 
-    <h2 id="morningstar-daily-history" className="display-title">{t("Query daily fundamentals", "查询日度基本面")}</h2>
+    <h2 id="morningstar-history" className="display-title">{t("Query daily fundamentals", "查询日度基本面")}</h2>
     {articleId && <Premium isZh={isZh} />}
     <p>{t("Use GET /v1/fundamentals/morningstar/daily/history. The example asks for three fields for AAPL. Replace the dates with dates available in coverage.", "使用 GET /v1/fundamentals/morningstar/daily/history。下面查询 AAPL 的三项指标；使用时请换成 coverage 中可用的日期。")}</p>
     <pre className="code">{`curl --get "https://api.leandata.uk/v1/fundamentals/morningstar/daily/history" \\
@@ -99,7 +99,7 @@ export function MorningstarCustomerBody({ articleId, isZh }) {
     ]} />
     <p>{t("Keep the original response, dates and security IDs with any saved results. The snapshot value keeps pagination on the same selection; it is different from a universe snapshot_id.", "保存结果时，一并保留原始响应、日期和证券 ID。这里的 snapshot 用于固定分页结果，与 universe 的 snapshot_id 不同。")}</p>
 
-    <h2 id="morningstar-daily-coverage" className="display-title">{t("Available dates and missing data", "可用日期与缺失数据")}</h2>
+    <h2 id="morningstar-coverage" className="display-title">{t("Available dates and missing data", "可用日期与缺失数据")}</h2>
     <pre className="code">{`curl "https://api.leandata.uk/v1/fundamentals/morningstar/daily/coverage" \\
   ${auth}`}</pre>
     <p>{t("Use this response to find available dates and stocks before requesting history. Morningstar has its own date range; do not copy the latest date from EODHD or a universe member list.", "先用这个接口查看可用日期和股票，再查询历史。Morningstar 有自己的日期范围，不能直接套用 EODHD 或 universe 名单的最新日期。")}</p>

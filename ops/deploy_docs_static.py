@@ -42,8 +42,6 @@ DOC_ARTICLE_INDEXES = (
     "docs/financial/eodhd/eodhd-history/index.html",
     "docs/financial/eodhd/eodhd-overview/index.html",
     "docs/financial/morningstar/morningstar-coverage/index.html",
-    "docs/financial/morningstar/morningstar-daily-coverage/index.html",
-    "docs/financial/morningstar/morningstar-daily-history/index.html",
     "docs/financial/morningstar/morningstar-fields/index.html",
     "docs/financial/morningstar/morningstar-history/index.html",
     "docs/financial/morningstar/morningstar-overview/index.html",

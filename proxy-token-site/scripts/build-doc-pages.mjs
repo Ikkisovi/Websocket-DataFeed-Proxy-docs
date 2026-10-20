@@ -45,8 +45,14 @@ for (const article of Object.values(DOC_ARTICLES)) {
   pages[article.path.slice("/docs/".length).replace(/\/$/, "")] = article.label;
 }
 
+const legacyMorningstarPages = {
+  "/docs/financial/morningstar/morningstar-pit/": "/docs/financial/morningstar/",
+  "/docs/financial/morningstar/morningstar-processing/": "/docs/financial/morningstar/",
+  "/docs/financial/morningstar/morningstar-fields/": "/docs/financial/morningstar/morningstar-history/",
+};
+
 // Publish exactly the routes bundled into the reader, with a fixed deploy allowlist.
-const articleIndexes = Object.keys(DOC_ARTICLES).sort().map(path => {
+const articleIndexes = [...Object.keys(DOC_ARTICLES), ...Object.keys(legacyMorningstarPages)].sort().map(path => {
   if (!/^\/docs\/(?:[a-z0-9-]+\/)+$/.test(path)) throw new Error(`Invalid article path: ${path}`);
   return path.slice(1) + "index.html";
 });
@@ -91,3 +97,13 @@ await Promise.all(Object.entries(pages).map(async ([relativePath, title]) => {
   await mkdir(directory, { recursive: true });
   await writeFile(resolve(directory, "index.html"), html(title));
 }));
+
+// Keep bookmarks useful while presenting the shorter customer guide.
+for (const [path, target] of Object.entries(legacyMorningstarPages)) {
+  const directory = resolve(siteRoot, "public", path.slice(1));
+  await mkdir(directory, { recursive: true });
+  await writeFile(resolve(directory, "index.html"), `<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=${target}"><title>Morningstar fundamentals — LeanData</title></head>
+<body><p><a href="${target}">Morningstar fundamentals / Morningstar 基本面</a></p></body></html>
+`);
+}
