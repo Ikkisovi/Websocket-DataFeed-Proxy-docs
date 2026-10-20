@@ -27,3 +27,16 @@ Verified implementation at accepted source commit `eebd10d0b30231462c9a65f74fc13
 Six direct articles now explicitly say, in both languages: an existing active Premium account includes Morningstar, EODHD and general universe snapshots; reuse the existing valid token, with no separate universe plan, extra data purchase or new token. Universe cURL placeholders now say Premium. No catalog entitlement, China/Brain content, API implementation or production service was changed.
 
 Focused verification caught automatic word replacement inside the new authored bilingual notice; that notice now opts out of the legacy text translator so both languages retain their exact text. Public build/language checks; 12 bilingual article renders checking the exact inclusion/no-add-on wording, direct navigation and absence of page errors; byte comparisons preserve China/Brain source blocks and both implementation-bound API catalog files. A new commit-pinned private preview is used for this revision, preserving the original preview.
+
+
+## Customer-facing rewrite
+
+Continues from `4f96317136633a05f3ca674d49fbe52e6386078a`. This revision supersedes the earlier draft's broader baseline carry-forward. All unrelated site bodies are taken from the previously verified live docs source `ae998c26cfc3d03275484263fb892e358c3a473c`; this is a preview source decision, not a production rollback.
+
+- Withdraw the carried Brain pages, research illustrations, API catalog/source metadata, option/FMP/WS wording changes and other unrelated additions. Those files are absent from the new docs tree/package. Existing live China, stock/research signal and Regular financial bodies remain byte-identical to that baseline.
+- Universe is now two customer articles: what the member list contains, and how to query/save/reuse it. The text covers Premium inclusion, the existing token, a small true example, fixed versions, ETag, errors and short coverage limits. No producer, script/config hashes, fingerprints, infrastructure or research-process explanation is added.
+- Morningstar daily and EODHD pages are rewritten around the actual request fields, available dates, pagination, missing values and useful response fields. Legacy live Morningstar article routes remain available; this revision does not rewrite those unrelated existing articles.
+- Public content lives in `customer-financial.jsx`; this review file and all validation receipts stay outside the docroot. The package contains static reader assets only, excluding JSX/MJS sources, JSON source catalogs, review documents and research/report directories.
+- Validation checks new copy and built bundle for the withdrawn implementation/research markers, compares unrelated bodies against the verified live source, verifies the short example against the supplied actual snapshot, and exercises customer pages in both languages and desktop/mobile layouts.
+
+No API schema or data, production services, main checkout, unrelated dirty GPU files, account permissions or remote Git branches are changed. Older private preview releases remain untouched; this revision receives its own commit-pinned release, service and port.

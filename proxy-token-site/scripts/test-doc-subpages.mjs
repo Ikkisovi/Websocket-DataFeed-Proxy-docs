@@ -80,12 +80,10 @@ subscriptions.window.close();
 
 const morningstar = await render("/docs/financial/morningstar/");
 assert(isVisible(morningstar.window.document.getElementById("morningstar-overview")));
-assert(isVisible(morningstar.window.document.getElementById("morningstar-pit")));
-assert(isVisible(morningstar.window.document.getElementById("morningstar-processing")));
-assert(isVisible(morningstar.window.document.getElementById("morningstar-fields")));
-assert.equal(morningstar.window.document.querySelector('#morningstar-overview img').getAttribute('src'), "/assets/providers/morningstar.png");
-assert.match(morningstar.window.document.body.textContent, /Morningstar 财务基本面|Morningstar Fundamentals/);
-assert.match(morningstar.window.document.body.textContent, /dividend_yield/);
+assert(isVisible(morningstar.window.document.getElementById("morningstar-daily-history")));
+assert(isVisible(morningstar.window.document.getElementById("morningstar-daily-coverage")));
+assert.match(morningstar.window.document.querySelector("main").textContent, /有效 Premium 账户已包含/);
+assert.match(morningstar.window.document.querySelector("main").textContent, /null/);
 assert.equal(morningstar.window.document.getElementById("fmp-fundamentals-overview"), null);
 morningstar.window.LeandataI18n.destroy();
 morningstar.window.close();
@@ -121,9 +119,9 @@ researchEn.window.LeandataI18n.destroy();
 researchEn.window.close();
 
 const morningstarEn = await render("/docs/financial/morningstar/", "en");
-assert.match(morningstarEn.window.document.querySelector("#morningstar-overview h2").textContent, /Morningstar Fundamentals/);
-assert.match(morningstarEn.window.document.body.textContent, /What is point-in-time data/);
-assert.match(morningstarEn.window.document.body.textContent, /Deduplication and processing/);
+assert.match(morningstarEn.window.document.querySelector("#morningstar-overview").textContent, /Morningstar fundamentals/);
+assert.match(morningstarEn.window.document.querySelector("main").textContent, /Included with your active Premium account/);
+assert.match(morningstarEn.window.document.querySelector("main").textContent, /Query daily fundamentals/);
 morningstarEn.window.LeandataI18n.destroy();
 morningstarEn.window.close();
 

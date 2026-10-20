@@ -27,10 +27,10 @@ const pages = {
   "market/research-signals": "Research Signals API",
   "market/crypto-news": "Crypto & News API",
   "market/cn": "China Market Data API",
-  "universes": "Universe Membership Snapshots",
+  "universes": "Universe Member Lists",
+  "financial/eodhd": "EODHD Company Events",
   "financial": "Financial Data Sources",
   "financial/regular": "Regular / FMP Financial API",
-  "financial/eodhd": "EODHD Events API",
   "financial/morningstar": "Morningstar Fundamentals API",
   "financial/statements": "Financial Statements API",
   "financial/ratios-growth": "Financial Ratios & Growth API",
@@ -91,13 +91,3 @@ await Promise.all(Object.entries(pages).map(async ([relativePath, title]) => {
   await mkdir(directory, { recursive: true });
   await writeFile(resolve(directory, "index.html"), html(title));
 }));
-
-// Old operator URLs remain harmless static notices for existing bookmarks.
-for (const id of ["post-admin-login", "get-admin-pending", "post-admin-approve", "post-admin-reject"]) {
-  const directory = resolve(docsRoot, "market/overview", id);
-  await mkdir(directory, { recursive: true });
-  await writeFile(resolve(directory, "index.html"), `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Documentation page retired — LeanData</title><meta name="robots" content="noindex"></head>
-<body><main><h1>Documentation page retired / 文档已移除</h1><p>This page is not part of the customer API. 此页面不属于客户接口文档。</p><a href="/docs/market/overview/">API overview / 接入总览</a></main></body></html>
-`);
-}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply a reviewed, hash-bound docs overlay on the v3 PHX static origin without restarting services."""
+"""Apply a reviewed, hash-bound docs overlay without restarting the portal."""
 
 import argparse
 import fcntl
@@ -23,9 +23,9 @@ DOC_PAGE_INDEXES = (
     "docs/market/crypto-news/index.html",
     "docs/market/cn/index.html",
     "docs/universes/index.html",
+    "docs/financial/eodhd/index.html",
     "docs/financial/index.html",
     "docs/financial/regular/index.html",
-    "docs/financial/eodhd/index.html",
     "docs/financial/morningstar/index.html",
     "docs/financial/statements/index.html",
     "docs/financial/ratios-growth/index.html",
@@ -39,7 +39,6 @@ DOC_PAGE_INDEXES = (
 # BEGIN GENERATED ARTICLE FILES
 DOC_ARTICLE_INDEXES = (
     "docs/financial/eodhd/eodhd-coverage/index.html",
-    "docs/financial/eodhd/eodhd-fields/index.html",
     "docs/financial/eodhd/eodhd-history/index.html",
     "docs/financial/eodhd/eodhd-overview/index.html",
     "docs/financial/morningstar/morningstar-coverage/index.html",
@@ -50,7 +49,6 @@ DOC_ARTICLE_INDEXES = (
     "docs/financial/morningstar/morningstar-overview/index.html",
     "docs/financial/morningstar/morningstar-pit/index.html",
     "docs/financial/morningstar/morningstar-processing/index.html",
-    "docs/financial/morningstar/morningstar-v3/index.html",
     "docs/financial/ratios-growth/fmp-balance-sheet-statement-growth/index.html",
     "docs/financial/ratios-growth/fmp-cash-flow-statement-growth/index.html",
     "docs/financial/ratios-growth/fmp-enterprise-values/index.html",
@@ -74,7 +72,6 @@ DOC_ARTICLE_INDEXES = (
     "docs/financial/regular/fmp-batch-aftermarket-trade/index.html",
     "docs/financial/regular/fmp-batch-quote-short/index.html",
     "docs/financial/regular/fmp-batch-quote/index.html",
-    "docs/financial/regular/fmp-calendar-support/index.html",
     "docs/financial/regular/fmp-cash-flow-statement-growth/index.html",
     "docs/financial/regular/fmp-cash-flow-statement/index.html",
     "docs/financial/regular/fmp-cik-list/index.html",
@@ -158,7 +155,6 @@ DOC_ARTICLE_INDEXES = (
     "docs/market/indices/get-post-v1-indices-minute/index.html",
     "docs/market/indices/get-v1-indices-daily-coverage/index.html",
     "docs/market/indices/get-v1-indices-minute-coverage/index.html",
-    "docs/market/options/option-oi-latest/index.html",
     "docs/market/options/post-v1-history-options-bars/index.html",
     "docs/market/options/post-v1-history-options-eod/index.html",
     "docs/market/options/post-v1-history-options-trades/index.html",
@@ -174,23 +170,19 @@ DOC_ARTICLE_INDEXES = (
     "docs/market/options/post-v3-option-history-ohlc/index.html",
     "docs/market/options/post-v3-option-snapshot-ohlc/index.html",
     "docs/market/options/provider-fallback-cache/index.html",
-    "docs/market/overview/api-contract/index.html",
     "docs/market/overview/authentication/index.html",
     "docs/market/overview/error-codes/index.html",
     "docs/market/overview/free-plan-usage/index.html",
+    "docs/market/overview/get-admin-pending/index.html",
     "docs/market/overview/overview/index.html",
+    "docs/market/overview/post-admin-approve/index.html",
+    "docs/market/overview/post-admin-login/index.html",
+    "docs/market/overview/post-admin-reject/index.html",
     "docs/market/overview/post-check-status/index.html",
     "docs/market/overview/post-generate-token/index.html",
     "docs/market/overview/post-register/index.html",
     "docs/market/overview/rate-limits/index.html",
-    "docs/market/overview/response-delivery/index.html",
     "docs/market/overview/tiers-permissions/index.html",
-    "docs/market/research-signals/brain-coverage/index.html",
-    "docs/market/research-signals/brain-history/index.html",
-    "docs/market/research-signals/brain-latest/index.html",
-    "docs/market/research-signals/brain-overview/index.html",
-    "docs/market/research-signals/brain-securities/index.html",
-    "docs/market/research-signals/brain-universe-snapshot/index.html",
     "docs/market/research-signals/get-post-v1-spectral-tick-flow/index.html",
     "docs/market/research-signals/get-v1-spectral-tick-flow-coverage/index.html",
     "docs/market/research-signals/spectral-fields/index.html",
@@ -239,34 +231,24 @@ DOC_ARTICLE_INDEXES = (
     "docs/realtime/websocket/subscribe/index.html",
     "docs/realtime/websocket/trade/index.html",
     "docs/realtime/websocket/unsubscribe/index.html",
-    "docs/universes/universe-availability/index.html",
     "docs/universes/universe-overview/index.html",
     "docs/universes/universe-read/index.html",
-    "docs/universes/universe-schema/index.html",
 )
 # END GENERATED ARTICLE FILES
 
-RETIRED_DOC_INDEXES = tuple("docs/market/overview/" + name + "/index.html" for name in (
-    "post-admin-login", "get-admin-pending", "post-admin-approve", "post-admin-reject",
-))
-
 FILES = (
     "assets/docs-page.js", "assets/token-page.js", "assets/register-page.js",
-    "assets/account-page.js", "account-page.jsx", "account.html",
-    "assets/checkout-page.js", "checkout-page.jsx", "product-catalog.json",
     "assets/providers/fmp-data.png", "assets/providers/morningstar.png", "assets/providers/alpaca.png",
     "skills/leandata-market-data/SKILL.md",
-    "register-page.jsx",
-    "docs/public-api-contract.json", "docs/api-contract-source.json",
-    "docs/illustrations/brain-ranking-horizontal-v2.png",
+    "language.js", "register-page.jsx",
     "docs/doc-navigation.mjs", "docs/doc-components.jsx", "docs/doc-layout.css",
     "docs/docs-site.jsx", "docs/tokens.css", "tokens.css",
-    *DOC_PAGE_INDEXES, *DOC_ARTICLE_INDEXES, *RETIRED_DOC_INDEXES, "index.html",
+    *DOC_PAGE_INDEXES, *DOC_ARTICLE_INDEXES, "index.html",
 )
 
-RELEASE_ROOT = Path("/srv/leandata-site-public/releases/docs-nav")
-PUBLIC_ROOT = Path("/srv/leandata-site-public/public")
-CONTAINER = "leandata-phx-s4-direct-20261003-v1-caddy-1"
+RELEASE_ROOT = Path("/srv/leandata/site-releases/docs-nav")
+PUBLIC_ROOT = Path("/srv/leandata/proxy-token-site/public")
+CONTAINER = "leandata-v2-leandata-ui-1"
 
 
 def digest(path):
@@ -285,27 +267,6 @@ def atomic_copy(source, target):
         Path(name).unlink(missing_ok=True)
 
 
-def safe_file(root, name):
-    """Reject symlink parents as well as symlink leaves before any mutation."""
-    relative = Path(name)
-    assert not relative.is_absolute() and ".." not in relative.parts
-    current = root
-    assert not current.is_symlink()
-    for part in relative.parts:
-        current = current / part
-        assert not current.is_symlink(), str(current)
-    return current
-
-
-def runtime_identity():
-    ids = subprocess.check_output(["docker", "ps", "-aq"], text=True).split()
-    if not ids:
-        return {}
-    records = json.loads(subprocess.check_output(["docker", "inspect", *ids]))
-    return {item["Id"]: (item["State"]["StartedAt"], item["State"]["Running"])
-            for item in records}
-
-
 def deploy(release, manifest_path, apply):
     manifest = json.loads(manifest_path.read_text())
     assert re.fullmatch(r"[0-9a-f]{40}", manifest["commit"])
@@ -316,13 +277,11 @@ def deploy(release, manifest_path, apply):
     source = release / "proxy-token-site/public"
     container = CONTAINER
     before = json.loads(subprocess.check_output(["docker", "inspect", container]))[0]
-    mount = next(m for m in before["Mounts"] if m["Destination"] == "/srv/site-public")
+    mount = next(m for m in before["Mounts"] if m["Destination"] == "/app/public")
     assert mount["Source"] == str(public) and not mount["RW"]
     identity = (public.stat().st_dev, public.stat().st_ino)
-    runtime_before = runtime_identity()
     for name in FILES:
-        target = safe_file(public, name)
-        safe_file(source, name)
+        target = public / name
         expected_before = manifest["files"][name]["before"]
         assert not target.is_symlink()
         assert digest(source / name) == manifest["files"][name]["after"], name
@@ -346,22 +305,19 @@ def deploy(release, manifest_path, apply):
             target = backup / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(live, target)
-    receipt = {**manifest, "container_id": before["Id"], "public_inode": identity,
-               "runtime_before": runtime_before, "profile": "leandata-v3-phx-static"}
+    receipt = {**manifest, "container_id": before["Id"], "public_inode": identity}
     try:
         # Keep directory inodes and publish HTML only after the bundles and styles.
-        ordered = sorted(FILES, key=lambda name: name.endswith(".html"))
-        for name in ordered:
+        for name in FILES:
             atomic_copy(source / name, public / name)
         for name in FILES:
             expected = manifest["files"][name]["after"]
             assert digest(public / name) == expected, name
             actual = subprocess.check_output([
-                "docker", "exec", container, "sha256sum", "/srv/site-public/" + name,
+                "docker", "exec", container, "sha256sum", "/app/public/" + name,
             ], text=True).split()[0]
             assert actual == expected, name
         after = json.loads(subprocess.check_output(["docker", "inspect", container]))[0]
-        assert runtime_before == runtime_identity()
         assert before["Id"] == after["Id"]
         assert before["State"]["StartedAt"] == after["State"]["StartedAt"]
         assert identity == (public.stat().st_dev, public.stat().st_ino)
@@ -396,7 +352,7 @@ def rollback(release, manifest_path):
     assert list((PUBLIC_ROOT.stat().st_dev, PUBLIC_ROOT.stat().st_ino)) == receipt["public_inode"]
     backup = release / "rollback"
     for name in FILES:
-        live, saved = safe_file(PUBLIC_ROOT, name), safe_file(backup, name)
+        live, saved = PUBLIC_ROOT / name, backup / name
         assert not live.is_symlink() and digest(live) == manifest["files"][name]["after"], name
         expected = manifest["files"][name]["before"]
         if expected is None:
@@ -428,7 +384,7 @@ if __name__ == "__main__":
     mode.add_argument("--apply", action="store_true")
     mode.add_argument("--rollback", action="store_true")
     args = parser.parse_args()
-    with open("/srv/leandata-site-public/docs-static-deploy.lock", "a") as lock:
+    with open("/srv/leandata/docs-static-deploy.lock", "a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if args.rollback:
             rollback(args.release.resolve(), args.manifest.resolve())

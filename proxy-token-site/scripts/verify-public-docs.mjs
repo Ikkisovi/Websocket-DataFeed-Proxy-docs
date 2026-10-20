@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(scriptDir, "..", "public");
 // Public contract terms such as cache status and the legacy /v1/pit/fmp route
-// are valid documentation. Provider names are allowed only in the contract
-// reference explanation explicitly requested by the owner; private hosts stay hidden.
+// are valid documentation. Reject supplier and private-infrastructure branding
+// without treating stable route names or implementation identifiers as prose.
 const disallowed = /\b(?:ThinkCentre|EC2|Tailscale|Cloudflare|Alpaca|ThetaData)\b/g;
 
 function walk(directory) {
@@ -24,12 +24,6 @@ for (const file of publicSources) {
   const source = fs.readFileSync(file, "utf8");
   for (const match of source.matchAll(disallowed)) {
     const line = source.slice(0, match.index).split("\n").length;
-    if (["Alpaca", "ThetaData"].includes(match[0]) && path.relative(publicDir, file) === "docs/docs-site.jsx") {
-      const start = source.indexOf('<h2 id="post-v1-options-contracts"');
-      const end = source.indexOf('<h2 id="post-v1-history-options-bars"', start);
-      const text = source.split("\n")[line - 1];
-      if (match.index >= start && match.index < end || text.includes('["Alpaca contract reference", "/v1/options/contracts')) continue;
-    }
     findings.push(`${path.relative(publicDir, file)}:${line} (${match[0]})`);
   }
 }
