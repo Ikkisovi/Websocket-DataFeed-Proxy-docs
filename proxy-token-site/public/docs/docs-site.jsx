@@ -4078,18 +4078,18 @@ function WsUsageBody({ focus, articleId }) {
       <div className="eyebrow" style={{ marginBottom: 10 }}>{isZh ? "实时数据流" : "Realtime"}</div>
       <h2 id="endpoint" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>{isZh ? "WebSocket 连接与实时数据流" : "WebSocket connection"}</h2>
       <DocDesc
-        zh="每个数据通道都有专属的独立 URL 路径。连接至对应 URL 后，先发送包含 Token 的 auth 认证消息，随后即可发送 subscribe 进行标的订阅。股票、期权、夜盘和暗盘通道采用二进制 MessagePack 格式编码，延迟更低；加密货币与新闻通道采用标准 JSON 格式。"
-        en="Each channel has a dedicated path. Connect to the appropriate URL, send an auth message with your token, then send subscribe messages. Stocks/options/overnight/boats messages are binary MessagePack; crypto and news channels use JSON."
+        zh="每个数据通道都有专属的独立 URL 路径。连接至对应 URL 后，先发送包含 Token 的 auth 认证消息，随后即可发送 subscribe 进行标的订阅。控制回复采用 JSON。股票、期权、夜盘和暗盘行情可能使用二进制帧，需先尝试 JSON 解码，再尝试 MessagePack；不能仅凭帧类型判断编码。加密货币与新闻通道采用 JSON。"
+        en="Each channel has a dedicated path. Connect to the appropriate URL, send an auth message with your token, then send subscribe messages. Control replies use JSON. Stocks/options/overnight/boats data may arrive in binary frames: try JSON decoding first, then MessagePack. A binary frame alone does not identify the encoding. Crypto and news use JSON."
       />
 
       <table className="tbl card" style={{ marginBottom: 28, overflow: "hidden" }}>
         <thead><tr><th>{isZh ? "通道 / Channel" : "Channel"}</th><th>{isZh ? "路径 / Path" : "Path"}</th><th>{isZh ? "格式 / Format" : "Format"}</th><th>Basic</th><th>Trial</th><th>Value</th><th>Standard</th><th>Premium</th></tr></thead>
         <tbody>
           {[
-            ["stocks",    "/stream",           "msgpack", "—", "✓", "✓", "✓", "✓"],
-            ["options",   "/stream/options",   "msgpack", "—", "✓", "✓", "✓", "✓"],
-            ["boats",     "/stream/boats",     "msgpack", "—", "✓", "✓", "✓", "✓"],
-            ["overnight", "/stream/overnight", "msgpack", "—", "✓", "✓", "✓", "✓"],
+            ["stocks",    "/stream",           "JSON / MessagePack", "—", "✓", "✓", "✓", "✓"],
+            ["options",   "/stream/options",   "JSON / MessagePack", "—", "✓", "✓", "✓", "✓"],
+            ["boats",     "/stream/boats",     "JSON / MessagePack", "—", "✓", "✓", "✓", "✓"],
+            ["overnight", "/stream/overnight", "JSON / MessagePack", "—", "✓", "✓", "✓", "✓"],
             ["crypto",    "/stream/crypto",    "JSON",    "—", "✓", "✓", "✓", "✓"],
             ["news",      "/stream/news",      "JSON",    "—", "✓", "✓", "✓", "✓"],
           ].map(([ch, path, fmt, b, tr, v, s, p], i) => (
@@ -4121,13 +4121,27 @@ function WsUsageBody({ focus, articleId }) {
       <pre className="code" style={{ marginBottom: 12 }}>
 {`import asyncio, websockets, json, msgpack
 
+def decode_messages(raw):
+    try:
+        decoded = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        decoded = msgpack.unpackb(raw, raw=False, timestamp=3)
+    if isinstance(decoded, dict):
+        return [decoded]
+    if isinstance(decoded, list) and all(isinstance(item, dict) for item in decoded):
+        return decoded
+    raise ValueError("Unexpected WebSocket message shape")
+
 async def stream_stocks(token):
     uri = "${WS_BASE}/stream"        # stocks channel
     async with websockets.connect(uri) as ws:
 
         # 1. Authenticate
         await ws.send(json.dumps({"action": "auth", "token": token}))
-        auth_resp = msgpack.unpackb(await ws.recv())
+        auth_resp = decode_messages(await ws.recv())
+        if not any(m.get("T") == "success" and m.get("msg") == "authenticated"
+                   for m in auth_resp):
+            raise RuntimeError("WebSocket authentication failed")
         # auth_resp → [{"T": "success", "msg": "authenticated"}]
 
         # 2. Subscribe
@@ -4140,7 +4154,7 @@ async def stream_stocks(token):
 
         # 3. Receive
         async for raw in ws:
-            msgs = msgpack.unpackb(raw)   # list of message dicts
+            msgs = decode_messages(raw)  # JSON text, JSON bytes, or MessagePack
             for msg in msgs:
                 print(msg)
 
@@ -4177,7 +4191,7 @@ await ws.send(json.dumps({
 
       <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "期权实时行情流 (options)" : "options"}</h2>
       <DocDesc
-        zh="OPRA 官方期权行情实时流：在 trades 和 quotes 列表中传入标准 OCC 期权代码进行订阅。除 Basic 套餐外均可使用。支持 SPX/SPXW、VIX/VIXW、DJX、XSP 等主流指数期权。行情通过 /stream/options 上的二进制 MessagePack 帧高效推送。"
+        zh="OPRA 官方期权行情实时流：在 trades 和 quotes 列表中传入标准 OCC 期权代码进行订阅。除 Basic 套餐外均可使用。支持 SPX/SPXW、VIX/VIXW、DJX、XSP 等主流指数期权。行情通过 /stream/options 推送；使用上方的 decode_messages 同时处理 JSON 和 MessagePack。"
         en="Live OPRA options feed. Subscribe using OCC symbols in the trades and quotes lists. All tiers except Basic. Index options are supported for SPX/SPXW, VIX/VIXW, DJX and XSP families."
       />
 
@@ -4276,18 +4290,22 @@ await ws.send(json.dumps({
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Handle reconnects with backoff.
         The server may close the connection on overload (<code>code 1013</code>) or policy violation (<code>code 1008</code>).
-        Implement exponential backoff. Subscriptions are not persisted — re-auth and re-subscribe after every reconnect.
+        Implement exponential backoff. Subscriptions are not persisted — re-auth and re-subscribe after every reconnect. Send auth immediately after opening; do not wait for a connected greeting. A connection without subscriptions closes after 30 seconds with code 1008. Report decoding errors instead of silently reconnecting.
       </p>
       <pre className="code" style={{ marginBottom: 28 }}>
-{`import asyncio, websockets, json, msgpack
+{`import asyncio, websockets, json
 
+# Reuse decode_messages from the connection example above.
 async def with_reconnect(token, uri, handler, backoff=1):
     while True:
         try:
             async with websockets.connect(uri) as ws:
                 await ws.send(json.dumps({"action": "auth", "token": token}))
-                await ws.recv()                          // auth response
-                await ws.send(json.dumps({               // re-subscribe
+                auth_resp = decode_messages(await ws.recv())
+                if not any(m.get("T") == "success" and m.get("msg") == "authenticated"
+                           for m in auth_resp):
+                    raise RuntimeError("WebSocket authentication failed")
+                await ws.send(json.dumps({               # re-subscribe
                     "action": "subscribe",
                     "trades": ["AAPL", "TSLA"]
                 }))
