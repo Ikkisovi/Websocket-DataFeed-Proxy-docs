@@ -11,6 +11,7 @@ const tls = require('tls');
 const { createCommerceStore } = require('./commerce/store.cjs');
 const { createPortalStore } = require('./commerce/portal-store.cjs');
 const { execFile } = require('child_process');
+const requestDiagnostics = require('./commerce/request-diagnostics.cjs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -6085,6 +6086,7 @@ function compactUsageError(entry, eventMs) {
     t: entry.timestamp,
     m: eventMs,
     status: entry.status,
+    rate_limit: entry.status===429 ? requestDiagnostics.attribution(entry) : undefined,
     error_code: str(entry.error_code, 64),
     error: str(entry.error || entry.error_detail, 160),
     path: str(entry.path, 160),
@@ -6098,6 +6100,7 @@ function createUsageUserState() {
     dailyEvents: new Map(),
     roles: new Map(),
     dailyHttp: new Map(),
+    dailyDiagnostics: new Map(),
     dailyBytesOut: new Map(),
     dailyErrors: new Map(),
     dailyWsSessions: new Map(),
@@ -6175,6 +6178,9 @@ const usageAggregator = (() => {
 
     if (isHttp) {
       addDayValue(user.dailyHttp, day, 1);
+      let diagnostics=user.dailyDiagnostics.get(day);
+      if (!diagnostics) { diagnostics=requestDiagnostics.create(); user.dailyDiagnostics.set(day,diagnostics); }
+      requestDiagnostics.observe(diagnostics,entry);
       if (isError) {
         addDayValue(user.dailyErrors, day, 1);
         user.recentErrors.push(compactUsageError(entry, eventMs));
@@ -6284,6 +6290,7 @@ const usageAggregator = (() => {
     for (const [userId, user] of state.users) {
       pruneDayMap(user.dailyEvents, firstDay);
       pruneDayMap(user.dailyHttp, firstDay);
+      pruneDayMap(user.dailyDiagnostics, firstDay);
       pruneDayMap(user.dailyBytesOut, firstDay);
       pruneDayMap(user.dailyErrors, firstDay);
       pruneDayMap(user.dailyWsSessions, firstDay);
@@ -6450,7 +6457,30 @@ const usageAggregator = (() => {
     };
   }
 
+  function diagnostics(days, userId) {
+    const nowMs=Date.now(); pruneState(nowMs);
+    if (!state) return null;
+    const firstDay=usageWindowStartDay(nowMs,days), total=requestDiagnostics.create(), users=[];
+    for (const [id,user] of state.users) {
+      if (userId && id!==userId) continue;
+      const aggregate=requestDiagnostics.create();
+      for (const [day,value] of user.dailyDiagnostics) if (day>=firstDay) requestDiagnostics.merge(aggregate,value);
+      requestDiagnostics.merge(total,aggregate);
+      const summary=requestDiagnostics.summarize(aggregate);
+      if (summary.rate_limits.total) users.push({user_id:id,http_requests:aggregate.http,
+        rate_limits:summary.rate_limits.total,security:summary.rate_limits.categories.security||0,
+        unknown:summary.rate_limits.unknown,rate:summary.rate_limits.rate});
+    }
+    users.sort((a,b)=>b.rate_limits-a.rate_limits || a.user_id.localeCompare(b.user_id));
+    return {schema_version:1,days_utc:days,window_start_utc:firstDay,generated_at:new Date(nowMs).toISOString(),
+      scope:'operational_http_log_records', ...requestDiagnostics.summarize(total),
+      affected_users:users.filter(u=>u.user_id!=='anonymous').length,
+      anonymous_429:users.find(u=>u.user_id==='anonymous')?.rate_limits||0,
+      top_users:users.slice(0,20)};
+  }
+
   return {
+    diagnostics,
     ensureFresh,
     isAvailable: () => Boolean(state),
     coverage: () => {
@@ -6525,6 +6555,7 @@ const usageAggregator = (() => {
         user_id: userId,
         roles: activeRoles(user),
         ...windowCounts(user, nowMs),
+        diagnostics: diagnostics(7,userId),
         daily_14d: days,
         top_routes: routes,
         recent_events: recentEvents,
@@ -6628,6 +6659,18 @@ const edgeUsage = (() => {
 })();
 // END_EDGE_USAGE_HELPERS
 edgeUsage.registerEdgeUsage(app, requireAdmin);
+
+app.get('/api/admin/usage/diagnostics', requireAdmin, asyncRoute(async (req,res) => {
+  res.set('Cache-Control','private, no-store');
+  const days=req.query.days===undefined ? '1' : req.query.days;
+  if (typeof days!=='string' || !['1','7','30'].includes(days) || Object.keys(req.query).some(k=>k!=='days')) {
+    return res.status(400).json({success:false,message:'Invalid UTC day window'});
+  }
+  await usageAggregator.ensureFresh();
+  const diagnostics=usageAggregator.diagnostics(Number(days));
+  if (!diagnostics) return res.status(503).json({success:false,available:false,message:'Usage log unavailable; no zero-traffic conclusion'});
+  return res.json({success:true,available:true,log_coverage:usageAggregator.coverage(),diagnostics});
+}));
 
 app.get('/api/admin/usage/overview', requireAdmin, asyncRoute(async (_req, res) => {
   await usageAggregator.ensureFresh();

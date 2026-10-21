@@ -1092,6 +1092,18 @@
         <div class="empty">正在加载用量数据…</div>
       </div>
 
+      <div class="usage-section" id="request-diagnostics">
+        <div class="usage-section-head">
+          <div><div class="usage-section-title">HTTP 质量与 429 原因</div>
+            <div class="log-note">按已记录的 HTTP 请求统计，包含匿名安全拦截；不是计费数据。未知原因不会算作上游限流。时间窗口为 UTC 自然日。</div></div>
+          <select id="diagnostics-days" class="input" aria-label="诊断窗口 UTC" onchange="loadRequestDiagnostics()">
+            <option value="1">今天 UTC</option><option value="7">近 7 天 UTC</option><option value="30">近 30 天 UTC</option>
+          </select>
+          <button class="btn ghost" type="button" onclick="loadRequestDiagnostics()">刷新指标</button>
+        </div>
+        <div id="diagnostics-content"><div class="empty">正在加载指标…</div></div>
+      </div>
+
       <div class="usage-section">
         <div class="usage-section-head">
           <div>
@@ -1457,6 +1469,7 @@
 <!-- Toast -->
 <div id="toast" class="toast"></div>
 
+<script src="/assets/request-diagnostics.js"></script>
 <script>
   let adminToken = null;
   let emailTemplate = null;
@@ -1978,6 +1991,10 @@
     }
   }
 
+  async function loadRequestDiagnostics() {
+    return window.RequestDiagnosticsPanel.load(adminToken, document.getElementById('diagnostics-days').value);
+  }
+
   function roleBadge(role, expiresAt) {
     const expired = expiresAt && new Date(expiresAt) < new Date();
     if (expired) return '<span class="role-badge expired">已过期</span>';
@@ -1991,6 +2008,7 @@
 
   async function loadUsageOverview() {
     void loadEdgeUsage();
+    void loadRequestDiagnostics();
     try {
       const h = { 'X-Admin-Token': adminToken };
       const resp = await fetch('/api/admin/usage/overview', { headers: h });
