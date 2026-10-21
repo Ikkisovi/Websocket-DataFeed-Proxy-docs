@@ -6,7 +6,7 @@
   const category={security:'凭证安全保护',user_limit:'单用户限额',service_capacity:'服务容量',upstream_budget:'上游预算',upstream_throttle:'上游限流',unknown:'未知原因'};
   const source={local:'当前服务',theta_origin:'Theta 执行层',cache_origin:'缓存执行层',provider:'数据提供方',unknown:'未记录'};
   function table(head,rows) {
-    return rows.length?'<div class="table-wrap"><table><thead><tr>'+head.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+row.map(v=>'<td>'+esc(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'<div class="empty">此窗口没有记录</div>';
+    return rows.length?'<div class="table-wrap" style="overflow-x:auto;max-width:100%"><table class="usage-table"><thead><tr>'+head.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+row.map(v=>'<td>'+esc(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'<div class="empty">此窗口没有记录</div>';
   }
   function render(data,element) {
     const d=data.diagnostics,r=d.rate_limits,c=r.categories,l=d.latency;
