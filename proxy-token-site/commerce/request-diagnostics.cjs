@@ -28,7 +28,7 @@ const REASONS = {
 };
 const SOURCES = new Set(['local', 'theta_origin', 'cache_origin', 'provider', 'unknown']);
 const POOLS = new Set(['upstream','realtime','realtime_egress','egress','hot_hit','archive_hit','json_workspace',
-  'free_upstream','free_realtime','free_realtime_egress','free_egress','free_hot_hit','free_archive_hit','free_json_workspace','free_request','unspecified']);
+  'free_upstream','free_realtime','free_realtime_egress','free_egress','free_hot_hit','free_archive_hit','free_json_workspace','free_requests','unspecified']);
 const LATENCY_BOUNDS = [10,50,100,250,500,1000,3000,10000,30000,120000,Infinity];
 const CACHE = new Set(['HIT','MISS','BYPASS','STALE']);
 function attribution(entry) {
