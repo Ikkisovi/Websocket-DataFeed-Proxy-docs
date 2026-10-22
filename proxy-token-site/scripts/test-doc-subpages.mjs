@@ -13,7 +13,7 @@ function isVisible(element) {
   return true;
 }
 
-async function render(pathname, language = "zh") {
+async function render(pathname, language = "zh", bundle = docsBundle) {
   const dom = new JSDOM('<!doctype html><div id="root"></div>', {
     url: `https://leandata.uk${pathname}`,
     runScripts: "outside-only",
@@ -31,7 +31,7 @@ async function render(pathname, language = "zh") {
     json: async () => ({ success: false, message: "test response", components: [] }),
   });
   dom.window.eval(languageScript);
-  dom.window.eval(docsBundle);
+  dom.window.eval(bundle);
   await new Promise(resolve => setTimeout(resolve, 30));
   return dom;
 }
@@ -40,8 +40,36 @@ const home = await render("/docs/");
 assert.match(home.window.document.body.textContent, /查找接口、了解参数|Find an endpoint/);
 assert(home.window.document.querySelector('a[href="/docs/market/stocks/"]'));
 assert(home.window.document.querySelector('a[href="/docs/financial/morningstar/"]'));
+assert(home.window.document.querySelector('a[href="/docs/financial/eodhd/"]'));
+assert(home.window.document.querySelector('a[href="/docs/universes/"]'));
 home.window.LeandataI18n.destroy();
 home.window.close();
+
+// The token homepage embeds its own compiled copy of the docs navigation.
+const tokenBundle = fs.readFileSync(new URL("../public/assets/token-page.js", import.meta.url), "utf8");
+for (const language of ["zh", "en"]) {
+  const embedded = await render("/", language, tokenBundle);
+  for (const path of ["/docs/financial/eodhd/", "/docs/financial/morningstar/"]) {
+    const link = embedded.window.document.querySelector(`a[href="${path}"]`);
+    assert(link, `Embedded homepage is missing ${path}`);
+    assert.match(link.textContent, /06:00/);
+    assert.match(link.textContent, /09:00/);
+  }
+  assert(embedded.window.document.querySelector('a[href="/docs/universes/"]'));
+  embedded.window.LeandataI18n.destroy();
+  embedded.window.close();
+  for (const path of ["/docs/financial/morningstar/", "/docs/financial/eodhd/", "/docs/financial/morningstar/morningstar-coverage/", "/docs/financial/eodhd/eodhd-coverage/"]) {
+    const page = await render(path, language);
+    const schedule = page.window.document.querySelector("main [data-update-schedule]");
+    assert(schedule, `Update guidance is missing on ${path}`);
+    assert.match(schedule.textContent, /06:00/);
+    assert.match(schedule.textContent, /09:00/);
+    assert.match(schedule.textContent, /coverage/);
+    assert.match(schedule.textContent, language === "zh" ? /夏令时/ : /daylight saving/);
+    page.window.LeandataI18n.destroy();
+    page.window.close();
+  }
+}
 
 const stocks = await render("/docs/market/stocks/");
 assert(isVisible(stocks.window.document.getElementById("stock-data-availability")));
@@ -134,6 +162,7 @@ stocksPage.window.close();
 const financial = await render("/docs/financial/");
 assert(financial.window.document.querySelector('img[src="/assets/providers/fmp-data.png"]'));
 assert(financial.window.document.querySelector('img[src="/assets/providers/morningstar.png"]'));
+assert(financial.window.document.querySelector('#financial-source-selector a[href="/docs/financial/eodhd/"]'));
 financial.window.LeandataI18n.destroy();
 financial.window.close();
 

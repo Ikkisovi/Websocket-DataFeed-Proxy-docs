@@ -45,10 +45,10 @@ const NAV_GROUPS = [
     match: ["fmp", "fmp-fundamentals", "morningstar", "eodhd", "universe"],
     mainTab: "fmp",
     items: [
-      { label: "选择数据源", en: "Choose source", desc: "Regular / FMP · Morningstar", href: DOC_PATHS.financial },
+      { label: "选择数据源", en: "Choose source", desc: "Regular / FMP · Morningstar · EODHD", href: DOC_PATHS.financial },
       { label: "Universe 股票名单", en: "Universe member lists", desc: "Members · Saved versions", href: DOC_PATHS.universes },
-      { label: "EODHD 公司事件", en: "EODHD company events", desc: "Earnings · Dividends · Splits", href: DOC_PATHS.financialEodhd },
-      { label: "Morningstar（推荐）", en: "Morningstar (recommended)", desc: "Daily wide fundamentals", href: DOC_PATHS.financialMorningstar },
+      { label: "EODHD 公司事件", en: "EODHD company events", desc: "Earnings · Dividends · Splits", update: { zh: "每日美西 06:00 / 纽约 09:00 起更新", en: "Daily from 06:00 PT / 09:00 ET" }, href: DOC_PATHS.financialEodhd },
+      { label: "Morningstar（推荐）", en: "Morningstar (recommended)", desc: "Daily wide fundamentals", update: { zh: "每日美西 06:00 / 纽约 09:00 起更新", en: "Daily from 06:00 PT / 09:00 ET" }, href: DOC_PATHS.financialMorningstar },
       { label: "Regular / FMP", en: "Regular / FMP", desc: "50+ standard endpoints", href: DOC_PATHS.financialRegular },
       { label: "财务三表", en: "Financial statements", desc: "Income · Balance · Cashflow", href: DOC_PATHS.financialStatements },
       { label: "比率与增长", en: "Ratios & growth", desc: "Ratios · Growth", href: DOC_PATHS.financialRatios },

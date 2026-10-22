@@ -532,6 +532,7 @@ function DocsHome() {
                 <a key={item.href} href={item.href} style={{ textDecoration: "none", padding: "9px 10px", borderRadius: 7, border: "1px solid var(--rule)", background: "var(--bg-paper)" }}>
                   <strong style={{ display: "block", color: "var(--ink-strong)", fontSize: 13 }}>{isZh ? item.label : item.en}</strong>
                   <span style={{ color: "var(--ink-soft)", fontFamily: "var(--f-mono)", fontSize: 11 }}>{item.desc}</span>
+                  {item.update && <span data-update-schedule="true" style={{ display: "block", marginTop: 5, color: "var(--accent-ink)", fontSize: 12 }}>{isZh ? item.update.zh : item.update.en}</span>}
                 </a>
               ))}
             </div>
@@ -1549,6 +1550,7 @@ function BulkOrderBody() {
 function FinancialSourceSelector({ active }) {
   const sources = [
     { id: "morningstar", title: "Morningstar", zh: "日度公司基本面", meta: "Daily fundamentals · Revenue · Cash flow · Valuation", href: DOC_PATHS.financialMorningstar, logo: PROVIDER_LOGOS.morningstar, alt: "Morningstar logo", recommended: true },
+    { id: "eodhd", title: "EODHD", zh: "财报、分红与拆股事件", meta: "Earnings · Dividends · Splits", href: DOC_PATHS.financialEodhd },
     { id: "regular", title: "Regular / FMP", zh: "标准财务数据", meta: "50+ endpoints · statements · ratios · profiles", href: DOC_PATHS.financialRegular, logo: PROVIDER_LOGOS.fmp, alt: "FMP Data logo" },
   ];
   return (
@@ -1556,15 +1558,15 @@ function FinancialSourceSelector({ active }) {
       <div className="eyebrow" style={{ marginBottom: 9 }}>第一步 / Step 1</div>
       <h2 className="display-title" style={{ fontSize: 30, margin: "0 0 8px" }}>选择财务数据源 / Choose a financial data source</h2>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.6, margin: "0 0 14px" }}>
-        两套 provider 保持独立 schema、覆盖范围和修订语义。请选择后再查看接口。
-        <br/>Providers keep separate schemas, coverage, and revision semantics. Choose a source before opening its endpoints.
+        按需要选择公司基本面、公司事件或标准财务接口，各类数据的可用日期请分别查看。
+        <br/>Choose company fundamentals, company events or standard financial endpoints. Check available dates separately for each source.
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
         {sources.map((source) => {
           const selected = active === source.id;
           return (
             <a key={source.id} href={source.href} aria-current={selected ? "page" : undefined} className="provider-source-card" style={{ color: "var(--ink-strong)", textDecoration: "none" }}>
-              <img className="provider-source-logo" src={source.logo} alt={source.alt} loading="lazy" />
+              {source.logo ? <img className="provider-source-logo" src={source.logo} alt={source.alt} loading="lazy" /> : <span className="provider-source-logo" aria-hidden="true" style={{ display: "grid", placeItems: "center", fontSize: 14, fontWeight: 700 }}>EODHD</span>}
               <div>
                 <strong style={{ display: "block", fontSize: 17, marginBottom: 3 }}>{source.title}{source.recommended ? <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, color: "var(--accent-ink)", background: "var(--accent-soft)", border: "1px solid var(--accent-rule)", borderRadius: 20, padding: "1px 9px", marginLeft: 8, verticalAlign: "middle" }}>推荐 RECOMMENDED</span> : null}</strong>
                 <div style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 5 }}>{source.zh}</div>

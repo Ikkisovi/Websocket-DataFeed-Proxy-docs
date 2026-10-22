@@ -6,6 +6,14 @@ const EXAMPLE_VERSION = "ca3a6c3e75980b9a66f9d71e250b37258e6713b1839e47dbdfde316
 const PREMIUM_EN = "Included with your active Premium account: Morningstar fundamentals, EODHD company events and universe member lists. Use your existing token. No extra purchase or new token is needed.";
 const PREMIUM_ZH = "有效 Premium 账户已包含 Morningstar 基本面、EODHD 公司事件和 universe 股票名单。沿用现有 token 即可，无需额外购买或新建 token。";
 function Premium({ isZh }) { return <p className="callout">{isZh ? PREMIUM_ZH : PREMIUM_EN}</p>; }
+function DailyUpdate({ isZh }) {
+  return <div className="callout" data-update-schedule="true">
+    <strong>{isZh ? "更新时间：每日美西早上 06:00 / 纽约早上 09:00 起。" : "Daily updates start at 06:00 Pacific / 09:00 New York."}</strong>{" "}
+    {isZh
+      ? "采集与校验后陆续可查，并非整点全部到账；周末、休市或来源延迟时，可用日期可能不变。请通过本数据集的 coverage 接口确认实际可用日期。时间随美国夏令时切换。"
+      : "Data becomes available after collection and validation, rather than all at once. Available dates may stay unchanged on weekends, market holidays or when the source is delayed. Check this dataset's coverage endpoint for actual available dates. Times follow US daylight saving changes."}
+  </div>;
+}
 function Fields({ isZh, rows }) {
   return <div style={{ overflowX: "auto" }}><table className="tbl"><thead><tr><th>{isZh ? "字段" : "Field"}</th><th>{isZh ? "怎么用" : "How to use it"}</th></tr></thead><tbody>{rows.map(([key, en, zh]) => <tr key={key}><td><code style={{ overflowWrap: "anywhere", whiteSpace: "normal" }}>{key}</code></td><td>{isZh ? zh : en}</td></tr>)}</tbody></table></div>;
 }
@@ -79,6 +87,7 @@ export function MorningstarCustomerBody({ articleId, isZh }) {
   return <DocContent articleId={articleId} data-no-i18n="true" style={{ maxWidth: 860 }}>
     <h2 id="morningstar-overview" className="display-title">{t("Morningstar fundamentals", "Morningstar 基本面")}</h2>
     <Premium isZh={isZh} />
+    <DailyUpdate isZh={isZh} />
     <p>{t("Look up daily company fundamentals such as revenue, net income, cash flow and valuation metrics. Start with available dates, then request the stocks and fields you need.", "查询公司每天可用的营收、净利润、现金流和估值等基本面指标。先查看可用日期，再选择股票和需要的字段。")}</p>
     <p><a href={docArticlePath("financial-morningstar", "morningstar-history")}>{t("Query daily fundamentals →", "查询日度基本面 →")}</a>{" · "}<a href={docArticlePath("financial-morningstar", "morningstar-coverage")}>{t("Check available dates →", "查看可用日期 →")}</a></p>
     <p>{t("A universe member list can help you choose stocks. Morningstar coverage is checked separately: a list does not guarantee data for every member and date, and its date is not Morningstar's latest data date.", "Universe 名单可用于选择股票，Morningstar 的覆盖范围则需单独查看；名单不保证每个成员在每一天都有基本面数据，名单日期也不是 Morningstar 的最新数据日期。")}</p>
@@ -104,6 +113,7 @@ export function MorningstarCustomerBody({ articleId, isZh }) {
     <p>{t("Keep the original response, dates and security IDs with any saved results. The snapshot value keeps pagination on the same selection; it is different from a universe snapshot_id.", "保存结果时，一并保留原始响应、日期和证券 ID。这里的 snapshot 用于固定分页结果，与 universe 的 snapshot_id 不同。")}</p>
 
     <h2 id="morningstar-coverage" className="display-title">{t("Available dates and missing data", "可用日期与缺失数据")}</h2>
+    <DailyUpdate isZh={isZh} />
     <pre className="code">{`curl "https://api.leandata.uk/v1/fundamentals/morningstar/daily/coverage" \\
   ${auth}`}</pre>
     <p>{t("Use this response to find available dates and stocks before requesting history. Morningstar has its own date range; do not copy the latest date from EODHD or a universe member list.", "先用这个接口查看可用日期和股票，再查询历史。Morningstar 有自己的日期范围，不能直接套用 EODHD 或 universe 名单的最新日期。")}</p>
@@ -116,6 +126,7 @@ export function EodhdCustomerBody({ articleId, isZh }) {
   return <DocContent articleId={articleId} data-no-i18n="true" style={{ maxWidth: 860 }}>
     <h2 id="eodhd-overview" className="display-title">{t("Earnings, dividends and splits", "财报、分红与拆股")}</h2>
     <Premium isZh={isZh} />
+    <DailyUpdate isZh={isZh} />
     <p>{t("Query recorded upcoming earnings, dividend and split events. For revenue, profit and other financial statement values, use Morningstar instead.", "查询已收录的近期财报、分红和拆股事件。营收、利润等财报数值请使用 Morningstar。")}</p>
     <p>{t("Event coverage is independent of the example universe. Results can include stocks outside its member list; filter by the stocks you need. This feed is not a complete calendar of every announced future event, and dates can change.", "事件数据的覆盖范围独立于示例 universe，结果可能包含其名单外的股票，请按关心的股票筛选。这不是所有已公告未来事件的完整日历，事件日期也可能调整。")}</p>
     <p><a href={docArticlePath("financial-eodhd", "eodhd-history")}>{t("Find company events →", "查询公司事件 →")}</a>{" · "}<a href={DOC_PATHS.universes}>{t("Universe member lists", "Universe 股票名单")}</a></p>
@@ -139,6 +150,7 @@ export function EodhdCustomerBody({ articleId, isZh }) {
     <p>{t("Read all pages, then select upcoming events by their event date. Keep the response and its update date: an older event record may have been revised. Missing values and empty results do not mean zero dividends or no announced events.", "读完分页后，再按事件日期选择未来事件。保存响应和更新日期，较早记录可能已经修订。字段缺失或结果为空，不表示分红为零，也不表示公司没有已公告事件。")}</p>
 
     <h2 id="eodhd-coverage" className="display-title">{t("Available dates and coverage", "可用日期与覆盖范围")}</h2>
+    <DailyUpdate isZh={isZh} />
     <pre className="code">{`curl --get "https://api.leandata.uk/v1/events/eodhd/coverage" \\
   ${auth} \\
   --data-urlencode "dataset=earnings"`}</pre>
