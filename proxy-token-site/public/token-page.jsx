@@ -91,7 +91,6 @@ function TokenTopbar({ portalOpen, setPortalOpen }) {
         <a href="/alternative-data/" style={{ cursor: "pointer" }}>另类数据</a>
         <a href="/research-data" style={{ cursor: "pointer" }}>研究数据与报告</a>
         <a href="/reports/factor-stats/" style={{ cursor: "pointer" }}>因子字典</a>
-        <a href="/reports/factor-stats/" style={{ cursor: "pointer" }}>因子字典</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
