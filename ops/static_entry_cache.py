@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Add scoped cache controls to the existing private static-origin config."""
 import copy
+import argparse
 import json
 import sys
 
@@ -60,6 +61,26 @@ def with_entry_cache_policy(config: dict) -> dict:
     return result
 
 
+def with_public_entry_cache_policy(config: dict) -> dict:
+    """Apply the same policy at the public website host, preserving API hosts."""
+    result = copy.deepcopy(config)
+    routes = result['apps']['http']['servers']['compat']['routes']
+    website = [r for r in routes if r.get('match') == [{'host': ['leandata.uk']}]]
+    if len(website) != 1:
+        raise ValueError('Expected exactly one public website host')
+    handlers = website[0].get('handle', [])
+    if len(handlers) != 1 or handlers[0].get('handler') != 'subroute':
+        raise ValueError('Unexpected public website route shape')
+    chain = handlers[0]['routes']
+    if chain[:len(POLICY)] != POLICY:
+        chain[:0] = copy.deepcopy(POLICY)
+    return result
+
+
 if __name__ == '__main__':
-    json.dump(with_entry_cache_policy(json.load(sys.stdin)), sys.stdout, indent=2)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--public-compat', action='store_true')
+    args = parser.parse_args()
+    transform = with_public_entry_cache_policy if args.public_compat else with_entry_cache_policy
+    json.dump(transform(json.load(sys.stdin)), sys.stdout, indent=2)
     sys.stdout.write('\n')

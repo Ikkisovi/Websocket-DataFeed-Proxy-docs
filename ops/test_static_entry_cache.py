@@ -1,7 +1,7 @@
 import copy
 import unittest
 
-from static_entry_cache import POLICY, with_entry_cache_policy
+from static_entry_cache import POLICY, with_entry_cache_policy, with_public_entry_cache_policy
 
 
 class StaticEntryCacheTests(unittest.TestCase):
@@ -42,6 +42,25 @@ class StaticEntryCacheTests(unittest.TestCase):
         routes.extend([self.reader, self.reader])
         with self.assertRaises(ValueError):
             with_entry_cache_policy(self.config)
+
+    def test_public_website_preserves_api_hosts_and_routing(self):
+        config = {'apps': {'http': {'servers': {'compat': {'routes': [
+            {'match': [{'host': ['leandata.uk']}], 'handle': [{'handler': 'subroute', 'routes': [
+                {'match': [{'path': ['/api/*']}], 'handle': [{'handler': 'reverse_proxy', 'upstreams': [{'dial': 'portal-ui:3000'}]}]},
+                copy.deepcopy(self.reader),
+            ]}]},
+            {'match': [{'host': ['rt-api.leandata.uk']}], 'handle': [{'handler': 'reverse_proxy', 'upstreams': [{'dial': 'edge:443'}]}]},
+        ]}}}}}
+        result = with_public_entry_cache_policy(config)
+        self.assertEqual(with_public_entry_cache_policy(result), result)
+        chain = result['apps']['http']['servers']['compat']['routes'][0]['handle'][0]['routes']
+        self.assertEqual(chain[:2], POLICY)
+        del chain[:2]
+        self.assertEqual(result, config)
+
+    def test_missing_public_website_fails_closed(self):
+        with self.assertRaises(ValueError):
+            with_public_entry_cache_policy({'apps': {'http': {'servers': {'compat': {'routes': []}}}}})
 
 
 if __name__ == '__main__':
