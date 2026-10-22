@@ -75,8 +75,8 @@ export function ResearchDataPage() {
       <div className="divider" />
       <nav className="nav" aria-label={t("主导航", "Main navigation")}>
         <a href="/docs/">{t("数据文档", "Documentation")}</a>
-        <a href="/research-data" className="active" aria-current="page">{t("研究数据", "Research Data")}</a>
-        <a href="/reports/">{t("研究报告", "Reports")}</a>
+        <a href="/research-data" className="active" aria-current="page">{t("研究数据与报告", "Research & Data")}</a>
+        <a href="/reports/factor-stats/">{t("因子字典", "Factor Dictionary")}</a>
         <a href="/alternative-data/">{t("另类数据", "Alternative data")}</a>
       </nav>
       <div className="spacer" />
@@ -88,8 +88,8 @@ export function ResearchDataPage() {
     <main className="research-shell">
       <div className="research-heading">
         <p className="eyebrow">RESEARCH DATA / {t("从数据到证据", "FROM DATA TO EVIDENCE")}</p>
-        <h1 className="display-title">{t("研究数据", "Research Data")}</h1>
-        <p>{t("先了解信号，再决定怎么使用。浏览数据说明、阅读研究笔记，并按产品获取访问。Spectral 当前免费；Brain 时点股票池仅向已授权账号开放。", "Understand the signal before choosing how to use it. Explore dataset documentation, read the research, and access each product. Spectral is currently free; Brain universe snapshots are restricted to the authorized preview account.")}</p>
+        <h1 className="display-title">{t("研究数据与报告", "Research & Data")}</h1>
+        <p>{t("先了解信号，再决定怎么使用。浏览数据说明、阅读研究笔记，并按产品获取访问。Spectral 当前免费；Brain 时点股票池向付费用户免费开放。", "Understand the signal before choosing how to use it. Explore dataset documentation, read the research, and access each product. Spectral is currently free; Brain universe snapshots are included with paid subscriptions.")}</p>
       </div>
       <div className="research-editorial-actions"><a href="/reports/">{t("阅读研究报告", "Read the research")} ↗</a><a href="/docs/market/research-signals/">{t("查看数据文档", "Explore the documentation")} ↗</a></div>
       <section className="research-editorial-feature" aria-label={t("精选研究", "Featured research")}><ReportFeature t={t} language={language} compact /></section>
@@ -97,9 +97,9 @@ export function ResearchDataPage() {
         <section aria-labelledby="research-catalog-title">
           <div className="research-section-heading"><h2 id="research-catalog-title">{t("可用数据", "Available data")}</h2><span>{products ? `${products.length + 1} ${t("项数据", "datasets")}` : "…"}</span></div>
           <article className="research-preview-card" data-product="brain-stock-ranking">
-            <p className="eyebrow">BRAIN STOCK RANKING · {t("定向预览", "PRIVATE PREVIEW")}</p>
+            <p className="eyebrow">BRAIN STOCK RANKING · {t("付费套餐内免费使用", "INCLUDED WITH PAID PLANS")}</p>
             <h3>{t("每日排名，按日期看股票池。", "Daily ranks. A universe for each date.")}</h3>
-            <p>{t("五种原始排名周期，以及逐年变化的历史证券名单。目前仅开放时点股票池接口，供已授权账号使用；评分接口尚在规划中，未开放购买。", "Five original ranking horizons and a stock universe that changes over time. Only the dated-universe API is currently available to the authorized preview account; score APIs remain planned and are not on sale.")}</p>
+            <p>{t("五种原始排名周期，以及逐年变化的历史证券名单。时点股票池接口已开放，付费用户免费使用，使用现有 Token 即可；评分接口尚未开放。", "Five original ranking horizons and a stock universe that changes over time. The dated-universe API is available at no extra cost to paid subscribers with their existing token; score APIs are not yet available.")}</p>
             <div className="preview-links"><a href="/reports/brain-stock-ranking/">{t("阅读独立研究", "Read the research")} ↗</a><a href="/docs/market/research-signals/brain-universe-snapshot/">{t("查看股票池接口", "Universe API docs")} ↗</a></div>
           </article>
           {!products && !error && <p role="status">{t("正在加载数据产品…", "Loading data products…")}</p>}

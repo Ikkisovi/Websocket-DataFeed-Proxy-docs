@@ -1607,6 +1607,26 @@ async function findLocalAccountByIdentity(identity) {
   return (await readPortalJSON(USERS_FILE)).filter(user => sameAccountIdentity(user, identity));
 }
 
+// Login email identifies the existing account; registration identity is unchanged.
+async function findAccountLoginMatches(credential) {
+  const phone = String(credential.phone || '').trim();
+  const users = await readPortalJSON(USERS_FILE);
+  if (credential.email) {
+    const email = normalizeEmail(credential.email);
+    const registry = await readPortalJSON(PROXY_USERS_FILE, { users: [] });
+    const phoneMatches = users.filter(user => String(user.phone || '').trim() === phone);
+    return phoneMatches.filter(user => {
+      const proxy = registry.users.find(row => row.user_id === accountRegistryId(user));
+      const savedEmail = normalizeEmail(user.email || proxy?.email || '');
+      // An old account may bind its first email only after a code is verified.
+      return savedEmail ? savedEmail === email : phoneMatches.length === 1;
+    });
+  }
+  return findLocalAccountByIdentity(canonicalAccountIdentity({
+    username: credential.user_id || credential.username, phone
+  }));
+}
+
 function maskToken(token) {
   const value = String(token || '');
   if (value.length < 12) return value ? '••••••••' : null;
@@ -4412,9 +4432,10 @@ app.post('/api/account/login-code', asyncRoute(async (req, res) => {
   const credential = req.body?.credential || req.body || {};
   const username = String(credential.user_id || credential.username || '').trim();
   const phone = String(credential.phone || '').trim();
+  const email = String(credential.email || '').trim();
 
-  if (!username || !phone || username.length > 128 || phone.length > 64) {
-    return res.status(400).json({ success: false, message: '请提供用户名和手机号。' });
+  if ((!username && !isValidEmail(email)) || !phone || email.length > 254 || username.length > 128 || phone.length > 64) {
+    return res.status(400).json({ success: false, message: '请提供邮箱和手机号。' });
   }
 
   // 1. IP rate limit check FIRST — invalid requests hit the IP send limiter too
@@ -4430,12 +4451,11 @@ app.post('/api/account/login-code', asyncRoute(async (req, res) => {
 
   recordAccountLoginCodeIpSent(req);
 
-  const identity = canonicalAccountIdentity({ username, phone });
-  const localMatches = (await findLocalAccountByIdentity(identity));
+  const localMatches = await findAccountLoginMatches(credential);
   const localUser = localMatches.length === 1 ? localMatches[0] : null;
   const accountId = localUser ? accountRegistryId(localUser) : '';
   const proxyUser = accountId ? (await findProxyAccount(accountId)) : null;
-  const targetEmail = localUser?.email || proxyUser?.email || null;
+  const targetEmail = localUser?.email || proxyUser?.email || (localUser && isValidEmail(email) ? normalizeEmail(email) : null);
 
   // Unknown account or missing/invalid email: return the exact same success shape/message as valid target
   if (!localUser || !targetEmail || !isValidEmail(targetEmail)) {
@@ -4499,16 +4519,17 @@ app.post('/api/account/login-code', asyncRoute(async (req, res) => {
   });
 }));
 
-app.post('/api/account/login', asyncRoute(async (req, res) => {
+app.post('/api/account/login', identityRoute(async (req, res) => {
   const credential = req.body?.credential;
   const username = String(credential?.user_id || credential?.username || '').trim();
   const phone = String(credential?.phone || '').trim();
+  const email = String(credential?.email || '').trim();
   const tokenSecret = String(credential?.token || '').trim();
   const challengeId = String(credential?.challenge_id || credential?.verification_id || '').trim();
   const otpCode = String(credential?.code || credential?.verification_code || credential?.login_code || '').trim();
 
-  if (!username || !phone || username.length > 128 || phone.length > 64) {
-    return res.status(400).json({ success: false, message: '请提供用户名和手机号。' });
+  if ((!username && !isValidEmail(email)) || !phone || email.length > 254 || username.length > 128 || phone.length > 64) {
+    return res.status(400).json({ success: false, message: '请提供邮箱和手机号。' });
   }
 
   if (!tokenSecret && !otpCode) {
@@ -4518,8 +4539,7 @@ app.post('/api/account/login', asyncRoute(async (req, res) => {
     });
   }
 
-  const identity = canonicalAccountIdentity({ username, phone });
-  const localMatches = (await findLocalAccountByIdentity(identity));
+  const localMatches = await findAccountLoginMatches(credential);
   const localUser = localMatches.length === 1 ? localMatches[0] : null;
   const accountId = localUser ? accountRegistryId(localUser) : '';
 
@@ -4533,12 +4553,17 @@ app.post('/api/account/login', asyncRoute(async (req, res) => {
     return res.status(401).json({ success: false, message: '用户名、手机号或验证凭据不匹配。' });
   }
 
-  if (tokenSecret) {
+  if (tokenSecret && !email) {
     if (!safeEqual(tokenSecret, proxyUser.token)) {
       recordAccountLoginFailure(req, accountId);
       return res.status(401).json({ success: false, message: '用户名、手机号或验证凭据不匹配。' });
     }
   } else {
+    const challenge = accountLoginChallenges.get(challengeId);
+    if (email && normalizeEmail(challenge?.email || '') !== normalizeEmail(email)) {
+      recordAccountLoginFailure(req, accountId);
+      return res.status(400).json({ success: false, message: '验证码与当前账户不匹配。' });
+    }
     const verified = verifyAccountOtpChallenge(challengeId, accountId, otpCode);
     if (!verified.ok) {
       recordAccountLoginFailure(req, accountId);
@@ -4546,6 +4571,17 @@ app.post('/api/account/login', asyncRoute(async (req, res) => {
     }
   }
 
+  if (email && !localUser.email && !proxyUser.email) {
+    const users = await readPortalJSON(USERS_FILE);
+    const registry = await readPortalJSON(PROXY_USERS_FILE, { users: [] });
+    const saved = { email: normalizeEmail(email), email_verified: true, email_verified_at: new Date().toISOString() };
+    Object.assign(users.find(row => accountRegistryId(row) === accountId), saved);
+    Object.assign(registry.users.find(row => row.user_id === accountId), saved);
+    await writePortalJSON(USERS_FILE, users);
+    await writeProxyUsersAndSync(registry);
+    Object.assign(localUser, saved);
+    Object.assign(proxyUser, saved);
+  }
   clearAccountLoginFailures(req, accountId);
   const sessionId = (await createAccountSession(accountId));
   setAccountSessionCookie(res, sessionId);

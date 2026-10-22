@@ -18,7 +18,7 @@ for (const [key, value] of Object.entries({
 fs.mkdirSync(process.env.ACCESS_LOG_DIR, { recursive: true });
 
 const request = require('supertest');
-const { app, TIERS, computeExpiry } = require('./server');
+const { app, TIERS, computeExpiry, getLastTestAccountLoginEmail, clearTestAccountLoginEmails } = require('./server');
 const researchAccess = require('./commerce/research-access.cjs');
 
 const USERS_FILE = path.join(TEST_DATA_DIR, 'users.json');
@@ -117,5 +117,79 @@ describe('gated research pages', () => {
     const cookie = await cookieFor(seed('basic'));
     const res = await request(app).get('/reports/factor-stats/data/..%2f..%2f..%2fproxy-users.json').set('Cookie', cookie);
     expect([400, 403, 404]).toContain(res.statusCode);
+  });
+});
+
+
+describe('email and phone account login', () => {
+  it('logs in without a username or API token, binds the code to the account and consumes it once', async () => {
+    const account = seed('basic');
+    const credential = { email: account.email.toUpperCase(), phone: account.phone };
+    clearTestAccountLoginEmails();
+    const sent = await request(app).post('/api/account/login-code')
+      .set('x-forwarded-for', '192.0.2.81').send({ credential });
+    expect(sent.statusCode).toBe(202);
+    const code = getLastTestAccountLoginEmail().code;
+    const proof = { ...credential, challenge_id: sent.body.challenge_id, code };
+    const wrongPhone = await request(app).post('/api/account/login')
+      .set('x-forwarded-for', '192.0.2.82').send({ credential: { ...proof, phone: '00000' } });
+    expect(wrongPhone.statusCode).toBe(401);
+    const login = await request(app).post('/api/account/login')
+      .set('x-forwarded-for', '192.0.2.83').send({ credential: proof });
+    expect(login.statusCode).toBe(200);
+    const cookie = login.headers['set-cookie'][0].split(';')[0];
+    expect((await request(app).get('/reports/brain-stock-ranking/').set('Cookie', cookie)).statusCode).toBe(200);
+    expect((await request(app).post('/api/account/login').set('x-forwarded-for', '192.0.2.84')
+      .send({ credential: proof })).statusCode).toBe(400);
+  });
+  it('does not reveal missing or ambiguous email and phone matches or send mail to them', async () => {
+    const account = seed('free');
+    const users = JSON.parse(fs.readFileSync(USERS_FILE));
+    users.push({ ...users[0], username: 'duplicate-email' });
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users));
+    clearTestAccountLoginEmails();
+    for (const email of [account.email, 'unknown@example.com']) {
+      const sent = await request(app).post('/api/account/login-code')
+        .set('x-forwarded-for', '192.0.2.85').send({ credential: { email, phone: account.phone } });
+      expect(sent.statusCode).toBe(202);
+      expect(sent.body.message).toBe('验证码已发送到绑定邮箱。');
+      expect(getLastTestAccountLoginEmail()).toBeNull();
+    }
+  });
+});
+
+
+describe('first email binding before login', () => {
+  it('requires email verification before creating a session and persists only the verified email', async () => {
+    const account = seed('value');
+    const users = JSON.parse(fs.readFileSync(USERS_FILE));
+    const registry = JSON.parse(fs.readFileSync(TEST_PROXY_FILE));
+    delete users[0].email; delete registry.users[0].email;
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users));
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify(registry));
+    const credential = { phone: account.phone, email: 'first-email@example.com' };
+    const denied = await request(app).post('/api/account/login').send({ credential: { phone: account.phone } });
+    expect(denied.statusCode).toBe(400);
+    expect(denied.headers['set-cookie']).toBeUndefined();
+    const sent = await request(app).post('/api/account/login-code')
+      .set('x-forwarded-for', '192.0.2.90').send({ credential });
+    expect(sent.statusCode).toBe(202);
+    expect(JSON.parse(fs.readFileSync(USERS_FILE))[0].email).toBeUndefined();
+    const code = getLastTestAccountLoginEmail().code;
+    const swapped = await request(app).post('/api/account/login').set('x-forwarded-for', '192.0.2.91')
+      .send({ credential: { ...credential, email: 'swapped@example.com', code, challenge_id: sent.body.challenge_id } });
+    expect(swapped.statusCode).toBe(400);
+    expect(swapped.headers['set-cookie']).toBeUndefined();
+    const login = await request(app).post('/api/account/login').set('x-forwarded-for', '192.0.2.92')
+      .send({ credential: { ...credential, code, challenge_id: sent.body.challenge_id } });
+    expect(login.statusCode).toBe(200);
+    for (const saved of [JSON.parse(fs.readFileSync(USERS_FILE))[0], JSON.parse(fs.readFileSync(TEST_PROXY_FILE)).users[0]]) {
+      expect(saved.email).toBe(credential.email);
+      expect(saved.email_verified).toBe(true);
+    }
+    const other = await request(app).post('/api/account/login-code').set('x-forwarded-for', '192.0.2.93')
+      .send({ credential: { ...credential, email: 'other@example.com' } });
+    expect(other.statusCode).toBe(202);
+    expect(getLastTestAccountLoginEmail().email).toBe(credential.email);
   });
 });

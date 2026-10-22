@@ -38,8 +38,8 @@ export function EditorialHeader({ language, t, active = "reports" }) {
   return <header className="topbar editorial-topbar">
     <a className="brand" href="/"><span className="dot" aria-hidden="true" /><strong>LeanData</strong></a>
     <nav className="nav" aria-label={t("主导航", "Main navigation")}>
-      <a href="/research-data" aria-current={active === "data" ? "page" : undefined}>{t("研究数据", "Research Data")}</a>
-      <a href="/reports/" aria-current={active === "reports" ? "page" : undefined}>{t("研究报告", "Reports")}</a>
+      <a href="/research-data" aria-current={active !== "factors" ? "page" : undefined}>{t("研究数据与报告", "Research & Data")}</a>
+      <a href="/reports/factor-stats/" aria-current={active === "factors" ? "page" : undefined}>{t("因子字典", "Factor Dictionary")}</a>
       <a href="/docs/">{t("接口文档", "API docs")}</a>
     </nav>
     <div className="spacer" />

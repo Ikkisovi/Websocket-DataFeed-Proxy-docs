@@ -29,14 +29,14 @@ const login = await page("en");
 const form = login.document.querySelector("form");
 assert.doesNotMatch(form.textContent, /[\u3400-\u9fff]/, "English login contains untranslated prose");
 for (const input of form.querySelectorAll("input")) assert.doesNotMatch(input.placeholder, /[\u3400-\u9fff]/);
-assert.match(form.textContent, /Token sign-in/);
-assert.equal(form.querySelector('input[type="password"]').placeholder, "Enter your current account API token");
-Array.from(form.querySelectorAll("button")).find(b => b.textContent === "Email verification code").click();
-await tick();
+assert.doesNotMatch(form.textContent, /Token sign-in/);
+assert.equal(form.querySelector('input[type="password"]'), null);
+assert.equal(form.querySelector('input[type="email"]').placeholder, "Email (required for existing accounts too)");
+assert.equal(form.querySelector('input[autocomplete="username"]'), null);
 assert.equal(form.querySelector('input[maxlength="6"]').placeholder, "6-digit verification code");
 Array.from(form.querySelectorAll("button")).find(b => b.textContent === "Send code").click();
 await tick();
-assert.match(form.textContent, /Enter your username and phone number first\./);
+assert.match(form.textContent, /Enter your email and phone number first\./);
 assert.doesNotMatch(form.textContent, /[\u3400-\u9fff]/);
 assert.equal(login.dom.window.LeandataI18n.translate("60s 后重试"), "Retry in 60s");
 for (const message of [
@@ -47,8 +47,8 @@ for (const message of [
 ]) assert.doesNotMatch(login.dom.window.LeandataI18n.translate(message), /[\u3400-\u9fff]/);
 login.dom.window.LeandataI18n.setLanguage("zh");
 await tick();
-assert.match(form.textContent, /使用当前 API Token 或向绑定邮箱发送一次性验证码进行登录。/);
-assert.match(form.textContent, /请先输入用户名和手机号。/);
+assert.match(form.textContent, /输入邮箱和手机号，使用邮箱验证码登录。老账号未填过邮箱？请在此补填，验证后保存并登录。/);
+assert.match(form.textContent, /请先输入邮箱和手机号。/);
 await login.close();
 
 for (const locale of ["zh", "en"]) {

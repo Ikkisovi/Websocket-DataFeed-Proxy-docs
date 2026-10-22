@@ -503,7 +503,8 @@ function DocsTopbar({ active = "proxy", onMenu, menuOpen }) {
       <a className="brand" href="/"><span className="dot" /><strong>LeanData</strong><span className="docs-brand-caption">Docs</span></a>
       <DocsSearch isZh={isZh} />
       <div className="meta">
-        <a href="/research-data">{isZh ? "研究数据" : "Research data"}</a>
+        <a href="/research-data">{isZh ? "研究数据与报告" : "Research & Data"}</a>
+        <a href="/reports/factor-stats/">{isZh ? "因子字典" : "Factor Dictionary"}</a>
         {Toggle ? <Toggle /> : null}
         <a href="/" className="btn ghost">{isZh ? "获取 Token" : "Get a token"} ↗</a>
       </div>
@@ -837,10 +838,10 @@ const PROVIDER_LOGOS = {
 };
 
 function BrainStatus({ snapshot = false } = {}) {
-  return <div className="provider-note" data-brain-status={snapshot ? "private-preview" : "planned"}>
+  return <div className="provider-note" data-brain-status={snapshot ? "paid-included" : "planned"}>
     <DocDesc
-      en={snapshot ? "Private preview — universe snapshots are available only to the authorized account. Other Brain score and coverage APIs remain planned. A daily source publication time has not been announced." : "Planned API — this operation is not yet available. Universe snapshots have a separate private preview. Access plans and the daily publication schedule will be announced when these APIs launch."}
-      zh={snapshot ? "定向预览：时点股票池接口仅向已授权账号开放。其他 Brain 评分和覆盖接口仍在规划中，源端每日发布时间尚未公布。" : "此接口仍在规划中，尚未开放调用。时点股票池另有定向预览接口；其余接口的访问套餐与每日发布时间将在上线时公布。"}
+      en={snapshot ? "Universe snapshots are included at no extra cost with an active paid subscription. Use your existing LeanData token. Other Brain score and coverage APIs remain planned." : "Planned API — this operation is not yet available. Universe snapshots are already available with an active paid subscription."}
+      zh={snapshot ? "时点股票池接口已开放，付费用户免费使用，无需单独购买，使用现有 LeanData Token 即可。其他 Brain 评分和覆盖接口仍在规划中。" : "此接口仍在规划中，尚未开放调用。时点股票池接口已向付费用户免费开放。"}
     />
     <a href="https://braincompany.co/bsr.html" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-ink)" }}><Bilingual en="Brain official product page ↗" zh="Brain 官方产品页 ↗" /></a>
     {" · "}
@@ -3455,7 +3456,7 @@ for row in resp.json()["rows"]:
       <ProviderHero
         id="brain-overview"
         provider="brain"
-        eyebrow="Research Data · Private universe preview"
+        eyebrow="Research Data · Included with paid plans"
         title="Brain Stock Ranking"
         zhTitle="Brain 股票排名"
         en="Brain produces daily stock scores for several forecast horizons and updates its stock universe annually. LeanData's planned Research Data API provides original scores for the 2, 3, 5, 10 and 21 day horizons and the securities with recorded scores."

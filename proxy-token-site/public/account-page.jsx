@@ -73,7 +73,8 @@ function AccountTopbar({ loggedIn, onLogout }) {
         <a href="/docs/">Docs</a>
         <a href="/register">新用户注册</a>
         <a href="/account" className="active">账户管理</a>
-        <a href="/research-data">研究数据采购</a>
+        <a href="/research-data">研究数据与报告</a>
+        <a href="/reports/factor-stats/">因子字典</a>
       </div>
       <div className="spacer"></div>
       <div className="meta">
@@ -90,10 +91,8 @@ function AccountTopbar({ loggedIn, onLogout }) {
 }
 
 function AccountLogin({ onLoggedIn }) {
-  const [loginMode, setLoginMode] = useAccountState("token");
-  const [userId, setUserId] = useAccountState("");
+  const [email, setEmail] = useAccountState("");
   const [phone, setPhone] = useAccountState("");
-  const [token, setToken] = useAccountState("");
   const [code, setCode] = useAccountState("");
   const [challengeId, setChallengeId] = useAccountState("");
   const [countdown, setCountdown] = useAccountState(0);
@@ -109,8 +108,8 @@ function AccountLogin({ onLoggedIn }) {
 
   const sendLoginCode = async () => {
     setMessage("");
-    if (!userId.trim() || !phone.trim()) {
-      setMessage("请先输入用户名和手机号。");
+    if (!email.trim() || !phone.trim()) {
+      setMessage("请先输入邮箱和手机号。");
       return;
     }
     setSendingCode(true);
@@ -119,7 +118,7 @@ function AccountLogin({ onLoggedIn }) {
         method: "POST",
         body: JSON.stringify({
           credential: {
-            user_id: userId.trim(),
+            email: email.trim(),
             phone: phone.trim(),
           },
         }),
@@ -140,31 +139,19 @@ function AccountLogin({ onLoggedIn }) {
     setLoading(true);
     try {
       const credential = {
-        user_id: userId.trim(),
+        email: email.trim(),
         phone: phone.trim(),
       };
-      if (loginMode === "token") {
-        if (!token.trim()) {
-          throw new Error("请输入账户 API Token。");
-        }
-        credential.token = token.trim();
-      } else {
-        if (!challengeId) {
-          throw new Error("请先点击获取验证码。");
-        }
-        if (!code.trim()) {
-          throw new Error("请输入 6 位邮箱验证码。");
-        }
-        credential.challenge_id = challengeId;
-        credential.code = code.trim();
-      }
+      if (!challengeId) throw new Error("请先点击获取验证码。");
+      if (!code.trim()) throw new Error("请输入 6 位邮箱验证码。");
+      credential.challenge_id = challengeId;
+      credential.code = code.trim();
 
       await accountRequest("/api/account/login", {
         method: "POST",
         body: JSON.stringify({ credential }),
       });
       setPhone("");
-      setToken("");
       setCode("");
       setChallengeId("");
       await onLoggedIn();
@@ -187,7 +174,7 @@ function AccountLogin({ onLoggedIn }) {
           登录后查看当前套餐、到期时间、REST 使用量、实时 WS 连接与订阅数量，并直接在线续费。
         </p>
         <div style={{ marginTop: 42, display: "flex", gap: 24, flexWrap: "wrap", color: "var(--ink-muted)", fontSize: 12 }}>
-          <span>HttpOnly session</span>
+          <span>邮箱验证码登录</span>
           <span>Token 默认隐藏，可按需显示</span>
           <span>支付成功自动续期</span>
         </div>
@@ -196,39 +183,21 @@ function AccountLogin({ onLoggedIn }) {
       <section className="account-login-panel">
         <form className="account-login-card" onSubmit={submit}>
           <div className="eyebrow" style={{ marginBottom: 10 }}>账户登录</div>
-          <h2 className="display-title" style={{ fontSize: 36, margin: "0 0 10px" }}>验证账户凭证</h2>
+          <h2 className="display-title" style={{ fontSize: 36, margin: "0 0 10px" }}>登录你的账户</h2>
           <p style={{ color: "var(--ink-muted)", margin: "0 0 24px" }}>
-            使用当前 API Token 或向绑定邮箱发送一次性验证码进行登录。
+            输入邮箱和手机号，使用邮箱验证码登录。老账号未填过邮箱？请在此补填，验证后保存并登录。
           </p>
-
-          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-            <button
-              type="button"
-              className={`btn ${loginMode === "token" ? "primary" : "ghost"}`}
-              onClick={() => { setLoginMode("token"); setMessage(""); }}
-              style={{ flex: 1, justifyContent: "center", padding: "8px 12px", fontSize: 13 }}
-            >
-              Token 登录
-            </button>
-            <button
-              type="button"
-              className={`btn ${loginMode === "email_code" ? "primary" : "ghost"}`}
-              onClick={() => { setLoginMode("email_code"); setMessage(""); }}
-              style={{ flex: 1, justifyContent: "center", padding: "8px 12px", fontSize: 13 }}
-            >
-              邮箱验证码
-            </button>
-          </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
-              <label className="label">用户名</label>
+              <label className="label">邮箱</label>
               <input
                 className="input mono"
-                autoComplete="username"
-                value={userId}
-                onChange={event => setUserId(event.target.value)}
-                placeholder="注册时使用的用户名"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={event => setEmail(event.target.value)}
+                placeholder="邮箱（老账号请补填）"
                 required
               />
             </div>
@@ -245,20 +214,6 @@ function AccountLogin({ onLoggedIn }) {
               />
             </div>
 
-            {loginMode === "token" ? (
-              <div>
-                <label className="label">当前 API Token</label>
-                <input
-                  className="input mono"
-                  type="password"
-                  autoComplete="current-password"
-                  value={token}
-                  onChange={event => setToken(event.target.value)}
-                  placeholder="输入账户当前 API Token"
-                  required
-                />
-              </div>
-            ) : (
               <div>
                 <label className="label">邮箱验证码</label>
                 <div style={{ display: "flex", gap: 8 }}>
@@ -281,7 +236,6 @@ function AccountLogin({ onLoggedIn }) {
                   </button>
                 </div>
               </div>
-            )}
 
             <button className="btn primary" disabled={loading} style={{ justifyContent: "center", padding: 12 }}>
               {loading ? "验证中…" : "进入账户管理 →"}

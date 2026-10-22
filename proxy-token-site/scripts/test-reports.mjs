@@ -60,7 +60,9 @@ for(const page of ['/reports/','/reports/brain-stock-ranking/','/research-data']
  w.fetch=async url=>({ok:!url.endsWith('/session'),status:url.endsWith('/session')?401:200,json:async()=>({products:[{id:'spectral-tick-flow',name:'Spectral Tick-Flow Signal',status:'free',amount_minor:0,currency:'CNY',payment_required:false,docs_url:'/docs/market/research-signals/',endpoints:['/v1/signals/spectral-tick-flow']}]})});
  for(const file of ['language.js',page==='/research-data'?'assets/research-data-page.js':page==='/reports/brain-stock-ranking/'?'reports/brain-stock-ranking/article.js':'assets/reports-page.js'])w.eval(fs.readFileSync(path.join(root,file),'utf8'));
  await tick();await tick();assert.deepEqual(errors,[]);assert(w.document.querySelector('main'));
- assert(w.document.querySelector('a[href="/reports/"]'));
+ assert(w.document.querySelector('nav a[href="/research-data"]'));
+ assert(w.document.querySelector('nav a[href="/reports/factor-stats/"]'));
+ assert.equal(w.document.querySelector('nav a[href="/reports/"]'),null);
  if(page==='/reports/brain-stock-ranking/'){
   assert.match(w.document.querySelector('h1').textContent,lang==='en'?/What does Brain/:/Brain 的排名/);
   const buttons=()=>[...w.document.querySelectorAll('button')];
@@ -91,7 +93,10 @@ for(const page of ['/reports/','/reports/brain-stock-ranking/','/research-data']
   const brain=w.document.querySelector('[data-product="brain-stock-ranking"]');assert(brain);assert(!brain.querySelector('input,button,form'));
   assert(brain.querySelector('a[href="/reports/brain-stock-ranking/"]'));
   assert.equal(w.document.querySelector('a[aria-current="page"]').getAttribute('href'),'/research-data');
- }else assert(w.document.querySelector('a.report-feature[href="/reports/brain-stock-ranking/"]'));
+ }else {
+  assert(w.document.querySelector('a.report-feature[href="/reports/brain-stock-ranking/"]'));
+  assert.equal(w.document.querySelector('a.report-feature[href="/reports/factor-stats/"]'),null);
+ }
  checks.push({page,language:lang,passed:true});w.LeandataI18n.destroy();w.close();
 }
 for(const name of ['research-data.html','reports/index.html','reports/brain-stock-ranking/index.html']){

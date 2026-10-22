@@ -1236,14 +1236,12 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).not.toContain('ThinkCentre');
   });
 
-  it('uses neutral bilingual financial-data language', () => {
-    expect(docsSource).toContain('Premium access includes company statements, ratios, growth metrics, profiles, market reference data');
-    expect(docsSource).toContain('Premium 账户可通过一个 Leandata Token 访问公司财报、财务比率、增长指标');
+  it('describes the financial snapshot and its update limits in both languages', () => {
+    expect(docsSource).toContain('company statements, ratios, profiles');
+    expect(docsSource).toContain('Premium 账户可查询公司财报、比率、资料');
     expect(docsSource).toContain('function Bilingual');
-    expect(docsSource).not.toMatch(/Alpaca|ThetaData/);
-    expect(docsSource).not.toContain('FMP 数据');
-    expect(docsSource).not.toContain('FMP Fundamentals');
-    expect(docsSource).not.toContain('No FMP');
+    expect(docsSource).toContain('FMP data do not update automatically.');
+    expect(docsSource).toContain('FMP 数据不自动更新。');
   });
 
   it('puts the Regular or Morningstar source choice first and documents Morningstar boundaries', () => {
@@ -2879,7 +2877,7 @@ describe('Admin portal UI', () => {
 });
 
 describe('Account portal UI', () => {
-  it('uses username and phone login and exposes the account-only upgrade entry', async () => {
+  it('uses email and phone verification and exposes the account-only upgrade entry', async () => {
     const res = await request(app).get('/account-page.jsx');
     expect(res.statusCode).toBe(200);
     expect(res.text).toContain('function ComplianceFooter()');
@@ -2887,8 +2885,9 @@ describe('Account portal UI', () => {
       res.text.indexOf('function AccountLogin'),
       res.text.indexOf('function AccountKpi')
     );
-    expect(loginSource).not.toContain('注册邮箱');
-    expect(loginSource).not.toContain('email: email.trim()');
+    expect(loginSource).toContain('邮箱验证码');
+    expect(loginSource).toContain('email: email.trim()');
+    expect(loginSource).not.toContain('Token 登录');
     expect(loginSource).toContain('required');
     expect(res.text).toContain('/api/account/token');
     expect(res.text).toContain('显示 Token');
