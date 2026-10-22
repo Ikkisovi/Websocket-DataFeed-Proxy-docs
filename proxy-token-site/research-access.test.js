@@ -177,8 +177,9 @@ describe('email and phone account login', () => {
 });
 
 
-describe('first email binding before login', () => {
-  it('requires email verification before creating a session and persists only the verified email', async () => {
+describe('first email binding', () => {
+  it('does not accept a first email from a phone-only caller; binding needs a token session', async () => {
+    clearTestAccountLoginEmails();
     const account = seed('value');
     const users = JSON.parse(fs.readFileSync(USERS_FILE));
     const registry = JSON.parse(fs.readFileSync(TEST_PROXY_FILE));
@@ -186,29 +187,16 @@ describe('first email binding before login', () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify(users));
     fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify(registry));
     const credential = { phone: account.phone, email: 'first-email@example.com' };
-    const denied = await request(app).post('/api/account/login').send({ credential: { phone: account.phone } });
-    expect(denied.statusCode).toBe(400);
-    expect(denied.headers['set-cookie']).toBeUndefined();
     const sent = await request(app).post('/api/account/login-code')
       .set('x-forwarded-for', '192.0.2.90').send({ credential });
     expect(sent.statusCode).toBe(202);
-    expect(JSON.parse(fs.readFileSync(USERS_FILE))[0].email).toBeUndefined();
-    const code = getLastTestAccountLoginEmail().code;
-    const swapped = await request(app).post('/api/account/login').set('x-forwarded-for', '192.0.2.91')
-      .send({ credential: { ...credential, email: 'swapped@example.com', code, challenge_id: sent.body.challenge_id } });
-    expect(swapped.statusCode).toBe(400);
-    expect(swapped.headers['set-cookie']).toBeUndefined();
+    expect(getLastTestAccountLoginEmail()).toBeNull();
     const login = await request(app).post('/api/account/login').set('x-forwarded-for', '192.0.2.92')
-      .send({ credential: { ...credential, code, challenge_id: sent.body.challenge_id } });
-    expect(login.statusCode).toBe(200);
-    for (const saved of [JSON.parse(fs.readFileSync(USERS_FILE))[0], JSON.parse(fs.readFileSync(TEST_PROXY_FILE)).users[0]]) {
-      expect(saved.email).toBe(credential.email);
-      expect(saved.email_verified).toBe(true);
-    }
-    const other = await request(app).post('/api/account/login-code').set('x-forwarded-for', '192.0.2.93')
-      .send({ credential: { ...credential, email: 'other@example.com' } });
-    expect(other.statusCode).toBe(202);
-    expect(getLastTestAccountLoginEmail().email).toBe(credential.email);
+      .send({ credential: { ...credential, code: '000000', challenge_id: sent.body.challenge_id } });
+    expect(login.statusCode).not.toBe(200);
+    expect(login.headers['set-cookie']).toBeUndefined();
+    expect(JSON.parse(fs.readFileSync(USERS_FILE))[0].email).toBeUndefined();
+    expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE)).users[0].email).toBeUndefined();
   });
 });
 

@@ -4953,6 +4953,79 @@ describe('Portal security repair (20261001)', () => {
       expect(overview.body.account.capabilities.ws.stocks).toBe(true);
     });
 
+    describe('accounts registered without an email', () => {
+      const phone = '13800000077';
+      const seed = () => {
+        clearTestAccountLoginEmails();
+        fs.writeFileSync(USERS_FILE, JSON.stringify([{ username: 'victim', phone, role: 'premium', tier: 'premium' }], null, 2));
+        fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({ users: [{ user_id: 'victim', token: 'tok-victim', role: 'premium' }] }, null, 2));
+      };
+
+      it('never sends a code to a caller-supplied address, so phone knowledge cannot take the account over', async () => {
+        seed();
+        const r = await request(app).post('/api/account/login-code').set('x-forwarded-for', '198.51.100.77')
+          .send({ credential: { phone, email: 'attacker@example.net' } });
+        expect(r.statusCode).toBe(202);
+        expect(getLastTestAccountLoginEmail()).toBeNull();
+        const login = await request(app).post('/api/account/login')
+          .send({ credential: { phone, email: 'attacker@example.net', challenge_id: r.body.challenge_id, code: '000000' } });
+        expect(login.statusCode).not.toBe(200);
+        expect(login.headers['set-cookie']).toBeUndefined();
+        expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0].email).toBeUndefined();
+      });
+
+      it('binds an email only after token login plus a code delivered to that mailbox', async () => {
+        seed();
+        const anonymous = await request(app).post('/api/account/email/code').send({ email: 'owner@example.com' });
+        expect(anonymous.statusCode).toBe(401);
+
+        const login = await request(app).post('/api/account/login')
+          .send({ credential: { user_id: 'victim', phone, token: 'tok-victim' } });
+        expect(login.statusCode).toBe(200);
+        const cookie = login.headers['set-cookie'][0].split(';')[0];
+
+        const sent = await request(app).post('/api/account/email/code').set('Cookie', cookie).send({ email: 'Owner@Example.com' });
+        expect(sent.statusCode).toBe(202);
+        const mail = getLastTestAccountLoginEmail();
+        expect(mail.email).toBe('owner@example.com');
+
+        const wrong = await request(app).post('/api/account/email/bind').set('Cookie', cookie)
+          .send({ challenge_id: sent.body.challenge_id, code: mail.code === '000000' ? '111111' : '000000' });
+        expect(wrong.statusCode).toBe(400);
+        expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0].email).toBeUndefined();
+
+        const bound = await request(app).post('/api/account/email/bind').set('Cookie', cookie)
+          .send({ challenge_id: sent.body.challenge_id, code: mail.code });
+        expect(bound.statusCode).toBe(200);
+        const saved = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'))[0];
+        expect(saved.email).toBe('owner@example.com');
+        expect(saved.email_verified).toBe(true);
+        expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8')).users[0].email).toBe('owner@example.com');
+
+        const again = await request(app).post('/api/account/email/code').set('Cookie', cookie).send({ email: 'other@example.com' });
+        expect(again.statusCode).toBe(409);
+      });
+
+      it('does not let a login code bind an email', async () => {
+        seed();
+        const login = await request(app).post('/api/account/login')
+          .send({ credential: { user_id: 'victim', phone, token: 'tok-victim' } });
+        const cookie = login.headers['set-cookie'][0].split(';')[0];
+        const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+        users.push({ username: 'other', phone: '13800000078', email: 'other@example.com', role: 'free' });
+        fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+        const proxy = JSON.parse(fs.readFileSync(TEST_PROXY_FILE, 'utf8'));
+        proxy.users.push({ user_id: 'other', token: 'tok-other', role: 'free', email: 'other@example.com' });
+        fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify(proxy, null, 2));
+        const r = await request(app).post('/api/account/login-code').set('x-forwarded-for', '198.51.100.78')
+          .send({ credential: { user_id: 'other', phone: '13800000078' } });
+        const bind = await request(app).post('/api/account/email/bind').set('Cookie', cookie)
+          .send({ challenge_id: r.body.challenge_id, code: getLastTestAccountLoginEmail().code });
+        expect(bind.statusCode).toBe(400);
+        expect(JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')).find(u => u.username === 'victim').email).toBeUndefined();
+      });
+    });
+
     it('returns identical generic success shape without leaking account existence, and hits IP limiter on invalid requests', async () => {
       const testIp = '198.51.100.199';
 
