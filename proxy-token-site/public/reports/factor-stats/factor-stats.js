@@ -71,7 +71,9 @@ function formula(value) {
   return (/[A-Za-z]{3,}\s+[A-Za-z]{3,}\s+[A-Za-z]{3,}/.test(s) || /[\u3400-\u9fff]/.test(s)) && !/[\\_^={}]/.test(s) ? prose(s) : tex(s, true);
 }
 function sparkline(row) {
-  const values = row.nav_preview?.[state.win]?.[state.nav] || [];
+  const raw = row.nav_preview?.[state.win]?.[state.nav] || [];
+  let carry = null;
+  const values = raw.map(v => { if (Number.isFinite(v)) carry = v; return carry; });
   const finite = values.filter(Number.isFinite);
   if (finite.length < 2) return '<span class="dim">–</span>';
   let lo = Math.min(1,...finite), hi = Math.max(1,...finite); if (hi === lo) { lo -= .01; hi += .01; }
@@ -241,9 +243,11 @@ function renderMeasure(rec) {
   const i0 = windowStart(all, WDAYS[w]);
   const dates = all.slice(i0);
   const cum = a => { let e = 1; return a.slice(i0).map(v => { e *= 1 + (v ?? 0); return e - 1; }); };
-  const rollAll = k => ser.ic.map((_, i) => { const xs = ser.ic.slice(Math.max(0, i - k + 1), i + 1).filter(v => v != null); return xs.length >= Math.max(2, Math.floor(k / 2)) && ser.ic.slice(Math.max(0, i - k + 1), i + 1).length === Math.min(k, i + 1) ? xs.reduce((a, b) => a + b, 0) / xs.length : null; });
+  const rollAll = k => { const seen = []; return ser.ic.map(v => { if (v != null) seen.push(v); const xs = seen.slice(-k); return xs.length >= Math.max(2, Math.floor(k / 2)) ? xs.reduce((m, x) => m + x, 0) / xs.length : null; }); };
   const roll = k => rollAll(+k).slice(i0);
   const small = S.ic.n < 20;
+  const missing = ser.ls.slice(i0).filter(v => v == null).length;
+  const gapNote = missing ? `<div class="dim" style="font-size:12px;margin-top:6px">${lang.v === 'zh' ? `其中 ${missing} 个交易日没有可用截面（因子尚无值、成员池为空或不足 30 只），净值在这些日子按持平处理。` : `${missing} sessions in this window have no usable cross-section (factor not yet defined, empty universe, or fewer than 30 names); the curve is held flat on those days.`}</div>` : '';
   const pf = (name, d) => `<tr><td>${name}</td><td class="n ${sgn(d.cum)}">${pct(d.cum, 2)}</td><td class="n ${sgn(d.mean)}">${pct(d.mean, 3)}</td><td class="n ${sgn(d.sharpe)}">${f2(d.sharpe)}</td><td class="n neg">${pct(d.mdd, 1)}</td><td class="n">${d.turnover == null ? '–' : pct(d.turnover, 0)}</td></tr>`;
   $('#measure').innerHTML = `
     ${small ? `<div class="warn">${lang.v === 'zh' ? `该窗口只有 ${S.ic.n} 个交易日，数值只描述这几天，不是稳定估计。` : `Only ${S.ic.n} sessions in this window. Treat the numbers as a description of those days, not as a stable estimate.`}</div>` : ''}
@@ -259,7 +263,7 @@ function renderMeasure(rec) {
       ${pf(tr('Long only · top 20%'), S.long)}${pf(tr('Bottom 20% · the short leg'), S.short)}${pf(tr('Long-short · top − bottom'), { ...S.ls, turnover: (S.long.turnover != null && S.short.turnover != null) ? (S.long.turnover + S.short.turnover) / 2 : null })}
     </tbody></table></section>
     <div class="grid2">
-      <section class="card"><h3>${tr('Cumulative return')}</h3><div class="legend"><span><i style="background:var(--pos)"></i>${tr('Long only')}</span><span><i style="background:var(--neg)"></i>${tr('Bottom 20%')}</span><span><i style="background:var(--accent)"></i>${tr('Long-short')}</span></div><div class="plot" id="c1"></div></section>
+      <section class="card"><h3>${tr('Cumulative return')}</h3><div class="legend"><span><i style="background:var(--pos)"></i>${tr('Long only')}</span><span><i style="background:var(--neg)"></i>${tr('Bottom 20%')}</span><span><i style="background:var(--accent)"></i>${tr('Long-short')}</span></div><div class="plot" id="c1"></div>${gapNote}</section>
       <section class="card"><h3>${tr('Rank IC, rolling mean')}</h3><div class="legend"><span><i style="background:var(--accent)"></i>${tr('21 sessions')}</span><span><i style="background:var(--pos)"></i>10</span><span><i style="background:var(--neg)"></i>5</span></div><div class="plot" id="c2"></div></section>
       <section class="card"><h3>${tr('Latest cross-section')}</h3><div id="c3"></div><div class="dim mono" id="c3n" style="font-size:12px;margin-top:6px"></div></section>
       <section class="card"><h3>${tr('Daily rank IC')}</h3><div class="plot" id="c4"></div></section>
