@@ -81,6 +81,10 @@ body { margin: 0; }
 .story-note { border-left: 3px solid #84997a; background: #f0f3e9; padding: 22px 24px; margin: 36px 0 46px; font-size: 14px; line-height: 1.9; }
 .story-note > strong { font-weight: 500; color: #425d3f; }
 .story-note p { margin: 8px 0 0; color: #62735b; }
+.story-note ul { margin: 10px 0 0; padding-left: 20px; color: #3f513b; }
+.story-note li { margin: 6px 0; }
+.story-body code { font-family: var(--f-mono); font-size: .82em; background: #eef2ea; padding: 1px 5px; overflow-wrap: anywhere; }
+.report-table-wrap > .report-switch { display: inline-flex; width: auto; margin-bottom: 12px; }
 .story-body .source-line { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; margin: -6px 0 28px; }
 .story-body blockquote { font-family: var(--f-display); color: #526b48; font-size: 26px; line-height: 1.6; margin: 45px -16px; padding: 20px 26px; border-left: 1px solid #a2b491; }
 .model-bars { display: grid; gap: 20px; }

@@ -59,7 +59,7 @@ describe('gated research pages', () => {
     expect((await request(app).get('/reports/')).statusCode).toBe(200);
     const bundle = await request(app).get('/assets/reports-page.js');
     expect(bundle.statusCode).toBe(200);
-    expect(bundle.text).not.toContain('boosted_combined');
+    expect(bundle.text).not.toContain('A_rank5_5d');
     expect((await request(app).get('/reports/locked.html')).statusCode).toBe(200);
   });
 
@@ -73,7 +73,7 @@ describe('gated research pages', () => {
       '/reports/brain-stock-ranking/same-basis-metrics.csv', '/reports/brain-stock-ranking/analysis.json', '/reports/brain-stock-ranking/']) {
       const res = await request(app).get(url).set('Accept', url.endsWith('/') ? 'text/html' : '*/*');
       expect(res.statusCode).toBe(401);
-      expect(res.text).not.toContain('boosted_combined');
+      expect(res.text).not.toContain('A_rank5_5d');
     }
     const api = await request(app).get('/api/research/access');
     expect(api.body).toEqual({ state: 'anonymous', allowed: false, plan: null });
@@ -108,7 +108,7 @@ describe('gated research pages', () => {
       expect(data.body).toEqual({ factors: [] });
       const article = await request(app).get('/reports/brain-stock-ranking/article.js').set('Cookie', cookie);
       expect(article.statusCode).toBe(200);
-      expect(article.text).toContain('boosted_combined');
+      expect(article.text).toContain('A_rank5_5d');
       expect((await request(app).get('/api/research/access').set('Cookie', cookie)).body.allowed).toBe(true);
     });
   }

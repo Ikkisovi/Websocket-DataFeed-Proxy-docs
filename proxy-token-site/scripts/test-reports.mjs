@@ -16,6 +16,8 @@ function audit(value){
  }
 }
 audit(data);
+const summaryV2=JSON.parse(fs.readFileSync(path.join(root,'reports/brain-stock-ranking/summary-v2.json')));audit(summaryV2);
+assert.equal(summaryV2.nav_table['2015-06—2026-09'].A_rank5_5d.cagr,0.0962);assert.equal(summaryV2.annual_native_vs_spy.length,12);
 for(const name of ['annual-diagnostic.csv','reconstruction.csv','annual-diagnostic.png','annual-diagnostic.svg','reconstruction.png','reconstruction.svg'])assert(fs.statSync(path.join(root,'reports/brain-stock-ranking',name)).size>100,name);
 const results=JSON.parse(fs.readFileSync(path.join(root,'reports/brain-stock-ranking/task2-summary.json')));
 assert.equal(results.config_count,34);
@@ -61,28 +63,23 @@ for(const page of ['/reports/','/reports/brain-stock-ranking/','/research-data']
  assert(w.document.querySelector('a[href="/reports/"]'));
  if(page==='/reports/brain-stock-ranking/'){
   assert.match(w.document.querySelector('h1').textContent,lang==='en'?/What does Brain/:/Brain 的排名/);
-  assert.match(w.document.body.textContent,/0\.813/);assert.match(w.document.body.textContent,/30\.4/);
   const buttons=()=>[...w.document.querySelectorAll('button')];
   const click=async label=>{const b=buttons().find(x=>x.textContent.trim()===label);assert(b,label);b.click();await tick();};
-  await click(lang==='en'?'Validation':'验证期');assert.match(w.document.querySelector('.model-bars').textContent,/0\.867/);
-  await click(lang==='en'?'Later period':'后段样本');assert.match(w.document.querySelector('.model-bars').textContent,/0\.813/);
-  assert.equal(w.document.querySelectorAll('.story-body .report-chart svg rect').length,17);
+  const body=()=>w.document.body.textContent;
+  for(const value of ['9.6%','16.0%','14.5%','0.57','0.006','0.75'])assert(body().includes(value),value);
+  assert.match(body(),lang==='en'?/trails SPY in 10 of 12 years/:/12 个年份里有 10 个跑输 SPY/);
+  assert.equal(w.document.querySelectorAll('[data-report-chart="nav"] svg path').length,5);
+  assert.equal(w.document.querySelectorAll('[data-research-table="strategies"] tbody tr').length,5);
+  assert.match(w.document.querySelector('[data-research-table="strategies"] tbody tr').textContent,/2\.69x9\.6%/);
+  await click('2023-01—2026-09');assert.match(w.document.querySelector('[data-research-table="strategies"] tbody tr').textContent,/1\.52x12\.3%/);
+  await click('2015-06—2026-09');
+  assert.equal(w.document.querySelectorAll('[data-research-table="ic"] tbody tr').length,5);
+  assert.equal(w.document.querySelectorAll('[data-research-table="ast"] tbody tr').length,3);
+  assert.match(w.document.querySelector('[data-research-table="ast"]').textContent,/0\.77 \/ 0\.75/);
+  assert.equal(w.document.querySelectorAll('.story-body .report-chart svg rect').length,12);
   await click(lang==='en'?'Since 2021':'2021 起');assert.equal(w.document.querySelectorAll('.story-body .report-chart svg rect').length,6);
-  await click(lang==='en'?'All years':'全区间');assert.equal(w.document.querySelectorAll('.story-body .report-chart svg rect').length,17);
-  const show=buttons().find(x=>x.classList.contains('report-text-button'));show.click();await tick();assert.equal(w.document.querySelectorAll('[data-research-table="archive-annual"] tbody tr').length,17);
-  for(const [table,count] of [['teacher',4],['purge',4],['configurations',10],['yahoo',3],['stability',2]])assert.equal(w.document.querySelectorAll('[data-research-table="'+table+'"] tbody tr').length,count,table);
-  assert.equal(w.document.querySelectorAll('[data-research-table="same-basis"] tbody tr').length,3);
-  assert.equal(w.document.querySelectorAll('[data-research-table="same-basis-fees"] tbody tr').length,3);
-  const latest=w.document.querySelector('.same-basis-update');assert(latest);
-  for(const value of ['17.40','17.54','0.936','1.064','2017-03-13','2018-01-03','$210'])assert(latest.textContent.includes(value),value);
-  assert.equal(latest.querySelector('img').getAttribute('width'),'1440');
-  const body=w.document.body.textContent;
-  for(const value of ['0.8565','+0.0217','4.16','0.836','0.899','0.1094','423 / 489'])assert(body.includes(value),value);
-  assert.match(body,lang==='en'?/Formal full-period NAV/:/正式全期净值/);
-  assert.match(body,lang==='en'?/look-ahead selection error/:/前视筛选/);
-  assert.match(body,lang==='en'?/Ridge alpha=3/:/Ridge alpha=3/);
-  assert(!w.document.querySelector('.nav-comparison-chart'));
-  const figure=w.document.querySelector('.research-main-figure img');assert(figure);assert.equal(figure.getAttribute('width'),'1440');assert.equal(figure.getAttribute('height'),'1160');
+  await click(lang==='en'?'All years':'全区间');assert.equal(w.document.querySelectorAll('.story-body .report-chart svg rect').length,12);
+  for(const gone of ['.model-bars','.same-basis-update','.nav-comparison-chart','.research-main-figure'])assert(!w.document.querySelector(gone),gone);
   for(const href of ['https://braincompany.co/bsr.html','https://www.braincompany.co/assets/files/BSR_summary.pdf']){
    const link=w.document.querySelector(`a[href="${href}"]`);assert(link);assert(link.rel.includes('noopener'));
   }

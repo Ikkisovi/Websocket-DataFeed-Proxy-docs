@@ -1,108 +1,154 @@
 import React, { useEffect, useState } from "react";
-import { study, TITLES, useReportLanguage, EditorialHeader, OfficialDisclaimer } from "./article-components.jsx";
-import { AnnualChart } from "./report-components.jsx";
-import { BrainResearchUpdate } from "./brain-research-update.jsx";
+import summary from "./brain-stock-ranking/summary-v2.json";
+import { TITLES, useReportLanguage, EditorialHeader, OfficialDisclaimer, AnnualChart } from "./report-components.jsx";
 
-const MODEL_LABELS = {
-  ridge_fundamentals: ["基本面 · 线性", "Fundamentals · linear"],
-  ridge_momentum_and_volatility: ["动量与波动 · 线性", "Momentum & volatility · linear"],
-  ridge_combined: ["两者合并 · 线性", "Combined · linear"],
-  boosted_combined: ["两者合并 · 提升树", "Combined · boosted trees"],
-};
-const fmt = n => new Intl.NumberFormat("en-US").format(n);
-const pct = n => `${(n*100).toFixed(2)}%`;
-function ReconstructionChart({ t }) {
-  const [stage, setStage] = useState("later");
-  return <figure className="report-chart" data-report-chart="reconstruction">
-    <div className="chart-heading"><strong>{t("还原排名，不是预测收益", "Reconstructing ranks, not predicting returns")}</strong><div className="report-switch">
-      <button type="button" aria-pressed={stage === "validation"} onClick={() => setStage("validation")}>{t("验证期", "Validation")}</button>
-      <button type="button" aria-pressed={stage === "later"} onClick={() => setStage("later")}>{t("后段样本", "Later period")}</button>
-    </div></div>
-    <div className="model-bars">{study.reconstruction.models.map(m => <div key={m.id} className="model-bar">
-      <span>{t(...MODEL_LABELS[m.id])}</span><div className="model-bar-track"><span style={{ width: `${m.stages[stage].mean_daily_spearman*100}%` }} /></div><strong>{m.stages[stage].mean_daily_spearman.toFixed(3)}</strong>
-    </div>)}</div>
-    <figcaption>{t("每日截面 Spearman 相关系数，四个模型使用同一批完整观测。验证期：2023-01—2024-06；后段：2024-07—2026-09。后段已被此前研究查看，不是全新的确认样本。", "Mean daily cross-sectional Spearman correlation on identical complete cases. Validation: January 2023–June 2024; later: July 2024–September 2026. Later dates have previously been inspected and are not a fresh confirmation sample.")}</figcaption>
+const pct = (v, d = 1) => `${(v * 100).toFixed(d)}%`;
+const signed = (v, d = 1) => `${v >= 0 ? "+" : "−"}${Math.abs(v * 100).toFixed(d)}`;
+const ic = v => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(3)}`;
+const ci = ([m, lo, hi], d = 1) => `${signed(m, d)}% [${signed(lo, d)}, ${signed(hi, d)}]`;
+
+const ARMS = [
+  ["A_rank5_5d", "官方用法：rank5 · 每 5 日换仓", "Vendor use: rank5 · rebalance every 5 days", "#b78b70"],
+  ["C_rank2_in_rank21_hold", "rank2 进场 · rank21 支持就持有", "Enter on rank2 · hold while rank21 agrees", "#3b66cf"],
+  ["D_rank2_in_rank2_hold", "rank2 进场 · rank2 支持就持有", "Enter on rank2 · hold while rank2 agrees", "#1b7a43"],
+  ["ew_universe", "股票池等权", "Equal-weight universe", "#8c9a88"],
+  ["spy", "SPY", "SPY", "#263d2c"],
+];
+const PERIODS = ["2015-06—2026-09", "2023-01—2026-09"];
+const IC_PERIODS = ["2015-06—2021", "2022", "2023—2025", "2026"];
+
+function NavChart({ t }) {
+  const pts = summary.nav_curve_weekly;
+  const width = 720, height = 330, left = 40, right = 16, top = 16, bottom = 290;
+  const max = Math.ceil(Math.max(...pts.flatMap(p => ARMS.map(a => p[a[0]]))));
+  const x = i => left + (i / (pts.length - 1)) * (width - left - right);
+  const y = v => bottom - (v / max) * (bottom - top);
+  const path = key => pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(p[key]).toFixed(1)}`).join(" ");
+  const years = [2016, 2018, 2020, 2022, 2024, 2026];
+  return <figure className="report-chart" data-report-chart="nav">
+    <div className="chart-heading"><strong>{t("累计净值，扣 10 bps 单边成本（起点 = 1）", "Cumulative NAV after 10 bps per side (start = 1)")}</strong></div>
+    <div className="chart-legend-row">{ARMS.map(([key, zh, en, color]) => <span key={key} className="legend-item">
+      <span className="legend-line" style={{ background: color, height: 3 }} />{t(zh, en)}</span>)}</div>
+    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("Brain 策略、股票池等权与 SPY 的累计净值", "Cumulative NAV of Brain strategies, the equal-weight universe and SPY")}>
+      {Array.from({ length: max + 1 }, (_, v) => <g key={v}><line x1={left} x2={width - right} y1={y(v)} y2={y(v)} stroke={v === 1 ? "#b5bdb5" : "#e8ece7"} />
+        <text x={left - 8} y={y(v) + 4} textAnchor="end" fontSize="11" fill="#69756d">{v}</text></g>)}
+      {years.map(yr => { const i = pts.findIndex(p => p.date.startsWith(String(yr))); return i < 0 ? null :
+        <text key={yr} x={x(i)} y={bottom + 20} textAnchor="middle" fontSize="11" fill="#69756d">{yr}</text>; })}
+      {ARMS.map(([key, , , color]) => <path key={key} d={path(key)} fill="none" stroke={color} strokeWidth={key === "spy" ? 2.2 : 1.7} strokeDasharray={key === "ew_universe" ? "5 4" : undefined} />)}
+    </svg>
+    <figcaption>{t("股票：QC 复权收盘价；SPY：Yahoo 复权收盘价。t 日信号，t+1 日收盘成交；等权 30 只。两次调仓之间的等权漂移不计成本。", "Stocks use QC adjusted closes; SPY uses Yahoo adjusted closes. Signal at t, trade at the t+1 close, 30 names equal weight. Drift between trades is not charged.")}</figcaption>
   </figure>;
 }
+
+function StrategyTable({ t }) {
+  const [period, setPeriod] = useState(PERIODS[0]);
+  const rows = summary.nav_table[period];
+  return <div className="report-table-wrap">
+    <div className="report-switch" aria-label={t("区间", "Period")}>{PERIODS.map(p =>
+      <button key={p} type="button" aria-pressed={period === p} onClick={() => setPeriod(p)}>{p}</button>)}</div>
+    <table data-research-table="strategies"><caption>{t("扣 10 bps 单边成本后的绝对表现；换手为单边、每年倍数。", "Absolute performance after 10 bps per side; turnover is one-way, times per year.")}</caption>
+      <thead><tr><th>{t("组合", "Book")}</th><th>{t("净值", "NAV")}</th><th>{t("年化", "CAGR")}</th><th>Sharpe</th><th>{t("最大回撤", "Max DD")}</th><th>{t("换手", "Turnover")}</th></tr></thead>
+      <tbody>{ARMS.map(([key, zh, en]) => { const r = rows[key]; return <tr key={key}><th>{t(zh, en)}</th>
+        <td>{r.terminal_nav.toFixed(2)}x</td><td>{pct(r.cagr)}</td><td>{r.sharpe.toFixed(2)}</td><td>{pct(r.max_drawdown, 0)}</td>
+        <td>{r.turnover_oneway_per_year != null ? `${r.turnover_oneway_per_year}x` : "—"}</td></tr>; })}</tbody></table>
+  </div>;
+}
+
+function IcTable({ t }) {
+  const m = summary.ic_matched;
+  const rows = [["rank2", "rank2 → 2 日", "rank2 → 2 days", "h2"], ["rank5", "rank5 → 5 日", "rank5 → 5 days", "h5"],
+    ["rank21", "rank21 → 21 日", "rank21 → 21 days", "h21"], ["slope_2m21", "期限结构 rank2 − rank21 → 5 日", "Term structure rank2 − rank21 → 5 days", "h5"]];
+  return <div className="report-table-wrap"><table data-research-table="ic">
+    <caption>{t("日均截面 Rank IC（t+1 进场）。最后一行是剔除行业与 12 个风险暴露后的 rank5 → 5 日。", "Mean daily cross-sectional rank IC (entry at t+1). The last row is rank5 → 5 days after removing sector and 12 risk exposures.")}</caption>
+    <thead><tr><th>{t("信号 → 持有期", "Signal → holding")}</th>{IC_PERIODS.map(p => <th key={p}>{p}</th>)}</tr></thead>
+    <tbody>{rows.map(([sig, zh, en, h]) => <tr key={sig}><th>{t(zh, en)}</th>{IC_PERIODS.map(p => <td key={p}>{ic(m[sig][p][h][0])}</td>)}</tr>)}
+      <tr><th>{t("rank5 → 5 日，中性化", "rank5 → 5 days, neutralized")}</th>{IC_PERIODS.map(p => <td key={p}>{ic(summary.brain_h5_neutral[p].neutral)}</td>)}</tr></tbody>
+  </table></div>;
+}
+
+function AstTable({ t }) {
+  const a = summary.ast;
+  const rows = [["stack1", "单个公式", "Single formula"], ["stack20", "20 个公式线性组合", "Ridge of 20 formulas"]];
+  return <div className="report-table-wrap"><table data-research-table="ast">
+    <caption>{t("与 Brain rank5 的日均截面 Spearman（拟合度），两个随机种子。公式只在 2015-06—2021 上搜索和拟合。", "Mean daily Spearman with Brain rank5 (fidelity), two seeds. Formulas were searched and fitted on 2015-06—2021 only.")}</caption>
+    <thead><tr><th></th><th>2015—2021</th><th>2022</th><th>2023—2025</th><th>2026</th></tr></thead>
+    <tbody>{rows.map(([k, zh, en]) => <tr key={k}><th>{t(zh, en)}</th>{["train", "valid", "test", "holdout"].map(s =>
+      <td key={s}>{a.s0[k][s].toFixed(2)} / {a.s1[k][s].toFixed(2)}</td>)}</tr>)}
+      <tr><th>{t("现有 65 个 5 日因子，线性拟合 Brain", "Our 65 existing 5-day factors, ridge to Brain")}</th><td colSpan="2"></td><td>{summary.library.lib65_ridge_to_brain.fidelity_test.toFixed(2)}</td><td></td></tr></tbody>
+  </table></div>;
+}
+
 function Article({ language, t }) {
-  const fit = study.reconstruction, legacy = study.archived_diagnostic;
-  const best = fit.models.find(m => m.id === "boosted_combined").stages.later;
-  const [showAnnual, setShowAnnual] = useState(false);
+  const full = summary.nav_table[PERIODS[0]];
+  const hold = summary.hold_excess_vs_ew;
+  const pair = summary.hold_paired_all_10bps;
+  const neu = summary.brain_h5_neutral;
+  const lost = summary.annual_native_vs_spy.filter(r => r.difference < 0).length;
+  const years = summary.annual_native_vs_spy.length;
   return <>
     <header className="story-hero"><a className="report-back" href="/reports/">← {t("所有研究", "All research")}</a>
       <p className="eyebrow">BRAIN STOCK RANKING · {t("研究笔记 01", "RESEARCH NOTE 01")}</p>
       <h1>{TITLES[language === "en" ? "en" : "zh"]}</h1>
-      <p className="story-deck">{t("从 15 个常见特征到严格 purge 的收益预测：拆解排名、修正标签穿越，再重估带有身份假设的净值。", "From 15 familiar features to purged return prediction: reconstruct the ranking, fix label leakage, then revalue conditional NAV.")}</p>
-      <div className="story-meta"><span className="author-mark" aria-hidden="true">L</span><span><strong>LeanData Research</strong><br />2026.10.18 · {t("约 18 分钟", "18 min read")}</span><a href="/docs/market/research-signals/brain-overview/">{t("数据说明", "Dataset documentation")} ↗</a></div>
+      <p className="story-deck">{t("扣成本的策略回测、相对 SPY 的表现、因子本身的质量，以及用公式复现它。", "A cost-aware strategy backtest, the comparison with SPY, the quality of the signal itself, and a formula reproduction.")}</p>
+      <div className="story-meta"><span className="author-mark" aria-hidden="true">L</span><span><strong>LeanData Research</strong><br />2026.10.22 · {t("约 6 分钟", "6 min read")}</span><a href="/docs/market/research-signals/brain-overview/">{t("数据说明", "Dataset documentation")} ↗</a></div>
     </header>
     <div className="story-body">
-      <OfficialDisclaimer t={t} />
-      <p className="story-opening">{t("拿到一套机器学习股票排名，最容易问的是：买排名最高的股票，能赚多少？我们想先问一个更朴素的问题：如果不用它的模型，只用常见的基本面和动量特征，能否得到相似的排序？", "When a machine-learning stock ranking arrives, the natural question is how much the highest-ranked stocks earn. We began one step earlier: can ordinary fundamentals and momentum recover a similar ordering without using the vendor’s model?")}</p>
-      <p>{t("这两个问题有关，却不是同一个问题。能拟合排名，说明模型之间存在共同信息；它不证明能复刻原始分数，更不证明能复刻未来收益。相反，一条好看的历史曲线，也可能混合了市场风险、风格暴露和回测时钟的影响。", "These are connected questions, but they measure different things. Recovering a ranking establishes shared information. It does not establish identical scores or future returns. A persuasive historical curve can also combine market risk, style exposures and choices about when trades occur.")}</p>
-      <aside className="story-note"><strong>{t("这篇文章的结论范围", "What this note establishes")}</strong><p>{t("小模型能还原相当一部分排序，但还谈不上几乎完全一致。保存的长期曲线需要按诊断性结果阅读，尚不能作为固定持有 5 个交易日的独立回测证据。", "The small model recovers substantial ordering information, with meaningful disagreement remaining. The saved long-run curve is a diagnostic, not independent evidence for a fixed five-trading-session strategy.")}</p></aside>
+      <aside className="story-note"><strong>{t("结论", "Findings")}</strong><ul>
+        <li>{t(<>按官方用法（rank5 选前 30、每 5 个交易日换仓），扣 10 bps 后 2015-06—2026-09 年化 <strong className="text-stat">{pct(full.A_rank5_5d.cagr)}</strong>；同期 SPY <strong className="text-stat">{pct(full.spy.cagr)}</strong>，股票池等权 <strong className="text-stat">{pct(full.ew_universe.cagr)}</strong>。{years} 个年份里有 {lost} 个跑输 SPY。</>,
+          <>Used as the vendor suggests (top 30 by rank5, rebalanced every five sessions), it returns <strong className="text-stat">{pct(full.A_rank5_5d.cagr)}</strong> a year after 10 bps from June 2015 to September 2026, against <strong className="text-stat">{pct(full.spy.cagr)}</strong> for SPY and <strong className="text-stat">{pct(full.ew_universe.cagr)}</strong> for the equal-weight universe. It trails SPY in {lost} of {years} years.</>)}</li>
+        <li>{t("信号是真的，但很弱：5 日 Rank IC 约 0.02；剔除行业和风险暴露后只剩 0.006—0.014，2022 和 2026 年为负。", "The signal is real but weak: five-day rank IC is about 0.02, falling to 0.006–0.014 after removing sector and risk exposures, and negative in 2022 and 2026.")}</li>
+        <li>{t("最大的问题是换手：官方用法每年单边换手约 27 倍。用缓冲规则降到 4—8 倍后，收益回到股票池等权附近，但仍低于 SPY。", "Turnover is the main problem: about 27 times a year one-way. A holding buffer cuts it to 4–8 times and brings returns back to the equal-weight universe, still below SPY.")}</li>
+        <li>{t("20 个公式的线性组合就能复现它（与 Brain 的截面相关 0.75—0.77），主体是中长期动量减短期反转，再加盈利质量和营收增长。", "A linear blend of 20 formulas reproduces it (cross-sectional correlation 0.75–0.77 with Brain): medium-term momentum minus short-term reversal, plus profitability and revenue growth.")}</li>
+      </ul></aside>
 
-      <h2 id="the-signal">{t("先认识这套排名", "First, understand the signal")}</h2>
-      <p>{t("Brain 的官方产品同时提供 2、3、5、10、21 日五种预测周期，股票池按年调整。其公开说明已把价量、基本面、市场状态和日历列为模型输入。因此，用这些常见变量解释部分排序并不意外；真正值得检验的是，剩余信息是否改善了投资决策。", "Brain describes five forecast horizons—2, 3, 5, 10 and 21 days—and an annually refreshed stock universe. Its public description already lists price, volume, fundamentals, market conditions and calendar variables as inputs. Shared structure with familiar factors is therefore unsurprising. The useful question is whether the remaining information improves investment decisions.")}</p>
+      <h2 id="the-signal">{t("这是什么", "What it is")}</h2>
+      <p>{t("Brain 对约 1000 只美股每天给出 2、3、5、10、21 日五个预测周期的打分，股票池按年更新。官方说明的模型是多个机器学习分类器投票，输入包括价量、基本面、行业、波动与日历变量。官方说明书的 Top50 曲线是周调仓、以股票池等权为基准，不扣成本。", "Brain scores about 1,000 US stocks daily for five horizons — 2, 3, 5, 10 and 21 days — with the universe refreshed yearly. The vendor describes a vote of machine-learning classifiers over price, volume, fundamentals, sector, volatility and calendar inputs. Its factsheet shows a weekly Top50 book against an equal-weight universe, before costs.")}</p>
       <p className="source-line"><a href="https://braincompany.co/bsr.html" target="_blank" rel="noopener noreferrer">{t("Brain 官方产品页", "Brain product description")} ↗</a><span>·</span><a href="https://www.braincompany.co/assets/files/BSR_summary.pdf" target="_blank" rel="noopener noreferrer">{t("官方美股说明书", "US factsheet")} ↗</a></p>
-      <p>{t("LeanData 的历史证券并集包含 2220 个清洗后的稳定身份，最新记录日的名单则有 947 个。前者是多年名单的并集，后者是某一天的已收录观测；两者都不能直接当成官方完整成分证明。本文的重建实验还要与本地特征库求交集，样本范围更窄。", "LeanData’s cleaned historical union contains 2,220 stable identities; the latest recorded cross-section contains 947. A historical union and one day’s observed names are different denominators, and neither certifies complete official constituents. Our reconstruction uses a further intersection with the local feature corpus.")}</p>
+      <p>{t(<>我们的检验用 2015—2026 年的 NDX 与 SPX 时点成分（951 个历史证券），Brain 覆盖其中 95% 的股票日。<span className="text-caveat">这是大盘股池，不是 Brain 自己的千只股票池；成分来自 ETF 持仓，不是官方指数成分证明。</span></>,
+        <>We test on point-in-time NDX and SPX members from 2015 to 2026 (951 historical securities); Brain covers 95% of their stock-days. <span className="text-caveat">This is a large-cap universe, not Brain's own 1,000 names, and membership comes from ETF holdings rather than official index records.</span></>)}</p>
+      <OfficialDisclaimer t={t} />
 
-      <h2 id="reconstruction">{t("15 个变量，能走多远？", "How far do 15 ordinary variables go?")}</h2>
-      <p>{t(
-        <>我们固定使用 <strong className="text-fund">9 个基本面变量</strong>：盈利收益率、市净率、ROE、ROA、净利润率、负债权益比、营收增长、市值和股息率；再加 <strong className="text-momentum">5、21、63、126、252 个观测交易日的动量</strong>，以及 <strong className="text-momentum">21 日波动率</strong>。所有输入<strong>滞后一个观测交易日</strong>，按日做截面排序。<strong>缺失值不补零</strong>，四个对照共享相同的完整观测。</>,
-        <>We fixed <strong className="text-fund">nine fundamental variables</strong>: earnings yield, price-to-book, ROE, ROA, net margin, debt-to-equity, revenue growth, market capitalization and dividend yield. We added <strong className="text-momentum">momentum over 5, 21, 63, 126 and 252 observed sessions</strong>, plus <strong className="text-momentum">21-session volatility</strong>. Inputs <strong>lag one observed session</strong> and are ranked cross-sectionally each day. <strong>All four comparisons use identical complete cases</strong>, with no missing-value filling.</>
-      )}</p>
-      <p>{t(
-        <>实验共有 <strong className="text-stat">{fmt(fit.common_rows)}</strong> 个股票日、<strong className="text-stat">{fit.common_securities}</strong> 个历史证券身份。<span className="split-tag train">2016-04 至 2022 年</span>用于训练，<span className="split-tag val">2023-01 至 2024-06</span> 用于验证，<span className="split-tag later">2024-07 至 2026-09</span> 是后段分析期。<span className="text-caveat">这个交集不是完整 Brain 股票池，基本面的历史发布版本也尚未独立认证。</span></>,
-        <>The study contains <strong className="text-stat">{fmt(fit.common_rows)}</strong> stock-days across <strong className="text-stat">{fit.common_securities}</strong> historical identities. <span className="split-tag train">April 2016 through 2022</span> for training, <span className="split-tag val">January 2023 through June 2024</span> for validation, and <span className="split-tag later">July 2024 through September 2026</span> as later analysis. <span className="text-caveat">This intersection is not the full Brain universe, and fundamental publication vintages are not independently certified.</span></>
-      )}</p>
-      <ReconstructionChart t={t} />
-      <p>{t(
-        "基本面线性模型的后段日均秩相关为 0.571，动量与波动率模型为 0.547。两者合并后，线性模型达到 0.759；固定参数的浅层提升树达到 0.813。这是相当强的排序关联，但必须区分：这是非线性模型对 Brain 自身截面排名的拟合度，既不是线性特征的直接贡献，也不是对未来真实收益的预测准确率。此外，该实验是在本地 519 只股票的交集池上完成，不能直接等同于 Brain 官方 ~950 只的全量股票池。",
-        "In the later period, fundamentals alone reach a mean daily rank correlation of 0.571; momentum and volatility reach 0.547. Combining them raises the linear model to 0.759, and a shallow boosted tree with fixed settings reaches 0.813. This indicates strong structural correlation, but a crucial distinction applies: this is a nonlinear fit against Brain’s own cross-sectional ranking, not direct linear feature exposure, nor a correlation with forward market returns. Furthermore, this study is conducted on the local 519-stock intersection, not the full ~950-stock Brain universe."
-      )}</p>
-      <blockquote>{t(
-        `换成持仓语言：在同一交集内选 Top50，提升树与 Brain 的名单平均重合约 ${(best.top50_mean_overlap*50).toFixed(1)} 只（${(best.top50_mean_overlap*100).toFixed(1)}%）。这高于同池随机抽取的约 5 只，但仍有近 40% 的名单差异；这些差异是否带来增量收益，不能由重合度本身推断。`,
-        `In portfolio terms, the boosted tree and Brain share an average of ${(best.top50_mean_overlap*50).toFixed(1)} names (${(best.top50_mean_overlap*100).toFixed(1)}%) in their Top50 within this intersection. This exceeds the roughly five names expected from same-pool random selection, while leaving almost 40% of names different. Overlap alone does not show whether those differences add returns.`
-      )}</blockquote>
-      <p>{t(
-        "所以，我们的初步判断需要更精确：常见变量足以重建不少排名信息；“几乎拟合一致”仍然过强。余下差异究竟是有效 Alpha、非线性结构还是噪声，要用相同股票池上的后续收益和交易成本来判断，不能从拟合相关直接跳过去。",
-        "Our starting claim therefore needs precision. Ordinary variables recover a meaningful part of the ordering, while “almost identical” goes too far. Whether the remaining disagreement represents tradable alpha, nonlinear structure or noise requires return and cost comparison on the same universe rather than rank correlation alone."
-      )}</p>
+      <h2 id="backtest">{t("用它做策略：扣成本回测", "As a strategy: a backtest after costs")}</h2>
+      <p>{t("规则在运行前固定，只跑一次：t 日的信号在 t+1 日收盘成交，等权持有 30 只，单边成本 10 bps。比较三种用法：官方的 rank5 每 5 日换仓（5 个错开的分仓，避免起始日的偶然性）；用 rank2 进场、只要 rank21 仍在前 50% 就持有；以及同样的缓冲但用 rank2 自己判断，作为对照。", "Rules were fixed before a single run: signal at t, trade at the t+1 close, 30 names equal weight, 10 bps per side. Three uses are compared: the vendor's rank5 rebalanced every five sessions (five staggered tranches, so no start date is chosen); entering on rank2 and holding while rank21 stays in the top half; and the same buffer judged by rank2 itself, as a control.")}</p>
+      <NavChart t={t} />
+      <StrategyTable t={t} />
+      <p>{t(<>扣成本前，官方用法每年比股票池等权多 <strong className="text-stat">{signed(hold.A_rank5_5d.gross[0])}%</strong>；扣 10 bps 后变成 <strong className="text-stat">{ci(hold.A_rank5_5d.net10)}</strong>。缓冲规则把差距补了回来：rank21 持有比官方用法每年多 {ci(pair["C_rank2_in_rank21_hold - A_rank5_5d [all, 10bps]"])}，但这几乎全是省下的成本。它与“用 rank2 自己做缓冲”的差为 {ci(pair["C_rank2_in_rank21_hold - D_rank2_in_rank2_hold [all, 10bps]"])}：长周期的打分没有提供额外信息，起作用的是降低换手本身。</>,
+        <>Before costs the vendor's use beats the equal-weight universe by <strong className="text-stat">{signed(hold.A_rank5_5d.gross[0])}%</strong> a year; after 10 bps it becomes <strong className="text-stat">{ci(hold.A_rank5_5d.net10)}</strong>. The buffer recovers the gap: holding on rank21 adds {ci(pair["C_rank2_in_rank21_hold - A_rank5_5d [all, 10bps]"])} a year over the vendor's use, almost all of it saved costs. Against a buffer judged by rank2 itself the difference is {ci(pair["C_rank2_in_rank21_hold - D_rank2_in_rank2_hold [all, 10bps]"])}: the long horizon adds no information; lower turnover does the work.</>)}</p>
 
-      <h2 id="the-curve">{t("长期曲线：先分清口径，再谈差异", "Long-run curves: separate definitions before interpreting gaps")}</h2>
-      <p>{t("官方说明书的 Top50 长期图以股票池等权组合为基准，不是 SPY。它的约千只日常股票池、周调仓与我们本地特征交集、固定五交易日步长不是同一个实验。不能把不同股票池的净值差额直接归因于费用、模型优劣或供应商数据质量。", "The official Top50 factsheet uses an equal-weighted universe benchmark, not SPY. Its roughly thousand-name daily universe and weekly cadence differ from our local feature intersection and fixed five-session stride. Differences in NAV cannot simply be attributed to costs, model quality or vendor data quality across those different experiments.")}</p>
-      <aside className="story-note research-warning"><strong>{t("旧曲线降级为归档诊断", "Old curves downgraded to archived diagnostics")}</strong><p>{t("复查发现，旧 Yahoo 回测曾将缺失收益当成 0；内部语料的 34 组组合则在选股前检查了未来价格可用性。前者可能掩盖持仓损失，后者含前视筛选。此前“实际执行”“纯正复现”“稳健选股 Alpha”等措辞过强，本次撤回。下方年度图只用于检查旧分析，不能证明官方策略可复现，也不能否定官方结果。本文后半部分给出选股先于价格检查的新诊断，并将身份 / 估值不通过的正式指标留空。", "The old Yahoo backtest treated missing returns as zero; the 34 internal-corpus books screened future-price availability before selection. The former can hide held losses, the latter introduces look-ahead selection. Earlier descriptions such as actual execution, exact replication and robust selection alpha were too strong and are withdrawn. The annual chart below only inspects the old analysis: it neither reproduces nor refutes official performance. The later section adds selection-before-quotes diagnostics and leaves formal metrics blank where identity or valuation fails admission.")}</p></aside>
+      <h2 id="vs-spy">{t("和 SPY 比", "Against SPY")}</h2>
       <AnnualChart t={t} />
-      <button type="button" className="report-text-button" aria-expanded={showAnnual} onClick={() => setShowAnnual(x => !x)}>{showAnnual ? t("收起年度数据", "Hide annual data") : t("查看年度数据", "Show annual data")} {showAnnual ? "−" : "+"}</button>
-      {showAnnual && <div className="report-table-wrap"><table data-research-table="archive-annual"><caption>{t("归档诊断性收益；2010 和 2026 均为部分年度", "Archived diagnostic returns; 2010 and 2026 are partial years")}</caption><thead><tr><th>{t("年度", "Year")}</th><th>Brain</th><th>SPY</th><th>{t("百分点差", "Difference, pp")}</th></tr></thead><tbody>{legacy.annual_returns.map(row => <tr key={row.year}><th>{row.year}{row.partial_year ? "*" : ""}</th><td>{pct(row.brain)}</td><td>{pct(row.spy)}</td><td>{(row.difference*100).toFixed(2)}</td></tr>)}</tbody></table></div>}
+      <p>{t(<>官方用法只在 2015（半年）和 2020 年跑赢 SPY。即使用缓冲规则，2015—2026 年的年化也只有 <strong className="text-stat">{pct(full.D_rank2_in_rank2_hold.cagr)}</strong>，Sharpe {full.D_rank2_in_rank2_hold.sharpe.toFixed(2)}，最大回撤 {pct(full.D_rank2_in_rank2_hold.max_drawdown, 0)}；SPY 是 {pct(full.spy.cagr)}、{full.spy.sharpe.toFixed(2)}、{pct(full.spy.max_drawdown, 0)}。在大盘股池里，等权本身就落后于市值加权的 SPY，Brain 选出的 30 只股票没能弥补这个差距。</>,
+        <>The vendor's use beats SPY only in 2015 (half a year) and 2020. Even with the buffer, 2015–2026 returns <strong className="text-stat">{pct(full.D_rank2_in_rank2_hold.cagr)}</strong> a year with Sharpe {full.D_rank2_in_rank2_hold.sharpe.toFixed(2)} and a {pct(full.D_rank2_in_rank2_hold.max_drawdown, 0)} drawdown, against {pct(full.spy.cagr)}, {full.spy.sharpe.toFixed(2)} and {pct(full.spy.max_drawdown, 0)} for SPY. In a large-cap universe equal weight already trails cap-weighted SPY, and Brain's 30 names do not close that gap.</>)}</p>
 
-      <h2 id="five-days">{t("“五日”，是哪一种五日？", "Which five days?")}</h2>
-      <p>{t(`最值得注意的发现来自调仓记录。归档包含 ${legacy.rebalance_intervals} 个相邻调仓间隔，在保存的价格序列中，恰好相隔 5 个观测交易日的只有 ${legacy.five_session_intervals} 个。最常见的间隔是 3 日和 8 日。持仓日期与非零换手日期完全一致，这排除了单纯由持仓日期解码造成的差异。`, `The rebalance log provides the most consequential finding. Of ${legacy.rebalance_intervals} consecutive rebalance intervals, only ${legacy.five_session_intervals} spans exactly five observed price sessions. Three- and eight-session intervals are most common. Holdings dates match nonzero-turnover dates exactly, ruling out a discrepancy confined to decoding the holdings dates.`)}</p>
-      <div className="cadence-grid">{Object.entries(legacy.session_gap_counts).map(([gap, count]) => <div key={gap} className={gap === "5" ? "intended" : ""}><strong>{gap}</strong><span>{t("日间隔", "sessions apart")}</span><b>{count} {t("次", "times")}</b></div>)}</div>
-      <p>{t(
-        "经复核，此现象源于量化回测代码中的日历索引错配：脚本采用自然日历日步长 rk.index[::5] 确定调仓日，而在交易日序列循环中通过 if idx[i] in reb_set 触发。当调仓日落在周末时被静默吞掉，直接顺延至下一个 5 日历日（跨度达 10 个自然日，即 7-8 个交易日）；平日的 5 日历日跨周末实际仅 3 个交易日。这个错误位于我们归档的本地回测脚本，不是 Brain 供应商的策略代码；它解释了本地 3 日与 8 日间隔的集中分布。",
-        "Auditing the execution script reveals this stems from a calendar stride mismatch: the code generated candidate rebalances using calendar-day slicing rk.index[::5], but checked execution against trading sessions using if idx[i] in reb_set. Rebalance dates landing on weekends were silently dropped, postponing execution to the subsequent 5-calendar-day stride (10 calendar days total, or 7–8 trading sessions), while weekday 5-calendar-day strides across weekends spanned only 3 trading sessions. This bug is in our archived local backtest, not the vendor’s strategy code; it explains the local concentration in 3- and 8-session intervals."
-      )}</p>
-      <p>{t(
-        "因此，“rank5d、hold5d 是唯一有效组合”的核心结论在事实层面完全无法成立。这份归档运行不仅没有覆盖其他四个预测周期的同口径对照，更关键的是，整条曲线自始至终跑的是一个 3 日与 8 日混乱交替的变周期策略，根本不是所宣称的固定 5 交易日持有期。",
-        "Consequently, the core claim that “rank5days with hold5d is the only effective combination” completely lacks evidentiary support. This archived run lacks comparable controls across the other four horizons, and more crucially, the curve itself executed an erratic cadence dominated by 3- and 8-session holdings rather than the stated fixed five-session holding period."
-      )}</p>
+      <h2 id="quality">{t("因子本身的质量", "The quality of the signal")}</h2>
+      <IcTable t={t} />
+      <p>{t(<>五个周期几乎是同一个信号：每个周期的截面排名有 {Math.round(summary.redundancy_r2_train.rank21 * 100)}%—{Math.round(summary.redundancy_r2_train.rank5 * 100)}% 能由另外四个解释，取平均也不比 rank5 好。短周期略强，21 日最弱。期限结构（rank2 − rank21）只在 2022 和 2026 年有用，那两年长周期的打分失效；在 2015—2021 年它接近 0，事前无法知道何时启用。</>,
+        <>The five horizons are nearly one signal: {Math.round(summary.redundancy_r2_train.rank21 * 100)}–{Math.round(summary.redundancy_r2_train.rank5 * 100)}% of each horizon's ranking is explained by the other four, and averaging them does no better than rank5. Shorter horizons are slightly stronger; 21 days is weakest. The term structure (rank2 − rank21) only helps in 2022 and 2026, when the long horizon failed; in 2015–2021 it is near zero, so there is no way to know beforehand when to use it.</>)}</p>
+      <p>{t(<>中性化后 IC 从 {ic(neu["2023—2025"].raw)} 降到 {ic(neu["2023—2025"].neutral)}（2023—2025），2026 年为 {ic(neu["2026"].neutral)}：大部分收益是风格暴露。它对我们已有的因子也没有增量：与 36 个价量输入一起做线性组合时，Brain 的权重只有 {summary.ridge_weight_of_brain_among_37}；在公式搜索中把 Brain 作为一个可选变量，排名前 10 的公式里只有 3 个（另一次 0 个）用到它，测试期表现与不放 Brain 的搜索没有可分辨的差别。</>,
+        <>Neutralized, IC falls from {ic(neu["2023—2025"].raw)} to {ic(neu["2023—2025"].neutral)} in 2023–2025 and is {ic(neu["2026"].neutral)} in 2026: most of the return is style exposure. It also adds nothing to factors we already have: blended linearly with 36 price-volume inputs, Brain gets a weight of {summary.ridge_weight_of_brain_among_37}; offered as a variable in a formula search, it appears in 3 of the top 10 formulas (0 in a second run), with test results indistinguishable from a search without it.</>)}</p>
 
-      <BrainResearchUpdate t={t} />
+      <h2 id="reproduction">{t("用公式复现它", "Reproducing it with formulas")}</h2>
+      <p>{t("我们在 64 个价量、基本面与风险字段上做遗传编程搜索，目标是与 Brain rank5 的截面相关，只用 2015-06—2021 年数据，每个随机种子评估 10 万个公式。", "We ran a genetic-programming search over 64 price, fundamental and risk fields, targeting cross-sectional correlation with Brain rank5, on June 2015–2021 data only, with 100,000 formulas evaluated per seed.")}</p>
+      <AstTable t={t} />
+      <p>{t(<>两个种子找到同一类结构。一个 12 个符号的短例子：<code>Rank(SUE) − 账面市值比 − 3 日均值(Rank(5 日反转)) + Rank(12-1 月动量)</code>，训练期相关 0.68，2023—2025 年 0.74。复现组合的 5 日 IC 与 Brain 本身相当（2023—2025 年约 0.02）。2026 年拟合度降到 0.61，说明 Brain 今年的模型或输入可能变了，这一点我们无法核实。</>,
+        <>Both seeds find the same structure. A short 12-symbol example: <code>Rank(SUE) − book-to-price − 3-day mean(Rank(5-day reversal)) + Rank(12-1 month momentum)</code>, with correlation 0.68 in training and 0.74 in 2023–2025. The reproduction's five-day IC matches Brain's own (about 0.02 in 2023–2025). Fidelity falls to 0.61 in 2026, which suggests the model or its inputs changed this year; we cannot verify that.</>)}</p>
 
-      <h2 id="next-question">{t("下一步：冻结选择，再检验增量信息", "Next: freeze selection, then test incremental information")}</h2>
-      <p>{t("后续应在同一 PIT 股票池、执行价格与成本口径下，冻结训练规则、特征准入与调参预算，再比较原始 Brain、收益训练模型和蒸馏模型。先修复证券身份与公司行动，而不是用补零、美化缺口或放宽价格容差换取一条完整曲线。还需控制风格暴露、平移调仓起点，并保留未成功的配置。", "Next, freeze training rules, feature admission and tuning budgets before comparing Brain, return-trained and distilled models on the same PIT universe, execution prices and costs. Resolve identities and corporate actions first, rather than filling zeros, hiding gaps or widening tolerances to obtain a complete curve. Control style exposures, shift rebalance starts and preserve failed configurations.")}</p>
-      <p>{t("这些研究修改只进入隔离预览文章；没有改动生产文档、行情服务、下载器、实时策略或默认数据集。共享结构、正的历史 IC 与可交易增量仍是三种不同的结论。", "These research edits are confined to the isolated preview article; production docs, data services, downloaders, live strategies and default datasets are unchanged. Shared structure, positive historical IC and tradable incremental value remain distinct conclusions.")}</p>
-
-      <section className="story-methods" id="methods"><h2>{t("方法与延伸阅读", "Methods & further reading")}</h2><p>{t("最初的 15 特征重建（不是后续 34 组网格）：Ridge，alpha=1000；直方图梯度提升，100 轮、最多 15 叶、学习率 0.05，固定随机种子。Top50 重合只统计共同样本至少有 100 个证券的日期，排名相同按保留的稳定轴顺序打破平局。后段样本曾被先前研究查看，不作为全新样本外发现。", "Original 15-feature reconstruction (not the later 34-configuration grid): Ridge with alpha=1000; histogram gradient boosting with 100 iterations, at most 15 leaves and learning rate 0.05, with a fixed seed. Top50 overlap uses dates with at least 100 securities; ties follow the retained stable axis order. Later dates were previously inspected, so these are not fresh out-of-sample discoveries.")}</p>
+      <h2 id="limits">{t("缺点与没测的部分", "Weaknesses, and what we did not test")}</h2>
       <ul>
-        <li><a href="./reconstruction.csv" download>{t("下载重建结果摘要 CSV", "Download reconstruction summary CSV")}</a></li>
-        <li><a href="./annual-diagnostic.csv" download>{t("下载归档诊断年度收益 CSV", "Download archived diagnostic annual returns CSV")}</a></li>
-        <li><a href="./reconstruction.png" download>{t("下载重建对照图", "Download reconstruction figure")}</a></li>
-        <li><a href="./annual-diagnostic.png" download>{t("下载年度相对表现图", "Download annual comparison figure")}</a></li>
-        <li><a href="https://www.quantconnect.com/docs/v2/writing-algorithms/datasets/brain/brain-ml-stock-ranking" target="_blank" rel="noopener noreferrer">QuantConnect · Brain ML Stock Ranking ↗</a></li>
-        <li><a href="/docs/market/research-signals/brain-universe-snapshot/">{t("LeanData 时点股票池接口", "LeanData dated-universe endpoint")} ↗</a></li>
-      </ul></section>
+        <li>{t("信号弱且以风格为主；原生的 5 日换仓撑不起它的成本。", "The signal is weak and mostly style; native five-day rebalancing cannot carry its costs.")}</li>
+        <li>{t("年份之间差异远大于用法之间差异：2022 年所有用法都比等权池少 5—16 个百分点。", "Years differ far more than uses: in 2022 every use trails the equal-weight universe by 5–16 points.")}</li>
+        <li>{t("五个周期高度冗余，可被常见公式复现，独有信息很少。", "The five horizons are redundant and reproducible from common formulas, leaving little unique information.")}</li>
+        <li>{t("没测：多空组合、Brain 自己的千只股票池、行业中性组合、盘中执行。2026 年数据已在本文的多项分析中读过，不能再作未读样本。", "Not tested: long-short books, Brain's own 1,000-name universe, sector-neutral books, intraday execution. 2026 data has been read in several analyses here and is no longer an unseen sample.")}</li>
+        <li>{t("此前版本中基于旧回测的长期曲线已撤回：那份回测把缺失收益记为 0，并且调仓日历有错，实际是 3 日与 8 日交替持有。", "The long-run curve in earlier versions is withdrawn: that backtest booked missing returns as zero, and a calendar bug made it alternate three- and eight-session holds.")}</li>
+      </ul>
+
+      <section className="story-methods" id="methods"><h2>{t("方法", "Methods")}</h2>
+        <p>{t("IC 为每日截面 Spearman，在两者都有值的股票上重新排名，每日至少 30 只；区间为 21 日循环区块自助法 95% 区间。中性化把信号与收益都对截距、12 个风险暴露排名和行业做回归后取残差。公式搜索的选择只用 2015-06—2021 年；2022、2023—2025、2026 依次读取。", "IC is the daily cross-sectional Spearman, reranked on stocks where both values exist, with at least 30 stocks a day; intervals are 95% circular block-bootstrap intervals with 21-day blocks. Neutralization regresses both signal and return on an intercept, 12 risk-exposure ranks and sector, and keeps the residuals. Formula search selection used June 2015–2021 only; 2022, 2023–2025 and 2026 were read in that order.")}</p>
+        <ul>
+          <li><a href="./summary-v2.json" download>{t("下载本文汇总数据 JSON", "Download this note's summary data (JSON)")}</a></li>
+          <li><a href="https://www.quantconnect.com/docs/v2/writing-algorithms/datasets/brain/brain-ml-stock-ranking" target="_blank" rel="noopener noreferrer">QuantConnect · Brain ML Stock Ranking ↗</a></li>
+          <li><a href="/docs/market/research-signals/brain-universe-snapshot/">{t("LeanData 时点股票池接口", "LeanData dated-universe endpoint")} ↗</a></li>
+        </ul></section>
     </div>
     <footer className="story-footer"><a href="/research-data">← {t("回到研究数据", "Back to research data")}</a><span>LeanData Research · {t("研究笔记，不是投资建议", "Research note, not investment advice")}</span></footer>
   </>;
