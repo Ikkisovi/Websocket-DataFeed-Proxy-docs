@@ -79,7 +79,7 @@ app.use((req, res, next) => {
 // The gate runs before express.static so the article text, its figures and the factor
 // statistics never reach anonymous or free-plan visitors. The landing page stays public.
 const researchAccess = require('./commerce/research-access.cjs');
-const RESEARCH_GATED_PREFIXES = ['/reports/brain-stock-ranking', '/reports/factor-stats'];
+const RESEARCH_PUBLIC_PATHS = new Set(['/reports', '/reports/', '/reports/index.html', '/reports/reports.css', '/reports/locked.html']);
 const RESEARCH_PRIVATE_DIR = process.env.RESEARCH_PRIVATE_DIR || path.join(__dirname, 'private-research');
 
 async function resolveResearchAccess(req) {
@@ -119,7 +119,15 @@ app.get('/api/research/access', asyncRoute(async (req, res) => {
   try { access = await resolveResearchAccess(req); } catch (error) { access = { state: 'unknown', role: null }; }
   res.json({ state: access.state, allowed: access.state === 'ok', plan: access.state === 'ok' || access.state === 'insufficient' ? access.role : null });
 }));
-app.use(RESEARCH_GATED_PREFIXES, asyncRoute(researchGate));
+app.use(asyncRoute((req, res, next) => {
+  let pathname;
+  try { pathname = path.posix.normalize(decodeURIComponent(req.path).replace(/\\/g, '/')); }
+  catch (_) { return res.sendStatus(400); }
+  if (pathname.startsWith('/reports/') && !RESEARCH_PUBLIC_PATHS.has(pathname)) {
+    return researchGate(req, res, next);
+  }
+  return next();
+}));
 // Generated statistics live outside Git and outside public/; serve them only behind the gate.
 app.use('/reports/factor-stats/data', express.static(path.join(RESEARCH_PRIVATE_DIR, 'factor-stats', 'data'), {
   index: false, fallthrough: false, maxAge: 0, setHeaders: res => res.setHeader('Cache-Control', 'private, no-store')

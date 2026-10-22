@@ -107,3 +107,13 @@ for (const [path, target] of Object.entries(legacyMorningstarPages)) {
 <body><p><a href="${target}">Morningstar fundamentals / Morningstar 基本面</a></p></body></html>
 `);
 }
+
+// Old operator URLs remain harmless static notices for existing bookmarks.
+for (const id of ["post-admin-login", "get-admin-pending", "post-admin-approve", "post-admin-reject"]) {
+  const directory = resolve(docsRoot, "market/overview", id);
+  await mkdir(directory, { recursive: true });
+  await writeFile(resolve(directory, "index.html"), `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Documentation page retired — LeanData</title><meta name="robots" content="noindex"></head>
+<body><main><h1>Documentation page retired / 文档已移除</h1><p>This page is not part of the customer API. 此页面不属于客户接口文档。</p><a href="/docs/market/overview/">API overview / 接入总览</a></main></body></html>
+`);
+}

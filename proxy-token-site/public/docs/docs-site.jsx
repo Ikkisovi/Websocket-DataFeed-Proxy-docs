@@ -1,3 +1,7 @@
+import { UniverseCustomerBody, MorningstarCustomerBody, EodhdCustomerBody } from "./customer-financial.jsx";
+import PRODUCT_CATALOG from "../product-catalog.json";
+import API_CONTRACT from "./public-api-contract.json";
+import API_CONTRACT_SOURCE from "./api-contract-source.json";
 import React, {
   useCallback as useStatusCallback,
   useEffect as useStatusEffect,
@@ -6,7 +10,6 @@ import React, {
 } from "react";
 import { DOC_PATHS, NAV_GROUPS, DOC_PAGE_CONFIG, DOC_PAGE_BY_PATH, DOC_ARTICLES, SECTION_ZH_LABELS, getDocSections, docSectionId, docArticlePath, resolveLegacyDocPath } from "./doc-navigation.mjs";
 import { DocContent, CodeRail, DocsSearch, TopicLinks, CopyCode, textOf } from "./doc-components.jsx";
-import { UniverseCustomerBody, MorningstarCustomerBody, EodhdCustomerBody } from "./customer-financial.jsx";
 import { UsagePage } from "./usage-page.jsx";
 
 // ── StatusBody component ──
@@ -58,7 +61,7 @@ function UptimeGrid({ data }) {
 
 // ── stats / quantiles helper ────────────────────────────────────────────
 function quantile(arr, q) {
-  if (!arr || arr.length === 0) return 0;
+  if (!arr || arr.length === 0) return "—";
   const sorted = [...arr].sort((a, b) => a - b);
   const pos = (sorted.length - 1) * q;
   const base = Math.floor(pos);
@@ -306,7 +309,7 @@ function StatusBody() {
   const anyOutage = data.rest.status === "outage" || data.rt.status === "outage" || data.ws.status === "outage";
   const overall = isLoading ? "loading" : allOp ? "operational" : anyOutage ? "outage" : "degraded";
 
-  const overallLabel = overall === "loading" ? "Checking systems…" : overall === "operational" ? "All systems operational" : overall === "outage" ? "Service disruption" : "Partial degradation";
+  const overallLabel = overall === "loading" ? "Checking systems…" : overall === "operational" ? "Connectivity probes passing" : overall === "outage" ? "Service disruption" : "Partial degradation";
   const overallColor = overall === "loading" ? "var(--ink-muted)" : overall === "operational" ? "var(--ok)" : overall === "outage" ? "var(--danger)" : "var(--warn)";
   const overallBg    = overall === "loading" ? "var(--bg-canvas)" : overall === "operational" ? "var(--ok-soft)" : overall === "outage" ? "var(--danger-soft)" : "var(--warn-soft)";
 
@@ -321,7 +324,8 @@ function StatusBody() {
       <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>Status</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 24px" }}>
         Live health of the historical REST API, realtime REST API, and secure WebSocket stream on the public leandata.uk domains.
-        Uptime is sampled every minute; latency percentiles are computed over a rolling 60-minute window.
+        These probes measure connectivity, not the freshness, completeness or availability of every data endpoint. Inspect source timestamps and request errors when validating data. Unknown latency is shown as a dash, not zero.
+        <br/>此页探针反映连通性，不证明每个数据接口的新鲜度、完整性或可用性；请结合来源时间和请求错误判断。没有观测时显示短横线，不显示零延迟。
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>这里展示 leandata.uk 公共域名下历史 REST、实时 REST 与安全 WebSocket 的健康状态。可用性按分钟采样，延迟分位数按 60 分钟滚动窗口计算。</span>
       </p>
 
@@ -836,6 +840,18 @@ const PROVIDER_LOGOS = {
   alpaca: "/assets/providers/alpaca.png",
 };
 
+function BrainStatus({ snapshot = false } = {}) {
+  return <div className="provider-note" data-brain-status={snapshot ? "paid-included" : "planned"}>
+    <DocDesc
+      en={snapshot ? "Universe snapshots are included at no extra cost with an active paid subscription. Use your existing LeanData token. Other Brain score and coverage APIs remain planned." : "Planned API — this operation is not yet available. Universe snapshots are already available with an active paid subscription."}
+      zh={snapshot ? "时点股票池接口已开放，付费用户免费使用，无需单独购买，使用现有 LeanData Token 即可。其他 Brain 评分和覆盖接口仍在规划中。" : "此接口仍在规划中，尚未开放调用。时点股票池接口已向付费用户免费开放。"}
+    />
+    <a href="https://braincompany.co/bsr.html" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-ink)" }}><Bilingual en="Brain official product page ↗" zh="Brain 官方产品页 ↗" /></a>
+    {" · "}
+    <a href="https://www.braincompany.co/assets/files/BSR_summary.pdf" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-ink)" }}><Bilingual en="Brain US stock ranking factsheet ↗" zh="Brain 美股排名说明书 ↗" /></a>
+  </div>;
+}
+
 function ProviderMotif() {
   const bars = [34, 58, 44, 78, 62, 96, 70, 52, 84, 66, 40, 74, 56, 90, 48];
   return (
@@ -925,6 +941,39 @@ function BilingualDataTable({ columns, rows, style }) {
       ))}</tbody>
     </table>
   );
+}
+
+function PublicApiContract() {
+  const contract = API_CONTRACT;
+  return <>
+    <h2 id="api-contract" className="display-title" style={{ fontSize: 28 }}>API contract / 接口契约</h2>
+    <p>Version <code>{contract.version}</code>. <a href="https://api.leandata.uk/v1/api/contract">Live API contract (JSON)</a> · <a href="/docs/public-api-contract.json">Documentation contract (JSON)</a></p>
+    <p>{contract.scope}<br/>本目录覆盖 OI、合约发现、财务归档及通用交付契约；其他接口见对应文档。未列入不代表未实现，available 也不保证特定日期有数据。</p>
+    <p>Backend source <code>{API_CONTRACT_SOURCE.source_commit.slice(0, 12)}</code> · SHA256 <code style={{ overflowWrap: "anywhere" }}>{API_CONTRACT_SOURCE.sha256}</code>. Compare with <code>X-Leandata-Contract-SHA256</code> when reporting contract drift.</p>
+    <p>{contract.compatibility}<br/>旧 URL 和返回结构继续兼容；替代接口需要按各自参数调用，不会自动互相重定向。</p>
+    <h3>Delivery / 交付</h3>
+    <p>{contract.delivery.controls.direct} {contract.delivery.controls.no_direct}</p>
+    <p>{contract.delivery.download_authentication}</p>
+    <table className="tbl"><thead><tr><th>API method</th><th>Optional redirect</th><th>Signed download</th></tr></thead><tbody>{contract.delivery.redirects.map(row => <tr key={row.request_method}><td>{row.request_method}</td><td>{row.status}</td><td>{row.download_method}</td></tr>)}</tbody></table>
+    <p>{contract.delivery.accounting}</p>
+    <h3>Response metadata / 响应元数据</h3>
+    <table className="tbl"><thead><tr><th>Header</th><th>Contract</th></tr></thead><tbody>{Object.entries(contract.response_headers).map(([name, text]) => <tr key={name}><td><code>{name}</code></td><td>{text}</td></tr>)}</tbody></table>
+    <p>Logical tiers describe how bytes were served. Inspect source timestamps for freshness. Legacy tier values remain for compatibility; there is no scheduled removal. 逻辑数据层不代表实时性；旧字段继续兼容。</p>
+    <h3>Errors / 错误处理</h3>
+    <table className="tbl"><thead><tr><th>HTTP</th><th>Action</th></tr></thead><tbody>{contract.errors.map(row => <tr key={row.status}><td>{row.status}</td><td>{row.action}</td></tr>)}</tbody></table>
+    <h3>Endpoint catalog / 接口目录</h3>
+    {contract.operations.map(op => <section key={op.id} style={{ marginBottom: 24 }}>
+      <h4><code>{op.path}</code></h4><p>{op.methods.join(" / ")} · {op.status} · {op.access}</p>
+      <p>{op.summary} {contract.access_policies[op.access]}</p>
+      {op.clocks && <p>{op.clocks}</p>}{op.notes && <p>{op.notes}</p>}
+      {op.parameters.length > 0 && <table className="tbl"><thead><tr><th>Parameter</th><th>Required</th><th>Meaning</th></tr></thead><tbody>{op.parameters.map(p => <tr key={p.name}><td><code>{p.name}</code>{p.aliases && ` (aliases: ${p.aliases.join(", ")})`}</td><td>{p.required ? "yes" : "no"}</td><td>{p.description}</td></tr>)}</tbody></table>}
+      {op.parameter_specification === "endpoint_article" && <p>Parameters and response fields: <a href={op.docs}>endpoint documentation</a>. 参数请查看接口文章。</p>}
+      {op.error && <p>HTTP {op.error.status} · <code>{op.error.code}</code> · {op.error.message}</p>}
+      {op.example && <><p>{op.example_note}</p><pre className="code">{`curl --get "https://api.leandata.uk${op.path}" \
+  --header "Authorization: Bearer $LEANDATA_TOKEN"` + Object.entries(op.example.params).map(([k,v]) => ` \
+  --data-urlencode "${k}=${v}"`).join("")}</pre></>}
+    </section>)}
+  </>;
 }
 
 const API_CATEGORIES = {
@@ -1592,15 +1641,14 @@ function FmpDataOverview({ articleId } = {}) {
   return (
     <DocContent articleId={articleId} style={{ maxWidth: 860, margin: "0 auto" }}>
       <FinancialSourceSelector docAlwaysVisible active="" />
-      <p data-no-i18n="true"><a href={DOC_PATHS.financialEodhd}>EODHD 公司事件 / Company events</a>{" · "}<a href={DOC_PATHS.universes}>Universe 股票名单 / Member lists</a></p>
       <ProviderHero
         id="fmp-data-overview"
         provider="fmp"
         eyebrow="Regular financial provider · Premium"
         title="FMP financial data"
         zhTitle="FMP 标准财务数据"
-        en="A broad endpoint catalog for US company statements, ratios, growth, profiles, market reference data, and historical prices. Authenticate with the same Leandata token—no separate upstream API key is required."
-        zh="覆盖美股财务三表、比率、增长、公司资料、市场参考数据和历史价格的标准接口目录。统一使用 Leandata Token，无需另行配置上游 API Key。"
+        en="A fixed snapshot of US company statements, ratios, profiles and historical prices. These FMP data do not update automatically. Use your existing LeanData token."
+        zh="提供美股财务三表、比率、公司资料和历史价格的固定快照。FMP 数据不自动更新，使用现有 LeanData Token 即可查询。"
         chips={["50+ endpoints", "statements", "ratios & growth", "company profiles", "Premium"]}
         alt="FMP Data provider logo"
       />
@@ -1626,20 +1674,25 @@ function FmpDataOverview({ articleId } = {}) {
         <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.6 }}> 左侧 Financial data API 部分包含所有接口的详细参数、返回示例和使用说明。<br/>See the Financial data API section for complete documentation with parameters and examples.</span>
         <a href={DOC_PATHS.financialRegular} className="btn" style={{ marginLeft: 12, padding: "7px 11px", fontSize: 12 }}>打开文档 / Open Docs →</a>
       </div>
-      <h3 id="fmp-snapshot-boundary" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>数据更新说明 / Data Updates</h3>
+      <h3 id="fmp-snapshot-boundary" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>固定快照，不自动更新 / Fixed snapshot, no automatic updates</h3>
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, margin: "0 0 22px" }}>
-        财务数据基于公司公开披露的财报。公司可能会修订过往财报（如重述、更正等），我们会定期更新数据以反映这些变化。如需特定日期的历史数据版本，请联系我们。
+        FMP 接口读取已保存的固定快照，不会随新财报、公司更正或最新行情自动更新。接口中的报价、评级和分析师预测也属于快照，不代表当前值。
         <br/><br/>
-        Financial data is based on publicly filed company reports. Companies may revise past statements (restatements, corrections), and we update our data accordingly. Contact us if you need historical data as of a specific date.
+        FMP endpoints read a fixed saved snapshot. New reports, restatements and market prices are not added automatically. Quotes, ratings and analyst estimates are snapshot values, not current values.
       </p>
-      <h3 id="fmp-future-data-families" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>即将推出 / Coming Soon</h3>
-      <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-        我们正在逐步增加更多数据类型，包括：分析师预测、机构持仓、ETF 持仓等。如有特定需求，欢迎联系我们。
-        <br/><br/>
-        We're expanding coverage to include: analyst estimates, institutional holdings, ETF holdings, and more. Contact us with your specific data needs.
-      </p>
+      <p>需要更新的财报数据，请使用 <a href={DOC_PATHS.financialMorningstar}>Morningstar</a>；未来财报日期请使用 <a href={DOC_PATHS.financialEodhd}>EODHD</a>。两者预计每天美西早上 06:00 起更新。<br/>For updated financial statement data use Morningstar; for upcoming earnings dates use EODHD. Both are expected to refresh daily from 06:00 Pacific time.</p>
+      <h3 id="fmp-future-data-families" className="display-title" style={{ fontSize: 26, margin: "0 0 8px" }}>选择其他数据源 / Other data sources</h3>
+      <DocDesc zh="FMP 保留快照查询。持续更新的财报与事件数据分别由 Morningstar 和 EODHD 提供，请按所需数据选择接口。" en="FMP remains available for snapshot queries. Morningstar and EODHD provide the separately updated financial statement and event data." />
     </DocContent>
   );
+}
+
+function FmpSnapshotNotice() {
+  const isZh = useCurrentLanguage() === "zh";
+  return <p data-fmp-snapshot-notice style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 16 }}>
+    <strong>{isZh ? "固定快照，不自动更新。" : "Fixed snapshot. No automatic updates."}</strong>{" "}
+    {isZh ? "此 FMP 接口不会自动加入新财报、修订或最新行情。" : "This FMP endpoint does not automatically receive new reports, revisions or market prices."}
+  </p>;
 }
 
 function FmpEndpointSection({ id, route, title, params, note }) {
@@ -1654,6 +1707,7 @@ function FmpEndpointSection({ id, route, title, params, note }) {
     <section style={{ padding: "20px 0", borderTop: "1px solid var(--rule)" }}>
       <h3 id={id} className="display-title" style={{ fontSize: 25, margin: "0 0 7px" }}>{title}</h3>
       <div style={{ fontFamily: "var(--f-mono)", fontSize: 13, color: "var(--accent-ink)", marginBottom: 8 }}>{route}</div>
+      <FmpSnapshotNotice />
       <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65, margin: "0 0 10px" }}>
         <code>GET</code> or <code>POST</code> with <code>Authorization: Bearer TOKEN</code>. Parameters: {params}.
       </p>
@@ -1670,6 +1724,7 @@ const FMP_FOCUS_BOUNDARIES = [
 ];
 
 function FmpFundamentalsBody({ focus, articleId }) {
+  const isZh = useCurrentLanguage() === "zh";
   const panel = {
     background: "var(--bg-paper)",
     border: "1px solid var(--rule)",
@@ -1737,11 +1792,12 @@ function FmpFundamentalsBody({ focus, articleId }) {
         eyebrow="Regular / FMP provider · Premium"
         title="Regular / FMP Financial API"
         zhTitle="Regular / FMP 财务数据 API"
-        en="Premium access includes company statements, ratios, growth metrics, profiles, market reference data, analyst research, and valuation endpoints through one Leandata token."
-        zh="Premium 账户可通过一个 Leandata Token 访问公司财报、财务比率、增长指标、公司资料、市场参考、分析师研究与估值接口。"
+        en="Query a fixed snapshot of company statements, ratios, profiles, analyst research and valuation data with your Premium token. FMP data do not update automatically."
+        zh="Premium 账户可查询公司财报、比率、资料、分析师研究与估值数据的固定快照。FMP 数据不自动更新。"
         chips={["50+ endpoints", "GET + POST", "statements", "ratios & growth", "Premium"]}
         alt="FMP Data provider logo"
       />
+      <FmpSnapshotNotice />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 28 }}>
         <div style={panel}>
@@ -1940,6 +1996,16 @@ Content-Type: application/json
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>Ratios endpoints return fields like <code>currentRatio</code>, <code>quickRatio</code>, <code>debtToEquityRatio</code>, <code>priceToEarningsRatio</code>, <code>returnOnEquity</code>, etc. TTM fields typically end with <code>TTM</code>. Missing or null fields indicate unavailable data—do not treat as zero.</span>
       </p>
 
+      <h2 id="fmp-calendar-support" className="display-title" style={{ fontSize: 28 }}>财报日历与财报数据 / Earnings calendar & financials</h2>
+      <DocDesc zh="未来的财报发布日期使用 EODHD；营收、净利润、现金流等财报数据使用 Morningstar。两者都预计每天美西早上 06:00 起更新。" en="Use EODHD for upcoming earnings dates and Morningstar for revenue, net income, cash flow and other financial statement data. Both are expected to refresh daily from 06:00 Pacific time." />
+      <DailyFinancialRefresh />
+      <BilingualDataTable columns={[["Need", "需求"], ["Endpoint", "使用接口"]]} rows={[
+        [["Upcoming earnings dates", "未来财报日期"], <a href={DOC_PATHS.financialEodhd}>EODHD · /v1/events/eodhd/history?dataset=earnings</a>],
+        [["Dividends and ex-dividend dates", "分红与除息日"], <a href={DOC_PATHS.financialEodhd}>EODHD · dataset=dividends</a>],
+        [["Financial statement data", "财报基本面数据"], <a href={DOC_PATHS.financialMorningstar}>Morningstar · /v1/fundamentals/morningstar/v3/history</a>],
+      ]} />
+      <p>{isZh ? "旧的 /stable/earnings-calendar 和 /stable/dividends-calendar 接口仍返回 501，请使用上述 EODHD 接口。" : "The older /stable/earnings-calendar and /stable/dividends-calendar routes still return 501. Use the EODHD endpoints above."}</p>
+
       <h3 id="fmp-request-contract" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>参数说明 / Parameters</h3>
       <div style={{ overflowX: "auto", marginBottom: 22 }}>
         <table className="tbl card" style={{ width: "100%", minWidth: 700, overflow: "hidden" }}>
@@ -1956,6 +2022,7 @@ Content-Type: application/json
 
       <h3 id="fmp-response-metadata" className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>数据覆盖说明 / Coverage Notes</h3>
       <ul style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
+        <li><strong>更新方式 / Updates:</strong> 固定快照，不自动更新。<br/>Fixed snapshot; no automatic updates.</li>
         <li><strong style={{ color: "var(--ink-strong)" }}>当前覆盖范围 / Current coverage:</strong> Beta 版本覆盖主要美股的财报、财务指标、股票报价、公司资料、分析师预测、评级、DCF 估值、收入分部等数据。<br/>Beta version covers major US stocks with statements, metrics, quotes, profiles, analyst estimates, ratings, DCF valuations, revenue segments.</li>
         <li><strong style={{ color: "var(--ink-strong)" }}>空结果处理 / Empty results:</strong> 如果返回空数组 <code>[]</code>，表示该股票暂无此类数据，非接口错误。<br/>Empty array <code>[]</code> means no data available for the stock, not an error.</li>
         <li><strong style={{ color: "var(--ink-strong)" }}>暂未提供 / Not yet available:</strong> 机构持仓（institutional holdings）、ETF 持仓数据暂未提供。<br/>Institutional holdings and ETF holdings are not yet available.</li>
@@ -1964,23 +2031,13 @@ Content-Type: application/json
 
       <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>注意事项 / Important Notes</h3>
       <ul style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
-        <li><strong style={{ color: "var(--ink-strong)" }}>历史数据可能修订 / Historical data may be revised:</strong> 公司可能因重述、更正等原因修订历史财务数据。后续将提供版本化查询功能，记录每次数据更新的时间。<br/>Companies may revise historical financials due to restatements or corrections. Future versions will provide timestamped versioned queries.</li>
+        <li><strong style={{ color: "var(--ink-strong)" }}>公司修订 / Company revisions:</strong> 公司后续发布的新财报或修订不会自动加入 FMP 快照。<br/>New reports and later company revisions are not automatically added to the FMP snapshot.</li>
         <li><strong style={{ color: "var(--ink-strong)" }}>不同数据类型独立 / Data types are independent:</strong> 股价数据、财报数据、财务比率、预测数据等来自不同数据集。某股票有股价数据不代表一定有财报数据。<br/>Price data, statements, ratios, and estimates are separate datasets. Having price data doesn't guarantee statement data.</li>
         <li><strong style={{ color: "var(--ink-strong)" }}>字段可能缺失 / Fields may be missing:</strong> 不同公司、不同时期的财报字段可能不同。代码应容忍字段缺失或为 null，不要将其当作 0 处理。<br/>Company, period, and filing availability vary. Code should handle missing or null fields, not infer zero.</li>
       </ul>
 
-      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>后续计划 / Future Plans</h3>
-      <ol style={{ margin: "0 0 24px", paddingLeft: 20, color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.8 }}>
-        <li>扩展股票覆盖范围，增加更多美股和字段验证。<br/>Expand stock coverage and add more US stocks with field validation.</li>
-        <li>为预测、业绩公告、评级、DCF 等数据提供版本化历史查询，记录数据更新时间。<br/>Provide versioned historical queries for estimates, earnings, ratings, DCF with capture timestamps.</li>
-        <li>添加更多数据源支持，提供更广泛的接口覆盖。数据源将有独立的更新和修订策略。<br/>Add more data source support for broader endpoint coverage with independent refresh and revision policies.</li>
-        <li>发布定期更新的历史数据版本，公开每次更新的时间戳，保留历史版本供查询。<br/>Publish regularly updated data versions with public timestamps, preserving historical versions for queries.</li>
-      </ol>
-
-      <div style={{ ...panel, marginBottom: 8 }}>
-        <strong style={{ color: "var(--accent-ink)" }}>Ultimate 计划 / Ultimate Plan</strong>
-        <span style={{ color: "var(--ink-muted)", fontSize: 13, lineHeight: 1.55 }}> Ultimate 套餐将包含机构持仓披露、ETF 持仓等数据。这些数据也会遵循版本化管理和时间戳记录。<br/>Ultimate tier will include institutional holdings disclosures and ETF holdings, also with versioned management and timestamps.</span>
-      </div>
+      <h3 className="display-title" style={{ fontSize: 28, margin: "0 0 10px" }}>需要更新的数据 / Updated data</h3>
+      <p>财报基本面数据使用 <a href={DOC_PATHS.financialMorningstar}>Morningstar</a>，未来财报节点使用 <a href={DOC_PATHS.financialEodhd}>EODHD</a>。每日美西早上 06:00 的预计更新安排不适用于 FMP 快照。<br/>Use Morningstar for updated financial statement data and EODHD for upcoming earnings dates. The expected daily 06:00 Pacific refresh does not apply to FMP snapshots.</p>
 
       <div style={{ ...panel, borderColor: "var(--accent-rule)", background: "var(--accent-soft)", marginBottom: 8 }}>
         <strong style={{ color: "var(--accent-ink)" }}>使用提示 / Usage Tip</strong>
@@ -1990,6 +2047,571 @@ Content-Type: application/json
   );
 }
 
+
+function DailyFinancialRefresh() {
+  const isZh = useCurrentLanguage() === "zh";
+  return <p data-financial-refresh-schedule style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 20 }}>
+    <strong>{isZh ? "更新频率：" : "Updates: "}</strong>
+    {isZh ? "预计每天美西早上 06:00 起更新（PST/PDT）。最新数据日期可在覆盖范围接口中查看。" : "Expected daily from 06:00 Pacific time (PST/PDT). Check the coverage endpoint for the latest data date."}
+  </p>;
+}
+
+function EodhdEventsBody({ articleId } = {}) {
+  const isZh = useCurrentLanguage() === "zh";
+  const heading = (en, zh) => isZh ? zh : en;
+  return <DocContent articleId={articleId} style={{ maxWidth: 860 }}>
+    <h2 id="eodhd-overview" className="display-title">{heading("Earnings & company events", "财报与公司事件")}</h2>
+    <DocDesc zh="查询已收录的美股近期财报、分红和拆股事件。需要 Premium；这套 Upcoming 数据不是所有已公告远期事件的完整日历。" en="Query captured near-term US earnings, dividend and split events. Requires Premium. This Upcoming feed is not a complete calendar of every announced future event." />
+    <DailyFinancialRefresh />
+    <BilingualDataTable columns={[["Dataset", "数据集"], ["Content", "内容"]]} rows={[
+      ["earnings", ["Upcoming earnings dates and EPS estimates (default)", "未来财报日期及每股收益预期（默认）"]],
+      ["dividends", ["Dividend amounts, ex-dividend dates and payment dates", "分红金额、除息日及支付日"]],
+      ["splits", ["Stock split dates and ratios, when available", "已收录的拆股日期及比例"]],
+    ]} />
+    <p>{isZh ? "要查询营收、净利润、现金流等财报数据，请使用 " : "For revenue, net income, cash flow and other financial statement data, use "}<a href={DOC_PATHS.financialMorningstar}>{isZh ? "Morningstar 基本面接口" : "Morningstar fundamentals"}</a>{isZh ? "，同样预计每天美西早上 06:00 起更新。" : ", also expected to refresh daily from 06:00 Pacific time."}</p>
+    <h3>{heading("Get started", "开始使用")}</h3>
+    <ol>
+      <li>{isZh ? "查询覆盖范围，找到最近一次更新的日期。" : "Check coverage to find the latest available data date."}</li>
+      <li>{isZh ? "用这个日期查询事件日历，再按返回的财报日期选择未来事件。" : "Request the event calendar for that data date, then select upcoming report dates from the results."}</li>
+    </ol>
+    <p><a href={docArticlePath("financial-eodhd", "eodhd-history")}>{heading("Query event calendar →", "查询事件日历 →")}</a> · <a href={docArticlePath("financial-eodhd", "eodhd-coverage")}>{heading("Check data coverage →", "查询覆盖范围 →")}</a></p>
+
+    <p>{isZh ? "来源说明：财报与股息 Upcoming 数据面向未来约 7 天的事件，我们只提供实际收录的股票与记录。PG、MSFT 等股票在某天返回空，不证明它们没有已公告股息，也不能用另一只股票有记录来证明这两只的覆盖。" : "Source scope: the earnings and dividend Upcoming feeds focus on events roughly seven days ahead. We serve captured symbols and records only. An empty day for PG, MSFT or another stock does not prove no announced dividend; records for another stock do not establish coverage for it."}</p>
+    <p><a style={{ color: "#2563eb", textDecoration: "underline" }} href="https://www.quantconnect.com/docs/v2/writing-algorithms/datasets/eod-historical-data/upcoming-earnings" target="_blank" rel="noopener noreferrer">Upcoming earnings source</a>{" · "}<a style={{ color: "#2563eb", textDecoration: "underline" }} href="https://www.quantconnect.com/docs/v2/writing-algorithms/datasets/eod-historical-data/upcoming-dividends" target="_blank" rel="noopener noreferrer">Upcoming dividends source</a></p>
+
+    <h2 id="eodhd-fields" className="display-title">{heading("Response fields", "返回字段")}</h2>
+    <DocDesc zh="事件信息在每条记录的 payload 中。财报日期可能调整，设置提醒时请使用最近一次更新的数据。" en="Event details are in each record's payload. Earnings dates can change; use the latest data when setting alerts." />
+    <BilingualDataTable columns={[["Field", "字段"], ["Description", "说明"]]} rows={[
+      ["ticker", ["Stock symbol", "股票代码"]],
+      ["snapshot_date", ["Date of this calendar update", "这份日历的更新日期"]],
+      ["report_date", ["earnings: expected report date; dividends: shareholder record date in the source schema", "earnings：预计财报发布日期；dividends：来源命名的股权登记日"]],
+      ["report_time", ["Expected release time, such as BEFORE_MARKET", "预计发布时间，例如 BEFORE_MARKET 表示盘前"]],
+      ["estimate", ["EPS estimate, when available", "每股收益预期，可能为空"]],
+      ["declaration_date", ["Dividend declaration date", "分红宣告日"]],
+      ["dividend_date", ["Source dividend-event date; see dividend field notes", "来源股息事件日期，见下方字段说明"]],
+      ["payment_date", ["Dividend payment date", "分红支付日"]],
+      ["dividend", ["Cash dividend per share as supplied; this capture does not include currency", "来源提供的每股现金分红；当前采集不含币种"]],
+    ]} />
+    <DocDesc zh="snapshot_date 是日历的更新日期，report_date 才是公司预计发布财报的日期。例如，10 月 14 日更新的日历可以包含 10 月 21 日的财报安排。字段为空表示暂未提供，请勿当作零。" en="snapshot_date is the calendar update date; report_date is the company's expected earnings date. For example, an October 14 update may include an October 21 report. Null means unavailable, not zero." />
+    <p>{isZh ? "股息字段说明：dividends 的 report_date 对应股权登记日，保留了来源的字段名；不是财报日。dividend_date 为来源的股息事件日期，payment_date 为支付日。来源未在此记录中独立标明所有特殊分红的除息规则，请以公司公告为准。" : "Dividend fields: report_date is the shareholder record date, retaining the source's name; it is not an earnings date. dividend_date is the source dividend-event date and payment_date is payment date. This record does not independently establish ex-date rules for every special distribution; check the issuer notice."}</p>
+    <p>{isZh ? "当前记录不提供 currency、source_updated_at 或 confirmed/cancelled 状态，也没有另一个完整现金股息接口。缺字段表示本接口没有这项信息；null 表示该记录未提供值，不代表零或已确认。snapshot_date 也不是公告发布时间。因此不能把它单独当作已验证、完整的期权定价现金流日程。" : "These captures do not supply currency, source_updated_at or confirmed/cancelled status; there is no separate full cash-dividend endpoint. An absent field is unavailable from this API; null is unavailable for that record, not zero or confirmation. snapshot_date is not the announcement timestamp. This feed alone is not a verified complete cash-flow schedule for option pricing."}</p>
+    <p><a style={{ color: "#2563eb", textDecoration: "underline" }} href="https://github.com/QuantConnect/Lean.DataSource.EODHD/blob/master/EODHDUpcomingDividends.cs" target="_blank" rel="noopener noreferrer">Dividend source field definitions</a></p>
+    <details><summary>{heading("Record identifiers", "记录标识")}</summary><p>{isZh ? "bundle 标识数据版本，row_id 是该版本内的行号。保存结果时保留这两个值和原始 payload 即可。" : "bundle identifies a data version and row_id identifies a row within it. Keep both with the original payload."}</p></details>
+
+    <h2 id="eodhd-history" className="display-title">{heading("Query event calendar", "查询事件日历")}</h2>
+    <EndpointBadge method="GET / POST" path="/v1/events/eodhd/history" />
+    <DocDesc zh="查询指定采集日期收录的财报、分红或拆股记录。start/end 按 snapshot_date 筛选，不按事件日期，也不表示当天新增或变更。单日响应不承诺包含该时点所有已公告的未来事件。" en="Read records captured on selected source dates. start/end filter snapshot_date, not event dates or changes made that day. A daily result does not promise every future event announced by that time." />
+    <ParamTable rows={[
+      { name: "dataset", type: "string", required: false, desc: "earnings (default), dividends or splits", zh: "earnings（财报，默认）、dividends（分红）或 splits（拆股）" },
+      { name: "start / end", type: "date", required: false, desc: "Calendar update dates, inclusive. Use YYYY-MM-DD. Without symbols, select at most 7 days.", zh: "日历更新日期，包含起止日期，格式 YYYY-MM-DD。不指定股票时，最多查询 7 天。" },
+      { name: "symbols", type: "string", required: false, desc: "Up to 100 comma-separated symbols, e.g. AAPL,MSFT", zh: "股票代码，逗号分隔，最多 100 只，例如 AAPL,MSFT" },
+      { name: "limit", type: "integer", required: false, desc: "Records per page. Default and maximum: 500.", zh: "每页记录数，默认及最大值为 500。" },
+      { name: "offset", type: "integer", required: false, desc: "Starting record, default 0. Use next_offset for the next page.", zh: "从第几条记录开始，默认 0。下一页使用返回的 next_offset。" },
+      { name: "snapshot", type: "string", required: false, desc: "Selection token returned by history. Reuse it for subsequent pages.", zh: "历史查询返回的版本选择标记，后续分页时原样传回。" },
+      { name: "versions", type: "string", required: false, desc: "latest (default) or all preserved versions", zh: "latest（默认）或 all（所有保留版本）" },
+      { name: "bundle", type: "string", required: false, desc: "Optional data version from coverage. Use it to keep pages on the same version.", zh: "可选数据版本，从覆盖范围接口获取。分页时可固定同一版本。" },
+    ]} />
+    <h3>{heading("Request example", "请求示例")}</h3>
+    <DocDesc zh="以下示例查询 2026-10-14 更新的财报日历。使用时请换成覆盖范围接口返回的最新日期。" en="This example reads the earnings calendar updated on 2026-10-14. Replace the date with the latest date returned by coverage." />
+    <pre className="code">{`curl --get "https://api.leandata.uk/v1/events/eodhd/history" \\
+  -H "Authorization: Bearer $LEANDATA_TOKEN" \\
+  --data-urlencode "dataset=earnings" \\
+  --data-urlencode "start=2026-10-14" \\
+  --data-urlencode "end=2026-10-14" \\
+  --data-urlencode "limit=100"`}</pre>
+    <h3>{heading("Response example", "响应示例")}</h3>
+    <p>{heading("Values are illustrative.", "以下数值仅作示意。")}</p>
+    <pre className="code">{`{
+  "count": 1,
+  "truncated": false,
+  "next_offset": null,
+  "data": [
+    {
+      "bundle": "<data version>",
+      "row_id": 0,
+      "payload": {
+        "dataset": "earnings",
+        "ticker": "ABT",
+        "snapshot_date": "2026-10-14",
+        "report_date": "2026-10-21",
+        "report_time": "BEFORE_MARKET"
+      }
+    }
+  ]
+}`}</pre>
+    <DocDesc zh="truncated 为 true 时还有下一页，同时传回 snapshot，并将 next_offset 填入 offset；其他参数保持不变。默认每个更新日期只返回最新采集版本；需要全部版本时传 versions=all。为空的结果只表示所选范围没有记录。" en="When truncated is true, reuse snapshot and pass next_offset as offset with unchanged filters. Each update date uses its latest capture by default; use versions=all for preserved versions. An empty result means no records were returned for the selected range." />
+    <h3>{heading("Find all captured observations for a stock", "查一只股票已收录的记录")}</h3>
+    <p>{isZh ? "先查 coverage，再用 symbols 和明确的采集日期范围取历史。分页时固定 snapshot 或 bundle；读完后按 dataset 选择 report_date、dividend_date 或 split_date 筛选未来事件。同一事件可能多次出现或修订，请保留采集日期和版本，不能把较早记录自动当作今天仍有效，也不能据此补成完整日历。当前没有按事件日期筛选或返回完整当前日历的独立接口。" : "Check coverage, then request history with symbols and explicit capture-date bounds. Pin snapshot or bundle across pages. After reading all pages, filter future events using report_date, dividend_date or split_date for the selected dataset. Repeated observations and revisions can occur; retain capture dates and versions. Do not automatically carry old observations into today's calendar. There is no separate event-date filter or complete-current-calendar endpoint."}</p>
+    <pre className="code">{`curl --get "https://api.leandata.uk/v1/events/eodhd/history" \\
+  -H "Authorization: Bearer $LEANDATA_TOKEN" \\
+  --data-urlencode "dataset=dividends" \\
+  --data-urlencode "symbols=PG,MSFT" \\
+  --data-urlencode "start=2026-10-09" \\
+  --data-urlencode "end=2026-10-16" \\
+  --data-urlencode "limit=500"`}</pre>
+    <details><summary>{heading("Limits and delivery options", "查询限制与交付选项")}</summary>
+      <p>{isZh ? "建议始终传入 start 和 end。省略日期时，不指定股票默认最近 7 天，指定股票默认最近 31 天。offset 最大为 100000，超过时请缩小日期或股票范围。此接口不支持 fields 字段筛选，也不支持 cache-only 或 upstream-only。日期参数使用 start/end，不使用 start_date/end_date。" : "Always send start and end. Without dates, requests without symbols default to the latest 7 days; requests with symbols default to 31 days. offset is capped at 100000; narrow the date or symbol range if needed. fields, cache-only and upstream-only are unsupported. Use start/end, not start_date/end_date."}</p>
+      <p>{isZh ? "接口默认直接返回 JSON。需要签名下载时，请参阅 " : "The API returns JSON directly by default. For optional signed downloads, see "}<a href={docArticlePath("market-overview", "response-delivery")}>{heading("response delivery", "响应交付说明")}</a>。</p>
+    </details>
+
+    <h2 id="eodhd-coverage" className="display-title">{heading("Check data coverage", "查询数据范围")}</h2>
+    <EndpointBadge method="GET / POST" path="/v1/events/eodhd/coverage" />
+    <DocDesc zh="查看各数据集可查询的日期、记录数量和版本。首次接入或检查数据是否更新时，先调用这个接口。" en="Check available dates, record counts and data versions. Call this endpoint when getting started or checking for a new update." />
+    <ParamTable rows={[
+      { name: "dataset", type: "string", required: false, desc: "earnings (default), dividends or splits", zh: "earnings（默认）、dividends 或 splits" },
+      { name: "bundle", type: "string", required: false, desc: "Optional: look up a single data version", zh: "可选：仅查询指定数据版本" },
+    ]} />
+    <pre className="code">{`curl --get "https://api.leandata.uk/v1/events/eodhd/coverage" \\
+  -H "Authorization: Bearer $LEANDATA_TOKEN" \\
+  --data-urlencode "dataset=earnings"`}</pre>
+    <BilingualDataTable columns={[["Response field", "返回字段"], ["Description", "说明"]]} rows={[
+      ["data[].first_date", ["Earliest calendar update date in this version", "该版本最早的日历更新日期"]],
+      ["data[].last_date", ["Latest calendar update date in this version", "该版本最新的日历更新日期"]],
+      ["data[].rows", ["Number of event records", "事件记录数"]],
+      ["data[].bundle", ["Data version to use in history requests", "可用于查询事件日历的数据版本"]],
+    ]} />
+    <DocDesc zh="使用 daily_coverage.latest_capture_date 获取最新采集日期，包括返回空结果的日期；latest_nonempty_date 仅表示最近有记录的日期。不能把采集为空解释为上游没有事件。这个接口不分页，日期和股票筛选条件不会限制它的结果。" en="Use daily_coverage.latest_capture_date for the latest capture date, including empty captures. latest_nonempty_date is the latest date with records. An empty capture does not prove no upstream events. Coverage is not paginated and is not filtered by history dates or symbols." />
+    <h3>{heading("What coverage proves", "覆盖结果能证明什么")}</h3>
+    <p>{isZh ? "bundle 可查询，表示该批采集内容已提交并可读取；daily_coverage.by_date 给出所选日期、版本与记录数。truncated=false、next_offset=null 只表示当前筛选的分页结束。这些都不证明某只股票的全部已公告事件已收录。当前没有按股票验证事件完整性、预期股票池或每日全量发布完成的字段。" : "A queryable bundle has committed captured contents. daily_coverage.by_date identifies the selected dates, versions and row counts. truncated=false and next_offset=null mean only that pagination ended for the filters used. None proves that every announced event for a stock was captured. Per-stock event completeness, an expected universe and a daily full-calendar completion marker are not supplied."}</p>
+    <p>{isZh ? "06:00 美西时间是预计开始更新，不是完成时间。判断有无新数据请比较 latest_capture_date 和对应 bundle；日期未推进、空采集与来源抓取失败是不同情况。只凭当前接口不能证明当天上游全量更新已完成。" : "06:00 Pacific is the expected update start, not completion. Compare latest_capture_date and its bundle for a new capture. An unchanged date, an empty capture and a source collection failure are different states. This API alone cannot certify completion of the day's full upstream calendar."}</p>
+
+  </DocContent>;
+}
+
+function MorningstarFundamentalsBody({ articleId } = {}) {
+  const isZh = useCurrentLanguage() === "zh";
+  const metrics = [
+    [isZh ? "估值比率" : "Valuation ratios", "market_cap · pe_ratio · pb_ratio · ps_ratio · ev_to_ebitda · dividend_yield · earning_yield"],
+    [isZh ? "盈利能力" : "Profitability", "roe · roa · gross_margin · operating_margin · net_margin"],
+    [isZh ? "偿债与杠杆" : "Liquidity & leverage", "current_ratio · debt_to_equity"],
+    [isZh ? "利润表指标" : "Income statement", "total_revenue · operating_income · net_income · ebitda"],
+    [isZh ? "现金流指标" : "Cash flow", "operating_cash_flow · free_cash_flow · capital_expenditure"],
+    [isZh ? "资产负债表" : "Balance sheet", "total_assets · total_liabilities · cash_and_equivalents · stockholders_equity"],
+    [isZh ? "参考行情" : "Reference market fields", "adjusted_price · dollar_volume · volume"],
+  ];
+  return (
+    <DocContent articleId={articleId} style={{ maxWidth: 860, margin: "0 auto" }}>
+      <FinancialSourceSelector docAlwaysVisible active="morningstar" />
+
+      <ProviderHero
+        id="morningstar-overview"
+        provider="morningstar"
+        eyebrow={isZh ? "基本面数据源 · Premium" : "Fundamentals provider · Premium"}
+        title="Morningstar Fundamentals"
+        zhTitle="Morningstar 财务基本面"
+        en="Daily US equity fundamentals dataset covering S&P 500, Nasdaq-100, and popular equities. Preserves source nulls, reporting availability dates, and revision rules."
+        zh="覆盖标普 500、纳斯达克 100 及热门美股的日度基本面数据集。保留源端真实空值、财报公布日时序与修订规则。"
+        chips={isZh ? ["日度快照", "64 个财务指标", "标普与纳指成分池", "无前填", "Premium"] : ["Daily snapshots", "64 financial metrics", "SPX & NDX scope", "No forward-fill", "Premium"]}
+        alt="Morningstar provider logo"
+      />
+      <DailyFinancialRefresh />
+      <p className="callout" style={{ marginBottom: 22 }}>
+        {isZh ? (
+          <>推荐使用 <strong>日度财报历史接口</strong>，一次查询历史归档和最近更新，字段名统一。实际日期、股票数量与缺失情况请查日度覆盖接口；原始 v3、native 和旧版 v1 保留各自的归档范围。</>
+        ) : (
+          <>Recommended: <strong>daily financial history</strong> combines the historical archive and recent updates in one query with consistent fields. Check daily coverage for actual dates, observed stocks and gaps. Original v3, native and legacy v1 retain their archive boundaries.</>
+        )}
+      </p>
+
+      <h2 id="morningstar-daily-history" className="display-title">{isZh ? "日度财报历史" : "Daily financial history"}</h2>
+      <EndpointBadge method="GET / POST" path="/v1/fundamentals/morningstar/daily/history" />
+      <DocDesc zh="一次查询某只股票一段时间内的营收、利润、资产和估值指标。接口自动读取历史归档及最近更新，每只股票每天返回一行；没有数据的日期保持缺失。需要 Premium。" en="Query revenue, earnings, assets and valuation metrics across a date range. The endpoint reads the historical archive and recent updates and returns one row per stock and day. Missing dates remain missing. Requires Premium." />
+      <DailyFinancialRefresh />
+      <ParamTable rows={[
+        { name: "symbols / sids", type: "string", required: false, desc: "Up to 100 ticker aliases or exact QC SIDs. Ambiguous tickers require a SID.", zh: "最多 100 个股票代码或 QC SID。代码对应多个身份时，请改用 SID。" },
+        { name: "start / end", type: "date", required: false, desc: "Inclusive daily dates. Without stock filters, request at most 7 days.", zh: "日度数据日期，包含起止日期。不指定股票时，最多查询 7 天。" },
+        { name: "fields", type: "string", required: false, desc: "Comma-separated field names; defaults to all 64 fields.", zh: "需要的字段，逗号分隔，默认返回全部 64 项。" },
+        { name: "limit", type: "integer", required: false, desc: "Records per page, up to 500.", zh: "每页记录数，最多 500。" },
+        { name: "snapshot / offset", type: "string / integer", required: false, desc: "For the next page, reuse snapshot and pass next_offset as offset. Keep filters unchanged and use the first response request.start/end.", zh: "下一页同时传回 snapshot 和 next_offset（作为 offset），其他筛选条件保持不变。日期使用首次响应 request.start/end。" },
+      ]} />
+      <pre className="code">{`curl --get "https://api.leandata.uk/v1/fundamentals/morningstar/daily/history" \\
+  -H "Authorization: Bearer $LEANDATA_TOKEN" \\
+  --data-urlencode "symbols=AAPL" \\
+  --data-urlencode "start=2026-09-25" \\
+  --data-urlencode "end=2026-10-16" \\
+  --data-urlencode "fields=market_cap,total_revenue,net_income"`}</pre>
+      <h3>{isZh ? "响应示例" : "Response example"}</h3>
+      <p>{isZh ? "以下记录仅作格式示意。" : "Illustrative record format."}</p>
+      <pre className="code">{JSON.stringify({ row_count: 1, truncated: false, next_offset: null, snapshot: "<selection token>", rows: [{ date: "2026-10-15", qc_sid: "AAPL R735QTJ8XC9X", symbol: "AAPL", values: { market_cap: 4820749537600, total_revenue: 416161000000, net_income: null }, status: { market_cap: "O", total_revenue: "O", net_income: "M" }, source: { kind: "native_capture", bundle: "<source version>" } }] }, null, 2)}</pre>
+      <DocDesc zh="values 始终是按字段名索引的对象，值为数字或 null。symbol 是归档对照表中的显示代码，qc_sid 是稳定身份；原始代码见 source_symbol（如有）。每行 source 标明来自历史归档还是新采集，source_dates 保留原日期。" en="values is always an object keyed by field name, containing numbers or null. symbol is the display ticker from the archive reference map; qc_sid is the stable identity. source_symbol preserves the captured label when present. Each row's source identifies historical or recent data; source_dates retains the original dates." />
+      <details><summary>{isZh ? "版本与缺失值" : "Versions and missing data"}</summary><p>{isZh ? "默认选择每个 SID、日期最近一次已提交的采集记录。新记录整行覆盖旧记录，不从另一版本补字段。历史入库状态、披露日期及新采集的缺失/零值状态会保留；这不等于严格的历史时点认证。更多版本请使用原始 native 接口。" : "The latest committed capture is selected per SID and date. A new row replaces the old row without filling fields from another version. Original admission/file dates and missing/zero status are retained; strict point-in-time certification is not implied. Use the raw native endpoint for preserved versions."}</p></details>
+
+      <h2 id="morningstar-daily-coverage" className="display-title">{isZh ? "日度覆盖与缺失" : "Daily coverage and gaps"}</h2>
+      <EndpointBadge method="GET / POST" path="/v1/fundamentals/morningstar/daily/coverage" />
+      <DocDesc zh="传入相同的股票和日期，检查哪些日期有数据、历史归档与新采集各自覆盖哪里，以及最近一天各字段缺多少。最多查询 366 天的日期跨度。" en="Use the same stocks and dates to check observed dates, the coverage of each source, and field missingness on the latest captured day. Date windows allow at most 366 elapsed days." />
+      <pre className="code">{`curl --get "https://api.leandata.uk/v1/fundamentals/morningstar/daily/coverage" \\
+  -H "Authorization: Bearer $LEANDATA_TOKEN" \\
+  --data-urlencode "symbols=AAPL" \\
+  --data-urlencode "start=2026-09-25" \\
+  --data-urlencode "end=2026-10-16"`}</pre>
+      <BilingualDataTable columns={[["Field", "字段"], ["Meaning", "含义"]]} rows={[
+        ["observed_dates", ["Dates with records", "有记录的日期"]],
+        ["sources", ["Dates and observed stock counts for each source", "各来源的日期与实际股票数"]],
+        ["unobserved_weekdays", ["Weekdays without records; may include market holidays", "没有记录的工作日，可能包含休市日"]],
+        ["latest_native_day.missing_by_field", ["Null count for each field on the latest captured day", "最近一个采集日各字段的缺失数量"]],
+        ["unresolved_symbols", ["Requested tickers that could not be resolved", "无法解析的请求代码"]],
+      ]} />
+      <DocDesc zh="未提供经过核对的预期股票名单时，股票覆盖率保持 null，不把实际返回数量当作 100% 覆盖。工作日缺记录也不一定是故障，应结合休市日和上市状态判断。" en="Without a verified expected stock list, stock_coverage_ratio remains null. Returned stocks do not prove 100% coverage. Missing weekdays may also reflect market holidays or listing availability." />
+
+      <section id="morningstar-v3" style={{ borderTop: "1px solid var(--rule)", paddingTop: 26, marginBottom: 34 }}>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>{isZh ? "v3 · 数据集概览" : "v3 · Dataset summary"}</div>
+        <h3 className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>{isZh ? "v3 核心数据集" : "Morningstar v3 Dataset"}</h3>
+        <BilingualDataTable
+          columns={[["Property", "属性"], ["Value", "取值"]]}
+          rows={[
+            ["Start date", ["2011-01-03", "2011-01-03"]],
+            ["Asset coverage", ["~898 US equities (S&P 500 + Nasdaq-100 + hot stocks; no ETFs, ADRs)", "约 898 只美股（标普 500 + 纳指 100 + 热门股票；不含 ETF、ADR）"]],
+            ["Tracked fields", ["64 financial metrics + company reference block", "64 个财务指标 + 基础档案字段"]],
+            ["Data density", ["Sparse (source nulls preserved; no imputation)", "稀疏存储（保留真实空值，不自动填充）"]],
+            ["Resolution", ["Daily (reporting period date)", "日度快照（财报公布日）"]],
+            ["Timezone", ["New York (ET)", "美东时间 (New York)"]],
+            ["Precision", ["Double precision (Float64)", "双精度浮点数 (Float64)"]],
+            ["PIT rule", ["Field admission codes retained; not certified strict PIT", "保留字段入库状态，未认证严格历史时点"]],
+          ]}
+        />
+        <div className="callout" style={{ marginBottom: 18, marginTop: 14 }}>
+          {isZh ? (
+            <>
+              <strong>指数成分调整说明：</strong>标普 500 与纳斯达克 100 历史成分基于开源社区维护的数据集（<a href="https://github.com/fja05680/sp500" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>fja05680/sp500 ↗</a> 及 <a href="https://github.com/jmccarrell/n100tickers" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>jmccarrell/n100tickers ↗</a>）。指数会定期进行成分轮动，某只股票若被调出指数，其数据覆盖即在调出日终止，此为正常的成分变动而非数据缺失。如需区分调出与退市，可查看 <code>delisting_date</code> 与 <code>company_status</code> 字段。
+            </>
+          ) : (
+            <>
+              <strong>Index Rebalancing Note:</strong> Historical constituents for S&amp;P 500 and Nasdaq-100 are derived from community-maintained datasets (<a href="https://github.com/fja05680/sp500" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>fja05680/sp500 ↗</a> and <a href="https://github.com/jmccarrell/n100tickers" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>jmccarrell/n100tickers ↗</a>). Constituents rotate over time; when a stock is removed from an index, data coverage ends on that date. This reflects index rebalancing, not missing data. To distinguish removal from delisting, check <code>delisting_date</code> and <code>company_status</code>.
+            </>
+          )}
+        </div>
+        <h3 className="display-title" style={{ fontSize: 24, margin: "22px 0 10px" }}>{isZh ? "财务指标分类" : "Financial Metrics"}</h3>
+        <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
+          {isZh ? (
+            "涵盖单季度（3M）与滚动 12 个月（TTM）报表数据（利润表、资产负债表、现金流量表）、日度估值与盈利比率（市盈率、市净率等），以及市值与股本等基础档案。缺失值严格保持为空，不进行插值或填充。"
+          ) : (
+            "Includes quarterly (3M) and trailing 12-month (TTM) statements (income, balance sheet, cash flow), daily valuation and profitability ratios (P/E, P/B, etc.), and market cap/shares outstanding. Missing values strictly remain null with no forward-fill or imputation."
+          )}
+        </p>
+        <h3 className="display-title" style={{ fontSize: 24, margin: "22px 0 10px" }}>{isZh ? "公司基础档案" : "Company Reference Attributes"}</h3>
+        <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
+          {isZh ? (
+            "每条记录附带股票代码、行业分类、上市退市状态、财报周期等元数据，便于行业中性化与股票池筛选："
+          ) : (
+            "Each record includes metadata such as ticker, industry classification, listing/delisting status, and fiscal period anchors for sector neutralization and universe filtering:"
+          )}
+        </p>
+        <BilingualDataTable
+          columns={[["Attribute", "属性"], ["Meaning", "含义"]]}
+          rows={[
+            ["qc_ticker", ["Tradable US ticker (e.g. AAPL)", "可交易美股代码（如 AAPL）"]],
+            ["qc_sid", ["Security identifier", "证券 ID"]],
+            ["cik", ["SEC CIK number", "SEC 监管编号"]],
+            ["company_status", ["Listing status", "上市状态"]],
+            ["currency", ["Reporting currency", "报告币种"]],
+            ["delisting_date", ["Delisting date, if applicable", "退市日期（如有）"]],
+            ["fiscal_year_end", ["Fiscal year-end month/day", "财年截止日"]],
+            ["ipo_date", ["IPO date", "IPO 日期"]],
+            ["is_primary_share", ["Primary share class flag", "主上市份额标识"]],
+            ["sector_code", ["Morningstar sector code (11 sectors)", "行业大类代码（11 类）"]],
+            ["industry_group_code", ["Morningstar industry group code (51 groups)", "行业组代码（51 组）"]],
+            ["industry_code", ["Detailed industry code (126 industries)", "细分行业代码（126 类）"]],
+            ["financial_period_ending_3m / _12m", ["Statement period ending date", "财报所属期截止日"]],
+            ["earning_period_ending_3m", ["Earnings period ending date", "业绩所属期截止日"]],
+          ]}
+        />
+        <h3 className="display-title" style={{ fontSize: 24, margin: "22px 0 10px" }}>{isZh ? "行业分类层级" : "Industry Classification"}</h3>
+        <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
+          {isZh ? (
+            "遵循 Morningstar 三级行业分类标准：11 个行业大类、51 个行业组、126 个细分行业。"
+          ) : (
+            "Structured by Morningstar's three-tier hierarchy: 11 sectors, 51 industry groups, and 126 detailed industries."
+          )}
+        </p>
+        <BilingualDataTable
+          columns={[["Sector", "行业大类"], ["Industry Groups", "包含行业组"]]}
+          rows={[
+            [["101 Basic Materials (33)", "101 基础材料 (33 家)"], ["10110 (5) · 10120 (3) · 10130 (16) · 10150 (7) · 10160 (2)", "10110 (5) · 10120 (3) · 10130 (16) · 10150 (7) · 10160 (2)"]],
+            [["102 Consumer Cyclical (107)", "102 非必需消费 (107 家)"], ["10200 (19) · 10220 (4) · 10230 (5) · 10240 (10) · 10250 (11) · 10260 (2) · 10270 (8) · 10280 (29) · 10290 (19)", "10200 (19) · 10220 (4) · 10230 (5) · 10240 (10) · 10250 (11) · 10260 (2) · 10270 (8) · 10280 (29) · 10290 (19)"]],
+            [["103 Financial Services (99)", "103 金融服务 (99 家)"], ["10310 (18) · 10320 (22) · 10330 (19) · 10340 (28) · 10360 (12)", "10310 (18) · 10320 (22) · 10330 (19) · 10340 (28) · 10360 (12)"]],
+            [["104 Real Estate (44)", "104 房地产 (44 家)"], ["10410 (2) · 10420 (42)", "10410 (2) · 10420 (42)"]],
+            [["205 Consumer Defensive (49)", "205 必需消费 (49 家)"], ["20510 (3) · 20520 (5) · 20525 (27) · 20540 (1) · 20550 (9) · 20560 (4)", "20510 (3) · 20520 (5) · 20525 (27) · 20540 (1) · 20550 (9) · 20560 (4)"]],
+            [["206 Healthcare (101)", "206 医疗健康 (101 家)"], ["20610 (15) · 20620 (18) · 20630 (10) · 20645 (10) · 20650 (31) · 20660 (12) · 20670 (5)", "20610 (15) · 20620 (18) · 20630 (10) · 20645 (10) · 20650 (31) · 20660 (12) · 20670 (5)"]],
+            [["207 Utilities (33)", "207 公用事业 (33 家)"], ["20710 (3) · 20720 (30)", "20710 (3) · 20720 (30)"]],
+            [["308 Communication Services (51)", "308 通信服务 (51 家)"], ["30810 (11) · 30820 (29) · 30830 (11)", "30810 (11) · 30820 (29) · 30830 (11)"]],
+            [["309 Energy (49)", "309 能源 (49 家)"], ["30910 (49)", "30910 (49)"]],
+            [["310 Industrials (113)", "310 工业制造 (113 家)"], ["31010 (18) · 31020 (16) · 31030 (2) · 31040 (16) · 31050 (5) · 31060 (3) · 31070 (31) · 31080 (19) · 31090 (3)", "31010 (18) · 31020 (16) · 31030 (2) · 31040 (16) · 31050 (5) · 31060 (3) · 31070 (31) · 31080 (19) · 31090 (3)"]],
+            [["311 Technology (130)", "311 信息技术 (130 家)"], ["31110 (67) · 31120 (32) · 31130 (31)", "31110 (67) · 31120 (32) · 31130 (31)"]],
+          ]}
+        />
+        <div className="callout" style={{ marginBottom: 18, marginTop: 14 }}>
+          {isZh ? (
+            <>
+              <strong>数据状态码说明：</strong>仅在详情模式（<code>detail=true</code>）下返回。0 为有效入库数据；1 为源端未披露；2 为披露日晚于快照日（为避免未来函数剔除）；3 为财报缺少有效披露日；4 为历史直连数据。仅状态码为 0 或 4 时返回数值，其余返回空值（null）。
+            </>
+          ) : (
+            <>
+              <strong>Data Status Codes:</strong> Returned only when <code>detail=true</code>. 0: Valid admitted data; 1: Unobserved by source; 2: Filing date after snapshot date (excluded to prevent lookahead bias); 3: Missing filing date; 4: Legacy direct data. Values returned only for codes 0 and 4; others return null.
+            </>
+          )}
+        </div>
+
+        <div className="eyebrow" style={{ marginBottom: 8 }}>{isZh ? "接口 · 历史数据" : "History Endpoint · v3"}</div>
+        <EndpointBadge method="GET" path="/v1/fundamentals/morningstar/v3/history" />
+        <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
+          {isZh ? (
+            "查询日度历史基本面。默认返回标准宽表；传入 detail=true 返回包含状态码与披露日的明细长表。"
+          ) : (
+            "Query daily historical fundamentals. Returns wide format by default, or detailed long rows with status codes and filing dates (detail=true)."
+          )}
+        </p>
+        <ParamTable rows={[
+          { name: "symbol / symbols", type: "string", required: false, desc: "Comma-separated US stock tickers; up to 100.", zh: "逗号分隔的美股代码，最多 100 个。" },
+          { name: "start / end", type: "date", required: false, desc: "Date range in YYYY-MM-DD; defaults to last 30 calendar days.", zh: "起止日期（YYYY-MM-DD）；默认最近 30 天。" },
+          { name: "fields", type: "string", required: false, desc: "Comma-separated list of metrics; defaults to all 64 fields.", zh: "逗号分隔的财务指标列表，默认返回全部 64 个指标。" },
+          { name: "detail", type: "boolean", required: false, desc: "Whether to return detailed long rows with status codes and filing dates. Default false.", zh: "是否返回详情长表（包含数值、状态码与披露日）。默认 false。" },
+          { name: "limit", type: "integer", required: false, desc: "Maximum number of rows; default 5,000, max 10,000.", zh: "返回记录条数限制，默认 5,000，上限 10,000。" },
+        ]} />
+        <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS \
+  'https://leandata.uk/v1/fundamentals/morningstar/v3/history?symbols=AAPL,MSFT&fields=market_cap,pe_ratio,net_income_3m&start=2026-09-24&end=2026-09-25&limit=4' \
+  -H 'Authorization: Bearer YOUR_TOKEN'`}</pre>
+        <pre className="code" style={{ marginBottom: 26 }}>{`{
+  "schema": "morningstar_fundamentals_history_v3",
+  "store": "ms-v3-ff-20261006",
+  "row_count": 4,
+  "rows": [
+    { "date": "2026-09-25", "symbol": "AAPL", "market_cap": 4902476945600,
+      "pe_ratio": 39.113532, "net_income_3m": 29789000000 },
+    { "date": "2026-09-25", "symbol": "MSFT", "market_cap": 3697401866333,
+      "pe_ratio": 28.755989, "net_income_3m": 35766000000 }
+  ]
+}`}</pre>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>{isZh ? "接口 · 覆盖统计" : "Coverage Endpoint · v3"}</div>
+        <EndpointBadge method="GET" path="/v1/fundamentals/morningstar/v3/coverage" />
+        <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
+          {isZh ? (
+            "返回快照版本、总记录数（约 1.78 亿条）、覆盖起止日期及各年份成分股数量统计。"
+          ) : (
+            "Returns snapshot version, total records (~178M), date span, and constituent counts by year."
+          )}
+        </p>
+        <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS 'https://leandata.uk/v1/fundamentals/morningstar/v3/coverage' \
+  -H 'Authorization: Bearer YOUR_TOKEN'`}</pre>
+        <pre className="code">{`{
+  "schema": "morningstar_fundamentals_coverage_v3",
+  "totals": { "snapshot": "ms-v3-ff-20261006", "files": "32", "rows": "178228424" },
+  "span": { "min_date": "2011-01-03", "max_date": "2026-09-28", "symbols": "898" },
+  "slots": [ { "slot": "net_income_3m", "family": "companion_v3", "period": "3m" }, ... ]
+}`}</pre>
+        <p className="callout" style={{ marginTop: 18 }}>
+          {isZh ? (
+            <>工程说明：v1 接口冻结在旧表；v3 读取独立长表存储（快照 <code>ms-v3-ff-20261006</code>），按主上市份额去重。单次请求不全量计算 1.78 亿行的空值率。</>
+          ) : (
+            <>Engineering note: v1 stays frozen on the legacy table; v3 reads the independent long-format store (snapshot <code>ms-v3-ff-20261006</code>) deduplicated by primary share. Per-metric null rates over 178M rows are not computed per request.</>
+          )}
+        </p>
+      </section>
+
+      <h3 id="morningstar-pit" className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>
+        {isZh ? "时点数据概念（PIT 说明）" : "What is point-in-time data?"}
+      </h3>
+      <DocDesc
+        zh="PIT（Point-in-Time）数据要求在回测某个历史日期时，仅使用当时已知的信息与实际成分，避免未来函数与幸存者偏差。"
+        en="Point-in-time (PIT) data ensures historical backtests use only information that was known at that date, preventing lookahead and survivorship bias."
+      />
+      <ProviderFeatures items={[
+        [[isZh ? "可用时点" : "Availability timing"], [isZh ? "数值只有在披露可用后才能进入回测，不能仅因财报期结束就提前使用。" : "A value belongs to a backtest only after it became available, not merely because its fiscal period ended."]],
+        [[isZh ? "修订时点" : "Revision timing"], [isZh ? "后续重述不能替换更早日期已获知的内容。" : "A later restatement must not silently replace what an investor knew on an earlier date."]],
+        [[isZh ? "股票池时点" : "Universe timing"], [isZh ? "历史股票池应反映当时实际成分，而非仅包含存续至今的公司。" : "Historical universe reflects constituents present on each date, not just today's survivors."]],
+        [[isZh ? "核心意义" : "Why it matters"], [isZh ? "缺少时点控制会引入未来信息与幸存者偏差，显著虚增回测收益。" : "Without PIT controls, look-ahead and survivorship bias can materially overstate backtests."]],
+      ]} />
+
+      <div className="provider-note">
+        {isZh ? (
+          <>
+            <strong>v1 历史归档边界说明：</strong>股票池基于旧版 SPY + QQQ 集合，存在幸存者偏差。<code>date</code> 为披露可用日，非财报所属期截止日。
+          </>
+        ) : (
+          <>
+            <strong>v1 Historical Archive Scope:</strong> Based on legacy SPY + QQQ set with survivorship bias. <code>date</code> reflects reporting availability date, not fiscal period end.
+          </>
+        )}
+      </div>
+
+      <ProviderStats items={[
+        ["847,954", isZh ? "去重逻辑行数" : "deduplicated logical rows", isZh ? "去重逻辑行数" : "deduplicated logical rows"],
+        ["550", isZh ? "标的数量" : "symbols in dataset scope", isZh ? "标的数量" : "symbols in dataset scope"],
+        ["1,682", isZh ? "不同可用日期" : "distinct availability dates", isZh ? "不同可用日期" : "distinct availability dates"],
+        ["2020-01-02 → 2026-09-25", isZh ? "v1 归档区间（已冻结）" : "v1 window (frozen)", isZh ? "v1 归档区间（已冻结）" : "v1 window (frozen)"],
+      ]} />
+
+      <h3 id="morningstar-processing" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>
+        {isZh ? "去重与数据处理（旧版 v1）" : "Deduplication and processing"}
+      </h3>
+      <ProviderFlow items={[
+        [[isZh ? "归一化键" : "Normalize key"], isZh ? "以代码 + 可用日期作为逻辑主键" : "Use symbol + availability date as logical key", isZh ? "以代码 + 可用日期作为逻辑主键" : "Use symbol + availability date as logical key"],
+        [[isZh ? "识别版本" : "Resolve versions"], isZh ? "识别同一逻辑观测的多版本记录" : "Identify physical versions of the same logical observation", isZh ? "识别同一逻辑观测的多版本记录" : "Identify physical versions of the same logical observation"],
+        [[isZh ? "选取最新" : "Select latest"], isZh ? "每个标的/日期返回最新一条记录" : "Return one latest logical row per symbol/date", isZh ? "每个标的/日期返回最新一条记录" : "Return one latest logical row per symbol/date"],
+        [[isZh ? "保持语义" : "Preserve meaning"], isZh ? "源端数值、空值及前填逻辑不变" : "Keep source values, nulls, and fill-forward unchanged", isZh ? "源端数值、空值及前填逻辑不变" : "Keep source values, nulls, and fill-forward unchanged"],
+      ]} />
+
+      <ProviderFeatures items={[
+        [[isZh ? "确定性去重" : "Deterministic deduplication"], [isZh ? "最新视图将重复物理行折叠为一条唯一逻辑观测。" : "The latest view collapses repeated physical rows into one logical observation."]],
+        [[isZh ? "修订感知" : "Revision-aware selection"], [isZh ? "同一记录存在多个版本时，返回最新纳入的版本。" : "If the same logical key has multiple versions, the latest admitted version is returned."]],
+        [[isZh ? "保持源端真实" : "No value rewriting"], [isZh ? "API 不进行缩尾、插值或前向填充，缺失值不转为零。" : "The API does not winsorize, interpolate, forward-fill, or convert missing metrics to zero."]],
+        [[isZh ? "前向填充披露" : "Source fill-forward disclosed"], [isZh ? "连续相同数值可能来自源端披露习惯，不代表新增披露。" : "Repeated daily values may reflect provider source fill-forward, not new filings."]],
+      ]} />
+
+      <h3 className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>
+        {isZh ? "指标分组（旧版 v1）" : "Legacy Metric Groups (v1)"}
+      </h3>
+      <div style={{ display: "grid", gap: 8, marginBottom: 28 }}>
+        {metrics.map(([group, fields]) => (
+          <div key={group} style={{ borderTop: "1px solid var(--rule)", padding: "10px 0" }}>
+            <strong style={{ display: "block", fontSize: 13, marginBottom: 4 }}>{group}</strong>
+            <code style={{ color: "var(--ink-muted)", fontSize: 12, lineHeight: 1.7 }}>{fields}</code>
+          </div>
+        ))}
+      </div>
+
+      <h3 id="morningstar-fields" className="display-title" style={{ fontSize: 27, margin: "0 0 12px" }}>
+        {isZh ? "字段字典（旧版 v1）" : "Field Dictionary (v1)"}
+      </h3>
+      <BilingualDataTable
+        columns={[["Field", "字段"], ["Meaning", "含义"], ["Boundary", "使用边界"]]}
+        rows={[
+          ["market_cap", ["Equity market capitalization", "股票总市值"], ["Nullable provider observation", "供应商观测值，可为空"]],
+          ["pe_ratio", ["Price-to-earnings ratio", "市盈率"], ["Do not impute missing earnings", "盈利缺失时不得插补"]],
+          ["pb_ratio", ["Price-to-book ratio", "市净率"], ["Provider methodology preserved", "保留供应商口径"]],
+          ["ps_ratio", ["Price-to-sales ratio", "市销率"], ["Provider methodology preserved", "保留供应商口径"]],
+          ["ev_to_ebitda", ["Enterprise value to EBITDA", "企业价值 / EBITDA"], ["May be unavailable for some capital structures", "部分资本结构可能不可用"]],
+          ["dividend_yield", ["Dividend yield", "股息率"], ["Currently source-NULL across this archive", "当前归档中源端均为空"]],
+          ["earning_yield", ["Earnings yield", "盈利收益率"], ["Nullable; not a trading return", "可为空；并非投资回报率"]],
+          ["roe", ["Return on equity", "净资产收益率"], ["Daily snapshot of provider ratio", "供应商比率的日度快照"]],
+          ["roa", ["Return on assets", "总资产收益率"], ["Daily snapshot of provider ratio", "供应商比率的日度快照"]],
+          ["gross_margin", ["Gross profit margin", "毛利率"], ["Ratio units follow source", "比例单位遵循源端"]],
+          ["operating_margin", ["Operating margin", "营业利润率"], ["Ratio units follow source", "比例单位遵循源端"]],
+          ["net_margin", ["Net profit margin", "净利率"], ["Ratio units follow source", "比例单位遵循源端"]],
+          ["current_ratio", ["Current assets / current liabilities", "流动比率"], ["Nullable for non-comparable issuers", "不可比发行人可能为空"]],
+          ["debt_to_equity", ["Debt-to-equity ratio", "债务权益比"], ["Provider methodology preserved", "保留供应商口径"]],
+          ["total_revenue", ["Total reported revenue", "营业总收入"], ["Snapshot value, not a filing event timestamp", "快照值，不是披露事件时间"]],
+          ["operating_income", ["Operating income", "营业利润"], ["Currency and scale follow source", "币种与量级遵循源端"]],
+          ["net_income", ["Net income", "净利润"], ["Currency and scale follow source", "币种与量级遵循源端"]],
+          ["ebitda", ["Earnings before interest, taxes, depreciation and amortization", "息税折旧摊销前利润"], ["Provider-computed where available", "按供应商可用口径"]],
+          ["operating_cash_flow", ["Cash flow from operations", "经营活动现金流"], ["Snapshot value", "快照值"]],
+          ["free_cash_flow", ["Free cash flow", "自由现金流"], ["Provider calculation preserved", "保留供应商计算口径"]],
+          ["capital_expenditure", ["Capital expenditure", "资本开支"], ["Sign convention follows source", "正负号遵循源端"]],
+          ["total_assets", ["Total assets", "总资产"], ["Snapshot value", "快照值"]],
+          ["total_liabilities", ["Total liabilities", "总负债"], ["Snapshot value", "快照值"]],
+          ["cash_and_equivalents", ["Cash and cash equivalents", "现金及现金等价物"], ["Snapshot value", "快照值"]],
+          ["stockholders_equity", ["Stockholders' equity", "股东权益"], ["Snapshot value", "快照值"]],
+          ["adjusted_price", ["Reference adjusted equity price", "辅助复权价格"], ["Not the authoritative market-price API", "不是权威行情接口"]],
+          ["dollar_volume", ["Reference dollar volume", "辅助成交额"], ["For context only", "仅作上下文参考"]],
+          ["volume", ["Reference share volume", "辅助成交量"], ["For context only", "仅作上下文参考"]],
+        ]}
+      />
+      <p className="callout" style={{ marginBottom: 30 }}>
+        {isZh ? (
+          <><code>dividend_yield</code> 在旧版归档中源端均为空值；保留该字段以维持结构稳定，请勿视为零。</>
+        ) : (
+          <><code>dividend_yield</code> is source-null across this legacy archive; it is preserved for schema stability and must not be interpreted as zero.</>
+        )}
+      </p>
+
+      <section id="morningstar-history" style={{ borderTop: "1px solid var(--rule)", paddingTop: 26, marginBottom: 34 }}>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>{isZh ? "历史快照 · v1" : "Daily History · v1"}</div>
+        <h3 className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>{isZh ? "历史快照（旧版）" : "Daily History (Legacy)"}</h3>
+        <EndpointBadge method="GET" path="/v1/fundamentals/morningstar" />
+        <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
+          {isZh ? "查询去重后的日度宽表。GET 与 POST 接口约束一致。" : "Query deduplicated daily-wide observations. GET query and POST JSON body use the same bounds."}
+        </p>
+        <ParamTable rows={[
+          { name: "symbol / symbols", type: "string", required: false, desc: "Comma-separated US equity tickers; maximum 100.", zh: "逗号分隔的美股代码，最多 100 个。" },
+          { name: "start", type: "date", required: false, desc: "Inclusive YYYY-MM-DD start; defaults to end minus 30 calendar days.", zh: "包含式起始日期；默认结束日前 30 天。" },
+          { name: "end", type: "date", required: false, desc: "Inclusive YYYY-MM-DD end; defaults to today.", zh: "包含式结束日期；默认今天。" },
+          { name: "fields", type: "string", required: false, desc: "Comma-separated subset of the 28 metrics; defaults to all.", zh: "28 个指标的逗号分隔子集；默认全部。" },
+          { name: "limit", type: "integer", required: false, desc: "Default 5,000; maximum 10,000.", zh: "默认 5,000，上限 10,000。" },
+        ]} />
+        <div className="callout" style={{ marginBottom: 18 }}>
+          {isZh ? (
+            <>未指定 symbol 的横截面查询最多允许 7 个自然日。超过时返回 <code>400 symbol_or_short_window_required</code>。响应中的 <code>truncated=true</code> 表示存在更多记录。</>
+          ) : (
+            <>Unfiltered cross-sections are limited to seven calendar days. Larger requests return <code>400 symbol_or_short_window_required</code>. <code>truncated=true</code> proves more rows exist.</>
+          )}
+        </div>
+        <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS \
+  'https://leandata.uk/v1/fundamentals/morningstar?symbol=AAPL&start=2026-09-15&end=2026-09-17&fields=market_cap,pe_ratio,total_revenue,net_income,free_cash_flow' \
+  -H 'Authorization: Bearer YOUR_TOKEN'`}</pre>
+        <pre className="code">{`{
+  "schema": "morningstar_fundamentals_history_v1",
+  "source": "morningstar",
+  "scope": "spy_qqq_current_constituent_capture",
+  "date_semantics": "Lean Fundamental.Time availability/file date",
+  "pit_policy": "not certified strict point-in-time",
+  "fill_policy": "source daily fill-forward is preserved; API performs no filling",
+  "row_count": 3,
+  "truncated": false,
+  "rows": [
+    {
+      "symbol": "AAPL",
+      "date": "2026-09-15",
+      "market_cap": 4835635601200,
+      "pe_ratio": 37.997707,
+      "total_revenue": 416161000000,
+      "net_income": 112010000000,
+      "free_cash_flow": 98767000000
+    }
+  ]
+}`}</pre>
+      </section>
+
+      <section id="morningstar-coverage" style={{ borderTop: "1px solid var(--rule)", paddingTop: 26, marginBottom: 32 }}>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>{isZh ? "覆盖统计 · v1" : "Coverage · v1"}</div>
+        <h3 className="display-title" style={{ fontSize: 30, margin: "0 0 10px" }}>{isZh ? "覆盖与空值审计（旧版）" : "Coverage & NULL Audit (Legacy)"}</h3>
+        <EndpointBadge method="GET" path="/v1/fundamentals/morningstar/coverage" />
+        <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.65 }}>
+          {isZh ? "返回记录总数、日期跨度、股票数及各字段空值统计。" : "Returns physical/logical rows, date range, distinct dates, symbol count, and per-metric NULL counts."}
+        </p>
+        <pre className="code" style={{ marginBottom: 18 }}>{`curl -sS 'https://leandata.uk/v1/fundamentals/morningstar/coverage' \
+  -H 'Authorization: Bearer YOUR_TOKEN'`}</pre>
+        <pre className="code">{`{
+  "schema": "morningstar_fundamentals_coverage_v1",
+  "source": "morningstar",
+  "totals": {
+    "logical_rows": "847954",
+    "physical_rows": "852106",
+    "min_date": "2020-01-02",
+    "max_date": "2026-09-17",
+    "distinct_dates": "1682",
+    "symbols": "550"
+  },
+  "null_counts": { "market_cap": "16441", "pe_ratio": "23764", "dividend_yield": "847954" },
+  "years": [ ... ]
+}`}</pre>
+      </section>
+
+      <h3 className="display-title" style={{ fontSize: 27, margin: "0 0 10px" }}>{isZh ? "权限与响应说明" : "Access & Headers"}</h3>
+      <p style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1.7, marginBottom: 14 }}>
+        {isZh
+          ? "接口需要 Premium 计划 Token。支持并发限制与用量统计，未授权访问返回 403 morningstar_premium_required。"
+          : "Both endpoints require a Premium plan token. Requests use historical concurrency, admission pools, and access logging. Unauthorized requests receive 403 morningstar_premium_required."}
+      </p>
+      <pre className="code">{`X-Cache: HIT
+X-Cache-Tier: archive_clickhouse
+X-Data-Source: morningstar_fundamentals_archive
+X-Request-Id: <uuid>`}</pre>
+
+      <div className="provider-attribution" style={{ marginTop: 24, fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.6 }}>
+        {isZh ? (
+          <>
+            数据源为 Morningstar US Fundamentals。Morningstar 名称及标识归其权利人所有。Leandata 不将本数据集表述为 Morningstar 完整股票池或经认证的严格 PIT 数据。
+            <br/><a href="https://www.quantconnect.com/data/morning-star-us-fundamentals" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>官方数据披露 ↗</a>
+          </>
+        ) : (
+          <>
+            Morningstar US Fundamentals. Morningstar and its marks are property of their respective owners. Leandata is not presenting this dataset as the complete Morningstar universe or as certified strict point-in-time data.
+            <br/><a href="https://www.quantconnect.com/data/morning-star-us-fundamentals" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)" }}>Official dataset disclosure ↗</a>
+          </>
+        )}
+      </div>
+    </DocContent>
+  );
+}
 function CnSourceChip({ source }) {
   const map = {
     available: { bg: "var(--ok-soft)", fg: "var(--ok)", en: "available · live", zh: "可用·已上线" },
@@ -2264,8 +2886,8 @@ function CnDataSections({ articleId } = {}) {
 
       <h2 id="cn-access" className="display-title" style={{ fontSize: 28, margin: "40px 0 12px" }}>{isZh ? "权限与范围（已上线）" : "Access & scope (live)"}</h2>
       <DocDesc
-        zh="已上线：普通套餐默认不包含（含 Premium）。China 独立套餐 ¥70/月，付款成功后自动开通账号本人权限；切换套餐会替换账号权限（与现有续费语义一致）。归档为盘后批量更新，无实时推送。"
-        en="Live: not included in ordinary plans (including Premium) by default. The standalone China plan (¥70/mo) auto-provisions access on your own account after payment; switching plans replaces account permissions (same renewal semantics as other tiers). Archive updates are post-close batches; no realtime feed."
+        zh="已上线：普通套餐默认不包含（含 Premium）。China 独立套餐 ¥70/月，付款成功后自动开通账号本人权限；China 叠加到现有美股套餐，独立到期；两者沿用同一 Token。归档为盘后批量更新，无实时推送。"
+        en="Live: not included in ordinary plans (including Premium) by default. The standalone China plan (¥70/mo) auto-provisions access on your own account after payment; China stacks with the US-market subscription, expires independently, and uses the same token. Archive updates are post-close batches; no realtime feed."
       />
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
         <thead><tr><th>Method</th><th>Endpoint</th><th>Family</th><th>Source</th><th>Status</th></tr></thead>
@@ -2288,7 +2910,7 @@ function CnDataSections({ articleId } = {}) {
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
         <thead><tr><th>Plan</th><th>CN Data entitlement</th><th>/v1/cn/* access</th></tr></thead>
         <tbody>
-          {["Free", "Trial", "Basic", "Value", "Standard", "Premium"].map((plan) => (
+          {["Free", "Basic", "Value", "Standard", "Premium"].map((plan) => (
             <tr key={plan}>
               <td style={{ fontSize: 12 }}>{plan}</td>
               <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>not included</td>
@@ -2325,7 +2947,7 @@ const PROXY_FOCUS_BOUNDARIES = [
   ["provider-fallback-cache", "options"],
   ["get-post-v1beta3-crypto-us-snapshots", "crypto-news"],
   ["post-v1-crypto-us-latest-orderbooks", "crypto-news"],
-  ["post-admin-login", "overview"],
+  ["error-codes", "overview"],
 ];
 
 function ProxyApiBody({ focus, articleId }) {
@@ -2338,8 +2960,8 @@ function ProxyApiBody({ focus, articleId }) {
       <div className="eyebrow" style={{ marginBottom: 10 }}>Getting started</div>
       <h2 id="overview" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}><Bilingual {...API_CATEGORIES.market} /></h2>
       <DocDesc
-        zh="Leandata 提供两类核心服务：Token 门户负责账户注册与 Token 签发管理；行情代理通过稳定公共域名提供历史 REST、实时 REST 与 WebSocket 实时行情流。使用单一 Token 即可访问全部数据接口，无需自行配置第三方凭证。"
-        en="Leandata provides two core surfaces: a token portal for registration and token issuance, and a high-performance market data proxy for historical REST, realtime REST, and secure WebSocket streaming. Authenticate with a single unified token across all historical and realtime data endpoints without managing third-party credentials."
+        zh="Leandata 提供两类核心服务：Token 门户负责账户注册与 Token 签发管理；行情代理通过稳定公共域名提供历史 REST、实时 REST 与 WebSocket 实时行情流。使用同一 Token 调用套餐已授权且已上线的接口，无需自行配置第三方凭证。"
+        en="Leandata provides two core surfaces: a token portal for registration and token issuance, and a high-performance market data proxy for historical REST, realtime REST, and secure WebSocket streaming. Use one unified token for documented available endpoints authorized by your plan, without managing third-party credentials."
       />
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 16 }}>
         <thead><tr><th>Surface</th><th>Public URL</th><th>Auth</th></tr></thead>
@@ -2358,8 +2980,8 @@ function ProxyApiBody({ focus, articleId }) {
       </div>
       <h2 id="authentication" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>{isZh ? "身份鉴权 (Authentication)" : "Authentication"}</h2>
       <DocDesc
-        zh="所有数据接口（REST 和 WS）都需要 UUID Token。推荐通过 HTTP Authorization 请求头传递，也支持在 POST JSON 请求体中传递："
-        en="All data endpoints (REST and WS) require a UUID token. Pass it as an HTTP header or in the JSON body:"
+        zh="数据接口需要有效的 LeanData Token。将 Token 视为不透明凭据，优先使用 Authorization 请求头，不要放入 URL 或日志："
+        en="Data endpoints require an active LeanData token. Treat it as an opaque credential; prefer the Authorization header and never put it in a URL or logs:"
       />
       <pre className="code" style={{ marginBottom: 12 }}>
 {`# Option A — Authorization header (preferred)
@@ -2369,106 +2991,62 @@ Authorization: Bearer <TOKEN>
 { "token": "<TOKEN>", "symbol": "AAPL", ... }`}
       </pre>
       <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 40px" }}>
-        Tokens expire 30 days after issuance (trial: 3 days, non-renewable). The proxy returns <code>401</code> for invalid or expired tokens and <code>403</code> if your tier lacks permission for the endpoint.
+        Free access is permanent. Paid US-market and China subscriptions have independent expiry clocks; existing legacy tokens retain their original validity. The proxy returns <code>401</code> for invalid or expired tokens and <code>403</code> if your tier lacks permission for the endpoint.
       </p>
 
-      <h3 style={{ fontSize: 20, margin: "0 0 10px" }}>Invalid-token abuse protection (enabled runtime contract)</h3>
-      <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px", margin: "0 0 40px", fontSize: 13, lineHeight: 1.6 }}>
-        <strong>Runtime status: enabled on REST and WebSocket authentication.</strong> The limiter applies only to repeated invalid-token attempts; one expired or mistyped token is not a ban condition. REST returns <code>429</code> with <code>Retry-After</code>; WS returns a <code>429</code> control error with <code>retry_after_seconds</code> before closing the failed session.
-        <br/><span style={{ color: "var(--ink-soft)" }}>运行状态：REST 与 WebSocket 鉴权均已启用。仅对重复的无效 Token 尝试限流；一次过期或输入错误不会触发封禁。REST 返回带 <code>Retry-After</code> 的 <code>429</code>；WS 在关闭失败连接前返回带 <code>retry_after_seconds</code> 的 <code>429</code> 控制错误。</span>
-        <table className="tbl card" style={{ overflow: "hidden", margin: "12px 0" }}>
-          <thead><tr><th>Signal</th><th>Action</th><th>Scope</th></tr></thead>
-          <tbody>
-            <tr><td><code>5</code> invalid-token failures / <code>60s</code></td><td><code>429</code> soft throttle for <code>60s</code> with <code>Retry-After</code></td><td>abuse key</td></tr>
-            <tr><td><code>15</code> failures / <code>5m</code></td><td>temporary ban for <code>5m</code></td><td>abuse key</td></tr>
-          </tbody>
-        </table>
-        The abuse key uses a daily-rotated HMAC of the source IP plus a coarse User-Agent category. A presented token may be HMAC-fingerprinted for short-lived correlation, but raw IPs and raw tokens are never logged or persisted. Each temporary ban expires automatically after <code>5 minutes</code>; bans do not escalate. Pseudonymous counters and ban events are retained for at most <code>7 days</code>; identifier-free aggregate totals may be retained for <code>30 days</code>. Rotation occurs at <code>00:00 UTC</code>.
-        <br/><span style={{ color: "var(--ink-soft)" }}>防护键由每日轮换的源 IP HMAC 和粗粒度 User-Agent 类别组成。Token 只允许以 HMAC 指纹做短期关联，不记录或持久化原始 IP/Token。每次临时封禁 <code>5 分钟</code>后自动解除，不会升级。伪匿名计数和封禁事件最多保留 <code>7 天</code>；去标识聚合总数可保留 <code>30 天</code>，每日 <code>00:00 UTC</code> 轮换。</span>
-      </div>
+      <p>Repeated invalid credentials may be temporarily throttled. Stop retrying an unchanged invalid or expired token, correct the credential, and honor <code>Retry-After</code> on 429 responses. A queue/capacity 429 is a different condition; use its public error code when diagnosing it.<br/>反复提交无效或过期 Token 可能触发临时限流，应先修正凭据；429 的鉴权保护与数据排队／容量限制是不同原因，请按错误码处理。</p>
+
+      {PublicApiContract()}
+
+      <h2 id="response-delivery" className="display-title" style={{ fontSize: 28 }}>Response delivery / 响应交付与安全调用</h2>
+      <p>Ordinary GET and POST queries return their data on the original API request. Clients do not need to discover another service or resend credentials to another host. A successful empty array is a valid empty result for the requested slice, not proof of complete coverage.<br/>普通 GET 和 POST 查询直接在原 API 请求中返回数据。客户端无需探测其他服务或向其他域名重发凭据；成功返回空数组只表示本次切片为空，不代表全量覆盖。</p>
+      <p><code>direct=1</code> explicitly permits signed download delivery where available; a cache hit can still return 200. <code>direct=0</code> or <code>no_direct=1</code> keeps delivery on the original request, with <code>no_direct=1</code> taking precedence. Controls do not create different payload cache entries.<br/>只有主动选择 <code>direct=1</code> 才可能收到签名下载跳转；缓存命中仍可直接返回 200。</p>
+      <p>The authorized download origin is <code>https://archive-direct.leandata.uk</code>. For optional delivery, POST → 303 is followed with GET and no original body; GET → 307 remains GET. Validate the exact HTTPS origin, preserve the full signed URL, and use a separate request without Authorization, cookies or original credentials. Never log signed URLs; expired links require a new API request. Unexpected POST → 307 should be reported with request time and <code>X-Request-Id</code>.<br/>下载地址已带短时签名，不应转发 Bearer Token。签名地址本身是临时凭据，不要公开或记录到普通日志。</p>
+      <p>Normal authorized API archive delivery is included in the endpoint's plan access. The initial API request counts once; the signed download does not add a second public API request. Retrying the API is another request. Separately ordered Bulk Download exports retain their explicit pricing.<br/>正常 API 归档交付沿用套餐权限，不因交付跳转额外收费；初始 API 请求正常计数，签名下载不重复计数。重新发起 API 请求会再次计数；独立批量导出订单单独计价。</p>
+      <pre className="code">{`import os
+import requests
+
+with requests.Session() as client:
+    client.trust_env = False
+    response = client.get(
+        "https://api.leandata.uk/stable/profile",
+        headers={"Authorization": "Bearer " + os.environ["LEANDATA_TOKEN"]},
+        params={"symbol": "AAPL", "limit": 1},
+        timeout=45,
+        allow_redirects=False,
+    )
+    if response.status_code != 200:
+        request_id = response.headers.get("X-Request-Id", "unknown")
+        raise RuntimeError(f"HTTP {response.status_code}; request_id={request_id}")
+    data = response.json()`}</pre>
+      <p>This example requires Premium financial-data access. Public <code>/health</code> reports connectivity only; detailed operational metrics are not a customer API. Log status, public error code, request ID and UTC time when requesting support; omit the token and signed URL.<br/>示例需要 Premium 财务权限。报障提供状态码、错误码、请求 ID 与 UTC 时间即可，无需提供 Token 或签名 URL。</p>
 
       <h2 id="tiers-permissions" className="display-title" style={{ fontSize: 28, margin: "0 0 16px" }}>{isZh ? "套餐与权限说明 (Tiers & Permissions)" : "Tiers & permissions"}</h2>
       <DocDesc
         zh="Token 套餐决定数据通道和 REST endpoint 权限；运行时安全限制除特别说明外为共享配置。Basic 仅为老账户兼容，不再开放新注册；大批量数据导出请使用独立的 Bulk Download。"
         en="Token plans control access to channels and REST endpoints. Runtime safety limits are shared unless stated otherwise below. Basic is shown only for existing-account compatibility and is closed to new registration; Bulk Download is the separate one-off product above."
       />
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
-        <thead>
-          <tr><th style={{ width: 120 }}>Plan</th><th>Price</th><th>WS channels</th><th>WS subjects</th><th>WS account connection cap</th><th>REST historical parallel</th><th>REST endpoints</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><span className="tier free">Free</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Free (30 days)</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontSize: 12 }}>Recent 31 days REST history · Nearest 2 option expiries · Instant activation</td>
+      <p>Commercial definitions: <a href="/api/product-catalog"><code>GET /api/product-catalog</code></a>. Catalog version <code>{PRODUCT_CATALOG.version}</code>; prices and capabilities below come from the same public catalog used by checkout. Current request and subscription limits are shown in <a href="/account">account usage</a>.<br/>价格与权限使用公开套餐目录；请求、连接和订阅上限以账户页当前运行时配置为准。</p>
+      <table className="tbl card" data-product-catalog={PRODUCT_CATALOG.version} style={{ overflow: "hidden", marginBottom: 12 }}>
+        <thead><tr><th>Plan</th><th>Price</th><th>WS channels</th><th>REST access</th><th>Validity</th></tr></thead>
+        <tbody>{Object.entries(PRODUCT_CATALOG.tiers).map(([name, tier]) => (
+          <tr key={name}>
+            <td><span className={`tier ${name}`}>{PRODUCT_CATALOG.plan_details[name]?.name || "Free"}</span></td>
+            <td>{name === "free" ? "Free" : `¥${PRODUCT_CATALOG.monthly_prices_cny_minor[name] / 100}/mo`}{PRODUCT_CATALOG.plan_details[name]?.renewal_only ? " · existing accounts" : ""}</td>
+            <td>{Object.keys(tier.permissions.ws).filter(key => key !== "test" && tier.permissions.ws[key]).join(", ") || "REST only"}</td>
+            <td>{name === "free" ? `Stock/option history: recent ${tier.constraints.history_days} days; contracts/latest snapshots: nearest ${tier.constraints.option_expirations} upcoming expiries` : tier.modes ? Object.entries(tier.modes).map(([mode, permissions]) => <div key={mode}><strong>{mode}:</strong> {Object.keys(permissions.rest).filter(key => permissions.rest[key] && key !== "admin_token_lookup").join(", ")}</div>) : Object.keys(tier.permissions.rest).filter(key => tier.permissions.rest[key] && key !== "admin_token_lookup").join(", ")}{name === "value" && " · REST scope chosen at checkout"}</td>
+            <td>{name === "free" ? "Permanent" : name === "china" ? "Independent China expiry" : "Selected market subscription term"}</td>
           </tr>
-          <tr>
-            <td><span className="tier trial">Trial</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥50/3 days</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontSize: 12 }}>Same as Standard · 3-day token · non-renewable</td>
-          </tr>
-          <tr>
-            <td><span className="tier basic">Basic</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Legacy · closed</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>— (REST only)</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontSize: 12 }}>existing accounts only · full history via bounded REST requests</td>
-          </tr>
-          <tr>
-            <td><span className="tier value">Value</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥70/mo</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontSize: 12 }}>REST: stocks OR options (pick at signup) · WS: all channels</td>
-          </tr>
-          <tr>
-            <td><span className="tier standard">Standard</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥100/mo</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontSize: 12 }}>stocks + options history · no crypto orderbooks</td>
-          </tr>
-          <tr>
-            <td><span className="tier premium">Premium</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥150/mo</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>all 6 channels</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>500 / connection</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>none</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>3</td>
-            <td style={{ fontSize: 12 }}>All REST endpoints including crypto orderbooks</td>
-          </tr>
-          <tr>
-            <td><span className="tier china">China</span></td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>¥70 / 月 · live</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>live</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>—</td>
-            <td style={{ fontSize: 12 }}>CN Data 中国数据 · live /v1/cn/* · 付款自动开通；独立套餐，不含美股数据（入口见「选择市场」→ 世界/中国；entry via Choose your market → World · CN）</td>
-          </tr>
-        </tbody>
+        ))}</tbody>
       </table>
+      <p>Free is permanent. An active US market plan replaces Free capabilities; China adds independently expiring archive access to the same account and token. Expiry of either paid subscription leaves the other subscription and permanent Free baseline intact. Trial is retired for new sales and grants; already granted validity is retained.<br/>Free 长期有效。美股套餐与 China 独立到期，China 叠加后保留美股权限；任一付费订阅到期不影响另一订阅或永久 Free 基线。Trial 已停售且不再新开通，既有有效期保留。</p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 8px" }}>
         There is currently no tier-specific rolling REST req/min limiter. Upstream provider limits, the shared service ceiling, and overload backpressure still apply.
         <br/>当前没有按套餐执行的 REST 滚动 req/min 限额；服务总并发和过载背压机制仍然生效。
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
-        Keep historical REST concurrency at or below <strong>3 in-flight requests per account</strong>. If a <strong>429</strong> is returned, wait for in-flight requests to complete and retry with exponential backoff.
-        <br/>单个账号的历史 REST 最大并发请求数建议保持在 <strong>3</strong> 以内。若收到 <strong>429</strong>，请等待在途请求完成并使用指数退避重试。
+        Keep historical REST concurrency within the limit shown in account usage. If a <strong>429</strong> is returned, wait for in-flight requests to complete and retry with exponential backoff.
+        <br/>单个账号的历史 REST 并发请遵守账户用量页显示的当前限制。若收到 <strong>429</strong>，请等待在途请求完成并使用指数退避重试。
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         Basic has access to the full available historical range. There is no Basic-specific date-span, symbol-count, or page-count budget. Requests remain subject to provider limits and shared proxy runtime controls such as historical concurrency, QPS, timeouts, and overload backpressure. Bulk Download is a separate one-off delivery product, not a requirement for older dates.
@@ -2488,13 +3066,13 @@ Authorization: Bearer <TOKEN>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "16px", margin: "0 0 24px", fontSize: 13, lineHeight: 1.6 }}>
         <h4 style={{ margin: "0 0 8px", fontSize: 14, color: "var(--ink-strong)" }}>Free Plan Quota &amp; Access Boundaries / 权益与限制边界</h4>
         <ul style={{ margin: "0 0 10px 18px", padding: 0 }}>
-          <li><strong>REST Historical Date Window:</strong> Stock queries (IEX) within the most recent <strong>31 calendar days</strong>. Option historical bars &amp; trades within the most recent <strong>10 calendar days</strong>. Older dates return <code>403 free_historical_window_exceeded</code>.</li>
+          <li><strong>REST Historical Date Window:</strong> Stock queries (IEX) within the most recent <strong>31 calendar days</strong>. Option historical bars &amp; trades within the most recent <strong>{PRODUCT_CATALOG.tiers.free.constraints.history_days} calendar days</strong>. Older dates return <code>403 free_historical_window_exceeded</code>.</li>
           <li><strong>Option Chains &amp; Snapshots:</strong> Access is limited to the <strong>nearest 2 upcoming expiration cycles</strong> (e.g. 0DTE, nearest weekly or monthly expiries). Expiries further out return <code>403 free_option_chain_window_exceeded</code>.</li>
-          <li><strong>Real-time WebSocket:</strong> Full channel access (stocks, options, crypto, news, overnight) with standard connection limits.</li>
+          <li><strong>Real-time WebSocket:</strong> All six channels (stocks, options, boats, overnight, crypto, news). Current admission limits are shown on the account usage page.</li>
           <li><strong>Financial Statements:</strong> Fundamental balance sheet, income, and cash flow archives require an active <strong>Premium</strong> plan (returns <code>403 fmp_premium_required</code>).</li>
         </ul>
         <span style={{ color: "var(--ink-soft)", fontSize: 12 }}>
-          中文说明：REST 股票历史数据（IEX）支持最近 31 个日历日内；期权历史分钟 K 线与逐笔成交支持最近 10 个日历日内；期权链与 Greeks 快照支持最近 2 轮到期日；实时 WebSocket 通道全部开放；基本面财务数据需升级至 Premium。
+          中文说明：REST 股票历史数据（IEX）支持最近 31 个日历日内；期权历史分钟 K 线与逐笔成交支持最近 31 个日历日内；期权链与 Greeks 快照支持最近 2 轮到期日；实时 WebSocket 通道全部开放；基本面财务数据需升级至 Premium。
         </span>
       </div>
 
@@ -2614,33 +3192,20 @@ print("Option contracts:", resp_opt.status_code)`}
       <div className="eyebrow" style={{ marginBottom: 10, marginTop: 48 }}>Token API</div>
 
       <h2 id="post-register" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/register</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Submit a new account registration. The request enters a pending queue until approved by an admin.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>提交新账户注册申请；请求会进入待审核队列，由管理员审核后开通。</span>
-      </p>
+      <p>Create a permanent Free account after email verification. Request a code with <code>POST /api/register/request-code</code>, then submit the returned challenge ID and six-digit code. Upgrade existing accounts through checkout.<br/>邮箱验证后立即开通永久 Free；付费产品从账户页升级。</p>
       <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/register`} />
       <ParamTable rows={[
-        { name: "username", type: "string", required: true, desc: "Unique display name (must not exist in approved users)", zh: "唯一用户名（不可与已有账户重复）" },
-        { name: "phone",    type: "string", required: true, desc: "Mobile number used to verify identity on token generation", zh: "用于验证身份与匹配订单的手机号" },
-        { name: "email",    type: "string", required: true, desc: "Valid email used for account identity, service notices, and future login verification.", zh: "接收服务通告、安全通知与登录凭据的邮箱" },
-        { name: "tier",     type: "string", required: false, desc: "trial | value | standard | premium (default: standard). Basic is retired for new registrations.", zh: "套餐类型：trial | value | standard | premium（默认 standard）" },
-        { name: "mode",     type: "string", required: false, desc: "stocks | options — required when tier is value. Determines which data vertical is enabled.", zh: "数据方向：stocks 或 options（仅当 tier 为 value 时必填）" },
+        { name: "username", type: "string", required: true, desc: "Account username", zh: "账户用户名" },
+        { name: "phone", type: "string", required: true, desc: "Account phone number", zh: "账户手机号" },
+        { name: "email", type: "string", required: true, desc: "Verified email address", zh: "已验证邮箱" },
+        { name: "verification_id", type: "string", required: true, desc: "Challenge ID from request-code", zh: "邮箱验证码请求返回的 challenge_id" },
+        { name: "verification_code", type: "string", required: true, desc: "Six-digit email code", zh: "六位邮箱验证码" },
+        { name: "tier", type: "string", required: false, desc: "free only (default)", zh: "仅支持 free（默认）" },
       ]} />
-      <pre className="code" style={{ marginBottom: 28 }}>
-{`// Request
-{ "username": "tonnysun", "phone": "18717931119", "email": "tonny@example.com", "tier": "premium" }
-
-// Value tier — mode required
-{ "username": "qianyu", "phone": "13800138000", "email": "qianyu@example.com", "tier": "value", "mode": "options" }
-
-// Response 200
-{ "success": true, "message": "注册成功！请等待卖家确认订单后即可生成 Token。", "id": "61ce4f82-..." }
-
-// Error 400 — Basic is no longer a public registration tier
-{ "success": false, "error": "retired_registration_tier", "message": "Basic REST 月度套餐已停止新注册..." }
-
-// Error 409 — username already taken
-{ "success": false, "message": "该用户名已被使用，请换一个。" }`}
-      </pre>
+      <pre className="code">{`// Request
+{ "username": "example-user", "phone": "<PHONE>", "email": "user@example.com", "verification_id": "<CHALLENGE_ID>", "verification_code": "<SIX_DIGIT_CODE>", "tier": "free" }
+// Success: approved Free account with token and expiry: null
+// Paid tier: 400 registration_is_free_only`}</pre>
 
       <h2 id="post-check-status" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/check-status</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Poll approval status before attempting token generation.
@@ -2653,7 +3218,7 @@ print("Option contracts:", resp_opt.status_code)`}
       ]} />
       <pre className="code" style={{ marginBottom: 28 }}>
 {`// Request
-{ "username": "tonnysun", "phone": "18717931119" }
+{ "username": "example-user", "phone": "<PHONE>" }
 
 // Response — status values: "pending" | "approved" | "rejected" | "not_found"
 { "success": true, "status": "pending", "message": "审核中，请耐心等待。" }`}
@@ -2892,6 +3457,130 @@ for row in resp.json()["rows"]:
 
       {/* ── Research Signals ── */}
       <ProviderHero
+        id="brain-overview"
+        provider="brain"
+        eyebrow="Research Data · Included with paid plans"
+        title="Brain Stock Ranking"
+        zhTitle="Brain 股票排名"
+        en="Brain produces daily stock scores for several forecast horizons and updates its stock universe annually. LeanData's planned Research Data API provides original scores for the 2, 3, 5, 10 and 21 day horizons and the securities with recorded scores."
+        zh="Brain 按日生成多个预测周期的股票评分，并逐年调整股票池。LeanData 拟在 Research Data 中提供 2、3、5、10、21 日五个周期的原始评分，以及有评分记录的历史证券名单。"
+        chips={["2 · 3 · 5 · 10 · 21 days", "daily scores", "dated universe"]}
+        logo="/docs/illustrations/brain-ranking-horizontal-v2.png"
+        alt="Brain Stock Ranking editorial title graphic"
+      />
+      <BrainStatus snapshot />
+      <DocDesc
+        en="The archive inspected on 17 October 2026 contains 4,243,741 rows and 2220 distinct securities from 1 January 2010 through 16 October 2026. The latest observed date contains 947 securities. The 2220 count is the historical union, not the size of today's stock universe."
+        zh="2026 年 10 月 17 日核查的归档包含 4,243,741 行、2220 个不同证券身份，日期为 2010-01-01 至 2026-10-16；最新观测日有 947 个证券身份。2220 是历史证券并集，不是当前股票池规模。"
+      />
+      <ParamTable rows={[
+        { name: "date", type: "date", desc: "Source observation date; not a precise publication timestamp", zh: "源记录的观测日期，不代表精确发布时间" },
+        { name: "security_id", type: "string", desc: "Stable LeanData security ID for historical queries", zh: "用于历史查询的稳定证券身份" },
+        { name: "symbol", type: "string", desc: "Ticker label recorded with the score", zh: "随评分记录的股票代码标签" },
+        { name: "rank2days", type: "number", desc: "Original 2-day score at five decimal places", zh: "保留五位小数的原始 2 日评分" },
+        { name: "rank3days", type: "number", desc: "Original 3-day score at five decimal places", zh: "保留五位小数的原始 3 日评分" },
+        { name: "rank5days", type: "number", desc: "Original 5-day score at five decimal places", zh: "保留五位小数的原始 5 日评分" },
+        { name: "rank10days", type: "number", desc: "Original 10-day score at five decimal places", zh: "保留五位小数的原始 10 日评分" },
+        { name: "rank21days", type: "number", desc: "Original 21-day score at five decimal places", zh: "保留五位小数的原始 21 日评分" },
+      ]} />
+      <DocDesc
+        en="Scores are not ordinal positions or realized returns. They are returned without filling missing dates or reranking a requested subset. A missing row does not prove that a security was outside Brain's official universe. Use security_id for long histories: a ticker can refer to different securities over time. Fitted predictions and price/fundamental fitting panels are not included."
+        zh="评分不是名次或已实现收益；不补齐缺失日期，也不在请求子集内重新排序。缺少记录不能证明该证券不属于 Brain 官方股票池。长期历史查询请使用 security_id：同一个 ticker 在不同时期可能对应不同证券。本产品不包含拟合预测或价量、基本面拟合面板。"
+      />
+
+      <h2 id="brain-universe-snapshot" className="display-title">GET / POST /v1/signals/brain-stock-ranking/universe/snapshot</h2>
+      <BrainStatus snapshot />
+      <DocDesc
+        en="Get the complete recorded stock universe for one date. Use date=latest for the newest recorded date, or specify YYYY-MM-DD. GET and POST return the same result."
+        zh="读取某一天已收录的完整股票池。date=latest 返回最新记录日，也可指定 YYYY-MM-DD。GET 与 POST 结果相同。"
+      />
+      <EndpointBadge method="GET / POST" path={`${REST_BASE}/v1/signals/brain-stock-ranking/universe/snapshot`} />
+      <ParamTable rows={[
+        { name: "date", type: "string", required: true, desc: "Exact YYYY-MM-DD, or latest; no default", zh: "指定日期 YYYY-MM-DD，或 latest；必须填写" },
+      ]} />
+      <pre className="code">{`curl -H "Authorization: Bearer <TOKEN>" \\
+  "${REST_BASE}/v1/signals/brain-stock-ranking/universe/snapshot?date=latest"`}</pre>
+      <pre className="code">{`curl -X POST -H "Authorization: Bearer <TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"date":"2026-10-16"}' \\
+  "${REST_BASE}/v1/signals/brain-stock-ranking/universe/snapshot"`}</pre>
+      <pre className="code">{`// Response shape; illustrative single-member snapshot
+{
+  "date": "2026-10-16",
+  "count": 1,
+  "data": [
+    {"security_id": "5a47ccfa-51af-5d53-aa89-c8a496623673", "symbol": "A"}
+  ]
+}`}</pre>
+      <DocDesc
+        en="date is the resolved observation date. count is the number of members, and data contains the full snapshot without pagination (maximum 10000 members). The archive inspected on 17 October 2026 has 947 members on 16 October. No scores or ingestion metadata are returned."
+        zh="date 为实际读取的记录日期，count 为证券数量，data 一次返回全部名单，不分页，最多 10000 个证券。2026-10-17 核查时，10 月 16 日实际有 947 个证券。此接口不返回评分或导入元数据。"
+      />
+      <DocDesc
+        en="An exact date with no snapshot returns 404 brain_snapshot_not_found, including weekends or gaps without records. It never substitutes a previous date. This is the set of securities with recorded scores, not Brain's official constituent list. Dates are observation labels; historical publication-time versions are not available."
+        zh="指定日期没有记录时返回 404 brain_snapshot_not_found，周末或缺失日也不会自动改取前一天。这是当天有评分记录的证券集合，不是 Brain 官方成分名单。日期仅为观测标签，暂不提供当时已发布版本的历史回溯。"
+      />
+      <DocDesc
+        en="A missing or invalid Token returns 401; an account without an active paid subscription returns 403. Missing date, unsupported filters, score fields, limits or as_of return 400. Default delivery returns JSON on the same origin. direct=1 opts into signed delivery under the shared GET 307 / POST 303 contract."
+        zh="未提供或无效 Token 返回 401；无有效付费套餐的账号返回 403。缺少 date，或传入筛选、评分字段、limit、as_of 等不支持的参数返回 400。默认同域返回 JSON；direct=1 使用统一的 GET 307 / POST 303 签名下载方式。"
+      />
+
+      <h2 id="brain-history" className="display-title">GET / POST /v1/signals/brain-stock-ranking</h2>
+      <BrainStatus />
+      <DocDesc en="Read original scores over an inclusive date range. GET query parameters and POST JSON bodies use the same fields." zh="按包含首尾日期的区间读取原始评分。GET 查询参数与 POST JSON 请求体使用相同字段。" />
+      <ParamTable rows={[
+        { name: "start / end", type: "date", required: true, desc: "Inclusive YYYY-MM-DD dates", zh: "起止日期，YYYY-MM-DD，包含首尾" },
+        { name: "security_ids / symbols", type: "string", desc: "Choose one filter, up to 100 comma-separated values; ambiguous tickers must be replaced with a security ID", zh: "二选一，最多 100 个逗号分隔值；ticker 有歧义时须改用 security_id" },
+        { name: "fields", type: "string", desc: "Optional comma-separated score fields; default all five horizons", zh: "可选，逗号分隔的评分字段；默认返回五个周期" },
+        { name: "limit", type: "integer", desc: "Default 1000; maximum 10000", zh: "默认 1000，最大 10000" },
+        { name: "release", type: "string", desc: "Published data version returned by the first page", zh: "首页返回的已发布数据版本" },
+        { name: "cursor", type: "string", desc: "Use next_cursor with the same release and filters", zh: "续页使用 next_cursor，数据版本和筛选条件须保持一致" },
+      ]} />
+      <DocDesc en="Filtered requests cover at most 366 calendar days; unfiltered cross-sections cover at most seven calendar days. Split longer histories into smaller ranges. Each page is ordered by date and security_id." zh="带证券筛选的单次请求最多覆盖 366 个日历日；不筛选证券的截面请求最多覆盖 7 个日历日。更长历史请分段读取。每页按日期和 security_id 排序。" />
+      <pre className="code">{`// Planned response example — API not yet available
+{
+  "dataset": "brain-stock-ranking",
+  "release": "brain-20261017-r1",
+  "count": 1,
+  "data": [
+    {"date": "2026-10-15", "security_id": "5a47ccfa-51af-5d53-aa89-c8a496623673", "symbol": "A", "rank2days": -0.00104, "rank3days": -0.00128, "rank5days": -0.00704, "rank10days": 0.00719, "rank21days": 0.02256}
+  ],
+  "truncated": false,
+  "next_cursor": null
+}`}</pre>
+      <DocDesc en="The release above is illustrative. count is the number of rows on this page. A null next_cursor only means pagination ended. No matching records returns an empty data array; missing scores are not zero." zh="上例 release 仅为示意。count 是本页行数；next_cursor 为空只表示分页结束。没有匹配记录时 data 为空，缺失评分不等于零。" />
+
+      <h2 id="brain-latest" className="display-title">GET / POST /v1/signals/brain-stock-ranking/latest</h2>
+      <BrainStatus />
+      <DocDesc en="Read the cross-section on the latest observation date in the published release. resolved_date identifies that date for all returned securities." zh="读取已发布数据版本中最新观测日的完整截面。resolved_date 明确标识所有返回证券共同使用的日期。" />
+      <ParamTable rows={[
+        { name: "security_ids / symbols", type: "string", desc: "Optional; choose one filter with at most 100 identities", zh: "可选，二选一，最多 100 个证券身份" },
+        { name: "fields", type: "string", desc: "Optional subset of the five score fields; default all five", zh: "可选五个评分字段中的子集；默认全部返回" },
+        { name: "limit / release / cursor", type: "pagination", desc: "Same pagination rules as history", zh: "与历史接口相同的分页规则" },
+      ]} />
+      <DocDesc en="A security without a score on resolved_date is omitted. Its older score is not carried forward. Use the history endpoint to inspect earlier observations. start and end are not accepted here. Latest means latest published data, not a live or intraday forecast." zh="某证券在 resolved_date 没有评分时不返回该行，也不拿旧评分补齐。较早记录请查历史接口。本接口不接受 start、end。latest 指最新已发布数据，不表示实时或盘中预测。" />
+
+      <h2 id="brain-securities" className="display-title">GET / POST /v1/signals/brain-stock-ranking/securities</h2>
+      <BrainStatus />
+      <DocDesc en="Find securities with recorded scores on a date or during a period. This is observed data coverage, not Brain's official constituent list." zh="查询某日或某段时期有评分记录的证券。这是已观测数据的覆盖名单，不是 Brain 官方完整成分表。" />
+      <ParamTable rows={[
+        { name: "date", type: "date", desc: "One exact observation date; choose this or start/end", zh: "精确观测日期，与 start/end 二选一" },
+        { name: "start / end", type: "date", desc: "Inclusive period of at most one calendar year", zh: "包含首尾的日期区间，最多一个日历年" },
+        { name: "limit / release / cursor", type: "pagination", desc: "Default limit 1000, maximum 10000; continue within the same release", zh: "limit 默认 1000、最大 10000；同一数据版本内续页" },
+      ]} />
+      <DocDesc en="Rows contain security_id, symbol, first_observed_date, last_observed_date and observations within the requested period, sorted by security_id. First and last dates do not establish continuous membership between them. To obtain the full historical union, merge yearly results by security_id." zh="每行包含 security_id、symbol，以及请求区间内的 first_observed_date、last_observed_date、observations，按 security_id 排序。首次与末次出现日期不代表期间连续在池。全历史名单可按年查询后按 security_id 合并。" />
+
+      <h2 id="brain-coverage" className="display-title">GET / POST /v1/signals/brain-stock-ranking/coverage</h2>
+      <BrainStatus />
+      <DocDesc en="Check the published date range, observed row count, historical security count and latest-date security count. historical_security_count and latest_date_security_count describe different populations. Coverage also identifies available score fields and per-field value counts." zh="查看已发布日期范围、观测行数、历史证券并集数和最新观测日证券数。historical_security_count 与 latest_date_security_count 的统计范围不同。覆盖信息同时列出可用评分字段及各字段的观测值数量。" />
+      <ParamTable rows={[
+        { name: "start / end, security_ids / symbols", type: "filters", desc: "Optional; use the same date and identity bounds as history. Responses identify the applied filters", zh: "可选，沿用历史接口的日期和证券限制；响应明确列出已应用的筛选条件" },
+        { name: "by", type: "string", desc: "Optional date or year breakdown with pagination", zh: "可选 date 或 year，分页返回按日或按年统计" },
+        { name: "limit / release / cursor", type: "pagination", desc: "Use for breakdown pages; keep the same release and filters", zh: "用于分组统计续页；保持相同数据版本和筛选条件" },
+      ]} />
+      <DocDesc en="Without filters, coverage describes the whole published release. With filters, it describes matching records only. New daily data becomes visible after publication completes. The update time has not been announced. Historical dates do not establish when a score became available intraday." zh="不加筛选时统计整个已发布数据版本；加筛选时只统计匹配记录。每日新数据将在发布完成后统一可见，目前尚未公布更新时间。历史日期不能证明评分在当日某个时刻已可获取。" />
+
+      <ProviderHero
         id="spectral-overview"
         provider="quantconnect"
         eyebrow="QuantConnect research signal · Currently free"
@@ -3056,8 +3745,8 @@ for row in resp.json()["rows"]:
 
       <h2 id="post-v1-history-news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/history/news</h2>
       <DocDesc
-        zh="获取全市场或指定标的的历史新闻文章与快讯，所有套餐均可使用。支持 max_pages 自动分页，每页返回最多 50 篇。"
-        en="Fetch historical news articles. Available to all tiers including Basic. Pass max_pages greater than 1 to auto-paginate; each page contains up to 50 articles."
+        zh="获取全市场或指定标的的历史新闻文章与快讯，仅限 Premium。支持 max_pages 自动分页，每页返回最多 50 篇。"
+        en="Fetch historical news articles. Premium only. Pass max_pages greater than 1 to auto-paginate; each page contains up to 50 articles."
       />
       <EndpointBadge method="POST" path={`${REST_BASE}/v1/history/news`} />
       <ParamTable rows={[
@@ -3170,7 +3859,7 @@ for row in resp.json()["rows"]:
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>以下股票行情接口均通过标准 <code>GET</code> 路径开放。响应结构遵循官方全市场行情规范，鉴权、多级服务端缓存与并发控制由代理统一处理。</span>
       </p>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 16px" }}>
-        Every endpoint in this section returns standard JSON payloads. Repeated latest/snapshot calls return <code>X-Cache: DISK_HIT</code> when served from cache.
+        Endpoints return JSON; current-data calls may go to a live source on every request. A cache hit, when applicable, is identified by <code>X-Cache: HIT</code>. Always inspect source timestamps.
       </p>
 
       <div className="provider-source-card" style={{ marginBottom: 28 }}>
@@ -3194,21 +3883,21 @@ for row in resp.json()["rows"]:
       {/* ── Provider Data ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Options Data</div>
 
-      <h2 id="provider-fallback-cache" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "期权数据路由与多级缓存架构" : "Options routing model and server-side cache"}</h2>
+      <h2 id="provider-fallback-cache" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "期权接口选择与数据语义" : "Choosing an options endpoint"}</h2>
       <DocDesc
-        zh="底层行情接入多源专业数据链路，由代理网关统一处理鉴权、多级缓存（热点内存 + 历史海量归档）与并发调度："
-        en="Market data is unified behind a high-availability proxy layer handling authentication, multi-tier caching (hot memory + historical archive), rate limiting, and automated upstream routing:"
+        zh="按业务用途选择已上线接口。合约目录、当前快照、历史查询与 OI 的参数和时间语义不同，不应互相替代："
+        en="Choose an available endpoint for your task. Contract discovery, current snapshots, historical records and daily OI use different parameters and clocks; do not substitute one response type for another:"
       />
       <table className="tbl card" style={{ overflow: "hidden", marginBottom: 20 }}>
-        <thead><tr><th>Surface</th><th>Route</th><th>Routing behavior</th></tr></thead>
+        <thead><tr><th>Surface</th><th>Route</th><th>Use / 用途</th></tr></thead>
         <tbody>
           {[
             ["Standard options (OCC)",        "/v1beta1/options/*",                                            "Bars, historical trades, latest quotes/trades, snapshots, and chain snapshots. Historical availability begins 2024-02-01."],
             ["Option bars (1Min)",            "/v1/history/options/bars",                                      "Canonical 1Min bars with source and coverage roles reported in the response. Sparse traded-activity fallback is eligible only for ranges starting on or after 2024-02-01; earlier or boundary-crossing ranges fail closed if dense historical coverage is unavailable. /v1/options/bars is an alias."],
-            ["Contracts discovery",           "/v1/options/contracts",                                         "Current active contracts with strikes and expirations. Use /v3/option/list/contracts/* with a historical date for expired contracts."],
+            ["Alpaca contract reference", "/v1/options/contracts · /v2/options/contracts", "Current contract terms and available deliverables. Theta /v3/option/list/contracts/* lists quote/trade activity by date, not delivery terms."],
             ["Full snapshots / Greeks",       "/v1/options/snapshots",                                         "Latest quote, trade, Greeks, and implied volatility where available."],
             ["Quote / trade snapshots",       "/v1/options/snapshots/{quote,trade}",                           "Normalized latest quote and trade per OCC contract."],
-            ["OI / OHLC snapshots",           "/v1/options/snapshots/open_interest, /v3/option/snapshot/*",    "Contract-level open-interest and OHLC snapshots."],
+            ["OI / OHLC snapshots",           "/v3/option/snapshot/open_interest, /v3/option/snapshot/ohlc",    "Exact-contract open-interest and OHLC snapshots."],
             ["Direct options API",            "/v3/option/*",                                                  "Direct parameter endpoints using root, expiration, strike, and right with structured JSON output."],
           ].map(([area, route, behavior], i) => (
             <tr key={i}>
@@ -3221,7 +3910,8 @@ for row in resp.json()["rows"]:
       </table>
       <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         Successful REST responses are cached server-side.
-        Cache keys strip proxy credentials, return <code>X-Cache: DISK_HIT</code> on repeat, and use tiered TTLs: historical 7 days, intraday/latest 60 seconds, snapshots 5 minutes, contracts/lists 1 hour.
+        Response caching depends on the endpoint and source timestamp. <code>X-Cache: HIT</code> identifies a cache hit; other values describe delivery and are not a freshness guarantee. Check each record's timestamp and the endpoint's session/date semantics. Do not build business logic around internal cache-tier labels or assume one TTL for every endpoint.
+        <br/>缓存策略按接口区分；命中缓存不代表数据已更新到今天。请检查记录时间及交易日，不要依赖内部缓存层名称或统一 TTL。
       </p>
       <h3 id="standard-rest-examples" style={{ fontSize: 16, fontWeight: 500, margin: "0 0 8px", color: "var(--ink-strong)" }}>Standard REST examples</h3>
       <pre className="code" style={{ marginBottom: 40 }}>
@@ -3238,49 +3928,67 @@ curl -H "Authorization: Bearer <TOKEN>" \\
   "${REST_BASE}/v2/stocks/quotes?symbols=AAPL&start=2026-05-20T13:30:00Z&end=2026-05-20T14:00:00Z&feed=sip"`}
       </pre>
 
-      <h2 id="post-v1-options-contracts" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/contracts</h2>
+      <h2 id="post-v1-options-contracts" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET / POST /v1/options/contracts</h2>
       <DocDesc
-        zh="查询指定标的当前活跃期权合约列表（包含 OCC 标准代码、行权价、到期日、未平仓合约数及行情字段）。返回的 symbol 可直接作为期权快照与历史 K 线的入参。Free 用户自动返回最近 2 轮有效到期日合约。"
-        en="List current active option contracts for one or more underlying symbols. Returns OCC symbol, strike, expiration, option type, open interest where available, and pricing fields. Free users receive the nearest 2 upcoming expiration cycles."
+        zh="查询 Alpaca 当前合约资料。列表请求传 show_deliverables=true 可包含来源提供的交割组成；symbol_or_id 用于查询单张合约。这不是历史时点的合约主数据。Free 用户限最近两个有效到期日。"
+        en="Query current Alpaca contract reference. Set show_deliverables=true on list requests for available delivery components; use symbol_or_id for one contract. This is not a historical contract master. Free users are limited to the nearest two eligible expiries."
       />
-      <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/contracts`} />
+      <EndpointBadge method="GET / POST" path={`${REST_BASE}/v1/options/contracts`} />
       <ParamTable rows={[
-        { name: "underlying_symbols",  type: "string",  required: false, desc: "Comma-separated underlyings (e.g. AAPL,TSLA). Required if symbol_or_id not set.", zh: "正股或指数代码（如 AAPL, TSLA），与 symbol_or_id 二选一" },
-        { name: "symbol_or_id",        type: "string",  required: false, desc: "Lookup a single OCC symbol or contract ID directly", zh: "直接查询单张期权的 OCC 代码或合约 ID" },
-        { name: "expiration_date",     type: "string",  required: false, desc: "Exact expiry YYYY-MM-DD", zh: "精确匹配目标到期日 YYYY-MM-DD" },
-        { name: "expiration_date_gte", type: "string",  required: false, desc: "Expiry on or after date", zh: "到期日大于等于指定日期" },
-        { name: "expiration_date_lte", type: "string",  required: false, desc: "Expiry on or before date", zh: "到期日小于等于指定日期" },
-        { name: "strike_price_gte",    type: "number",  required: false, desc: "Minimum strike price", zh: "最低行权价" },
-        { name: "strike_price_lte",    type: "number",  required: false, desc: "Maximum strike price", zh: "最高行权价" },
-        { name: "type",                type: "string",  required: false, desc: "call | put", zh: "期权类型：call（看涨）或 put（看跌）" },
-        { name: "limit",               type: "integer", required: false, desc: "1–10000 (default: 1000)", zh: "返回合约条数上限（1-10000，默认 1000）" },
+        { name: "underlying_symbols", type: "string", required: false, desc: "Comma-separated equity underlyings; required unless symbol_or_id is supplied.", zh: "正股代码，逗号分隔；与 symbol_or_id 二选一。" },
+        { name: "symbol_or_id", type: "string", required: false, desc: "One exact OCC symbol or Alpaca contract ID.", zh: "一张合约的 OCC 代码或 Alpaca 合约 ID。" },
+        { name: "provider", type: "string", required: false, desc: "alpaca only; optional. Other values return 400, without provider fallback.", zh: "可省略；仅接受 alpaca，其他值返回 400，不会切换来源。" },
+        { name: "show_deliverables", type: "boolean", required: false, desc: "true includes available deliverables in list responses. Exact contract lookup returns the source's contract object.", zh: "true 时列表包含可用的交割组成；单张查询返回来源合约对象。" },
+        { name: "expiration_date", type: "date", required: false, desc: "Exact expiry, YYYY-MM-DD; not a reference as-of date.", zh: "精确到期日，不是资料的历史查询时点。" },
+        { name: "expiration_date_gte / expiration_date_lte", type: "date", required: false, desc: "Expiry bounds. Set them explicitly for later expiries; Alpaca otherwise defaults to the upcoming weekend.", zh: "到期日范围。查询远月请明确填写；来源默认上限为即将到来的周末。" },
+        { name: "root_symbol", type: "string", required: false, desc: "Exact option root, including adjusted roots such as SOUN2.", zh: "期权根代码，可查询 SOUN2 等调整后的代码。" },
+        { name: "strike_price_gte / strike_price_lte", type: "number", required: false, desc: "Strike bounds.", zh: "行权价范围。" },
+        { name: "type / style / status", type: "string", required: false, desc: "call or put; american or european; active (default) or inactive.", zh: "看涨/看跌、美式/欧式、active（默认）/inactive。" },
+        { name: "ppind", type: "boolean", required: false, desc: "Filter penny-program eligibility.", zh: "按最小报价单位计划资格筛选。" },
+        { name: "limit", type: "integer", required: false, desc: "1–10000; default 1000.", zh: "每页 1–10000 条，默认 1000。" },
+        { name: "page_token", type: "string", required: false, desc: "Pass next_page_token with unchanged filters. Free accounts must use bounded expiry requests instead of pagination.", zh: "后续分页传回 next_page_token，其他条件保持一致。Free 使用限定到期日查询，不开放分页。" },
       ]} />
+      <div data-option-reference-note className="card" style={{ padding: "14px 16px", marginBottom: 20 }}>
+        <h3>{isZh ? "交割信息与更新时间" : "Delivery terms and freshness"}</h3>
+        <p>{isZh ? "deliverables 来自 Alpaca，可能缺失、滞后，或尚未反映最新公司行动。它不是 LeanData 对合约交割条款的独立确认。HTTP 请求成功或缓存更新，不代表每个字段都是最新。" : "Alpaca deliverables may be missing, stale, or not yet reflect a recent corporate action. They are not an independent LeanData confirmation of delivery terms. A successful request or refreshed cache does not establish freshness of every field."}</p>
+        <p>{isZh ? "equity 的 amount 是每张合约交割股数，cash 的 amount 是相应币种的现金金额。multiplier=100 或股数为 100，都不足以单独证明合约未调整。delayed_settlement 指交割结算是否延期，不表示数据是否延迟。" : "For equity components, amount is shares delivered per contract; for cash it is an amount in the indicated currency. multiplier=100 or a 100-share amount alone does not prove an unadjusted contract. delayed_settlement concerns settlement delay, not data latency."}</p>
+        <p>{isZh ? "金额未知且交割延期时，上游可能返回 amount=0、delayed_settlement=true；不要将其视为已确认的零交割。OI 和收盘价分别查看 open_interest_date、close_price_date；交割信息没有独立的更新时间字段。" : "An undetermined amount can be returned as amount=0 with delayed_settlement=true; do not treat it as confirmed zero delivery. Check open_interest_date and close_price_date separately. Deliverables have no independent update timestamp in this response."}</p>
+        <p>{isZh ? "v2 原生别名同样使用 Alpaca。Theta 的 quote/trade 合约列表只表示指定日期存在相应行情记录，不提供交割组成、调整状态或结算条款。两个来源不会互相补填这些字段。" : "The native v2 alias also uses Alpaca. Theta quote/trade contract lists identify activity on a date; they do not supply deliverables, adjusted status or settlement terms. These fields are not filled from one provider into the other."}</p>
+        <p>{isZh ? "本接口不提供独立的 standard/adjusted 认证、OCC 公告关联、生效时刻或券商行权截止时间。涉及公司行动或到期处理，请核对官方公告及券商规则。" : "This endpoint does not certify standard/adjusted status or supply OCC memo links, effective timestamps or broker exercise cutoffs. Check official notices and broker rules for corporate actions and expiry handling."}</p>
+        <p>
+          <a style={{ color: "#2563eb", textDecoration: "underline" }} href="https://docs.alpaca.markets/us/reference/get-options-contracts" target="_blank" rel="noopener noreferrer">Alpaca contract reference</a>{" · "}
+          <a style={{ color: "#2563eb", textDecoration: "underline" }} href="https://docs.alpaca.markets/us/changelog/2026-10-07-option-deliverable-amount-c94a723" target="_blank" rel="noopener noreferrer">Alpaca delayed amounts</a>{" · "}
+          <a style={{ color: "#2563eb", textDecoration: "underline" }} href="https://infomemo.theocc.com/infomemo/search-memo" target="_blank" rel="noopener noreferrer">OCC adjustment notices</a>{" · "}
+          <a style={{ color: "#2563eb", textDecoration: "underline" }} href="https://www.theocc.com/clearance-and-settlement/clearing/equity-options-product-specifications" target="_blank" rel="noopener noreferrer">OCC equity option specifications</a>
+        </p>
+      </div>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`curl -X POST ${REST_BASE}/v1/options/contracts \\
   -H "Authorization: Bearer <TOKEN>" \\
   -H "Content-Type: application/json" \\
-  -d '{"underlying_symbols":"AAPL","limit":2}'`}
+  -d '{"underlying_symbols":"AAPL","expiration_date":"2026-11-20","show_deliverables":true,"limit":2}'`}
       </pre>
       <pre className="code" style={{ marginBottom: 40 }}>
 {`// Response
 {
   "option_contracts": [
     {
-      "symbol":           "AAPL260522C00110000",
-      "name":             "AAPL May 22 2026 110 Call",
+      "symbol":           "AAPL261120C00110000",
+      "name":             "AAPL Nov 20 2026 110 Call",
       "status":           "active",
       "tradable":         true,
       "type":             "call",
       "style":            "american",
       "strike_price":     "110",
-      "expiration_date":  "2026-05-22",
+      "expiration_date":  "2026-11-20",
       "root_symbol":      "AAPL",
       "underlying_symbol":"AAPL",
       "multiplier":       "100",
+      "deliverables": [{"type":"equity","symbol":"AAPL","amount":"100","allocation_percentage":"100","settlement_type":"T+1","settlement_method":"CCC","delayed_settlement":false}],
       "open_interest":    "3",
-      "open_interest_date":"2026-05-20",
+      "open_interest_date":"2026-10-14",
       "close_price":      "192.05",
-      "close_price_date": "2026-05-21"
+      "close_price_date": "2026-10-15"
     }
   ],
   "next_page_token": null
@@ -3350,6 +4058,7 @@ bars_5m = (frame.set_index("t").resample("5min")
         <br/><span style={{ color: "var(--ink-muted)" }}>为保障服务端内存安全，全链通配符（<code>*</code>）请求将被拒绝（返回 HTTP <code>422</code>）。单次日期跨度上限为 31 天。批量全链历史回补请逐个合约发起，并建议安排在美股常规交易时段外。</span>
       </div>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v1/options/open_interest`} />
+      <p>Dates select source report days. A report published around 06:30 New York time represents the previous trading session's closing OI. The source timestamp, effective trading day and your retrieval time are separate clocks; missing records are not zero. See Latest OI for a current-contract example.<br/>查询日期按报告日选择；报告时间、有效交易日、获取时间应分别保存。</p>
       <ParamTable rows={[
         { name: "symbol",       type: "string",  required: true,  desc: "Root ticker (e.g. AAPL)" },
         { name: "start",        type: "string",  required: true,  desc: "ISO 8601 date (max 31 days span)" },
@@ -3369,7 +4078,7 @@ bars_5m = (frame.set_index("t").resample("5min")
       <pre className="code" style={{ marginBottom: 40 }}>
 {`// Response
 {
-  "count": 1840,
+  "count": 1,
   "data": [
     {
       "symbol":        "AAPL",
@@ -3492,8 +4201,8 @@ for row in data["data"][:5]:
       {/* ── Snapshots ── */}
       <div className="eyebrow" style={{ marginBottom: 6, marginTop: 48, fontSize: 11, color: "var(--ink-soft)" }}>Options Data · Snapshots</div>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 24px" }}>
-        Snapshot endpoints return the <em>latest</em> state of option contracts — greeks, quotes, trade, open interest — served from a high-speed in-memory cache.
-        All snapshot endpoints accept OCC symbols obtained from <code>/v1/options/contracts</code>.
+        Quote/trade snapshot endpoints return the latest available market observations. Latest does not mean every field is current; inspect source timestamps. OI is a separate daily report, not a field guaranteed in a general market snapshot.
+        Quote/trade snapshots accept OCC symbols obtained from <code>/v1/options/contracts</code>. Native OI queries use exact symbol, expiration, strike and right instead.
       </p>
 
       <h2 id="post-v1-options-snapshots" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots</h2>
@@ -3606,49 +4315,44 @@ for sym, snap in resp.json()["snapshots"].items():
   -d '{"symbols":"AAPL260522C00110000","feed":"indicative"}'`}
       </pre>
 
-      <h2 id="post-v1-options-snapshots-open-interest" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/open_interest</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Latest open interest per contract (count + timestamp).
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权合约最新持仓量（OI 快照）。</span>
-      </p>
-      <EndpointBadge method="POST" path={`${REST_BASE}/v1/options/snapshots/open_interest`} />
-      <ParamTable rows={[
-        { name: "symbols", type: "string",  required: true,  desc: "Comma-separated OCC option symbols (max 1000 per request)" },
-        { name: "limit",   type: "integer", required: false, desc: "1–1000 (default: 100)" },
-      ]} />
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`curl -X POST ${REST_BASE}/v1/options/snapshots/open_interest \\
-  -H "Authorization: Bearer <TOKEN>" \\
-  -H "Content-Type: application/json" \\
-  -d '{"symbols":"AAPL260522C00110000"}'`}
-      </pre>
-      <pre className="code" style={{ marginBottom: 12 }}>
-{`// Response
-{
-  "snapshots": {
-    "AAPL260522C00110000": {
-      "openInterest": {
-        "oi": 5,
-        "t": "2026-05-22T06:30:30.000Z"
-      }
-    }
-  }
-}`}
-      </pre>
-      <h3 id="oi-snapshot-python-example" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Python example — check OI for multiple contracts</h3>
-      <pre className="code" style={{ marginBottom: 40 }}>
-{`import requests
+      <h2 id="option-oi-latest" className="display-title" style={{ fontSize: 28 }}>Latest open interest / 最新未平仓量</h2>
+      <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/snapshot/open_interest`} />
+      <p>Use exact <code>symbol</code>, <code>expiration</code>, <code>strike</code> and an explicit <code>right=call|put</code>. Discover an active contract first; do not copy an expired OCC symbol from an example into a current snapshot request.<br/>先查询有效合约，再按具体标的、到期日、行权价和方向查询 OI。示例中的旧合约不能用于当前快照。</p>
+      <p>OI is a daily report, normally published around 06:30 America/New_York, representing the end of the previous trading session. This is an expected publication window, not a guaranteed availability time for every contract. <code>timestamp</code> is the source report time with an explicit offset, not API arrival time. For example, <code>2026-10-15T06:30:02-04:00</code> corresponds to OI at the close of October 14. Keep report time, effective trading day and retrieval time separately; missing records are not zero. Map report dates through the exchange calendar, including holidays.<br/>OI 是日度报告，不是盘中实时持仓。请分别保存来源报告时间、对应交易日和客户端获取时间。必须检查返回时间是否足够新；缺失记录不能当作 OI 为零。</p>
+      <pre className="code">{`import os
+from datetime import datetime, timezone
+import requests
 
-symbols = "AAPL260620C00200000,AAPL260620P00200000"
-resp = requests.post(
-    "${REST_BASE}/v1/options/snapshots/open_interest",
-    headers={"Authorization": "Bearer <TOKEN>"},
-    json={"symbols": symbols}
-)
-for sym, snap in resp.json()["snapshots"].items():
-    oi = snap["openInterest"]
-    print(f"{sym}  OI={oi['oi']}  as_of={oi['t']}")`}
-      </pre>
+with requests.Session() as client:
+    client.trust_env = False
+    client.headers["Authorization"] = "Bearer " + os.environ["LEANDATA_TOKEN"]
+    def query(path, params):
+        response = client.get("https://api.leandata.uk" + path,
+            params=params, timeout=45, allow_redirects=False)
+        if response.status_code != 200:
+            rid = response.headers.get("X-Request-Id", "unknown")
+            raise RuntimeError(f"HTTP {response.status_code}; request_id={rid}")
+        return response.json()
+
+    contracts = query("/v1/options/contracts",
+        {"underlying_symbols": "AAPL", "type": "call", "limit": 1})["option_contracts"]
+    if not contracts:
+        raise RuntimeError("No active contract returned")
+    contract = contracts[0]
+    result = query("/v3/option/snapshot/open_interest", {
+        "symbol": "AAPL", "expiration": contract["expiration_date"],
+        "strike": contract["strike_price"], "right": contract["type"],
+    })
+    retrieved_at = datetime.now(timezone.utc).isoformat()
+    if not result.get("data"):
+        print("No OI record returned; do not substitute zero")
+    for row in result.get("data", []):
+        print(row["timestamp"], row["open_interest"], retrieved_at)
+    # Empty/stale data is unavailable; never substitute zero.`}</pre>
+      <p>Historical OI uses <code>/v1/options/open_interest</code> with <code>start</code>/<code>end</code>, or <code>/v3/option/history/open_interest</code> with <code>start_date</code>/<code>end_date</code>. Date selection refers to source report dates; a historical request is not proof of original point-in-time availability.<br/>历史 OI 的日期选择按来源报告日解释，历史查询本身不证明原始时点可用性。</p>
+
+      <h2 id="post-v1-options-snapshots-open-interest" className="display-title" style={{ fontSize: 28 }}>OI compatibility route / OI 兼容路径</h2>
+      <p><code>/v1/options/snapshots/open_interest</code> is not an implemented OI interface. It previously returned a general market snapshot without OI; do not treat that response as open interest. Use <code>/v3/option/snapshot/open_interest</code> above.<br/>该兼容路径尚未实现 OI 查询，旧响应中的普通行情快照不能用作 OI。请使用上面的正式查询接口。</p>
 
       <h2 id="post-v1-options-snapshots-expiry" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /v1/options/snapshots/expiry</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
@@ -3700,7 +4404,7 @@ for sym, snap in data["snapshots"].items():
       <h2 id="post-v3-option-direct-value" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET/POST /v3/option/* (Direct Options API)</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Direct parameter endpoints for querying options data using root ticker, expiration (YYMMDD), strike, and right (C/P) instead of OCC symbols.
-        Supports both <code>GET</code> query parameters and <code>POST</code> JSON bodies, with responses cached server-side.
+        Supports both <code>GET</code> query parameters and <code>POST</code> JSON bodies, with structured JSON responses. Cache behavior is endpoint-specific.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>期权原生参数查询接口：支持直接使用标的代码、到期日（YYMMDD）、行权价与权利类型（C/P）组合查询，无需拼接 OCC 字符串。支持 GET 与 POST。</span>
       </p>
       <EndpointBadge method="GET/POST" path={`${REST_BASE}/v3/option/...`} />
@@ -3765,8 +4469,8 @@ curl -X POST ${REST_BASE}/v3/option/history/ohlc \\
 
       <h3 id="post-v3-option-at-time-quote" style={{ fontSize: 16, fontWeight: 500, margin: "20px 0 8px", color: "var(--ink-strong)" }}>Quote at time example</h3>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Last NBBO per contract at one millisecond of the day. Prefer the whole-chain form below over per-contract loops: one request per underlying per day.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>返回某日指定时刻每张合约的最新买卖盘。整链一次取回，一天一标的只需一次请求，不要逐合约循环。</span>
+        Last NBBO per contract at one millisecond of the day. Start with an exact contract and bounded date window; whole-chain requests remain subject to endpoint byte and timeout limits.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>返回某日指定时刻每张合约的最新买卖盘。先使用具体合约和短日期窗口；整链请求仍受响应大小及超时限制。</span>
       </p>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`# GET — single contract at a specific time of day
@@ -3783,7 +4487,7 @@ curl -H "Authorization: Bearer <TOKEN>" \\
   "endpoint": "/v3/option/at_time/quote",
   "count": 760,
   "data": [
-    { "symbol": "AAPL", "expiration": "2024-11-08", "strike": 220.0, "right": "PUT", "timestamp": "2024-11-04T15:55:00.000-05:00", "price": 1.25 }
+    { "symbol": "AAPL", "expiration": "2024-11-08", "strike": 220.0, "right": "PUT", "timestamp": "2024-11-04T15:55:00.000-05:00", "bid": 1.20, "ask": 1.30, "bid_size": 10, "ask_size": 12, "midpoint": 1.25 }
   ]
 }`}
       </pre>
@@ -3903,75 +4607,6 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
 }`}
       </pre>
 
-      {/* ── Admin endpoints ── */}
-      <div className="eyebrow" style={{ marginBottom: 10 }}>Admin endpoints</div>
-      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 20px" }}>
-        Token portal admin API. Auth uses <code>X-Admin-Token</code> header (obtained from <code>POST /api/admin/login</code>). Sessions are in-memory and reset on server restart.
-      </p>
-
-      <h2 id="post-admin-login" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/admin/login</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Receive a session token for the admin panel. Password set via <code>ADMIN_PASSWORD</code> environment variable.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>获取管理员面板的会话 Token。密码通过 ADMIN_PASSWORD 环境变量设置。</span>
-      </p>
-      <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/admin/login`} />
-      <pre className="code" style={{ marginBottom: 28 }}>
-{`// Request
-{ "password": "admin123" }
-
-// Response 200
-{ "success": true, "token": "a3f9c2...64b" }
-
-// Use in subsequent admin requests:
-// X-Admin-Token: a3f9c2...64b`}
-      </pre>
-
-      <h2 id="get-admin-pending" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>GET /api/admin/pending</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>List registrations awaiting approval.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>列出待审批的注册申请。</span>
-      </p>
-      <EndpointBadge method="GET" path={`${TOKEN_BASE}/api/admin/pending`} />
-      <pre className="code" style={{ marginBottom: 28 }}>
-{`// Response
-{ "success": true, "items": [
-  { "id": "61ce4f82-...", "username": "tonnysun", "phone": "18717931119",
-    "tier": "premium", "registered_at": "2026-05-19T...", "status": "pending" }
-]}`}
-      </pre>
-
-      <h2 id="post-admin-approve" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/admin/approve</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Approve a pending registration. Writes the user to both the token-site database and the proxy backend, issuing a token automatically.
-        Returns the generated token so you can share it directly with the user.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>批准一条待处理的注册申请；自动写入用户数据库并签发 Token，返回值可直接发给用户。</span>
-      </p>
-      <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/admin/approve`} />
-      <pre className="code" style={{ marginBottom: 28 }}>
-{`// Request
-{ "id": "61ce4f82-8b16-4e7e-be01-282730e53cc8" }
-
-// Response 200
-{
-  "success": true,
-  "message": "已批准 tonnysun，Token 已自动注册到 proxy。",
-  "token":  "<TOKEN>",
-  "expiry": "2026-06-19T14:15:57.059Z"
-}`}
-      </pre>
-
-      <h2 id="post-admin-reject" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>POST /api/admin/reject</h2>
-      <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>Reject a pending registration with an optional reason.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>拒绝一条待处理的注册申请，可附带原因。</span>
-      </p>
-      <EndpointBadge method="POST" path={`${TOKEN_BASE}/api/admin/reject`} />
-      <pre className="code" style={{ marginBottom: 48 }}>
-{`// Request
-{ "id": "61ce4f82-...", "reason": "信息不完整" }
-
-// Response 200
-{ "success": true, "message": "已拒绝 tonnysun。" }`}
-      </pre>
-
-
       {/* ── Reference ── */}
       <div className="eyebrow" style={{ marginBottom: 10 }}>Reference</div>
 
@@ -3984,12 +4619,15 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
         <tbody>
           {[
             ["400", '{"error":"Missing required fields"}', "Required parameter absent or malformed JSON"],
-            ["401", '{"error":"Invalid token"}', "Token missing, expired, or not active"],
+            ["401", '{"error":"invalid_token"}', "Token missing, expired, or not active"],
             ["403", '{"error":"Forbidden"}', "Token valid but tier lacks permission for this endpoint"],
             ["404", '{"error":"Token not found"}', "Admin lookup: user_id not in active token list"],
             ["409", '{"success":false,"message":"..."}', "Duplicate username on registration"],
             ["429", '{"error":"historical_concurrency_limit"}', "More than 3 historical REST requests are in flight for this account"],
             ["429", '{"error":"rate_limit_exceeded"}', "Rate limit reached; back off and retry"],
+            ["429", '{"error":"theta_native_queue_timeout"}', "Shared data capacity or queue timeout; retry later with bounded backoff"],
+            ["422", '{"error":"native_request_budget_exceeded"}', "Request exceeds endpoint shape/span/size limits; split or correct it"],
+            ["501", '{"error":"route_not_migrated"}', "Endpoint is unavailable; do not keep retrying or upgrade to resolve this"],
             ["500", '{"error":"internal_server_error"}', "Internal proxy server error"],
             ["503", '{"error":"service_unavailable"}', "Market data service temporarily unavailable"],
             ["503", '{"error":"Server overloaded, stream priority active."}', "High load; WS streams take priority"],
@@ -4005,48 +4643,16 @@ curl -X POST ${REST_BASE}/v1beta3/crypto/us/snapshots \\
 
       <h2 id="rate-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Rate limits</h2>
       <div style={{ background: "var(--bg-soft)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", margin: "0 0 12px", fontSize: 13 }}>
-        <strong>HTTP 429 = an enforced runtime limit was reached.</strong> The common cause is the per-account historical REST concurrency cap. Wait for in-flight requests to complete and retry with exponential backoff.
-        <br/><span style={{ color: "var(--ink-soft)" }}>收到 HTTP 429 表示触发了运行时限制，常见原因是账号历史 REST 并发达到上限。请等待在途请求完成并使用指数退避。</span>
+        <strong>HTTP 429 = an enforced runtime limit was reached.</strong> Read the public error code: causes include account limits, shared data capacity and queue timeouts. Honor Retry-After when present; retry at most five times with bounded exponential backoff and jitter. Do not retry an unchanged 400/401/403/422/501 request.
+        <br/><span style={{ color: "var(--ink-soft)" }}>收到 HTTP 429 表示触发了运行时限制，原因包括账号限制、共享数据容量或排队超时，并不表示用户一定请求过快。存在 Retry-After 时遵守它；最多五次有上限的指数退避并加入随机抖动。400/401/403/422/501 不应原样重试。</span>
       </div>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         The proxy does not currently enforce the old tier-specific rolling req/min values. Historical REST concurrency is per account and remains held until the response body reaches EOF.
         <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>代理当前不执行旧的套餐级滚动 req/min 数值。历史 REST 并发按账号计算，并持续占用到响应正文读取完毕。</span>
       </p>
-      <table className="tbl card" style={{ overflow: "hidden", marginBottom: 12 }}>
-        <thead>
-          <tr><th style={{ width: 220 }}>Runtime limit</th><th>Enforced value</th><th>Scope</th></tr>
-        </thead>
-        <tbody>
-          {[
-            ["Historical REST concurrency", "3", "per account"],
-            ["Historical options REST QPS", "5/s", "per account"],
-            ["WS subjects", "500", "per connection"],
-            ["WS connections", "no account cap", "service capacity still applies"],
-          ].map(([limit, value, scope], i) => (
-            <tr key={i}>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>{limit}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, textAlign: "center" }}>{value}</td>
-              <td style={{ fontSize: 12, color: "var(--ink-soft)" }}>{scope}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
-        These are current runtime limits, not capacity guarantees. No plan-specific historical request-size budget is enforced. Service-wide backpressure can return <code>503</code>, and provider-capacity limits can return <code>429</code>.
-        <br/><span style={{ color: "var(--ink-soft)" }}>这些是当前运行时限制，不是容量保证；历史请求大小不按套餐单独设预算。服务总背压可能返回 <code>503</code>，数据源容量限制可能返回 <code>429</code>。</span>
-      </p>
-
+      <p>Current REST concurrency, request pacing, WebSocket connection and subject limits are available in <a href="/account">account usage</a>. These limits describe admission, not guaranteed throughput. Start with one sequential request and honor endpoint-specific errors and Retry-After.<br/>REST 并发、请求节奏、WS 连接与主题上限请查看账户页，运行时准入上限不等于吞吐保证。</p>
       <h2 id="concurrency-limits" className="display-title" style={{ fontSize: 28, margin: "0 0 12px" }}>Concurrency limits</h2>
-      <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        The account-level concurrency cap applies only to historical REST: ordinary accounts may have up to <strong>3</strong> requests in flight.
-        WebSocket accounts have no account-level connection cap. Each connection may subscribe to at most <strong>500 subjects</strong>.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>账号级并发上限仅适用于历史 REST：单个账号最多同时有 <strong>3</strong> 个并发在途请求。WebSocket 不设账号级连接数上限；每条连接最多订阅 <strong>500 个 subjects</strong>。</span>
-      </p>
-      <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 12px" }}>
-        Subjects count actual deliveries, not unique ticker strings. For example, <code>AAPL trades</code> plus <code>AAPL quotes</code> is two subjects; subscribing to the same subject on two connections counts twice because the frame is delivered twice. Accounts are counted independently: under the current admission logic, two paid accounts may each open 100 WebSocket connections. This is not an unlimited-capacity SLA. For large fan-out, keep a small number of upstream sockets and redistribute locally through a local proxy.
-        <br/>Subjects 按实际投递计数，不按唯一 ticker 去重。例如同时订阅 <code>AAPL trades</code> 和 <code>AAPL quotes</code> 算两个 subjects；同一 subject 在两条连接上订阅也算两次，因为数据会发送两次。不同账号独立计数：按当前准入逻辑，两个付费账号可以各开 100 条 WS；这不代表无限容量 SLA。大规模分发建议仅保留少量上游连接，再通过本地代理转发给多个本地进程。
-      </p>
-
+      <p>Subjects count actual deliveries. <code>AAPL trades</code> plus <code>AAPL quotes</code> counts as two subjects; the same subject on two connections also counts twice. Keep a small number of upstream sockets and redistribute locally when serving multiple local consumers.<br/>主题按实际投递计数；同一主题在多个连接订阅会重复计数。多个本地进程可通过少量上游连接和本地转发共享数据。</p>
       <pre className="code" style={{ marginBottom: 40 }}>
 {`// 429 response body (JSON) — historical REST concurrency
 {
@@ -4081,33 +4687,20 @@ function WsUsageBody({ focus, articleId }) {
       <div className="eyebrow" style={{ marginBottom: 10 }}>{isZh ? "实时数据流" : "Realtime"}</div>
       <h2 id="endpoint" className="display-title" style={{ fontSize: 38, margin: "0 0 8px" }}>{isZh ? "WebSocket 连接与实时数据流" : "WebSocket connection"}</h2>
       <DocDesc
-        zh="每个数据通道都有专属的独立 URL 路径。连接至对应 URL 后，先发送包含 Token 的 auth 认证消息，随后即可发送 subscribe 进行标的订阅。控制回复采用 JSON。股票、期权、夜盘和暗盘行情可能使用二进制帧，需先尝试 JSON 解码，再尝试 MessagePack；不能仅凭帧类型判断编码。加密货币与新闻通道采用 JSON。"
-        en="Each channel has a dedicated path. Connect to the appropriate URL, send an auth message with your token, then send subscribe messages. Control replies use JSON. Stocks/options/overnight/boats data may arrive in binary frames: try JSON decoding first, then MessagePack. A binary frame alone does not identify the encoding. Crypto and news use JSON."
+        zh="每个数据通道都有独立 URL。连接后立即发送 auth，收到认证成功后再 subscribe。所有通道的行情均为二进制 WebSocket 帧内的原始 JSON。JSON 控制消息得到 JSON 确认；MessagePack 控制消息仅使控制确认采用 MessagePack，不改变行情格式。"
+        en="Each channel has a dedicated path. Send auth immediately after connecting, then subscribe after authentication succeeds. All market payloads are original JSON in binary WebSocket frames. JSON controls receive JSON acknowledgements; MessagePack controls receive MessagePack control acknowledgements only."
       />
 
       <table className="tbl card" style={{ marginBottom: 28, overflow: "hidden" }}>
-        <thead><tr><th>{isZh ? "通道 / Channel" : "Channel"}</th><th>{isZh ? "路径 / Path" : "Path"}</th><th>{isZh ? "格式 / Format" : "Format"}</th><th>Basic</th><th>Trial</th><th>Value</th><th>Standard</th><th>Premium</th></tr></thead>
-        <tbody>
-          {[
-            ["stocks",    "/stream",           "JSON / MessagePack", "—", "✓", "✓", "✓", "✓"],
-            ["options",   "/stream/options",   "JSON / MessagePack", "—", "✓", "✓", "✓", "✓"],
-            ["boats",     "/stream/boats",     "JSON / MessagePack", "—", "✓", "✓", "✓", "✓"],
-            ["overnight", "/stream/overnight", "JSON / MessagePack", "—", "✓", "✓", "✓", "✓"],
-            ["crypto",    "/stream/crypto",    "JSON",    "—", "✓", "✓", "✓", "✓"],
-            ["news",      "/stream/news",      "JSON",    "—", "✓", "✓", "✓", "✓"],
-          ].map(([ch, path, fmt, b, tr, v, s, p], i) => (
-            <tr key={i}>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 12, fontWeight: 600 }}>{ch}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 11 }}>{path}</td>
-              <td style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--ink-soft)" }}>{fmt}</td>
-              <td style={{ color: b === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{b}</td>
-              <td style={{ color: tr === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{tr}</td>
-              <td style={{ color: v === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{v}</td>
-              <td style={{ color: s === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{s}</td>
-              <td style={{ color: p === "✓" ? "var(--ok)" : "var(--ink-soft)", fontFamily: "var(--f-mono)", textAlign: "center" }}>{p}</td>
-            </tr>
-          ))}
-        </tbody>
+        <thead><tr><th>Channel</th><th>Path</th><th>Format</th>{["free", "basic", "value", "standard", "premium"].map(name => <th key={name}>{PRODUCT_CATALOG.plan_details[name]?.name || "Free"}</th>)}</tr></thead>
+        <tbody>{[
+          ["stocks", "/stream", "JSON data"], ["options", "/stream/options", "JSON data"],
+          ["boats", "/stream/boats", "JSON data"], ["overnight", "/stream/overnight", "JSON data"],
+          ["crypto", "/stream/crypto", "JSON"], ["news", "/stream/news", "JSON"],
+        ].map(([channel, path, format]) => <tr key={channel}>
+          <td>{channel}</td><td><code>{path}</code></td><td>{format}</td>
+          {["free", "basic", "value", "standard", "premium"].map(name => <td key={name}>{PRODUCT_CATALOG.tiers[name].permissions.ws[channel] ? "✓" : "—"}</td>)}
+        </tr>)}</tbody>
       </table>
 
       {/* ── Connecting ── */}
@@ -4122,18 +4715,7 @@ function WsUsageBody({ focus, articleId }) {
 {"action": "subscribe", "trades": ["AAPL"], "quotes": ["AAPL"]}`}
       </pre>
       <pre className="code" style={{ marginBottom: 12 }}>
-{`import asyncio, websockets, json, msgpack
-
-def decode_messages(raw):
-    try:
-        decoded = json.loads(raw)
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        decoded = msgpack.unpackb(raw, raw=False, timestamp=3)
-    if isinstance(decoded, dict):
-        return [decoded]
-    if isinstance(decoded, list) and all(isinstance(item, dict) for item in decoded):
-        return decoded
-    raise ValueError("Unexpected WebSocket message shape")
+{`import asyncio, websockets, json
 
 async def stream_stocks(token):
     uri = "${WS_BASE}/stream"        # stocks channel
@@ -4141,30 +4723,26 @@ async def stream_stocks(token):
 
         # 1. Authenticate
         await ws.send(json.dumps({"action": "auth", "token": token}))
-        auth_resp = decode_messages(await ws.recv())
-        if not any(m.get("T") == "success" and m.get("msg") == "authenticated"
-                   for m in auth_resp):
-            raise RuntimeError("WebSocket authentication failed")
+        auth_resp = json.loads(await ws.recv())
         # auth_resp → [{"T": "success", "msg": "authenticated"}]
 
         # 2. Subscribe
         await ws.send(json.dumps({
             "action": "subscribe",
             "trades": ["AAPL", "TSLA", "NVDA"],
-            "quotes": ["AAPL"],
-            "bars":   []
+            "quotes": ["AAPL"]
         }))
 
         # 3. Receive
         async for raw in ws:
-            msgs = decode_messages(raw)  # JSON text, JSON bytes, or MessagePack
+            msgs = json.loads(raw)   # list of message dicts
             for msg in msgs:
                 print(msg)
 
 asyncio.run(stream_stocks("YOUR_TOKEN"))`}
       </pre>
       <pre className="code" style={{ marginBottom: 28 }}>
-{`# For crypto/news channels — same pattern but JSON instead of msgpack
+{`# For crypto/news channels — the same JSON pattern
 uri = "${WS_BASE}/stream/news"
 await ws.send(json.dumps({"action": "auth", "token": token}))
 auth_resp = json.loads(await ws.recv())   # JSON response
@@ -4177,8 +4755,8 @@ await ws.send(json.dumps({
 
       <h2 id="heartbeat" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Heartbeat</h2>
       <DocDesc
-        zh="服务端会自动向客户端发送 WebSocket Ping 帧进行链路活性探测。绝大部分主流客户端库会自动响应 Pong 帧。若客户端不支持自动响应，请在收到 Ping 帧后调用 pong() 以保持长连接。若客户端发送队列积压超过 200 条消息，服务端将主动断开连接以保护系统健康。WebSocket 不设账号级连接数上限；单连接 500 个 subjects 限制依然适用。"
-        en="The server sends WebSocket ping frames automatically. Most client libraries respond to pings automatically. If your client does not, call pong() on receipt to stay connected. The server will close connections that exceed the send queue limit (200 messages)."
+        zh="服务端会自动向客户端发送 WebSocket Ping 帧进行链路活性探测。绝大部分主流客户端库会自动响应 Pong 帧。若客户端不支持自动响应，请在收到 Ping 帧后调用 pong() 以保持长连接。发送队列受帧数和字节预算约束，有限恢复仍无法消化积压时会以 1013 断开。当前账户限制见 account usage。"
+        en="The server sends WebSocket ping frames automatically. Most client libraries respond to pings automatically. If your client does not, call pong() on receipt to stay connected. Outbound queues have frame and byte budgets. Terminal overflow after bounded recovery closes the connection with code 1013. Check account usage for current limits."
       />
 
       {/* ── Channels ── */}
@@ -4186,15 +4764,15 @@ await ws.send(json.dumps({
 
       <h2 id="stocks" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "美股实时行情流 (stocks)" : "stocks"}</h2>
       <DocDesc
-        zh="美股实时行情流：支持全市场 SIP 官方聚合行情的 Trades 逐笔成交、Quotes 逐笔买卖盘与分钟 K 线。通过 trades、quotes 或 bars 列表订阅，支持 * 订阅全市场标的。"
-        en="Live US equities: trades, quotes, and minute bars from the consolidated SIP feed. Subscribe to trades, quotes, and/or bars lists. Use * to subscribe to all symbols."
+        zh="美股实时行情流支持 trades 逐笔成交与 quotes 买卖盘，数据源取决于账户权限（Free 为 IEX）。普通账户需列出具体代码；股票通配符需要单独的服务权限。分钟 K 线请使用 REST 历史接口。"
+        en="Live US equity trades and quotes; the feed depends on account entitlement (Free uses IEX). Ordinary accounts must list explicit symbols; stock wildcards require a separate service grant. Use REST history for minute bars; bars subscriptions are not supported here."
       />
       <H3>Subject limit</H3>
-      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>Each connection supports up to 500 subjects. A ticker subscribed under both <code>trades</code> and <code>quotes</code> consumes two subjects.</p>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 12px" }}>Current per-connection subject limits are shown in account usage. A ticker subscribed under both <code>trades</code> and <code>quotes</code> consumes two subjects.</p>
 
       <h2 id="options" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "期权实时行情流 (options)" : "options"}</h2>
       <DocDesc
-        zh="OPRA 官方期权行情实时流：在 trades 和 quotes 列表中传入标准 OCC 期权代码进行订阅。除 Basic 套餐外均可使用。支持 SPX/SPXW、VIX/VIXW、DJX、XSP 等主流指数期权。行情通过 /stream/options 推送；使用上方的 decode_messages 同时处理 JSON 和 MessagePack。"
+        zh="OPRA 官方期权行情实时流：在 trades 和 quotes 列表中传入标准 OCC 期权代码进行订阅。除 Basic 套餐外均可使用。支持 SPX/SPXW、VIX/VIXW、DJX、XSP 等主流指数期权。行情以二进制 WebSocket 帧内的原始 JSON 通过 /stream/options 推送。"
         en="Live OPRA options feed. Subscribe using OCC symbols in the trades and quotes lists. All tiers except Basic. Index options are supported for SPX/SPXW, VIX/VIXW, DJX and XSP families."
       />
 
@@ -4213,8 +4791,8 @@ await ws.send(json.dumps({
 
       <h2 id="news" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "实时新闻快讯流 (news)" : "news"}</h2>
       <DocDesc
-        zh="实时金融新闻与快讯流：传入目标 ticker 列表或 * 订阅全量新闻。消息为标准 JSON 格式。历史新闻亦可通过 REST /v1/history/news 获取。"
-        en="Realtime market news events. Subscribe with a news list of tickers or * for all. Messages are plain JSON. All tiers except Basic. Historical news is also available via REST /v1/history/news."
+        zh="实时金融新闻与快讯流：传入目标 ticker 列表或 * 订阅全量新闻。消息为标准 JSON 格式。历史新闻 REST /v1/history/news 仅限 Premium。"
+        en="Realtime market news events. Subscribe with a news list of tickers or * for all. Messages are plain JSON. All tiers except Basic. Historical news via REST /v1/history/news requires Premium."
       />
 
       <h2 id="overnight" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "美股夜盘交易流 (overnight)" : "overnight"}</h2>
@@ -4228,23 +4806,23 @@ await ws.send(json.dumps({
 
       <h2 id="subscribe" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "订阅与退订 (Subscribe / Unsubscribe)" : "Subscribe / Unsubscribe"}</h2>
       <DocDesc
-        zh="订阅与退订共用相同的数据结构，仅 action 字段不同（subscribe 或 unsubscribe）。支持增量订阅，每次调用会在当前连接已有标的上追加或移除。"
-        en="Subscribe and unsubscribe actions share the same shape — only the action field differs. You can update subscriptions incrementally; each call adds or removes the listed symbols."
+        zh="subscribe 替换当前连接的完整订阅集合，每次都需发送希望保留的所有标的。unsubscribe 清除全部订阅，不发送确认；要移除部分标的，请重新 subscribe 剩余集合。"
+        en="Each subscribe replaces the full subscription set on this connection. Include every symbol you want to retain. Unsubscribe clears all subscriptions without an acknowledgement; to remove only some symbols, subscribe again with the remaining full set."
       />
       <pre className="code" style={{ marginBottom: 24 }}>
 {`// Subscribe
-{ "action": "subscribe",   "trades": ["AAPL"], "quotes": ["AAPL", "TSLA"], "bars": [] }
+{ "action": "subscribe",   "trades": ["AAPL"], "quotes": ["AAPL", "TSLA"] }
 
 // Unsubscribe
-{ "action": "unsubscribe", "trades": ["AAPL"], "quotes": [], "bars": [] }
+{ "action": "unsubscribe" }
 
-// Subscription confirmation (returned after each subscribe/unsubscribe)
-[{ "T": "subscription", "trades": ["AAPL"], "quotes": ["AAPL","TSLA"], "bars": [] }]`}
+// Subscribe confirmation: mode and admitted subjects
+[{ "T": "subscription", "mode": "stocks", "subjects": ["market.alpaca.stock.trades.AAPL", "market.alpaca.stock.quotes.AAPL", "market.alpaca.stock.quotes.TSLA"] }]`}
       </pre>
 
       <h2 id="unsubscribe" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>{isZh ? "退订 (Unsubscribe)" : "Unsubscribe"}</h2>
-      <DocDesc zh="将 action 设为 unsubscribe，只移除消息中指定的标的。其他已有订阅保持有效。" en="Set action to unsubscribe to remove the listed symbols from the current connection's subscriptions." />
-      <pre className="code">{`{ "action": "unsubscribe", "trades": ["AAPL"], "quotes": [], "bars": [] }`}</pre>
+      <DocDesc zh="发送 unsubscribe 清除当前连接的全部订阅。此动作不发送确认。" en="Send unsubscribe to clear all subscriptions on this connection. This action does not send an acknowledgement." />
+      <pre className="code">{`{ "action": "unsubscribe" }`}</pre>
 
       <h2 id="trade" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Trade</h2>
       <pre className="code" style={{ marginBottom: 24 }}>
@@ -4274,6 +4852,7 @@ await ws.send(json.dumps({
       </pre>
 
       <h2 id="bar" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Bar</h2>
+      <p>Reference payload only. This gateway does not support bars subscriptions; request minute bars through REST history.</p>
       <pre className="code" style={{ marginBottom: 48 }}>
 {`{
   "T":  "b",                         // message type: bar (minute)
@@ -4293,21 +4872,17 @@ await ws.send(json.dumps({
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
         Handle reconnects with backoff.
         The server may close the connection on overload (<code>code 1013</code>) or policy violation (<code>code 1008</code>).
-        Implement exponential backoff. Subscriptions are not persisted — re-auth and re-subscribe after every reconnect. Send auth immediately after opening; do not wait for a connected greeting. A connection without subscriptions closes after 30 seconds with code 1008. Report decoding errors instead of silently reconnecting.
+        Implement exponential backoff. Subscriptions are not persisted — re-auth and re-subscribe after every reconnect.
       </p>
       <pre className="code" style={{ marginBottom: 28 }}>
 {`import asyncio, websockets, json
 
-# Reuse decode_messages from the connection example above.
 async def with_reconnect(token, uri, handler, backoff=1):
     while True:
         try:
             async with websockets.connect(uri) as ws:
                 await ws.send(json.dumps({"action": "auth", "token": token}))
-                auth_resp = decode_messages(await ws.recv())
-                if not any(m.get("T") == "success" and m.get("msg") == "authenticated"
-                           for m in auth_resp):
-                    raise RuntimeError("WebSocket authentication failed")
+                await ws.recv()                          # auth response
                 await ws.send(json.dumps({               # re-subscribe
                     "action": "subscribe",
                     "trades": ["AAPL", "TSLA"]
@@ -4320,8 +4895,7 @@ async def with_reconnect(token, uri, handler, backoff=1):
 
       <h2 id="backpressure" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Backpressure</h2>
       <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Each client has an outbound queue of 200 messages. If your consumer is too slow to drain it, newer messages are dropped and a drop counter is incremented server-side (visible in admin stats).
-        Under system load (<code>X-Load: high</code>), REST endpoints are throttled or rejected to protect stream delivery — WS is always served first.
+        Outbound queues enforce frame and byte budgets with bounded recovery. Terminal overflow disconnects with code 1013. Use backoff, authenticate again and restore your full subscription set. Reconcile gaps using authorized historical endpoints; a reconnect does not replay missed market data.
       </p>
       <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "0 0 40px" }}>
         Best practice: process each message quickly (or offload to a queue) rather than doing heavy work inside the receive loop.
@@ -4329,8 +4903,8 @@ async def with_reconnect(token, uri, handler, backoff=1):
 
       <h2 id="performance" className="display-title" style={{ fontSize: 28, margin: "0 0 8px" }}>Performance tips</h2>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        The proxy serves cached responses in under 1ms. Most client-perceived latency comes from network round-trips and TLS handshakes. These tips can cut TTFB by 50–80%.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>代理返回缓存响应不到 1ms，客户端感知到的延迟主要来自网络往返和 TLS 握手。以下建议可将 TTFB 降低 50–80%。</span>
+        Latency depends on the data tier, response size, network and current load. Measure your workload and inspect cache metadata; these suggestions are not a latency SLA.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>延迟取决于数据层级、响应大小、网络和当前负载。请实测业务请求并查看缓存元数据；以下建议不构成延迟 SLA。</span>
       </p>
 
       <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Use GET for cacheable endpoints</h3>
@@ -4347,15 +4921,15 @@ curl -X POST https://api.leandata.uk/v1/history/bars \\
 curl "https://api.leandata.uk/v1/history/bars?token=TOKEN&symbol=AAPL&start=2025-01-01&end=2025-12-31&timeframe=1Day"
 
 # Check cache status in response headers:
-# X-Cache: HIT      → served from in-memory hot cache (~1ms)
-# X-Cache: DISK_HIT → served from fast SSD archive (~5-15ms)
+# X-Cache: HIT      → served from in-memory hot cache
+# X-Cache: DISK_HIT → served from fast SSD archive
 # X-Cache: MISS     → fetched from upstream and cached for next request`}
       </pre>
 
       <h3 style={{ fontSize: 18, margin: "0 0 8px", color: "var(--ink)" }}>Reuse connections</h3>
       <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: "0 0 12px" }}>
-        Each new HTTPS request pays ~100ms for TCP + TLS handshake. Use a persistent session (HTTP/2 or keep-alive) to amortize this across all requests.
-        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>每个新 HTTPS 请求需约 100ms 用于 TCP + TLS 握手。使用持久连接（HTTP/2 或 keep-alive）可将此开销分摊到所有请求。</span>
+        New HTTPS connections require TCP and TLS handshakes. Use a persistent session (HTTP/2 or keep-alive) to amortize this across all requests.
+        <br/><span style={{ color: "var(--ink-soft)", fontSize: 13 }}>新 HTTPS 连接需要 TCP 与 TLS 握手。使用持久连接（HTTP/2 或 keep-alive）可将此开销分摊到所有请求。</span>
       </p>
       <pre className="code" style={{ marginBottom: 12 }}>
 {`# Python — use requests.Session for connection reuse
@@ -4364,12 +4938,12 @@ import requests
 session = requests.Session()
 session.headers["Authorization"] = "Bearer TOKEN"
 
-# First request: ~150ms (TLS handshake + response)
+# First request establishes the connection
 r1 = session.get("https://api.leandata.uk/v1/history/bars",
                   params={"symbol": "AAPL", "start": "2025-01-01",
                           "end": "2025-12-31", "timeframe": "1Day"})
 
-# Subsequent requests: ~20-40ms (connection reused)
+# Subsequent requests can reuse the connection
 r2 = session.get("https://api.leandata.uk/v1/history/bars",
                   params={"symbol": "MSFT", "start": "2025-01-01",
                           "end": "2025-12-31", "timeframe": "1Day"})

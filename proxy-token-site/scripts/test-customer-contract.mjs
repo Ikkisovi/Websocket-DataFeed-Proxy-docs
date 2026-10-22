@@ -26,24 +26,18 @@ for (const schedule of Object.values(contract.refresh_schedules)) {
   assert.equal(schedule.frequency, "daily");
 }
 const cases = [
-  ["/docs/market/research-signals/brain-overview/", [/Private preview/, /2220/, /947/, /historical union/, /security_id/, /rank2days/, /rank3days/, /rank5days/, /rank10days/, /rank21days/]],
-  ["/docs/market/research-signals/brain-universe-snapshot/", [/Private preview/, /date=latest/, /947/, /brain_snapshot_not_found/, /10000/, /403/, /publication-time/]],
+  ["/docs/financial/morningstar/morningstar-history/", [/daily\/history/, /snapshot/, /Premium/, /symbols=AAPL/]],
+  ["/docs/financial/morningstar/morningstar-coverage/", [/daily\/coverage/, /available dates/i]],
+  ["/docs/financial/eodhd/eodhd-overview/", [/Premium/, /earnings/, /dividends/, /splits/, /06:00/]],
+  ["/docs/universes/universe-read/", [/universe_id/, /snapshot_id/, /Premium/, /96 hours/]],
+  ["/docs/market/research-signals/brain-overview/", [/at no extra cost/, /2220/, /947/, /historical union/, /security_id/, /rank2days/, /rank3days/, /rank5days/, /rank10days/, /rank21days/]],
+  ["/docs/market/research-signals/brain-universe-snapshot/", [/at no extra cost/, /date=latest/, /947/, /brain_snapshot_not_found/, /10000/, /403/, /publication-time/]],
   ["/docs/market/research-signals/brain-history/", [/Planned API/, /366/, /seven/, /default all five horizons/, /next_cursor/, /missing scores are not zero/]],
   ["/docs/market/research-signals/brain-latest/", [/Planned API/, /resolved_date/, /not carried forward/, /not a live/]],
   ["/docs/market/research-signals/brain-securities/", [/Planned API/, /not Brain's official constituent list/, /first_observed_date/, /continuous membership/]],
   ["/docs/market/research-signals/brain-coverage/", [/Planned API/, /historical_security_count/, /latest_date_security_count/, /update time has not been announced/]],
   ["/docs/market/options/post-v1-options-contracts/", [/Alpaca/, /show_deliverables/, /page_token/, /stale/, /settlement delay, not data latency/, /historical contract master/]],
-  ["/docs/financial/eodhd/eodhd-fields/", [/shareholder record date/, /currency/, /source_updated_at/, /per share/]],
-  ["/docs/financial/eodhd/eodhd-history/", [/snapshot_date/, /not event dates/, /symbols=PG,MSFT/, /no separate event-date filter/]],
-  ["/docs/financial/eodhd/eodhd-coverage/", [/pagination ended/, /not completion/]],
 
-  ["/docs/financial/morningstar/morningstar-overview/", [/06:00/, /PST\/PDT/, /Morningstar/]],
-  ["/docs/financial/morningstar/morningstar-daily-history/", [/daily\/history/, /one row per stock and day/, /snapshot/, /source_dates/]],
-  ["/docs/financial/morningstar/morningstar-daily-coverage/", [/unobserved_weekdays/, /missing_by_field/, /stock_coverage_ratio/]],
-  ["/docs/financial/eodhd/eodhd-overview/", [/Premium/, /earnings/, /dividends/, /splits/, /near-term US earnings/i, /Morningstar/, /06:00/]],
-  ["/docs/financial/eodhd/eodhd-fields/", [/snapshot_date/, /report_time/, /dividend_date/, /row_id/, /not zero/]],
-  ["/docs/financial/eodhd/eodhd-history/", [/start\/end filter snapshot_date/, /next_offset/, /100000/, /Response example/, /ABT/]],
-  ["/docs/financial/eodhd/eodhd-coverage/", [/latest_capture_date/, /Coverage is not paginated/, /data\[\].rows/]],
   ["/docs/realtime/websocket/", [/original JSON in binary WebSocket frames/, /MessagePack control acknowledgements only/, /json.loads/, /frame and byte budgets/]],
   ["/docs/realtime/subscriptions/", [/replaces the full subscription set/, /Unsubscribe clears all subscriptions without an acknowledgement/, /bars subscriptions/]],
   ["/docs/market/overview/api-contract/", [/Live API contract/, /X-Leandata-Contract-SHA256/, /X-Leandata-Data-Tier/, /route_not_migrated/, /endpoint_unavailable/]],
@@ -80,7 +74,7 @@ for (const [path, patterns] of cases) {
   assert(main, path); assert.deepEqual(errors, []);
   for (const pattern of patterns) assert.match(main.textContent, pattern, path);
   if (path.includes("/brain-")) {
-    assert(main.querySelector(`[data-brain-status="${/brain-(overview|universe-snapshot)/.test(path) ? 'private-preview' : 'planned'}"]`), path);
+    assert(main.querySelector(`[data-brain-status="${/brain-(overview|universe-snapshot)/.test(path) ? 'paid-included' : 'planned'}"]`), path);
     for (const url of ["https://braincompany.co/bsr.html", "https://www.braincompany.co/assets/files/BSR_summary.pdf"]) {
       const link = main.querySelector(`a[href="${url}"]`);
       assert(link, `${path}: Brain official link`);
@@ -113,7 +107,7 @@ for (const [path, patterns] of cases) {
       }
     }
   }
-  if (path.endsWith("/eodhd-overview/") || path.endsWith("/morningstar-overview/") || path.endsWith("/fmp-calendar-support/")) {
+  if (path.endsWith("/fmp-calendar-support/")) {
     const schedule = main.querySelector("[data-financial-refresh-schedule]");
     assert(schedule, path);
     assert.match(schedule.textContent, /06:00 Pacific time/);

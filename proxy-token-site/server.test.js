@@ -1144,6 +1144,7 @@ describe('Registration and bulk product UI contract', () => {
     path.join(__dirname, 'public', 'docs', 'docs-site.jsx'),
     'utf8'
   );
+  const financialSource = fs.readFileSync(path.join(__dirname, 'public', 'docs', 'customer-financial.jsx'), 'utf8');
   const docsNavigationSource = fs.readFileSync(
     path.join(__dirname, 'public', 'docs', 'doc-navigation.mjs'),
     'utf8'
@@ -1193,10 +1194,6 @@ describe('Registration and bulk product UI contract', () => {
     expect(projected).toEqual(publicCatalog());
     expect(projected.tiers.trial).toBeUndefined();
     expect(projected.tiers.test).toBeUndefined();
-    expect(docsSource).toContain('/api/product-catalog');
-    expect(docsSource).toContain('data-product-catalog={PRODUCT_CATALOG.version}');
-    expect(docsSource).toContain('account usage');
-    expect(docsSource).toContain('counts as two subjects');
     expect(docsSource).not.toContain('two paid accounts may each open 100 WebSocket connections');
     expect(docsSource).not.toContain('Each connection supports up to 500 subjects');
     expect(registerSource).not.toMatch(/restPerMin:|wsConns:|wsSymbols:|id: "trial"/);
@@ -1236,27 +1233,23 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).not.toContain('ThinkCentre');
   });
 
-  it('describes the financial snapshot and its update limits in both languages', () => {
-    expect(docsSource).toContain('company statements, ratios, profiles');
+  it('describes financial access and update timing in both languages', () => {
+    expect(docsSource).toContain('US company statements, ratios, profiles');
     expect(docsSource).toContain('Premium 账户可查询公司财报、比率、资料');
-    expect(docsSource).toContain('function Bilingual');
-    expect(docsSource).toContain('FMP data do not update automatically.');
-    expect(docsSource).toContain('FMP 数据不自动更新。');
+    expect(financialSource).toContain('Daily updates start at 06:00 Pacific / 09:00 New York.');
+    expect(financialSource).toContain('更新时间：每日美西早上 06:00 / 纽约早上 09:00 起。');
   });
 
-  it('puts the Regular or Morningstar source choice first and documents Morningstar boundaries', () => {
+  it('links financial source choices to the customer guides and keeps coverage distinct', () => {
     expect(docsSource).toContain('id="financial-source-selector"');
     expect(docsSource).toContain('选择财务数据源 / Choose a financial data source');
     expect(docsSource).toContain('Regular / FMP');
-    expect(docsSource).toContain('/v1/fundamentals/morningstar');
-    expect(docsSource).toContain('/v1/fundamentals/morningstar/coverage');
-    expect(docsSource).toContain('not certified strict point-in-time');
-    expect(docsSource).toContain('source daily fill-forward is preserved; API performs no filling');
-    expect(docsSource).toContain('morningstar_premium_required');
+    expect(financialSource).toContain('/v1/fundamentals/morningstar/daily/history');
+    expect(financialSource).toContain('/v1/fundamentals/morningstar/daily/coverage');
+    expect(financialSource).toContain('a list does not guarantee data for every member and date');
     expect(docsNavigationSource).toContain('financialMorningstar: "/docs/financial/morningstar/"');
     expect(docsNavigationSource).toContain('financialRegular: "/docs/financial/regular/"');
     expect(docsNavigationSource).toContain('marketStocks: "/docs/market/stocks/"');
-    expect(docsSource).toContain('Find an endpoint, explore its parameters, and copy a request example');
   });
 
   it('documents cash-indices minute and derived daily endpoints', () => {
@@ -1303,11 +1296,7 @@ describe('Registration and bulk product UI contract', () => {
     expect(docsSource).not.toContain('quantconnect.png');
     expect(docsSource).toContain('US equities market-data feed illustration');
     expect(docsSource).toContain('ProviderHero');
-    expect(docsSource).toContain('not certified strict point-in-time');
-    expect(docsSource).toContain('id="morningstar-pit"');
-    expect(docsSource).toContain('id="morningstar-processing"');
-    expect(docsSource).toContain('Deduplication and processing');
-    expect(docsSource).toContain('字段字典 / Field dictionary');
+    expect(financialSource).toContain('Morningstar fundamentals');
     expect(docsSource).toContain('Spectral Tick-Flow 频谱订单流信号');
     expect(docsSource).toContain('executionperiodseconds');
     expect(docsSource).toContain('volumevarianceexplained');

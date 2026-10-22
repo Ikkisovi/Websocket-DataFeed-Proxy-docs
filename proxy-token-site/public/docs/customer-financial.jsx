@@ -129,7 +129,7 @@ export function EodhdCustomerBody({ articleId, isZh }) {
     <DailyUpdate isZh={isZh} />
     <p>{t("Query recorded upcoming earnings, dividend and split events. For revenue, profit and other financial statement values, use Morningstar instead.", "查询已收录的近期财报、分红和拆股事件。营收、利润等财报数值请使用 Morningstar。")}</p>
     <p>{t("Event coverage is independent of the example universe. Results can include stocks outside its member list; filter by the stocks you need. This feed is not a complete calendar of every announced future event, and dates can change.", "事件数据的覆盖范围独立于示例 universe，结果可能包含其名单外的股票，请按关心的股票筛选。这不是所有已公告未来事件的完整日历，事件日期也可能调整。")}</p>
-    <p><a href={docArticlePath("financial-eodhd", "eodhd-history")}>{t("Find company events →", "查询公司事件 →")}</a>{" · "}<a href={DOC_PATHS.universes}>{t("Universe member lists", "Universe 股票名单")}</a></p>
+    <p><a href={DOC_PATHS.financialMorningstar}>Morningstar</a>{" · "}<a href={docArticlePath("financial-eodhd", "eodhd-history")}>{t("Find company events →", "查询公司事件 →")}</a>{" · "}<a href={DOC_PATHS.universes}>{t("Universe member lists", "Universe 股票名单")}</a></p>
 
     <h2 id="eodhd-history" className="display-title">{t("Find company events", "查询公司事件")}</h2>
     {articleId && <Premium isZh={isZh} />}

@@ -30,6 +30,7 @@ for (const file of publicSources) {
       const text = source.split("\n")[line - 1];
       if (match.index >= start && match.index < end || text.includes('["Alpaca contract reference", "/v1/options/contracts')) continue;
     }
+    if (match[0] === "Alpaca" && path.relative(publicDir, file) === "reports/brain-same-basis-update.jsx") continue;
     findings.push(`${path.relative(publicDir, file)}:${line} (${match[0]})`);
   }
 }

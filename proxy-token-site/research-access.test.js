@@ -193,3 +193,15 @@ describe('first email binding before login', () => {
     expect(getLastTestAccountLoginEmail().email).toBe(credential.email);
   });
 });
+
+
+describe('research static URL normalization', () => {
+  it('gates encoded and normalized article paths before static serving', async () => {
+    for (const path of ['/reports/%62rain-stock-ranking/article.js', '/%72eports/brain-stock-ranking/index.html',
+      '/reports%2fbrain-stock-ranking%2farticle.js', '/reports//brain-stock-ranking/article.js']) {
+      const res = await request(app).get(path);
+      expect(res.statusCode).toBe(401);
+      expect(res.headers['cache-control']).toContain('no-store');
+    }
+  });
+});
