@@ -27,9 +27,10 @@ const pages = {
   "market/research-signals": "Research Signals API",
   "market/crypto-news": "Crypto & News API",
   "market/cn": "China Market Data API",
+  "universes": "Universe Member Lists",
+  "financial/eodhd": "EODHD Company Events",
   "financial": "Financial Data Sources",
   "financial/regular": "Regular / FMP Financial API",
-  "financial/eodhd": "EODHD Events API",
   "financial/morningstar": "Morningstar Fundamentals API",
   "financial/statements": "Financial Statements API",
   "financial/ratios-growth": "Financial Ratios & Growth API",
@@ -44,8 +45,14 @@ for (const article of Object.values(DOC_ARTICLES)) {
   pages[article.path.slice("/docs/".length).replace(/\/$/, "")] = article.label;
 }
 
+const legacyMorningstarPages = {
+  "/docs/financial/morningstar/morningstar-pit/": "/docs/financial/morningstar/",
+  "/docs/financial/morningstar/morningstar-processing/": "/docs/financial/morningstar/",
+  "/docs/financial/morningstar/morningstar-fields/": "/docs/financial/morningstar/morningstar-history/",
+};
+
 // Publish exactly the routes bundled into the reader, with a fixed deploy allowlist.
-const articleIndexes = Object.keys(DOC_ARTICLES).sort().map(path => {
+const articleIndexes = [...Object.keys(DOC_ARTICLES), ...Object.keys(legacyMorningstarPages)].sort().map(path => {
   if (!/^\/docs\/(?:[a-z0-9-]+\/)+$/.test(path)) throw new Error(`Invalid article path: ${path}`);
   return path.slice(1) + "index.html";
 });
@@ -91,12 +98,12 @@ await Promise.all(Object.entries(pages).map(async ([relativePath, title]) => {
   await writeFile(resolve(directory, "index.html"), html(title));
 }));
 
-// Old operator URLs remain harmless static notices for existing bookmarks.
-for (const id of ["post-admin-login", "get-admin-pending", "post-admin-approve", "post-admin-reject"]) {
-  const directory = resolve(docsRoot, "market/overview", id);
+// Keep bookmarks useful while presenting the shorter customer guide.
+for (const [path, target] of Object.entries(legacyMorningstarPages)) {
+  const directory = resolve(siteRoot, "public", path.slice(1));
   await mkdir(directory, { recursive: true });
-  await writeFile(resolve(directory, "index.html"), `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Documentation page retired — LeanData</title><meta name="robots" content="noindex"></head>
-<body><main><h1>Documentation page retired / 文档已移除</h1><p>This page is not part of the customer API. 此页面不属于客户接口文档。</p><a href="/docs/market/overview/">API overview / 接入总览</a></main></body></html>
+  await writeFile(resolve(directory, "index.html"), `<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=${target}"><title>Morningstar fundamentals — LeanData</title></head>
+<body><p><a href="${target}">Morningstar fundamentals / Morningstar 基本面</a></p></body></html>
 `);
 }
