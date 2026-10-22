@@ -709,7 +709,7 @@ function cleanLoginChallenges() {
   }
 }
 
-function verifyAccountOtpChallenge(challengeId, accountId, otpCode) {
+function verifyAccountOtpChallenge(challengeId, accountId, otpCode, purpose = 'account_login') {
   if (!challengeId || !otpCode) {
     return { ok: false, error: 'missing_challenge', message: '缺少验证码 ID 或验证码。' };
   }
@@ -724,7 +724,7 @@ function verifyAccountOtpChallenge(challengeId, accountId, otpCode) {
   if (challenge.account_id !== accountId) {
     return { ok: false, error: 'account_mismatch', message: '验证码与当前账户不匹配。' };
   }
-  if (challenge.purpose !== 'account_login') {
+  if (challenge.purpose !== purpose) {
     return { ok: false, error: 'purpose_mismatch', message: '验证码用途不匹配。' };
   }
   if (Date.now() > challenge.expires_at) {
@@ -1638,10 +1638,10 @@ async function findAccountLoginMatches(credential) {
   }
   const unique = [...candidates.entries()].filter(([id]) => !conflicts.has(id)).map(([, value]) => value);
   if (email) {
-    const phoneMatches = phone ? unique.filter(row => row.phone === phone) : [];
+    // Only a verified email already on the account identifies it; an account without one
+    // can never be matched by a caller-supplied address (binding needs a token session).
     return unique.filter(row => (!username || accountRegistryId(row.user) === username || row.user.username === username)
-      && (!phone || row.phone === phone) &&
-      (row.email ? row.email === email : Boolean(phone) && phoneMatches.length === 1)).map(row => row.user);
+      && (!phone || row.phone === phone) && row.email && row.email === email).map(row => row.user);
   }
   if (!credential.user_id && !credential.username) {
     return unique.filter(row => phone && row.phone === phone).map(row => row.user);
@@ -4479,7 +4479,7 @@ app.post('/api/account/login-code', asyncRoute(async (req, res) => {
   const localUser = localMatches.length === 1 ? localMatches[0] : null;
   const accountId = localUser ? accountRegistryId(localUser) : '';
   const proxyUser = accountId ? (await findProxyAccount(accountId)) : null;
-  const targetEmail = localUser?.email || proxyUser?.email || (localUser && isValidEmail(email) ? normalizeEmail(email) : null);
+  const targetEmail = localUser?.email || proxyUser?.email || null;
 
   // Unknown account or missing/invalid email: return the exact same success shape/message as valid target
   if (!localUser || !targetEmail || !isValidEmail(targetEmail)) {
@@ -4595,19 +4595,6 @@ app.post('/api/account/login', identityRoute(async (req, res) => {
     }
   }
 
-  if (email && !localUser.email && !proxyUser.email) {
-    const users = await readPortalJSON(USERS_FILE);
-    const registry = await readPortalJSON(PROXY_USERS_FILE, { users: [] });
-    const saved = { email: normalizeEmail(email), email_verified: true, email_verified_at: new Date().toISOString() };
-    for (const user of users) {
-      if (accountRegistryId(user) === accountId) Object.assign(user, saved);
-    }
-    Object.assign(registry.users.find(row => row.user_id === accountId), saved);
-    await writePortalJSON(USERS_FILE, users);
-    await writeProxyUsersAndSync(registry);
-    Object.assign(localUser, saved);
-    Object.assign(proxyUser, saved);
-  }
   clearAccountLoginFailures(req, accountId);
   const sessionId = (await createAccountSession(accountId));
   setAccountSessionCookie(res, sessionId);
@@ -4705,6 +4692,85 @@ app.post('/api/account/email', asyncRoute(requireAccount), (req, res) => {
     message: '注册邮箱是账户标识的一部分，不能在线修改。'
   });
 });
+
+// Legacy accounts registered without an email bind one here. The signed-in session already
+// proves account ownership (token login); the code proves the new mailbox. Both are required.
+function sessionHasNoEmail(account) {
+  return !account.localUser.email && !account.proxyUser.email;
+}
+
+app.post('/api/account/email/code', asyncRoute(requireAccount), asyncRoute(async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
+  const email = normalizeEmail(String(req.body?.email || '').trim());
+  if (!isValidEmail(email) || email.length > 254) {
+    return res.status(400).json({ success: false, message: '请输入有效的邮箱地址。' });
+  }
+  if (!sessionHasNoEmail(req.account)) {
+    return res.status(409).json({ success: false, error: 'email_already_bound', message: '账户已绑定邮箱，不能在线修改。' });
+  }
+  const accountId = req.account.userId;
+  const ipRate = checkAccountLoginCodeIpRate(req);
+  if (!ipRate.allowed) {
+    res.setHeader('Retry-After', String(ipRate.retryAfter));
+    return res.status(429).json({ success: false, message: '验证码发送过于频繁，请稍后重试。', retry_after: ipRate.retryAfter });
+  }
+  recordAccountLoginCodeIpSent(req);
+  const accountRate = checkAccountLoginCodeAccountRate(req, accountId);
+  if (!accountRate.allowed) {
+    res.setHeader('Retry-After', String(accountRate.retryAfter));
+    return res.status(429).json({ success: false, message: '验证码发送过于频繁，请稍后重试。', retry_after: accountRate.retryAfter });
+  }
+  cleanLoginChallenges();
+  if (accountLoginChallenges.size >= 1000) {
+    const oldestKey = accountLoginChallenges.keys().next().value;
+    if (oldestKey) accountLoginChallenges.delete(oldestKey);
+  }
+  const challengeId = crypto.randomUUID();
+  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+  const now = Date.now();
+  accountLoginChallenges.set(challengeId, {
+    id: challengeId, account_id: accountId, purpose: 'email_bind', email,
+    code_hash: loginChallengeCodeHash(challengeId, 'email_bind', accountId, code),
+    attempts: 0, max_attempts: ACCOUNT_LOGIN_CODE_MAX_ATTEMPTS,
+    created_at: now, expires_at: now + ACCOUNT_LOGIN_CODE_TTL_MS, consumed: false
+  });
+  recordAccountLoginCodeAccountSent(req, accountId);
+  try {
+    await sendAccountLoginEmail(email, code, req.account.localUser.username || accountId);
+  } catch (err) {
+    accountLoginChallenges.delete(challengeId);
+    console.error('Account email-bind send error:', err.message);
+    return res.status(502).json({ success: false, message: '验证码邮件发送失败，请稍后重试。' });
+  }
+  return res.status(202).json({ success: true, challenge_id: challengeId, expires_in: Math.floor(ACCOUNT_LOGIN_CODE_TTL_MS / 1000) });
+}));
+
+app.post('/api/account/email/bind', asyncRoute(requireAccount), asyncRoute(async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
+  if (!sessionHasNoEmail(req.account)) {
+    return res.status(409).json({ success: false, error: 'email_already_bound', message: '账户已绑定邮箱，不能在线修改。' });
+  }
+  const accountId = req.account.userId;
+  const challengeId = String(req.body?.challenge_id || '').trim();
+  const challenge = accountLoginChallenges.get(challengeId);
+  const email = challenge && challenge.account_id === accountId ? normalizeEmail(challenge.email || '') : '';
+  const verified = verifyAccountOtpChallenge(challengeId, accountId, String(req.body?.code || '').trim(), 'email_bind');
+  if (!verified.ok || !isValidEmail(email)) {
+    return res.status(400).json({ success: false, error: verified.error || 'invalid_or_expired', message: verified.message || '验证码无效或已过期，请重新获取。' });
+  }
+  const users = await readPortalJSON(USERS_FILE);
+  const registry = await readPortalJSON(PROXY_USERS_FILE, { users: [] });
+  const saved = { email, email_verified: true, email_verified_at: new Date().toISOString() };
+  for (const user of users) {
+    if (accountRegistryId(user) === accountId && !user.email) Object.assign(user, saved);
+  }
+  const row = registry.users.find(entry => entry.user_id === accountId);
+  if (!row) return res.status(409).json({ success: false, message: '账户记录不一致，请联系管理员。' });
+  if (!row.email) Object.assign(row, saved);
+  await writePortalJSON(USERS_FILE, users);
+  await writeProxyUsersAndSync(registry);
+  return res.json({ success: true, email });
+}));
 
 app.post('/api/account/renew', asyncRoute(requireAccount), identityRoute(async (req, res) => {
   const selectedTier = String(req.body?.tier || '').trim();

@@ -96,6 +96,23 @@ assert.match(freeWithChina.document.querySelector('[data-expiry="market"]').text
 assert.match(freeWithChina.document.querySelector('[data-expiry="china"]').textContent, /2031/);
 await freeWithChina.close();
 
+const noEmail = await page("en", { user_id: "legacy", role: "standard", tier: "standard", email: null });
+const bind = noEmail.document.querySelector('[data-bind-email="true"]');
+assert.ok(bind, "accounts without an email are offered email binding");
+assert.doesNotMatch(bind.textContent, /[\u3400-\u9fff]/);
+assert.equal(bind.querySelector('input[type="email"]').placeholder, "Email address");
+await noEmail.close();
+const withEmail = await page("en", { user_id: "bound", role: "standard", tier: "standard", email: "bound@example.com" });
+assert.equal(withEmail.document.querySelector('[data-bind-email="true"]'), null);
+await withEmail.close();
+const tokenLogin = await page("en");
+const tokenForm = tokenLogin.document.querySelector("form");
+Array.from(tokenForm.querySelectorAll("button")).find(b => b.textContent === "Verify with a token").click();
+await tick();
+assert.ok(tokenForm.querySelector('input[type="password"]'), "token mode shows the token field");
+assert.doesNotMatch(tokenForm.textContent, /[\u3400-\u9fff]/);
+await tokenLogin.close();
+
 const fingerprint = createHash("sha256").update(bundle).update(language).digest("hex").slice(0, 16);
 const html = fs.readFileSync(new URL("account.html", publicRoot), "utf8");
 assert.ok(html.includes(`/assets/account-page.js?v=${fingerprint}`));

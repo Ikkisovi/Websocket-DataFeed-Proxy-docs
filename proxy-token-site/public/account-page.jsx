@@ -96,6 +96,7 @@ function AccountLogin({ onLoggedIn }) {
   const [username, setUsername] = useAccountState("");
   const [phone, setPhone] = useAccountState("");
   const [code, setCode] = useAccountState("");
+  const [token, setToken] = useAccountState("");
   const [challengeId, setChallengeId] = useAccountState("");
   const [countdown, setCountdown] = useAccountState(0);
   const [sendingCode, setSendingCode] = useAccountState(false);
@@ -141,6 +142,16 @@ function AccountLogin({ onLoggedIn }) {
     setMessage("");
     setLoading(true);
     try {
+      if (loginMode === "token") {
+        if (!username.trim() || !phone.trim() || !token.trim()) throw new Error("请输入账号名、手机号和 Token。");
+        await accountRequest("/api/account/login", {
+          method: "POST",
+          body: JSON.stringify({ credential: { user_id: username.trim(), phone: phone.trim(), token: token.trim() } }),
+        });
+        setPhone(""); setToken("");
+        await onLoggedIn();
+        return;
+      }
       const credential = {
         email: email.trim(),
         ...(loginMode === "email" && username.trim() ? { username: username.trim() } : {}),
@@ -193,15 +204,15 @@ function AccountLogin({ onLoggedIn }) {
           </p>
 
           <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-            {[["email", "邮箱验证码登录"], ["phone", "手机号登录"]].map(([mode, label]) => (
+            {loginMode !== "token" && [["email", "邮箱验证码登录"], ["phone", "手机号登录"]].map(([mode, label]) => (
               <button key={mode} type="button" className={`btn ${loginMode === mode ? "primary" : "ghost"}`}
-                aria-pressed={loginMode === mode} onClick={() => { setLoginMode(mode); setCode(""); setChallengeId(""); setMessage(""); }}
+                aria-pressed={loginMode === mode} onClick={() => { setLoginMode(mode); setCode(""); setChallengeId(""); setMessage(""); setToken(""); }}
                 style={{ flex: 1, justifyContent: "center", padding: "8px 12px", fontSize: 13 }}>{label}</button>
             ))}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <label className="label">{loginMode === "email" ? "邮箱" : "邮箱（绑定时填写）"}</label>
+            {loginMode !== "token" && <div>
+              <label className="label">{loginMode === "email" ? "邮箱" : "账户已绑定的邮箱"}</label>
               <input
                 className="input mono"
                 type="email"
@@ -209,9 +220,9 @@ function AccountLogin({ onLoggedIn }) {
                 value={email}
                 onChange={event => setEmail(event.target.value)}
                 placeholder="邮箱地址"
-                required={loginMode === "email"}
+                required
               />
-            </div>
+            </div>}
             {loginMode === "email" && (
               <details>
                 <summary style={{ color: "var(--ink-muted)", cursor: "pointer", fontSize: 13 }}>同一邮箱有多个账号？</summary>
@@ -221,7 +232,24 @@ function AccountLogin({ onLoggedIn }) {
                   placeholder="填写要登录的账号名" maxLength={128} />
               </details>
             )}
-            {loginMode === "phone" && (
+            {loginMode === "token" && (
+              <>
+                <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 13 }}>
+                  注册时没有填写邮箱的账户，请用注册时获得的 Token 验证身份，登录后即可绑定邮箱。
+                </p>
+                <div>
+                  <label className="label">账号名</label>
+                  <input className="input mono" autoComplete="username" value={username}
+                    onChange={event => setUsername(event.target.value)} placeholder="注册时的账号名" maxLength={128} required />
+                </div>
+                <div>
+                  <label className="label">Token</label>
+                  <input className="input mono" type="password" autoComplete="current-password" value={token}
+                    onChange={event => setToken(event.target.value)} placeholder="账户 Token" required />
+                </div>
+              </>
+            )}
+            {(loginMode === "phone" || loginMode === "token") && (
             <div>
               <label className="label">手机号</label>
               <input
@@ -236,7 +264,7 @@ function AccountLogin({ onLoggedIn }) {
             </div>
             )}
 
-              <div>
+              {loginMode !== "token" && <div>
                 <label className="label">邮箱验证码</label>
                 <div style={{ display: "flex", gap: 8 }}>
                   <input
@@ -257,12 +285,23 @@ function AccountLogin({ onLoggedIn }) {
                     {countdown > 0 ? `${countdown}s 后重试` : sendingCode ? "发送中…" : "获取验证码"}
                   </button>
                 </div>
-              </div>
+              </div>}
 
             <button className="btn primary" disabled={loading} style={{ justifyContent: "center", padding: 12 }}>
               {loading ? "验证中…" : "进入账户管理 →"}
             </button>
             {message && <div className="account-alert error">{message}</div>}
+            {loginMode === "token" ? (
+              <button type="button" className="btn ghost" style={{ justifyContent: "center" }}
+                onClick={() => { setLoginMode("email"); setToken(""); setMessage(""); }}>返回邮箱验证码登录</button>
+            ) : (
+              <details>
+                <summary style={{ color: "var(--ink-muted)", cursor: "pointer", fontSize: 13 }}>尚未绑定邮箱？</summary>
+                <p style={{ color: "var(--ink-muted)", fontSize: 13, margin: "10px 0" }}>注册时没有填写邮箱的账户，可先用 Token 验证身份，再在账户页绑定邮箱。</p>
+                <button type="button" className="btn ghost" style={{ fontSize: 13 }}
+                  onClick={() => { setLoginMode("token"); setCode(""); setChallengeId(""); setMessage(""); }}>使用 Token 验证身份</button>
+              </details>
+            )}
           </div>
 
           <div style={{ marginTop: 28, paddingTop: 18, borderTop: "1px solid var(--rule)", fontSize: 12, color: "var(--ink-muted)" }}>
@@ -281,6 +320,47 @@ function AccountKpi({ label, value, note }) {
       <div className="account-kpi-value">{value}</div>
       <div className="account-kpi-note">{note}</div>
     </div>
+  );
+}
+
+function BindEmailCard({ onBound }) {
+  const [email, setEmail] = useAccountState("");
+  const [code, setCode] = useAccountState("");
+  const [challengeId, setChallengeId] = useAccountState("");
+  const [busy, setBusy] = useAccountState(false);
+  const [message, setMessage] = useAccountState("");
+  const send = async () => {
+    setMessage(""); setBusy(true);
+    try {
+      const data = await accountRequest("/api/account/email/code", { method: "POST", body: JSON.stringify({ email: email.trim() }) });
+      setChallengeId(data.challenge_id || "");
+      setMessage("验证码已发送，请查收邮件。");
+    } catch (error) { setMessage(error.message); } finally { setBusy(false); }
+  };
+  const bind = async event => {
+    event.preventDefault();
+    setMessage(""); setBusy(true);
+    try {
+      await accountRequest("/api/account/email/bind", { method: "POST", body: JSON.stringify({ challenge_id: challengeId, code: code.trim() }) });
+      await onBound();
+    } catch (error) { setMessage(error.message); } finally { setBusy(false); }
+  };
+  return (
+    <section className="card account-span-12" data-bind-email="true" style={{ padding: 24 }}>
+      <div className="eyebrow">绑定邮箱</div>
+      <p style={{ color: "var(--ink-muted)", fontSize: 14, margin: "8px 0 16px" }}>
+        你的账户注册时没有邮箱。绑定后可用邮箱验证码登录，不再需要输入 Token；绑定后不能在线修改。
+      </p>
+      <form onSubmit={bind} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <input className="input mono" type="email" autoComplete="email" value={email} placeholder="邮箱地址"
+          onChange={event => { setEmail(event.target.value); setChallengeId(""); }} style={{ flex: "1 1 220px" }} required />
+        <button type="button" className="btn ghost" disabled={busy || !email.trim()} onClick={send}>获取验证码</button>
+        <input className="input mono" value={code} onChange={event => setCode(event.target.value)} placeholder="6 位验证码"
+          maxLength={6} style={{ flex: "0 1 140px" }} required />
+        <button className="btn primary" disabled={busy || !challengeId || !code.trim()}>绑定</button>
+      </form>
+      {message && <div style={{ marginTop: 10, color: "var(--ink-muted)", fontSize: 13 }}>{message}</div>}
+    </section>
   );
 }
 
@@ -366,6 +446,8 @@ function AccountDashboard({ overview, loading, onRefresh, onRenew }) {
           </div>
           )}
         </section>
+
+        {!account.email && <BindEmailCard onBound={onRefresh} />}
 
         {capabilities && <section className="card account-span-12" data-effective-capabilities="true" style={{ padding: 24 }}>
           <div className="eyebrow">Effective capabilities</div>
