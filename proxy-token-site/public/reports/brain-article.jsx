@@ -40,6 +40,39 @@ function NavChart({ t }) {
   </figure>;
 }
 
+const SINCE = [
+  ["archived_brain", "旧回测：Brain 前 50，2 bps", "Archived run: Brain top 50, 2 bps", "#3b66cf", undefined],
+  ["archived_spy", "旧回测用的 SPY", "SPY as used in that run", "#b78b70", "5 4"],
+  ["spy_total_return", "SPY 总收益（含分红）", "SPY total return (dividends included)", "#263d2c", undefined],
+];
+function Since2010Chart({ t }) {
+  const pts = [{ year: 2009, archived_brain: 1, archived_spy: 1, spy_total_return: 1 }, ...summary.since_2010.cumulative];
+  const width = 720, height = 300, left = 40, right = 70, top = 14, bottom = 262;
+  const max = Math.ceil(Math.max(...pts.flatMap(p => SINCE.map(s => p[s[0]]))));
+  const x = i => left + (i / (pts.length - 1)) * (width - left - right);
+  const y = v => bottom - (v / max) * (bottom - top);
+  const last = pts[pts.length - 1];
+  const labelY = {};
+  [...SINCE].sort((a, b) => last[b[0]] - last[a[0]]).forEach(([key], i, arr) => {
+    const prev = i ? labelY[arr[i - 1][0]] : -Infinity;
+    labelY[key] = Math.max(y(last[key]) + 4, prev + 13);
+  });
+  return <figure className="report-chart" data-report-chart="since-2010">
+    <div className="chart-heading"><strong>{t("2010 年起的旧回测，按年末累计（起点 = 1）", "The archived run since 2010, cumulative at year ends (start = 1)")}</strong></div>
+    <div className="chart-legend-row">{SINCE.map(([key, zh, en, color]) => <span key={key} className="legend-item">
+      <span className="legend-line" style={{ background: color, height: 3 }} />{t(zh, en)}</span>)}</div>
+    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("旧回测的 Brain、旧回测用的 SPY 与 SPY 总收益的累计表现", "Cumulative archived Brain, the SPY series that run used, and SPY total return")}>
+      {Array.from({ length: max + 1 }, (_, v) => <g key={v}><line x1={left} x2={width - right} y1={y(v)} y2={y(v)} stroke={v === 1 ? "#b5bdb5" : "#e8ece7"} />
+        <text x={left - 8} y={y(v) + 4} textAnchor="end" fontSize="11" fill="#69756d">{v}</text></g>)}
+      {pts.map((p, i) => p.year % 2 === 0 ? <text key={p.year} x={x(i)} y={bottom + 20} textAnchor="middle" fontSize="11" fill="#69756d">{p.year}</text> : null)}
+      {SINCE.map(([key, , , color, dash]) => <g key={key}>
+        <path d={pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(p[key]).toFixed(1)}`).join(" ")} fill="none" stroke={color} strokeWidth="2" strokeDasharray={dash} />
+        <text x={x(pts.length - 1) + 6} y={labelY[key]} fontSize="11" fill={color}>{last[key].toFixed(2)}x</text></g>)}
+    </svg>
+    <figcaption>{t("Brain 与“旧回测用的 SPY”取自归档的 QuantConnect 回测（QuantConnect 上的 Brain 股票池，名义 5 日调仓、实际 3 日与 8 日交替，单边 2 bps）。SPY 总收益：2010—2015 年为 Lean 日线乘分红复权因子，2016 年起为 Yahoo 复权价；两者在 2016—2020 年逐年一致。2026 年为部分年度。", "Brain and “SPY as used” come from the archived QuantConnect run (Brain's universe on QuantConnect, a nominal five-day cadence that actually alternated three and eight sessions, 2 bps per side). SPY total return uses Lean daily closes times dividend factors for 2010–2015 and Yahoo adjusted prices from 2016; the two agree year by year over 2016–2020. 2026 is a partial year.")}</figcaption>
+  </figure>;
+}
+
 function StrategyTable({ t }) {
   const [period, setPeriod] = useState(PERIODS[0]);
   const rows = summary.nav_table[period];
@@ -83,6 +116,9 @@ function Article({ language, t }) {
   const hold = summary.hold_excess_vs_ew;
   const pair = summary.hold_paired_all_10bps;
   const neu = summary.brain_h5_neutral;
+  const since = summary.since_2010;
+  const gaps = since.cumulative.map(r => r.archived_spy_gap_vs_total_return_pp);
+  const meanGap = gaps.reduce((a, b) => a + b, 0) / gaps.length;
   const lost = summary.annual_native_vs_spy.filter(r => r.difference < 0).length;
   const years = summary.annual_native_vs_spy.length;
   return <>
@@ -98,6 +134,8 @@ function Article({ language, t }) {
           <>Used as the vendor suggests (top 30 by rank5, rebalanced every five sessions), it returns <strong className="text-stat">{pct(full.A_rank5_5d.cagr)}</strong> a year after 10 bps from June 2015 to September 2026, against <strong className="text-stat">{pct(full.spy.cagr)}</strong> for SPY and <strong className="text-stat">{pct(full.ew_universe.cagr)}</strong> for the equal-weight universe. It trails SPY in {lost} of {years} years.</>)}</li>
         <li>{t("信号是真的，但很弱：5 日 Rank IC 约 0.02；剔除行业和风险暴露后只剩 0.006—0.014，2022 和 2026 年为负。", "The signal is real but weak: five-day rank IC is about 0.02, falling to 0.006–0.014 after removing sector and risk exposures, and negative in 2022 and 2026.")}</li>
         <li>{t("最大的问题是换手：官方用法每年单边换手约 27 倍。用缓冲规则降到 4—8 倍后，收益回到股票池等权附近，但仍低于 SPY。", "Turnover is the main problem: about 27 times a year one-way. A holding buffer cuts it to 4–8 times and brings returns back to the equal-weight universe, still below SPY.")}</li>
+        <li>{t(<>“从 2010 年起跑赢 SPY”来自一份旧回测，它用的 SPY 基准偏低（大体是没计分红）。换成总收益，2010—2026 年是 {summary.since_2010.subperiods["2010-2026"].archived_brain}x 对 {summary.since_2010.subperiods["2010-2026"].spy_total_return}x，几乎打平；2015 年以后 Brain 落后。</>,
+          <>“Beats SPY since 2010” comes from an archived run whose SPY benchmark runs low, mostly missing dividends. Against total return it is {summary.since_2010.subperiods["2010-2026"].archived_brain}x to {summary.since_2010.subperiods["2010-2026"].spy_total_return}x over 2010–2026, roughly level; from 2015 Brain trails.</>)}</li>
         <li>{t("20 个公式的线性组合就能复现它（与 Brain 的截面相关 0.75—0.77），主体是中长期动量减短期反转，再加盈利质量和营收增长。", "A linear blend of 20 formulas reproduces it (cross-sectional correlation 0.75–0.77 with Brain): medium-term momentum minus short-term reversal, plus profitability and revenue growth.")}</li>
       </ul></aside>
 
@@ -120,6 +158,21 @@ function Article({ language, t }) {
       <p>{t(<>官方用法只在 2015（半年）和 2020 年跑赢 SPY。即使用缓冲规则，2015—2026 年的年化也只有 <strong className="text-stat">{pct(full.D_rank2_in_rank2_hold.cagr)}</strong>，Sharpe {full.D_rank2_in_rank2_hold.sharpe.toFixed(2)}，最大回撤 {pct(full.D_rank2_in_rank2_hold.max_drawdown, 0)}；SPY 是 {pct(full.spy.cagr)}、{full.spy.sharpe.toFixed(2)}、{pct(full.spy.max_drawdown, 0)}。在大盘股池里，等权本身就落后于市值加权的 SPY，Brain 选出的 30 只股票没能弥补这个差距。</>,
         <>The vendor's use beats SPY only in 2015 (half a year) and 2020. Even with the buffer, 2015–2026 returns <strong className="text-stat">{pct(full.D_rank2_in_rank2_hold.cagr)}</strong> a year with Sharpe {full.D_rank2_in_rank2_hold.sharpe.toFixed(2)} and a {pct(full.D_rank2_in_rank2_hold.max_drawdown, 0)} drawdown, against {pct(full.spy.cagr)}, {full.spy.sharpe.toFixed(2)} and {pct(full.spy.max_drawdown, 0)} for SPY. In a large-cap universe equal weight already trails cap-weighted SPY, and Brain's 30 names do not close that gap.</>)}</p>
 
+      <h2 id="since-2010">{t("“从 2010 年起跑赢 SPY”从哪里来", "Where “it beats SPY since 2010” comes from")}</h2>
+      <p>{t(<>此前的结论来自一份归档回测：rank5 选前 50、单边 2 bps，2010 年到 2026 年 9 月 Brain 累计 <strong className="text-stat">{since.subperiods["2010-2026"].archived_brain}x</strong>，SPY <strong className="text-stat">{since.subperiods["2010-2026"].archived_spy}x</strong>。拆开看，结论要弱得多：</>,
+        <>The earlier claim comes from an archived backtest: top 50 by rank5, 2 bps per side, with Brain compounding to <strong className="text-stat">{since.subperiods["2010-2026"].archived_brain}x</strong> from 2010 to September 2026 against <strong className="text-stat">{since.subperiods["2010-2026"].archived_spy}x</strong> for SPY. Taken apart, it is much weaker:</>)}</p>
+      <Since2010Chart t={t} />
+      <ul>
+        <li>{t(<>那条 SPY 基准偏低：{gaps.length} 年里有 {gaps.filter(g => g < 0).length} 年低于 SPY 的总收益，平均每年低 {Math.abs(meanGap).toFixed(1)} 个百分点，大部分像是没计分红。换成总收益，SPY 是 <strong className="text-stat">{since.subperiods["2010-2026"].spy_total_return}x</strong>，17 年下来两者几乎打平。</>,
+          <>That SPY benchmark runs low: it trails SPY's total return in {gaps.filter(g => g < 0).length} of {gaps.length} years, by {Math.abs(meanGap).toFixed(1)} points a year on average, mostly as if dividends were left out. With total return SPY reaches <strong className="text-stat">{since.subperiods["2010-2026"].spy_total_return}x</strong>, and over 17 years the two are roughly level.</>)}</li>
+        <li>{t(<>领先全部来自 2010—2014 年（{since.subperiods["2010-2014"].archived_brain}x 对 {since.subperiods["2010-2014"].spy_total_return}x）。2015 年起 Brain {since.subperiods["2015-2026"].archived_brain}x，SPY {since.subperiods["2015-2026"].spy_total_return}x，Brain 落后。</>,
+          <>The lead comes entirely from 2010–2014 ({since.subperiods["2010-2014"].archived_brain}x against {since.subperiods["2010-2014"].spy_total_return}x). From 2015 Brain makes {since.subperiods["2015-2026"].archived_brain}x and SPY {since.subperiods["2015-2026"].spy_total_return}x: Brain trails.</>)}</li>
+        <li>{t("那份回测的设定还偏向 Brain：缺失收益记为 0、只扣 2 bps、用 Brain 自己的含中盘股的股票池，调仓日历也有错。", "The run also leaned Brain's way: missing returns booked as zero, only 2 bps, Brain's own universe including mid caps, and a broken rebalance calendar.")}</li>
+        <li>{t(<>在我们的大盘股池上用同样的前 50、2 bps，2015-06 起 Brain {since.grid_top50_rank5_2015_06["2bps"]}x，SPY {since.grid_top50_rank5_2015_06.spy}x；完全不扣成本也只有 {since.grid_top50_rank5_2015_06["0bps"]}x，与 SPY 持平。</>,
+          <>On our large-cap universe with the same top 50 and 2 bps, Brain makes {since.grid_top50_rank5_2015_06["2bps"]}x from June 2015 against {since.grid_top50_rank5_2015_06.spy}x for SPY; with no costs at all it reaches {since.grid_top50_rank5_2015_06["0bps"]}x, level with SPY.</>)}</li>
+      </ul>
+      <p>{t("所以“从 2010 年起跑赢 SPY”成立的前提是：用偏低的 SPY 作基准，并且把 2010—2014 年算进去。换成总收益基准，或者只看 2015 年以后，结论就不成立。", "So “beats SPY since 2010” holds only against a SPY benchmark that runs low, and only with 2010–2014 included. Against total return, or from 2015 on, it does not.")}</p>
+
       <h2 id="quality">{t("因子本身的质量", "The quality of the signal")}</h2>
       <IcTable t={t} />
       <p>{t(<>五个周期几乎是同一个信号：每个周期的截面排名有 {Math.round(summary.redundancy_r2_train.rank21 * 100)}%—{Math.round(summary.redundancy_r2_train.rank5 * 100)}% 能由另外四个解释，取平均也不比 rank5 好。短周期略强，21 日最弱。期限结构（rank2 − rank21）只在 2022 和 2026 年有用，那两年长周期的打分失效；在 2015—2021 年它接近 0，事前无法知道何时启用。</>,
@@ -139,7 +192,7 @@ function Article({ language, t }) {
         <li>{t("年份之间差异远大于用法之间差异：2022 年所有用法都比等权池少 5—16 个百分点。", "Years differ far more than uses: in 2022 every use trails the equal-weight universe by 5–16 points.")}</li>
         <li>{t("五个周期高度冗余，可被常见公式复现，独有信息很少。", "The five horizons are redundant and reproducible from common formulas, leaving little unique information.")}</li>
         <li>{t("没测：多空组合、Brain 自己的千只股票池、行业中性组合、盘中执行。2026 年数据已在本文的多项分析中读过，不能再作未读样本。", "Not tested: long-short books, Brain's own 1,000-name universe, sector-neutral books, intraday execution. 2026 data has been read in several analyses here and is no longer an unseen sample.")}</li>
-        <li>{t("此前版本中基于旧回测的长期曲线已撤回：那份回测把缺失收益记为 0，并且调仓日历有错，实际是 3 日与 8 日交替持有。", "The long-run curve in earlier versions is withdrawn: that backtest booked missing returns as zero, and a calendar bug made it alternate three- and eight-session holds.")}</li>
+        <li>{t("2010 年起的旧回测只作参考：它把缺失收益记为 0，调仓日历有错（实际 3 日与 8 日交替持有），我们无法在 2015 年以前的股票池上独立复现。", "The archived run since 2010 is a reference only: it booked missing returns as zero, its rebalance calendar was broken (alternating three- and eight-session holds), and we cannot reproduce it independently before 2015.")}</li>
       </ul>
 
       <section className="story-methods" id="methods"><h2>{t("方法", "Methods")}</h2>

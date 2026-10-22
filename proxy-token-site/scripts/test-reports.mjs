@@ -17,7 +17,7 @@ function audit(value){
 }
 audit(data);
 const summaryV2=JSON.parse(fs.readFileSync(path.join(root,'reports/brain-stock-ranking/summary-v2.json')));audit(summaryV2);
-assert.equal(summaryV2.nav_table['2015-06—2026-09'].A_rank5_5d.cagr,0.0962);assert.equal(summaryV2.annual_native_vs_spy.length,12);
+assert.equal(summaryV2.nav_table['2015-06—2026-09'].A_rank5_5d.cagr,0.0962);assert.equal(summaryV2.annual_native_vs_spy.length,12);assert.equal(summaryV2.since_2010.subperiods['2010-2026'].spy_total_return,9.23);
 for(const name of ['annual-diagnostic.csv','reconstruction.csv','annual-diagnostic.png','annual-diagnostic.svg','reconstruction.png','reconstruction.svg'])assert(fs.statSync(path.join(root,'reports/brain-stock-ranking',name)).size>100,name);
 const results=JSON.parse(fs.readFileSync(path.join(root,'reports/brain-stock-ranking/task2-summary.json')));
 assert.equal(results.config_count,34);
@@ -69,6 +69,8 @@ for(const page of ['/reports/','/reports/brain-stock-ranking/','/research-data']
   for(const value of ['9.6%','16.0%','14.5%','0.57','0.006','0.75'])assert(body().includes(value),value);
   assert.match(body(),lang==='en'?/trails SPY in 10 of 12 years/:/12 个年份里有 10 个跑输 SPY/);
   assert.equal(w.document.querySelectorAll('[data-report-chart="nav"] svg path').length,5);
+  assert.equal(w.document.querySelectorAll('[data-report-chart="since-2010"] svg path').length,3);
+  for(const value of ['9.52x','9.23x','7.46x','4.38x','4.52x','4.49x','4.98x'])assert(body().includes(value),value);
   assert.equal(w.document.querySelectorAll('[data-research-table="strategies"] tbody tr').length,5);
   assert.match(w.document.querySelector('[data-research-table="strategies"] tbody tr').textContent,/2\.69x9\.6%/);
   await click('2023-01—2026-09');assert.match(w.document.querySelector('[data-research-table="strategies"] tbody tr').textContent,/1\.52x12\.3%/);

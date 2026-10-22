@@ -496,7 +496,10 @@ function AccountPage() {
       const data = await accountRequest("/api/account/overview");
       setOverview(data);
       setAuthenticated(true);
-      const nextPage = { "research-data": "/research-data", reports: "/reports/" }[new URLSearchParams(window.location.search).get("next")];
+      const next = new URLSearchParams(window.location.search).get("next") || "";
+      // Named targets, or a same-site path under /reports/ (no scheme, host or protocol-relative form).
+      const nextPage = { "research-data": "/research-data", reports: "/reports/" }[next]
+        || (/^\/reports\/[\w\-./#]*$/.test(next) && !next.includes("//") && !next.includes("..") ? next : undefined);
       if (nextPage) window.location.replace(nextPage);
       return data;
     } catch (error) {

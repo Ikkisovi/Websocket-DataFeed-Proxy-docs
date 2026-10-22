@@ -38,7 +38,8 @@
     document.getElementById('body').textContent = body;
     document.getElementById('lang').textContent = lang === 'en' ? '中文' : 'English';
     document.querySelectorAll('[data-t]').forEach(a => { a.textContent = a.dataset.t.split('|')[i()]; });
-        const actions = state === 'anonymous' ? [['/account?next=reports', labels.signin, true], ['/register', labels.register]]
+        const back = location.pathname.startsWith('/reports/') ? location.pathname + location.hash : '/reports/';
+        const actions = state === 'anonymous' ? [['/account?next=' + encodeURIComponent(back), labels.signin, true], ['/register', labels.register]]
       : state === 'insufficient' ? [['/checkout', labels.upgrade, true], ['/reports/', labels.back]] : [['/reports/', labels.back]];
     document.getElementById('actions').innerHTML = actions.map(([href, l, primary]) => `<a class="btn${primary ? ' accent' : ''}" href="${href}">${l[i()]}</a>`).join('');
     document.getElementById('plan').textContent = plan ? (lang === 'en' ? `Current plan: ${plan}` : `当前套餐：${plan}`) : '';

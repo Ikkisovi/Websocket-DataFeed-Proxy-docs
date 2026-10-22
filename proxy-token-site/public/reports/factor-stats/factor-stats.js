@@ -60,10 +60,18 @@ async function load() {
   const m = state.idx.meta;
   paintShell(); route();
 }
+const signIn = () => `/account?next=${encodeURIComponent(location.pathname + location.hash)}`;
+const accessMessage = () => `<div class="empty">${lang.v === 'zh' ? '登录已过期，或当前套餐不含研究报告。' : 'Your session expired, or your plan does not include research reports.'} <a href="${signIn()}">${lang.v === 'zh' ? '重新登录' : 'Sign in again'}</a> · <a href="/reports/">${lang.v === 'zh' ? '返回研究报告' : 'Back to reports'}</a></div>`;
 async function factor(id) {
   const row = state.idx.factors.find(r => r.id === id);
   if (!row) throw new Error('unknown factor');
-  if (!state.cache[row.shard]) state.cache[row.shard] = fetch(`/reports/factor-stats/data/s${row.shard}.json`, { credentials: 'same-origin', cache: 'no-store' }).then(r => r.json());
+  if (!state.cache[row.shard]) {
+    // A failed shard (expired session, network) is not cached, so the next open retries it.
+    state.cache[row.shard] = fetch(`/reports/factor-stats/data/s${row.shard}.json`, { credentials: 'same-origin', cache: 'no-store' }).then(r => {
+      if (!r.ok) { const e = new Error(r.status === 401 || r.status === 403 ? 'access' : 'http ' + r.status); e.status = r.status; throw e; }
+      return r.json();
+    }).catch(e => { delete state.cache[row.shard]; throw e; });
+  }
   return (await state.cache[row.shard])[id];
 }
 
@@ -160,7 +168,7 @@ function barChart(el, labels, vals, colorFn, fmt, edgeLabels) {
 /* ---------- detail ---------- */
 async function renderDetail(id) {
   const app = $('#app'); app.innerHTML = `<div class="empty">${tr('Loading…')}</div>`;
-  let rec; try { rec = await factor(id); } catch (e) { app.innerHTML = `<div class="empty">${lang.v === 'zh' ? `没有名为 ${esc(id)} 的因子。<a href="#">返回列表</a>` : `No factor named ${esc(id)}. <a href="#">Back to the list</a>`}</div>`; return; }
+  let rec; try { rec = await factor(id); } catch (e) { if (e.message === 'access') { app.innerHTML = accessMessage(); return; } app.innerHTML = `<div class="empty">${lang.v === 'zh' ? `没有名为 ${esc(id)} 的因子。<a href="#">返回列表</a>` : `No factor named ${esc(id)}. <a href="#">Back to the list</a>`}</div>`; return; }
   document.title = (lang.v === 'zh' && rec.page.title_zh ? rec.page.title_zh : rec.page.title) + ' · Factor Directory Stats';
   const p = rec.page; const fs = p.formulas.filter(f => f.latex);
   const defn = `
@@ -239,6 +247,6 @@ function route() {
 }
 window.addEventListener('hashchange', () => { route(); window.scrollTo(0, 0); });
 window.addEventListener('leandata:languagechange', () => { lang.v = siteLang() === 'en' ? 'en' : 'zh'; if (state.idx) { paintShell(); route(); } });
-load().catch(e => { $('#app').innerHTML = e.message === 'access' ? `<div class="empty">${lang.v === 'zh' ? '登录已过期，或当前套餐不含研究报告。' : 'Your session expired, or your plan does not include research reports.'} <a href="/reports/">${lang.v === 'zh' ? '返回研究报告' : 'Back to reports'}</a></div>` : `<div class="empty">Could not load the statistics / 无法加载统计：${esc(e.message)}</div>`; });
+load().catch(e => { $('#app').innerHTML = e.message === 'access' ? accessMessage() : `<div class="empty">Could not load the statistics / 无法加载统计：${esc(e.message)}</div>`; });
 
 })();
