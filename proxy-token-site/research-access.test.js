@@ -205,3 +205,50 @@ describe('research static URL normalization', () => {
     }
   });
 });
+
+describe('email and phone verification sign-in modes', () => {
+  it('signs in an existing email-only identity with duplicate rows without rewriting them', async () => {
+    const account = seed('premium');
+    const rows = JSON.parse(fs.readFileSync(USERS_FILE));
+    delete rows[0].phone;
+    rows.push({ ...rows[0] });
+    const unchanged = JSON.stringify(rows);
+    fs.writeFileSync(USERS_FILE, unchanged);
+    const sent = await request(app).post('/api/account/login-code').set('x-forwarded-for', '192.0.2.101')
+      .send({ credential: { email: account.email } });
+    expect(sent.statusCode).toBe(202);
+    const code = getLastTestAccountLoginEmail().code;
+    const login = await request(app).post('/api/account/login').set('x-forwarded-for', '192.0.2.102')
+      .send({ credential: { email: account.email, challenge_id: sent.body.challenge_id, code } });
+    expect(login.statusCode).toBe(200);
+    expect(fs.readFileSync(USERS_FILE, 'utf8')).toBe(unchanged);
+    const cookie = login.headers['set-cookie'][0].split(';')[0];
+    expect((await request(app).get('/reports/factor-stats/').set('Cookie', cookie)).statusCode).toBe(200);
+  });
+  it('uses a phone as the identifier while still requiring the saved email code', async () => {
+    const account = seed('standard');
+    const sent = await request(app).post('/api/account/login-code').set('x-forwarded-for', '192.0.2.103')
+      .send({ credential: { phone: account.phone } });
+    expect(sent.statusCode).toBe(202);
+    expect(getLastTestAccountLoginEmail().email).toBe(account.email);
+    const code = getLastTestAccountLoginEmail().code;
+    const noCode = await request(app).post('/api/account/login').set('x-forwarded-for', '192.0.2.104')
+      .send({ credential: { phone: account.phone } });
+    expect(noCode.statusCode).toBe(400);
+    expect(noCode.headers['set-cookie']).toBeUndefined();
+    const login = await request(app).post('/api/account/login').set('x-forwarded-for', '192.0.2.105')
+      .send({ credential: { phone: account.phone, challenge_id: sent.body.challenge_id, code } });
+    expect(login.statusCode).toBe(200);
+  });
+  it('does not collapse conflicting identities sharing one account ID', async () => {
+    const account = seed('value');
+    const rows = JSON.parse(fs.readFileSync(USERS_FILE));
+    rows.push({ ...rows[0], email: 'conflict@example.com' });
+    fs.writeFileSync(USERS_FILE, JSON.stringify(rows));
+    clearTestAccountLoginEmails();
+    const sent = await request(app).post('/api/account/login-code').set('x-forwarded-for', '192.0.2.106')
+      .send({ credential: { email: account.email } });
+    expect(sent.statusCode).toBe(202);
+    expect(getLastTestAccountLoginEmail()).toBeNull();
+  });
+});

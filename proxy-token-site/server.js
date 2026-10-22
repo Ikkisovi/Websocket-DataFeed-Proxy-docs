@@ -1618,17 +1618,30 @@ async function findLocalAccountByIdentity(identity) {
 // Login email identifies the existing account; registration identity is unchanged.
 async function findAccountLoginMatches(credential) {
   const phone = String(credential.phone || '').trim();
+  const email = normalizeEmail(credential.email || '');
   const users = await readPortalJSON(USERS_FILE);
-  if (credential.email) {
-    const email = normalizeEmail(credential.email);
-    const registry = await readPortalJSON(PROXY_USERS_FILE, { users: [] });
-    const phoneMatches = users.filter(user => String(user.phone || '').trim() === phone);
-    return phoneMatches.filter(user => {
-      const proxy = registry.users.find(row => row.user_id === accountRegistryId(user));
-      const savedEmail = normalizeEmail(user.email || proxy?.email || '');
-      // An old account may bind its first email only after a code is verified.
-      return savedEmail ? savedEmail === email : phoneMatches.length === 1;
-    });
+  const registry = await readPortalJSON(PROXY_USERS_FILE, { users: [] });
+  // Repeated rows for one unchanged identity are one login candidate. Conflicting
+  // identities stay blocked; this does not repair or rewrite stored records.
+  const candidates = new Map();
+  const conflicts = new Set();
+  for (const user of users) {
+    const id = accountRegistryId(user);
+    const proxy = registry.users.find(row => row.user_id === id);
+    const identity = { user, phone: String(user.phone || '').trim(),
+      email: normalizeEmail(user.email || proxy?.email || '') };
+    const prior = candidates.get(id);
+    if (prior && (prior.phone !== identity.phone || prior.email !== identity.email)) conflicts.add(id);
+    if (!prior) candidates.set(id, identity);
+  }
+  const unique = [...candidates.entries()].filter(([id]) => !conflicts.has(id)).map(([, value]) => value);
+  if (email) {
+    const phoneMatches = phone ? unique.filter(row => row.phone === phone) : [];
+    return unique.filter(row => (!phone || row.phone === phone) &&
+      (row.email ? row.email === email : Boolean(phone) && phoneMatches.length === 1)).map(row => row.user);
+  }
+  if (!credential.user_id && !credential.username) {
+    return unique.filter(row => phone && row.phone === phone).map(row => row.user);
   }
   return findLocalAccountByIdentity(canonicalAccountIdentity({
     username: credential.user_id || credential.username, phone
@@ -4442,8 +4455,8 @@ app.post('/api/account/login-code', asyncRoute(async (req, res) => {
   const phone = String(credential.phone || '').trim();
   const email = String(credential.email || '').trim();
 
-  if ((!username && !isValidEmail(email)) || !phone || email.length > 254 || username.length > 128 || phone.length > 64) {
-    return res.status(400).json({ success: false, message: '请提供邮箱和手机号。' });
+  if ((!username && !phone && !isValidEmail(email)) || (username && !phone) || (email && !isValidEmail(email)) || email.length > 254 || username.length > 128 || phone.length > 64) {
+    return res.status(400).json({ success: false, message: '请提供邮箱或手机号。' });
   }
 
   // 1. IP rate limit check FIRST — invalid requests hit the IP send limiter too
@@ -4536,8 +4549,8 @@ app.post('/api/account/login', identityRoute(async (req, res) => {
   const challengeId = String(credential?.challenge_id || credential?.verification_id || '').trim();
   const otpCode = String(credential?.code || credential?.verification_code || credential?.login_code || '').trim();
 
-  if ((!username && !isValidEmail(email)) || !phone || email.length > 254 || username.length > 128 || phone.length > 64) {
-    return res.status(400).json({ success: false, message: '请提供邮箱和手机号。' });
+  if ((!username && !phone && !isValidEmail(email)) || (username && !phone) || (email && !isValidEmail(email)) || email.length > 254 || username.length > 128 || phone.length > 64) {
+    return res.status(400).json({ success: false, message: '请提供邮箱或手机号。' });
   }
 
   if (!tokenSecret && !otpCode) {
@@ -4583,7 +4596,9 @@ app.post('/api/account/login', identityRoute(async (req, res) => {
     const users = await readPortalJSON(USERS_FILE);
     const registry = await readPortalJSON(PROXY_USERS_FILE, { users: [] });
     const saved = { email: normalizeEmail(email), email_verified: true, email_verified_at: new Date().toISOString() };
-    Object.assign(users.find(row => accountRegistryId(row) === accountId), saved);
+    for (const user of users) {
+      if (accountRegistryId(user) === accountId) Object.assign(user, saved);
+    }
     Object.assign(registry.users.find(row => row.user_id === accountId), saved);
     await writePortalJSON(USERS_FILE, users);
     await writeProxyUsersAndSync(registry);

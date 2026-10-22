@@ -19,6 +19,12 @@
 
     "账户管理": "Account",
     "行情图表": "Market chart",
+    "手机号登录": "Phone sign-in",
+    "使用邮箱验证码验证身份。": "Verify your identity with an email code.",
+    "请先输入邮箱或手机号。": "Enter your email or phone number first.",
+    "请提供邮箱或手机号。": "Provide your email or phone number.",
+    "邮箱地址": "Email address",
+    "邮箱（绑定时填写）": "Email (to link to your account)",
     "研究数据": "Research Data",
     "研究数据与报告": "Research & Data",
     "因子字典": "Factor Dictionary",

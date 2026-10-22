@@ -91,6 +91,7 @@ function AccountTopbar({ loggedIn, onLogout }) {
 }
 
 function AccountLogin({ onLoggedIn }) {
+  const [loginMode, setLoginMode] = useAccountState("email");
   const [email, setEmail] = useAccountState("");
   const [phone, setPhone] = useAccountState("");
   const [code, setCode] = useAccountState("");
@@ -108,8 +109,8 @@ function AccountLogin({ onLoggedIn }) {
 
   const sendLoginCode = async () => {
     setMessage("");
-    if (!email.trim() || !phone.trim()) {
-      setMessage("请先输入邮箱和手机号。");
+    if (loginMode === "email" ? !email.trim() : !phone.trim()) {
+      setMessage("请先输入邮箱或手机号。");
       return;
     }
     setSendingCode(true);
@@ -119,7 +120,7 @@ function AccountLogin({ onLoggedIn }) {
         body: JSON.stringify({
           credential: {
             email: email.trim(),
-            phone: phone.trim(),
+            ...(loginMode === "phone" ? { phone: phone.trim() } : {}),
           },
         }),
       });
@@ -140,7 +141,7 @@ function AccountLogin({ onLoggedIn }) {
     try {
       const credential = {
         email: email.trim(),
-        phone: phone.trim(),
+        ...(loginMode === "phone" ? { phone: phone.trim() } : {}),
       };
       if (!challengeId) throw new Error("请先点击获取验证码。");
       if (!code.trim()) throw new Error("请输入 6 位邮箱验证码。");
@@ -185,22 +186,30 @@ function AccountLogin({ onLoggedIn }) {
           <div className="eyebrow" style={{ marginBottom: 10 }}>账户登录</div>
           <h2 className="display-title" style={{ fontSize: 36, margin: "0 0 10px" }}>登录你的账户</h2>
           <p style={{ color: "var(--ink-muted)", margin: "0 0 24px" }}>
-            输入邮箱和手机号，使用邮箱验证码登录。老账号未填过邮箱？请在此补填，验证后保存并登录。
+            使用邮箱验证码验证身份。
           </p>
 
+          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+            {[["email", "邮箱验证码登录"], ["phone", "手机号登录"]].map(([mode, label]) => (
+              <button key={mode} type="button" className={`btn ${loginMode === mode ? "primary" : "ghost"}`}
+                aria-pressed={loginMode === mode} onClick={() => { setLoginMode(mode); setCode(""); setChallengeId(""); setMessage(""); }}
+                style={{ flex: 1, justifyContent: "center", padding: "8px 12px", fontSize: 13 }}>{label}</button>
+            ))}
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
-              <label className="label">邮箱</label>
+              <label className="label">{loginMode === "email" ? "邮箱" : "邮箱（绑定时填写）"}</label>
               <input
                 className="input mono"
                 type="email"
                 autoComplete="email"
                 value={email}
                 onChange={event => setEmail(event.target.value)}
-                placeholder="邮箱（老账号请补填）"
-                required
+                placeholder="邮箱地址"
+                required={loginMode === "email"}
               />
             </div>
+            {loginMode === "phone" && (
             <div>
               <label className="label">手机号</label>
               <input
@@ -213,6 +222,7 @@ function AccountLogin({ onLoggedIn }) {
                 required
               />
             </div>
+            )}
 
               <div>
                 <label className="label">邮箱验证码</label>
