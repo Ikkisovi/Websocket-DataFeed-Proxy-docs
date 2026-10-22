@@ -496,9 +496,8 @@ function AccountPage() {
       const data = await accountRequest("/api/account/overview");
       setOverview(data);
       setAuthenticated(true);
-      if (new URLSearchParams(window.location.search).get("next") === "research-data") {
-        window.location.replace("/research-data");
-      }
+      const nextPage = { "research-data": "/research-data", reports: "/reports/" }[new URLSearchParams(window.location.search).get("next")];
+      if (nextPage) window.location.replace(nextPage);
       return data;
     } catch (error) {
       if (error.status === 401) {

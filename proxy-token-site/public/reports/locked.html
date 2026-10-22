@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>研究报告 · Research reports — LeanData Research</title><meta name="robots" content="noindex">
+<link rel="icon" href="data:,"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tokens.css"><link rel="stylesheet" href="/reports/reports.css">
+<style>.locked-wrap{max-width:640px;margin:0 auto;padding:110px 28px 90px}.locked-wrap h1{font-family:var(--f-display);font-size:clamp(34px,5vw,52px);font-weight:400;line-height:1.25;letter-spacing:-.02em;margin:22px 0}.locked-wrap p{color:#68756a;line-height:1.85;font-size:15px;margin:0 0 14px}.locked-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}.locked-actions .btn.accent{background:#486455;color:#fbfcf9;border-color:#486455}.locked-plan{font-family:var(--f-mono);font-size:12px;color:#6d7969;margin-top:26px}</style>
+</head><body>
+<div class="reports-page" data-no-i18n="true">
+<header class="topbar editorial-topbar"><a class="brand" href="/"><span class="dot" aria-hidden="true"></span><strong>LeanData</strong></a>
+<nav class="nav" aria-label="Main navigation"><a href="/research-data" data-t="研究数据|Research Data">研究数据</a><a href="/reports/" aria-current="page" data-t="研究报告|Reports">研究报告</a><a href="/docs/" data-t="接口文档|API docs">接口文档</a></nav>
+<div class="spacer"></div><button type="button" class="btn ghost report-language" id="lang">English</button></header>
+<main><div class="locked-wrap">
+<p class="eyebrow">LEANDATA RESEARCH</p>
+<h1 id="title">研究报告面向 Basic 及以上套餐</h1>
+<p id="body">此内容仅对 Basic 及以上套餐的账户开放。</p>
+<div class="locked-actions" id="actions"></div>
+<p class="locked-plan" id="plan"></p>
+</div></main></div>
+<script>
+(() => {
+  const KEY = 'leandata.language';
+  let lang = 'zh';
+  try { lang = localStorage.getItem(KEY) || ((navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en'); } catch (e) {}
+  const T = {
+    anonymous: { zh: ['请先登录', '研究报告面向 Basic 及以上套餐的账户。请用你的 LeanData 账户登录后再打开；如果还没有账户，可以先注册并选择套餐。'], en: ['Sign in to read', 'Research reports are for accounts on the Basic plan and above. Sign in with your LeanData account to continue, or register and choose a plan.'] },
+    insufficient: { zh: ['当前套餐不含研究报告', '研究报告包含在 Basic 及以上套餐中。你当前的套餐为免费或已到期，升级后即可阅读。'], en: ['Not included in your current plan', 'Research reports are included from the Basic plan up. Your account is on the free plan or has expired; upgrade to read them.'] },
+    ok: { zh: ['已解锁', '你的套餐可以阅读研究报告，正在返回。'], en: ['Unlocked', 'Your plan includes research reports. Returning to the page.'] },
+    unknown: { zh: ['暂时无法确认权限', '请稍后刷新页面再试。'], en: ['Cannot confirm access right now', 'Please refresh and try again shortly.'] },
+  };
+  const labels = { signin: ['登录账户', 'Sign in'], register: ['注册并选择套餐', 'Register and choose a plan'], upgrade: ['查看套餐并升级', 'View plans and upgrade'], back: ['返回研究报告', 'Back to reports'] };
+  let state = 'unknown', plan = null;
+  const i = () => lang === 'en' ? 1 : 0;
+  function paint() {
+    const [title, body] = T[state][lang === 'en' ? 'en' : 'zh'];
+    document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+    document.getElementById('title').textContent = title;
+    document.getElementById('body').textContent = body;
+    document.getElementById('lang').textContent = lang === 'en' ? '中文' : 'English';
+    document.querySelectorAll('[data-t]').forEach(a => { a.textContent = a.dataset.t.split('|')[i()]; });
+        const actions = state === 'anonymous' ? [['/account?next=reports', labels.signin, true], ['/register', labels.register]]
+      : state === 'insufficient' ? [['/checkout', labels.upgrade, true], ['/reports/', labels.back]] : [['/reports/', labels.back]];
+    document.getElementById('actions').innerHTML = actions.map(([href, l, primary]) => `<a class="btn${primary ? ' accent' : ''}" href="${href}">${l[i()]}</a>`).join('');
+    document.getElementById('plan').textContent = plan ? (lang === 'en' ? `Current plan: ${plan}` : `当前套餐：${plan}`) : '';
+  }
+  document.getElementById('lang').onclick = () => { lang = lang === 'en' ? 'zh' : 'en'; try { localStorage.setItem(KEY, lang); } catch (e) {} paint(); };
+  paint();
+  fetch('/api/research/access', { credentials: 'same-origin', cache: 'no-store' }).then(r => r.json()).then(d => {
+    state = T[d.state] ? d.state : 'unknown'; plan = d.plan || null; paint();
+    if (state === 'ok') setTimeout(() => location.reload(), 600);
+  }).catch(() => { state = 'unknown'; paint(); });
+})();
+</script></body></html>

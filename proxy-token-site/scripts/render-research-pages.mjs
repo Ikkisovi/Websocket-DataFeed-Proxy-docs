@@ -9,7 +9,8 @@ const require=createRequire(import.meta.url);
 const React=require('react');
 const {renderToString}=require('react-dom/server');
 for(const [source,component,pages]of [
- ['reports/reports-page.jsx','ReportsPage',[['reports/index.html','/reports/'],['reports/brain-stock-ranking/index.html','/reports/brain-stock-ranking/']]],
+ ['reports/reports-page.jsx','ReportsPage',[['reports/index.html','/reports/']]],
+ ['reports/brain-article.jsx','BrainArticlePage',[['reports/brain-stock-ranking/index.html','/reports/brain-stock-ranking/']]],
  ['research-data-page.jsx','ResearchDataPage',[['research-data.html','/research-data']]],
 ]){
  const result=await build({entryPoints:[resolve(root,'public',source)],bundle:true,platform:'node',format:'cjs',write:false,external:['react'],jsx:'transform',logLevel:'silent'});

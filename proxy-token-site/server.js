@@ -74,6 +74,56 @@ app.use((req, res, next) => {
   next();
 });
 
+// --- Research reports: Basic plan and above ---------------------------------
+// The gate runs before express.static so the article text, its figures and the factor
+// statistics never reach anonymous or free-plan visitors. The landing page stays public.
+const researchAccess = require('./commerce/research-access.cjs');
+const RESEARCH_GATED_PREFIXES = ['/reports/brain-stock-ranking', '/reports/factor-stats'];
+const RESEARCH_PRIVATE_DIR = process.env.RESEARCH_PRIVATE_DIR || path.join(__dirname, 'private-research');
+
+async function resolveResearchAccess(req) {
+  await portalStore.flush();
+  const resolved = await resolveAccountSession(req);
+  if (!resolved) return { state: 'anonymous', role: null };
+  const localUser = await findLocalAccount(resolved.session.user_id);
+  const proxyUser = await findProxyAccount(resolved.session.user_id);
+  if (!localUser || !proxyUser || !proxyUser.token) return { state: 'anonymous', role: null };
+  const entitlement = subscriptionPolicy.project(proxyUser, localUser, await readPaymentOrders());
+  const verdict = researchAccess.evaluate(entitlement.principal.role);
+  return { state: verdict.allowed ? 'ok' : 'insufficient', role: verdict.role };
+}
+
+async function researchGate(req, res, next) {
+  res.set('Cache-Control', 'private, no-store');
+  res.set('Vary', 'Cookie');
+  let access;
+  try {
+    access = await resolveResearchAccess(req);
+  } catch (error) {
+    return res.status(503).json({ success: false, error: 'research_access_unavailable' });
+  }
+  if (access.state === 'ok') return next();
+  const status = access.state === 'anonymous' ? 401 : 403;
+  res.set('X-Research-Access', access.state);
+  const asset = /\.(?:csv|png|svg|json|js|css|map)$/i.test(req.path);
+  if (req.method === 'GET' && !asset && req.accepts(['html', 'json']) === 'html') {
+    return res.status(status).sendFile(path.join(__dirname, 'public', 'reports', 'locked.html'));
+  }
+  return res.status(status).json({ success: false, error: `research_access_${access.state}` });
+}
+
+app.get('/api/research/access', asyncRoute(async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  let access;
+  try { access = await resolveResearchAccess(req); } catch (error) { access = { state: 'unknown', role: null }; }
+  res.json({ state: access.state, allowed: access.state === 'ok', plan: access.state === 'ok' || access.state === 'insufficient' ? access.role : null });
+}));
+app.use(RESEARCH_GATED_PREFIXES, asyncRoute(researchGate));
+// Generated statistics live outside Git and outside public/; serve them only behind the gate.
+app.use('/reports/factor-stats/data', express.static(path.join(RESEARCH_PRIVATE_DIR, 'factor-stats', 'data'), {
+  index: false, fallthrough: false, maxAge: 0, setHeaders: res => res.setHeader('Cache-Control', 'private, no-store')
+}));
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/chart/bars', createChartHistoryHandler());
@@ -83,6 +133,7 @@ app.get('/updates', (req, res) => res.sendFile(path.join(__dirname, 'public', 'u
 app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'public', 'register.html')));
 app.get('/account', (req, res) => res.sendFile(path.join(__dirname, 'public', 'account.html')));
 app.get('/checkout', (req, res) => res.sendFile(path.join(__dirname, 'public', 'checkout.html')));
+app.get('/reports/factor-stats', (req, res) => res.redirect(301, '/reports/factor-stats/'));
 app.get('/research-data', (req, res) => res.sendFile(path.join(__dirname, 'public', 'research-data.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 

@@ -36,6 +36,14 @@ const clientBuilds = await Promise.all(entries.map(name => build({
   metafile: ["site-announcements", "chart-page"].includes(name),
 })));
 
+// The Brain article carries its own text and data, so it ships beside the gated article page,
+// never in the public reports landing bundle.
+await build({
+  entryPoints: [resolve(siteRoot, "client-entries", "brain-article.jsx")],
+  outfile: resolve(siteRoot, "public/reports/brain-stock-ranking/article.js"),
+  bundle: true, format: "iife", platform: "browser", target: ["es2020"], jsx: "transform", minify: true, legalComments: "none",
+});
+
 // The commit-pinned portal release ships server.js and public/. Bundle the
 // server sanitizer with those artifacts so deployment needs no new runtime npm install.
 const serverBuild = await build({
@@ -105,7 +113,7 @@ await import("./render-research-pages.mjs");
 for (const page of ["research-data.html", "reports/index.html", "reports/brain-stock-ranking/index.html"]) {
   const path = resolve(siteRoot, "public", page);
   let html = await readFile(path, "utf8");
-  for (const asset of ["assets/research-data-page.js", "assets/reports-page.js", "reports/reports.css"]) {
+  for (const asset of ["assets/research-data-page.js", "assets/reports-page.js", "reports/brain-stock-ranking/article.js", "reports/reports.css"]) {
     const version = createHash("sha256").update(await readFile(resolve(siteRoot, "public", asset))).digest("hex").slice(0,16);
     const pattern = new RegExp("/" + asset.replaceAll(".", "\\.") + "(?:\\?v=[^\"\\s]+)?", "g");
     html = html.replace(pattern, "/" + asset + "?v=" + version);
