@@ -15,3 +15,8 @@ COPY --chown=node:node commerce/portal-store.cjs commerce/portal-admin.cjs comme
 # These public inputs also pass through the dynamic site's static fallback.
 COPY --chown=node:node public/register-page.jsx public/product-catalog.json /app/public/
 CMD ["node", "server.js"]
+
+# Admin operational diagnostics; preserve all other public files in the base image.
+COPY --chown=node:node commerce/request-diagnostics.cjs /app/commerce/
+COPY --chown=node:node public/admin.html /app/public/
+COPY --chown=node:node public/assets/request-diagnostics.js /app/public/assets/

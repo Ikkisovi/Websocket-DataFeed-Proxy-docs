@@ -1,0 +1,10 @@
+# An operator-only overlay on the verified running portal image. Retains the
+# deployed dependencies, public docs and account/payment implementation.
+ARG PORTAL_BASE_IMAGE
+FROM ${PORTAL_BASE_IMAGE}
+ARG SOURCE_COMMIT
+LABEL org.opencontainers.image.revision=${SOURCE_COMMIT}
+COPY --chown=node:node server.js /app/
+COPY --chown=node:node commerce/request-diagnostics.cjs /app/commerce/
+COPY --chown=node:node public/admin.html /app/public/
+COPY --chown=node:node public/assets/request-diagnostics.js /app/public/assets/

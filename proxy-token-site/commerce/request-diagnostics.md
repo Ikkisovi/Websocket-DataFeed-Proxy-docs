@@ -1,0 +1,9 @@
+# Admin HTTP diagnostics
+
+`GET /api/admin/usage/diagnostics?days=1|7|30` uses the existing admin authentication and incremental usage-log reader. It returns private, non-cacheable operational summaries for UTC calendar days. An unavailable log returns 503, not a zero count. Existing inode/truncation detection, 35-day retention and bounded parsing apply. No provider calls or quota changes are made.
+
+The admin Usage tab shows HTTP status counts, cache outcomes, server-body completion outcomes, latency buckets and HTTP 429 attribution. Latency percentiles are bucket upper bounds for completed responses only; missing/aborted samples are excluded explicitly. These are log coverage metrics, not billing, client-delivery or full-session continuity proof. Replication lag, recording drops and rotation can leave incomplete coverage.
+
+429 reasons use an allowlist: credential protection, user limits, service capacity, upstream key budget, explicit provider throttling and unknown. Generic `http_429` is never inferred to mean provider throttling. Old records cannot recover reasons that were not recorded. Free-lane and Theta spool legacy reasons explicitly retain their unresolved subcause. Source and pool labels accept fixed values only. Route summaries strip queries/fragments and cap at 128 retained routes per daily summary, with overflow in `other`; only the largest 20 are returned. Account summaries include anonymous security traffic separately.
+
+The REST companion writes `rate_limit` metadata only to operational logs, including reason, category, observed source, pool and numeric Retry-After when supplied. It also exposes process-lifetime `leandata_http_429_total{reason,source,pool}` counters in the existing protected metrics surface. A restart resets these counters; the admin log window is independent. Public response bodies do not gain internal attribution fields.

@@ -4163,6 +4163,31 @@ describe('Admin usage monitoring API', () => {
     }
   });
 
+  test('diagnostics requires admin, validates window and shares incremental rotation-safe counters', async () => {
+    expect((await request(app).get('/api/admin/usage/diagnostics')).statusCode).toBe(401);
+    expect((await request(app).get('/api/admin/usage/diagnostics?days=2').set('x-admin-token',adminToken)).statusCode).toBe(400);
+    const entries=[usageEvent({status:429,error_code:'invalid_token_rate_limited',user_id:null}),
+      usageEvent({status:429,error_code:'http_429'}),
+      usageEvent({status:429,error_code:'free_lane_busy',rate_limit:{reason:'free_lane_byte_budget_exceeded',source:'cache_origin',pool:'free_upstream'}})];
+    fs.appendFileSync(USAGE_LOG,entries.map(e=>JSON.stringify(e)).join('\n')+'\n');
+    await __refreshUsageAggregatorForTest();
+    const read=()=>request(app).get('/api/admin/usage/diagnostics?days=1').set('x-admin-token',adminToken);
+    let res=await read();
+    expect(res.statusCode).toBe(200); expect(res.headers['cache-control']).toBe('private, no-store');
+    expect(res.body.diagnostics.http_requests).toBe(5);
+    expect(res.body.diagnostics.rate_limits.total).toBe(4);
+    expect(res.body.diagnostics.rate_limits.categories).toEqual({security:1,service_capacity:1,unknown:2});
+    expect(res.body.diagnostics.anonymous_429).toBe(1);
+    expect(res.body.diagnostics.affected_users).toBe(1);
+    expect((await read()).body.diagnostics.rate_limits.total).toBe(4);
+    // Truncation is a new source snapshot, not a second copy of old counts.
+    fs.writeFileSync(USAGE_LOG,JSON.stringify(usageEvent({status:429,error_code:'theta_response_capacity'}))+'\n');
+    await __refreshUsageAggregatorForTest();
+    res=await read(); expect(res.body.diagnostics.http_requests).toBe(1);expect(res.body.diagnostics.rate_limits.total).toBe(1);
+    fs.unlinkSync(USAGE_LOG); await __refreshUsageAggregatorForTest();
+    res=await read();expect(res.statusCode).toBe(503);expect(res.body.available).toBe(false);
+  });
+
   test('overview aggregates http and ws usage with registry join', async () => {
     const res = await request(app)
       .get('/api/admin/usage/overview')
