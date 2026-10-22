@@ -24,7 +24,9 @@ const ZH = {
   'fundamentals are the current restated Morningstar vintage, not original-vintage PIT': '基本面用的是 Morningstar 当前修订版本，不是当时可见的原始版本',
   '7d/14d windows hold few sessions; read n before the value': '7 天、14 天窗口样本很少；先看样本数再看数值',
   'tails clipped to p1–p99 in the plot': '图中尾部截到 p1–p99',
-  'Explanations and symbol notes come from the source page and are shown in English.': '含义和符号说明来自原页面，保持英文。',
+  'NAV': '净值', 'Trend': '走势', 'Long-short NAV': '多空净值', 'Long-only NAV': '纯多净值',
+  'Original implementation note (English)': '原始实现说明（英文）',
+  'Explanations and symbol notes follow the selected language; formulas retain their original definitions.': '含义与变量释义随语言切换，公式保持原定义。',
 };
 const siteLang = () => (window.LeandataI18n && window.LeandataI18n.getLanguage && window.LeandataI18n.getLanguage()) || (function () { try { return localStorage.getItem('leandata.language'); } catch (e) { return null; } })() || 'zh';
 const lang = { v: siteLang() === 'en' ? 'en' : 'zh' };
@@ -40,7 +42,7 @@ function paintShell() {
   const l = document.querySelector('[data-ld-language-toggle]'); if (l) l.textContent = lang.v === 'en' ? '中文' : 'English';
   document.documentElement.lang = lang.v === 'en' ? 'en' : 'zh-CN';
 }
-const state = { idx: null, win: 'full', sort: 'ic', dir: -1, q: '', cat: 'all', cache: {} };
+const state = { idx: null, win: 'full', nav: 'ls', sort: 'ic', dir: -1, q: '', cat: 'all', cache: {}, route: 0 };
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const pct = (x, d = 1) => x == null ? '–' : (x * 100).toFixed(d) + '%';
 const sgn = x => x == null ? '' : x > 0 ? 'pos' : x < 0 ? 'neg' : '';
@@ -49,8 +51,35 @@ const f2 = x => x == null ? '–' : x.toFixed(2);
 const cls = x => `num ${sgn(x)}`;
 
 function tex(latex, display) {
-  try { return window.katex ? katex.renderToString(latex, { output: 'mathml', throwOnError: false, displayMode: !!display }) : `<code>${esc(latex)}</code>`; }
+  try { return window.katex ? katex.renderToString(latex, { output: 'htmlAndMathml', throwOnError: true, trust: false, strict: 'ignore', displayMode: !!display, maxExpand: 1000 }) : `<code>${esc(latex)}</code>`; }
   catch (e) { return `<code>${esc(latex)}</code>`; }
+}
+function prose(value) {
+  const text = String(value || '');
+  const math = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|(?<!\\)\$([^$\n]+?)\$/g;
+  const plain = s => esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*\n]+)\*/g, '<em>$1</em>').replace(/\n/g, '<br>');
+  let html = '', end = 0;
+  for (const match of text.matchAll(math)) {
+    html += plain(text.slice(end, match.index));
+    html += tex(match[1] ?? match[2] ?? match[3] ?? match[4], match[1] != null || match[2] != null);
+    end = match.index + match[0].length;
+  }
+  return html + plain(text.slice(end));
+}
+function formula(value) {
+  const s = String(value || '');
+  return (/[A-Za-z]{3,}\s+[A-Za-z]{3,}\s+[A-Za-z]{3,}/.test(s) || /[\u3400-\u9fff]/.test(s)) && !/[\\_^={}]/.test(s) ? prose(s) : tex(s, true);
+}
+function sparkline(row) {
+  const values = row.nav_preview?.[state.win]?.[state.nav] || [];
+  const finite = values.filter(Number.isFinite);
+  if (finite.length < 2) return '<span class="dim">–</span>';
+  let lo = Math.min(1,...finite), hi = Math.max(1,...finite); if (hi === lo) { lo -= .01; hi += .01; }
+  const X = i => 3 + i * 132 / Math.max(1,values.length-1), Y = v => 35 - (v-lo)/(hi-lo)*30;
+  let d = '', pen = false;
+  values.forEach((v,i) => { if (v == null) { pen=false; return; } d += `${pen?'L':'M'}${X(i).toFixed(2)},${Y(v).toFixed(2)}`; pen=true; });
+  const label = `${tr(state.nav === 'ls' ? 'Long-short NAV' : 'Long-only NAV')} · ${tr(WINDOWS.find(w=>w[0]===state.win)[1])}`;
+  return `<svg class="nav-spark ${finite.at(-1)>=1?'pos':'neg'}" viewBox="0 0 138 40" role="img" aria-label="${esc(label)}"><title>${esc(label)} · ${finite.at(-1).toFixed(3)}</title><line x1="3" x2="135" y1="${Y(1)}" y2="${Y(1)}" class="nav-base"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
 }
 
 async function load() {
@@ -105,14 +134,16 @@ function renderList() {
     <div class="controls">
       <input id="q" type="search" placeholder="${lang.v === 'zh' ? `在 ${rows.length} 个因子中按名称、编号或标签搜索` : `Search ${rows.length} factors by name, id or tag`}" value="${esc(state.q)}" aria-label="${tr('Search')}">
       <div class="seg" role="group" aria-label="Window">${WINDOWS.map(([k, l]) => `<button data-win="${k}" aria-pressed="${state.win === k}">${tr(l)}</button>`).join('')}</div>
+      <div class="seg nav-choice" role="group" aria-label="${tr('Trend')}">${[['ls','Long-short'],['long','Long only']].map(([key,label])=>`<button data-nav="${key}" aria-pressed="${state.nav===key}">${tr(label)}</button>`).join('')}</div>
     </div>
     <div class="chips">${cats.map(c => `<button class="chip" data-cat="${c}" aria-pressed="${state.cat === c}">${c === 'all' ? tr('All') : esc(zhOf('categories', c))}</button>`).join('')}</div>
     <div class="count">${lang.v === 'zh' ? `${list.length} 个因子 · ${tr(WINDOWS.find(w => w[0] === state.win)[1])} · 五分位组合，不计成本` : `${list.length} factors · ${WINDOWS.find(w => w[0] === state.win)[1].toLowerCase()} · quintile portfolios, no costs`}</div>
-    <div class="tbl"><table><thead><tr><th>${tr('Factor')}</th>${COLS.map(c => `<th data-sort="${c[0]}" ${state.sort === c[0] ? `aria-sort="${state.dir < 0 ? 'descending' : 'ascending'}"` : ''}>${tr(c[1])}${state.sort === c[0] ? (state.dir < 0 ? ' ↓' : ' ↑') : ''}</th>`).join('')}</tr></thead>
-    <tbody>${list.map(r => `<tr data-id="${r.id}" tabindex="0"><td>${esc(ttl(r))}<span class="id">${r.id}</span></td>${COLS.map(c => { const v = c[2](r); return `<td class="n ${c[4] ? '' : sgn(v)}">${c[3](v)}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div>`;
+    <div class="tbl"><table><thead><tr><th>${tr('Factor')}</th><th class="nav-column">${tr(state.nav==='ls'?'Long-short NAV':'Long-only NAV')}</th>${COLS.map(c => `<th data-sort="${c[0]}" ${state.sort === c[0] ? `aria-sort="${state.dir < 0 ? 'descending' : 'ascending'}"` : ''}>${tr(c[1])}${state.sort === c[0] ? (state.dir < 0 ? ' ↓' : ' ↑') : ''}</th>`).join('')}</tr></thead>
+    <tbody>${list.map(r => `<tr data-id="${r.id}" tabindex="0"><td>${esc(ttl(r))}<span class="id">${r.id}</span></td><td class="nav-column">${sparkline(r)}</td>${COLS.map(c => { const v = c[2](r); return `<td class="n ${c[4] ? '' : sgn(v)}">${c[3](v)}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div>`;
   const qi = $('#q'); qi.addEventListener('input', e => { state.q = e.target.value; const pos = e.target.selectionStart; renderList(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); });
   app.querySelectorAll('[data-win]').forEach(b => b.onclick = () => { state.win = b.dataset.win; renderList(); });
   app.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => { state.cat = b.dataset.cat; renderList(); });
+  app.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => { state.nav = b.dataset.nav; renderList(); });
   app.querySelectorAll('th[data-sort]').forEach(h => h.onclick = () => { state.dir = state.sort === h.dataset.sort ? -state.dir : -1; state.sort = h.dataset.sort; renderList(); });
   app.querySelectorAll('tbody tr').forEach(t => { const go = () => { location.hash = t.dataset.id; }; t.onclick = go; t.onkeydown = e => { if (e.key === 'Enter') go(); }; });
 }
@@ -169,20 +200,23 @@ function barChart(el, labels, vals, colorFn, fmt, edgeLabels) {
 
 /* ---------- detail ---------- */
 async function renderDetail(id) {
+  const renderId = ++state.route;
   const app = $('#app'); app.innerHTML = `<div class="empty">${tr('Loading…')}</div>`;
   let rec; try { rec = await factor(id); } catch (e) { if (e.message === 'access') { app.innerHTML = accessMessage(); return; } app.innerHTML = `<div class="empty">${lang.v === 'zh' ? `没有名为 ${esc(id)} 的因子。<a href="#">返回列表</a>` : `No factor named ${esc(id)}. <a href="#">Back to the list</a>`}</div>`; return; }
   document.title = (lang.v === 'zh' && rec.page.title_zh ? rec.page.title_zh : rec.page.title) + ' · Factor Directory Stats';
-  const p = rec.page; const fs = p.formulas.filter(f => f.latex);
+  if (renderId !== state.route) return;
+  const p = lang.v==='zh' && rec.page.localized?.zh ? {...rec.page,...rec.page.localized.zh} : rec.page;
+  const fs = p.formulas.filter(f => f.latex);
   const defn = `
     <div class="defn">
       <section class="card"><h3>${tr('Formula')}</h3>
-        ${fs.length ? fs.map(f => `<div class="formula"><div class="cap">${esc(f.text || '')}</div>${tex(f.latex, true)}</div>`).join('') : rec.id.startsWith('fm_') ? `<p class="expl">${tr('Computed from one-minute trade bars on the close clock (09:31–16:00 bars).')}</p>` : `<p class="dim">${tr('The source page publishes no formula text for this factor; the implementation notes list its inputs.')}</p>`}
-        ${p.intro ? `<p class="dim" style="margin:8px 0 12px">${esc(p.intro)}</p>` : ''}
-        ${p.symbols.length ? `<dl class="sym">${p.symbols.map(s => `<dt>${/[\\^_{}]/.test(s.symbol) ? tex(s.symbol, false) : esc(s.symbol)}</dt><dd>${esc(s.meaning).replace(/\*([^*\s][^*]*)\*/g, '<i>$1</i>')}</dd>`).join('')}</dl>` : ''}
+        ${fs.length ? fs.map(f => `<div class="formula"><div class="cap">${prose(f.text || '')}</div>${formula(f.latex)}</div>`).join('') : rec.id.startsWith('fm_') ? `<p class="expl">${tr('Computed from one-minute trade bars on the close clock (09:31–16:00 bars).')}</p>` : `<p class="dim">${tr('The source page publishes no formula text for this factor; the implementation notes list its inputs.')}</p>`}
+        ${p.intro ? `<p class="dim" style="margin:8px 0 12px">${prose(p.intro)}</p>` : ''}
+        ${p.symbols.length ? `<dl class="sym">${p.symbols.map(s => `<dt>${/[\\^_{}]/.test(s.symbol) ? tex(s.symbol, false) : prose(s.symbol)}</dt><dd>${prose(s.meaning)}</dd>`).join('')}</dl>` : ''}
       </section>
-      <section class="card"><h3>${tr('What it measures')}</h3><p class="expl">${esc(p.explanation || rec.note)}</p>
+      <section class="card"><h3>${tr('What it measures')}</h3><div class="expl">${prose(p.explanation || rec.note)}</div>
         <p class="dim" style="margin:12px 0 0;font-size:12.5px">${tr('Inputs')}: ${rec.requires.map(r => `<span class="mono">${esc(r)}</span>`).join(', ') || '–'}${rec.proxy ? ` · ${tr('substitute input')}: ${esc(rec.proxy)}` : ''}</p>
-        ${rec.note && p.explanation && p.explanation !== rec.note ? `<p class="dim" style="margin:8px 0 0;font-size:12.5px">${tr('Implementation')}: ${esc(rec.note)}</p>` : ''}</section>
+        ${rec.note && p.explanation && p.explanation !== rec.note ? (lang.v==='zh' ? `<details class="implementation-note"><summary>${tr('Original implementation note (English)')}</summary><p>${prose(rec.note)}</p></details>` : `<p class="dim implementation-note">${tr('Implementation')}: ${prose(rec.note)}</p>`) : ''}</section>
     </div>`;
   app.innerHTML = `
     <div class="crumb"><a href="#">← ${tr('All factors')}</a></div>
@@ -192,7 +226,7 @@ async function renderDetail(id) {
     <div class="measured"><h2>${tr('Measured on our data')}</h2><div class="seg" role="group" aria-label="Window">${WINDOWS.map(([k, l]) => `<button data-win="${k}" aria-pressed="${state.win === k}">${tr(l)}</button>`).join('')}</div></div>
     <div id="measure"></div>
     <div class="notes"><strong>${tr('How to read this.')}</strong><ul>${state.idx.meta.caveats.map(c => `<li>${esc(tr(c))}</li>`).join('')}
-      <li>${tr('Explanations and symbol notes come from the source page and are shown in English.')}</li>
+      <li>${tr('Explanations and symbol notes follow the selected language; formulas retain their original definitions.')}</li>
       <li>${lang.v === 'zh' ? '标签：次日收盘到收盘收益；因子值最高的 20% 为纯多，最低的 20% 为末 20%，多空为两者之差；保持因子自然符号，不翻转。' : `Label: ${esc(state.idx.meta.label)}; the 20% of names with the highest factor value form Long only, the lowest 20% form Bottom 20%; Long-short is the difference. The factor's natural sign is kept.`}</li>
       <li>${lang.v === 'zh' ? `成员覆盖率 ${pct(rec.coverage, 1)}；首个有效交易日 ${esc(rec.first_valid)}。` : `Coverage on members: ${pct(rec.coverage, 1)}; first valid session ${esc(rec.first_valid)}.`}</li>
       ${rec.latest_names != null ? `<li>${lang.v === 'zh' ? `最近有效因子日期 ${esc(rec.last_signal_date || '–')}；最新交易日有值 ${rec.latest_names} 只。` : `Latest finite factor date ${esc(rec.last_signal_date || '–')}; ${rec.latest_names} names available on the latest session.`}</li>` : ''}</ul></div>`;
@@ -245,6 +279,7 @@ function renderMeasure(rec) {
 }
 
 function route() {
+  ++state.route;
   const id = decodeURIComponent(location.hash.slice(1));
   if (id && /^[A-Za-z0-9_.~-]+$/.test(id)) renderDetail(id); else { document.title = 'Factor Directory Stats'; renderList(); }
 }

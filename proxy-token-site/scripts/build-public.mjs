@@ -1,4 +1,5 @@
 import "./generate-product-catalog.mjs";
+import "./build-factor-assets.mjs";
 import "./sync-api-contract.mjs";
 import { build } from "esbuild";
 import { createHash } from "node:crypto";

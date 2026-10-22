@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const root = path.dirname(require.resolve('katex/package.json'));
+const { version } = JSON.parse(fs.readFileSync(path.join(root, 'package.json')));
+const target = new URL(`../public/reports/factor-stats/vendor/katex-${version}/`, import.meta.url);
+fs.mkdirSync(target, { recursive:true });
+for (const name of ['katex.min.js', 'katex.min.css']) fs.copyFileSync(path.join(root, 'dist', name), new URL(name, target));
+fs.cpSync(path.join(root, 'dist/fonts'), new URL('fonts', target), { recursive:true });
+fs.copyFileSync(path.join(root, 'LICENSE'), new URL('LICENSE', target));
+console.log(`Self-hosted KaTeX ${version}`);

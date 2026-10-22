@@ -44,3 +44,15 @@
 .fs-page .notes { border-top: 1px solid #dfe5d9; padding-top: 22px; margin-top: 34px; font-size: 12px; line-height: 1.8; }
 .fs-page .notes strong, .fs-page .notes b { font-weight: 500; color: #425d3f; }
 .fs-page .tip { background: #263d2c; border-radius: 2px; }
+.fs-page .tbl table { min-width: 1080px; table-layout: fixed; }
+.fs-page .tbl th, .fs-page .tbl td { padding-inline: 8px; }
+.fs-page .tbl th:first-child, .fs-page .tbl td:first-child { width: 31%; min-width: 0; overflow: hidden; }
+.fs-page .tbl td .id { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-page .nav-column { width: 140px; min-width: 0; cursor: default; }
+.fs-page svg.nav-spark { width: 124px; height: 40px; overflow: hidden; margin-left: auto; }
+.fs-page .nav-base { stroke: var(--muted); stroke-width: .65; stroke-dasharray: 2 3; opacity: .45; }
+.fs-page .implementation-note { margin: 16px 0 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
+.fs-page .implementation-note summary { cursor: pointer; }
+.fs-page .formula .katex-display { margin: .5em 0; text-align: left; }
+.fs-page .sym .katex, .fs-page .expl .katex { font-size: 1.05em; }
+.fs-page .expl br + br { display: block; margin-top: 8px; }
