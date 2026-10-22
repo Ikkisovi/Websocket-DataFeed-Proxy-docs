@@ -421,9 +421,361 @@ function Dashboard({ data, refreshError }) {
             <HistoryTable points={selected.points} />
           </section>}
         </div>
+        <NebiusPanel nebius={data.nebius_spot} />
       </main>
     </div>
   );
+}
+
+// ==================== Nebius spot live panel ====================
+// Mirrors the capture owner's reviewed normalizer (quantresearch/gpu_index_nebius_spot.py).
+// The page fetches the provider's own public, read-only JSON endpoint directly
+// in the browser (CORS *); captured snapshots from gpu-index.json remain the
+// historical record and are never replaced by live readings.
+const NEBIUS_SNAPSHOT_URL = "https://api.nebius.cloud/billing/v1alpha1/spot-price?pageSize=100";
+const NEBIUS_LIVE_REFRESH_MS = 5 * 60 * 1000;
+const NEBIUS_CURRENCY = "usd";
+const NEBIUS_UNIT_TITLE = "GPU hour";
+const NEBIUS_PLATFORM_NAMES = {
+  "gpu-b300-sxm": "B300",
+  "gpu-b200-sxm": "B200",
+  "gpu-b200-sxm-a": "B200",
+  "gpu-h200-sxm": "H200",
+  "gpu-h100-sxm": "H100",
+  "gpu-h100-pcie": "H100",
+  "gpu-rtx6000": "RTX PRO 6000",
+  "gpu-rtx6000-a": "RTX PRO 6000",
+  "gpu-l40s": "L40S",
+};
+const NEBIUS_TRACKED_NAMES = new Set(["B300", "B200", "H200", "H100", "RTX PRO 6000"]);
+
+function normalizeNebiusName(productTitle, platform) {
+  const raw = String(productTitle || "").trim();
+  const derived = raw.replace(/^(Preemptible\s+)?NVIDIA®?\s*/i, "").replace(/\s+(NVLink|PCIe|SXM)$/i, "").trim()
+    || String(platform || "").trim();
+  if (NEBIUS_TRACKED_NAMES.has(derived)) return [derived, raw];
+  return [NEBIUS_PLATFORM_NAMES[String(platform || "").trim()] || "unmapped", raw];
+}
+
+function parseNebiusLive(payload) {
+  // Fail closed on any schema surprise: a wrong number on screen is worse
+  // than no number, and the captured receipt history stays authoritative.
+  if (!payload || typeof payload !== "object" || !Array.isArray(payload.items) || payload.items.length === 0) {
+    throw new Error("nebius snapshot shape");
+  }
+  if (payload.nextPageToken || payload.next_page_token) throw new Error("nebius snapshot paginated");
+  const seen = new Set();
+  return payload.items.map(item => {
+    const skuId = String(item?.skuId || "").trim();
+    const region = String(item?.region || "").trim();
+    const price = item?.price;
+    if (!skuId || !region || !price || typeof price !== "object") throw new Error("nebius item shape");
+    const identity = `${skuId}::${region}`;
+    if (seen.has(identity)) throw new Error("nebius duplicate row");
+    seen.add(identity);
+    if (String(price.currency || "").trim().toLowerCase() !== NEBIUS_CURRENCY) throw new Error("nebius currency");
+    if (String(price.unitTitle || "").trim() !== NEBIUS_UNIT_TITLE) throw new Error("nebius unit");
+    const value = Number(price.value);
+    if (!Number.isFinite(value) || value < 0) throw new Error("nebius price");
+    const [gpuName, gpuNameRaw] = normalizeNebiusName(item.productTitle, item.computeInstance?.platform);
+    return {
+      sku_id: skuId,
+      gpu_name: gpuName,
+      gpu_name_raw: gpuNameRaw,
+      region,
+      price_usd_per_gpu_hour: value,
+      effective_time: String(item.effectiveTime || ""),
+    };
+  });
+}
+
+function useNebiusLive() {
+  const [state, setState] = React.useState({ status: "loading", rows: [], at: null });
+  React.useEffect(() => {
+    let cancelled = false;
+    async function poll() {
+      try {
+        const response = await fetch(NEBIUS_SNAPSHOT_URL, { cache: "no-store" });
+        if (!response || !response.ok) throw new Error("nebius status");
+        const rows = parseNebiusLive(await response.json());
+        if (!cancelled) setState({ status: "live", rows, at: new Date().toISOString() });
+      } catch {
+        // Never surface provider diagnostics to the page; keep the last good
+        // live rows visible but mark them stale.
+        if (!cancelled) setState(previous => previous.rows.length
+          ? { ...previous, status: "unavailable" }
+          : { status: "unavailable", rows: [], at: null });
+      }
+    }
+    poll();
+    const timer = setInterval(poll, NEBIUS_LIVE_REFRESH_MS);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, []);
+  return state;
+}
+
+const NEBIUS_COLORS = ["var(--accent)", "var(--danger)", "var(--warn)", "var(--ink-strong)"];
+const NEBIUS_TRACKED_ORDER = ["B300", "B200", "H200", "H100", "RTX PRO 6000"];
+const NEBIUS_WINDOWS = [
+  { key: "1d", label: "24h · 15min", gapMs: 45 * 60 * 1000 },
+  { key: "7d", label: "7d · 1h", gapMs: 3 * 3600 * 1000 },
+];
+
+function median(values) {
+  const sorted = values.filter(value => Number.isFinite(value)).sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function nebiusSeriesFor(section, gpuName, windowKey) {
+  return (Array.isArray(section?.series) ? section.series : [])
+    .filter(item => String(item.gpu_name) === String(gpuName) && item.window === windowKey && Array.isArray(item.points))
+    .map(item => ({
+      key: String(item.key || `${item.sku_id}:${windowKey}`),
+      sku_id: String(item.sku_id),
+      region: String(item.region || ""),
+      points: item.points
+        .map(point => ({ ms: Date.parse(String(point.time)), value: Number(point.value) }))
+        .filter(point => Number.isFinite(point.ms) && Number.isFinite(point.value) && point.value >= 0)
+        .sort((a, b) => a.ms - b.ms),
+    }))
+    .filter(item => item.points.length > 0)
+    .map((item, index) => ({ ...item, color: NEBIUS_COLORS[index % NEBIUS_COLORS.length] }));
+}
+
+function nebiusWindowDelta(points) {
+  if (!Array.isArray(points) || points.length < 2) return null;
+  const first = points[0].value;
+  const last = points[points.length - 1].value;
+  return Number.isFinite(first) && Number.isFinite(last) && first !== 0 ? (last - first) / first : null;
+}
+
+function nebiusDelta(value) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return `${value >= 0 ? "+" : "−"}${Math.abs(value * 100).toFixed(2)}%`;
+}
+
+function nebiusTime(iso) {
+  const date = new Date(String(iso || ""));
+  return Number.isNaN(date.getTime()) ? "—" : `${date.toISOString().slice(0, 16).replace("T", " ")}Z`;
+}
+
+function NebiusPlot({ series, liveRows, windowKey, gpuName }) {
+  const [hovered, setHovered] = React.useState(null);
+  const W = 1000, H = 390;
+  const left = 67, right = 24, top = 25, bottom = 330;
+  const plotWidth = W - left - right;
+  const priceHeight = bottom - top;
+  const windowSpec = NEBIUS_WINDOWS.find(item => item.key === windowKey) || NEBIUS_WINDOWS[0];
+  const nowMs = Date.now();
+  const hasLive = liveRows.length > 0;
+  const times = [...new Set(series.flatMap(item => item.points.map(point => point.ms)))].sort((a, b) => a - b);
+  const values = series
+    .flatMap(item => item.points.map(point => point.value))
+    .concat(liveRows.map(row => Number(row.price_usd_per_gpu_hour)))
+    .filter(value => Number.isFinite(value));
+  if (!values.length) return <p className="gpu-index-nebius-empty">暂无 Nebius 序列。</p>;
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const rawRange = Math.max(rawMax - rawMin, rawMax * .08, .01);
+  const yMin = Math.max(0, rawMin - rawRange * .12);
+  const yMax = rawMax + rawRange * .12;
+  const firstTime = times.length ? times[0] : nowMs - 3600 * 1000;
+  const lastTime = times.length ? times[times.length - 1] : nowMs;
+  const tMin = Math.min(firstTime, hasLive ? nowMs : firstTime);
+  const tMax = Math.max(lastTime, hasLive ? nowMs + 5 * 60 * 1000 : lastTime);
+  const tSpan = (tMax - tMin) || 1;
+  const xAt = ms => left + ((ms - tMin) / tSpan) * plotWidth;
+  const yAt = value => bottom - ((value - yMin) / (yMax - yMin || 1)) * priceHeight;
+  const gridStep = niceStep(yMax - yMin);
+  const grids = [];
+  for (let value = Math.ceil(yMin / gridStep) * gridStep; value <= yMax + gridStep / 10; value += gridStep) grids.push(value);
+  const labelCount = Math.min(MAX_X_LABELS, times.length);
+  const labelMs = [];
+  for (let rank = 0; rank < labelCount; rank += 1) {
+    const ms = times[Math.round((rank * (times.length - 1)) / Math.max(labelCount - 1, 1))];
+    if (!labelMs.includes(ms)) labelMs.push(ms);
+  }
+
+  const activeMs = hovered != null && times.length ? times[hovered] : null;
+  const nearestBySeries = new Map();
+  if (activeMs != null) {
+    for (const item of series) {
+      let best = null;
+      let bestDistance = Infinity;
+      for (const point of item.points) {
+        const distance = Math.abs(point.ms - activeMs);
+        if (distance < bestDistance) { bestDistance = distance; best = point; }
+      }
+      nearestBySeries.set(item.key, best && bestDistance <= windowSpec.gapMs * 1.5 ? best.value : null);
+    }
+  }
+
+  const handleMove = event => {
+    if (!times.length) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * W;
+    let best = 0;
+    let bestDistance = Infinity;
+    times.forEach((ms, index) => {
+      const distance = Math.abs(xAt(ms) - x);
+      if (distance < bestDistance) { bestDistance = distance; best = index; }
+    });
+    setHovered(best);
+  };
+
+  return (
+    <div className="gpu-index-chart-wrap">
+      {activeMs != null && (
+        <div className="gpu-index-tooltip" style={{ left: `${(xAt(activeMs) / W) * 100}%`, top: "8%" }}>
+          <div className="gpu-index-tooltip-time">{timeLabel(activeMs, true)} · Nebius spot · {gpuName}</div>
+          {series.map(item => (
+            <div className="gpu-index-tooltip-row" key={item.key}>
+              <span>{item.region || item.sku_id}</span>
+              <span>{nearestBySeries.get(item.key) == null ? "—" : money(nearestBySeries.get(item.key))}</span>
+            </div>
+          ))}
+          {hasLive && (
+            <div className="gpu-index-tooltip-row"><span>live · 浏览器</span><span>{liveRows.map(row => money(row.price_usd_per_gpu_hour)).join(" / ")}</span></div>
+          )}
+        </div>
+      )}
+      <svg className="gpu-index-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Nebius spot price over time for ${gpuName}, one line per region`} onMouseMove={handleMove} onMouseLeave={() => setHovered(null)}>
+        {grids.map(value => (
+          <g key={value}>
+            <line x1={left} x2={W - right} y1={yAt(value)} y2={yAt(value)} stroke="var(--rule)" strokeDasharray="2 4" />
+            <text x={left - 10} y={yAt(value) + 4} textAnchor="end" fontSize="10" fontFamily="var(--f-mono)" fill="var(--ink-soft)">{money(value)}</text>
+          </g>
+        ))}
+        <line x1={left} x2={W - right} y1={bottom} y2={bottom} stroke="var(--rule-strong)" />
+        {hasLive && <line x1={xAt(nowMs)} x2={xAt(nowMs)} y1={top} y2={bottom} stroke="var(--rule-strong)" strokeDasharray="3 4" />}
+        {hasLive && (() => {
+          // Keep the "now" label inside the frame when the live edge sits near the right border.
+          const nowX = xAt(nowMs);
+          const nearEdge = nowX > W - right - 70;
+          return (
+            <text x={nearEdge ? nowX - 6 : nowX + 6} y={top + 10} textAnchor={nearEdge ? "end" : "start"} fontSize="9.5" fontFamily="var(--f-mono)" fill="var(--ink-soft)">now · live</text>
+          );
+        })()}
+        {series.length === 0 && (
+          <text x={left + plotWidth / 2} y={(top + bottom) / 2} textAnchor="middle" fontSize="11" fontFamily="var(--f-mono)" fill="var(--ink-soft)">
+            采集历史尚未落库 · only live readings so far
+          </text>
+        )}
+        {series.map(item => {
+          let path = "";
+          item.points.forEach((point, index) => {
+            const gap = index > 0 ? point.ms - item.points[index - 1].ms : 0;
+            path += `${index === 0 || gap > windowSpec.gapMs ? "M" : "L"}${xAt(point.ms)},${yAt(point.value)} `;
+          });
+          const last = item.points[item.points.length - 1];
+          return (
+            <g key={item.key}>
+              <path d={path} fill="none" stroke={item.color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" opacity=".9" />
+              {item.points.map(point => <circle key={point.ms} cx={xAt(point.ms)} cy={yAt(point.value)} r="1.8" fill={item.color} />)}
+              <circle cx={xAt(last.ms)} cy={yAt(last.value)} r="3.6" fill="var(--bg-paper)" stroke={item.color} strokeWidth="2" />
+            </g>
+          );
+        })}
+        {liveRows.map((row, index) => {
+          const color = series.find(item => item.sku_id === row.sku_id)?.color || NEBIUS_COLORS[index % NEBIUS_COLORS.length];
+          return <circle key={row.sku_id} cx={xAt(nowMs)} cy={yAt(Number(row.price_usd_per_gpu_hour))} r="4.5" fill="var(--bg-paper)" stroke={color} strokeWidth="2.5" />;
+        })}
+        {labelMs.map(ms => (
+          <text key={ms} x={xAt(ms)} y={H - 10} textAnchor="middle" fontSize="9.5" fontFamily="var(--f-mono)" fill="var(--ink-soft)">{timeLabel(ms, true)}</text>
+        ))}
+        {activeMs != null && <line x1={xAt(activeMs)} x2={xAt(activeMs)} y1={top} y2={bottom} stroke="var(--accent)" strokeWidth="1" strokeDasharray="3 4" opacity=".6" />}
+      </svg>
+    </div>
+  );
+}
+
+function NebiusPanel({ nebius }) {
+  const live = useNebiusLive();
+  const section = nebius && typeof nebius === "object" ? nebius : null;
+  const capturedLatest = Array.isArray(section?.latest) ? section.latest : [];
+  const [gpuName, setGpuName] = React.useState(null);
+  const [windowKey, setWindowKey] = React.useState("1d");
+
+  const names = [...new Set([
+    ...capturedLatest.map(row => String(row.gpu_name)),
+    ...(Array.isArray(section?.series) ? section.series.map(item => String(item.gpu_name)) : []),
+    ...live.rows.map(row => row.gpu_name),
+  ])].filter(Boolean);
+  const order = name => {
+    const index = NEBIUS_TRACKED_ORDER.indexOf(name);
+    return index === -1 ? NEBIUS_TRACKED_ORDER.length : index;
+  };
+  names.sort((a, b) => order(a) - order(b) || a.localeCompare(b));
+  const selected = gpuName && names.includes(gpuName) ? gpuName : names[0] || null;
+
+  const series = nebiusSeriesFor(section, selected, windowKey);
+  const allSeries = (Array.isArray(section?.series) ? section.series : [])
+    .filter(item => String(item.gpu_name) === String(selected));
+  const liveRows = live.rows.filter(row => row.gpu_name === selected);
+  const capturedRows = capturedLatest.filter(row => row.gpu_name === selected);
+  const delta24 = median(allSeries.filter(item => item.window === "1d").map(item => nebiusWindowDelta(item.points)));
+  const delta7d = median(allSeries.filter(item => item.window === "7d").map(item => nebiusWindowDelta(item.points)));
+  const liveMedian = median(liveRows.map(row => Number(row.price_usd_per_gpu_hour)));
+  const capturedMedian = median(capturedRows.map(row => Number(row.price_usd_per_gpu_hour)));
+  const gaps = Array.isArray(section?.gaps) ? section.gaps : [];
+  const liveChip = live.status === "loading"
+    ? "实时接口连接中 · connecting"
+    : live.status === "live"
+      ? `实时接口已连接 · live ${nebiusTime(live.at)}`
+      : "实时接口暂不可用 · 显示已采集数据";
+
+  return <section className="gpu-index-panel gpu-index-nebius">
+    <div className="gpu-index-panel-head">
+      <div>
+        <h2 className="gpu-index-panel-title">Nebius spot prices · Nebius 现货价</h2>
+        <p className="gpu-index-panel-caption">
+          数据源：Nebius 官方 spot price API(浏览器直连，只读) · 采集快照 {Number(section?.capture_count) || 0} 槽 · 最新 {nebiusTime(section?.snapshot_time)} · 显式缺口 {gaps.length}{Number(section?.pre_source_slots) > 0 ? ` · ${Number(section.pre_source_slots)} 槽早于本源` : ""} · 与 Vast.ai 租赁聚合独立统计，不并入指数
+        </p>
+      </div>
+      <div className="gpu-index-kpis">
+        <div className="gpu-index-kpi"><div className="gpu-index-kpi-label">Live · median</div><div className="gpu-index-kpi-value">{money(liveMedian)}</div></div>
+        <div className="gpu-index-kpi"><div className="gpu-index-kpi-label">Captured · median</div><div className="gpu-index-kpi-value">{money(capturedMedian)}</div></div>
+        <div className="gpu-index-kpi"><div className="gpu-index-kpi-label">Δ24h · median</div><div className={`gpu-index-kpi-value ${delta24 == null ? "" : delta24 >= 0 ? "up" : "down"}`}>{nebiusDelta(delta24)}</div></div>
+        <div className="gpu-index-kpi"><div className="gpu-index-kpi-label">Δ7d · median</div><div className={`gpu-index-kpi-value ${delta7d == null ? "" : delta7d >= 0 ? "up" : "down"}`}>{nebiusDelta(delta7d)}</div></div>
+        <div className="gpu-index-kpi"><div className="gpu-index-kpi-label">Regions</div><div className="gpu-index-kpi-value">{count(Math.max(series.length, liveRows.length))}</div></div>
+      </div>
+    </div>
+    {selected ? <>
+      <div className="gpu-index-nebius-toolbar">
+        <div className="gpu-index-segments" aria-label="Nebius GPU">
+          {names.map(name => <button key={name} className={`gpu-index-segment ${name === selected ? "active" : ""}`} onClick={() => setGpuName(name)}>{name}</button>)}
+        </div>
+        <div className="gpu-index-nebius-toolbar-right">
+          <div className="gpu-index-range-toggle" aria-label="Nebius history window">
+            {NEBIUS_WINDOWS.map(item => <button key={item.key} className={windowKey === item.key ? "active" : ""} onClick={() => setWindowKey(item.key)}>{item.label}</button>)}
+          </div>
+          <div className={`gpu-index-nebius-live ${live.status}`}>{liveChip}</div>
+        </div>
+      </div>
+      <NebiusPlot series={series} liveRows={liveRows} windowKey={windowKey} gpuName={selected} />
+      <div className="gpu-index-legend">
+        {[
+          ...series.map(item => ({ key: item.key, label: item.region || item.sku_id, color: item.color })),
+          ...liveRows
+            .filter(row => !series.some(item => item.sku_id === row.sku_id))
+            .map((row, index) => ({ key: `live-${row.sku_id}`, label: `${row.region || row.sku_id} · live`, color: NEBIUS_COLORS[index % NEBIUS_COLORS.length] })),
+        ].map(item => (
+          <span className="gpu-index-legend-item" key={item.key}>
+            <span className="gpu-index-legend-swatch" style={{ background: item.color }} />{item.label}
+          </span>
+        ))}
+        <span className="gpu-index-legend-item"><span className="gpu-index-legend-swatch mean" />断线 = 采集缺口 gap</span>
+      </div>
+      <p className="gpu-index-nebius-note">
+        实线为各区域 SKU 的采集序列(METHOD_LAST_PRICE 聚合，15 分钟 / 1 小时)，缺口处断开；空心点与竖虚线为浏览器实时读数，仅标注“现在”，不回填历史。
+        Δ24h / Δ7d 为序列窗口首尾变动的区域中位数；修订点只计数并保留，不覆盖历史。Nebius 现货价按 GPU 平台与区域市场化波动，仅作观察参考，不构成任何投资建议。
+      </p>
+    </> : <p className="gpu-index-nebius-empty">
+      暂无 Nebius 数据。采集端自 2026-10-20 00:00 UTC 起在每个采集槽携带本源；实时接口可用时本图自动填充。
+    </p>}
+  </section>;
 }
 
 export function GpuIndexPage() {

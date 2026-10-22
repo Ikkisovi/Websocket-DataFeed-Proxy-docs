@@ -19,8 +19,8 @@ FILES = [
 REMOTE = r'''
 import hashlib,json,os,pathlib,shutil,sys,datetime
 stage=pathlib.Path(sys.argv[1]);manifest=json.loads((stage/'manifest.json').read_text())
-root=pathlib.Path('/srv/leandata/proxy-token-site');public_inode=(root/'public').stat().st_ino
-registry=root/'remote_proxy/users.json';registry_hash=hashlib.sha256(registry.read_bytes()).hexdigest()
+root=pathlib.Path('/srv/leandata-site-public');public_inode=(root/'public').stat().st_ino
+registry=pathlib.Path('/srv/leandata/proxy-token-site/remote_proxy/users.json');registry_hash=hashlib.sha256(registry.read_bytes()).hexdigest()
 backup=stage/'rollback';backup.mkdir(exist_ok=False)
 changed=[]
 try:

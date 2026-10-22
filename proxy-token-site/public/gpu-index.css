@@ -131,3 +131,18 @@ button { font: inherit; }
   .gpu-index-cards { grid-template-columns: 1fr; }
   .gpu-index-card-price { font-size: 25px; }
 }
+
+/* Nebius spot live plot — provider series + browser-side live readings */
+.gpu-index-nebius { margin-top: 14px; }
+.gpu-index-nebius-toolbar {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
+  padding: 14px 22px 2px;
+}
+.gpu-index-nebius-toolbar-right { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.gpu-index-nebius-live { font: 500 10.5px/1 var(--f-mono); letter-spacing: .04em; color: var(--ink-muted); }
+.gpu-index-nebius-live.live { color: var(--ok); }
+.gpu-index-nebius-live.unavailable { color: var(--warn); }
+.gpu-index-nebius-note { margin: 0; padding: 4px 22px 18px; color: var(--ink-soft); font: 10.5px/1.6 var(--f-mono); }
+.gpu-index-nebius-empty { margin: 0; padding: 18px 22px 22px; color: var(--ink-muted); font-size: 12px; }
+.gpu-index-kpi-value.up { color: var(--danger); }
+.gpu-index-kpi-value.down { color: var(--ok); }
