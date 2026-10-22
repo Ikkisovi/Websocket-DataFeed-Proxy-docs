@@ -1,7 +1,7 @@
 'use strict';
 // Research reports are included from the Basic plan up. The effective role comes from the
 // subscription projection, so an expired plan reads as free and is locked out.
-const DEFAULT_ROLES = ['basic', 'value', 'standard', 'premium', 'trial', 'test'];
+const DEFAULT_ROLES = ['basic', 'value', 'standard', 'premium', 'trial', 'test', 'unrestricted'];
 
 function allowedRoles(env = process.env) {
   const configured = String(env.RESEARCH_ALLOWED_ROLES || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);

@@ -46,7 +46,7 @@ async function cookieFor(account) {
 
 describe('research access roles', () => {
   it('admits Basic and above and keeps free, expired and unknown roles out', () => {
-    for (const role of ['basic', 'value', 'standard', 'premium', 'Premium']) expect(researchAccess.evaluate(role).allowed).toBe(true);
+    for (const role of ['basic', 'value', 'standard', 'premium', 'Premium', 'unrestricted']) expect(researchAccess.evaluate(role).allowed).toBe(true);
     for (const role of ['free', '', null, undefined, 'china', 'nonsense']) expect(researchAccess.evaluate(role).allowed).toBe(false);
   });
   it('lets operators narrow the list without a code change', () => {
@@ -117,6 +117,24 @@ describe('gated research pages', () => {
     const cookie = await cookieFor(seed('basic'));
     const res = await request(app).get('/reports/factor-stats/data/..%2f..%2f..%2fproxy-users.json').set('Cookie', cookie);
     expect([400, 403, 404]).toContain(res.statusCode);
+  });
+
+  it('admits an unrestricted account without changing its stored role', async () => {
+    const account = seed('premium');
+    const users = JSON.parse(fs.readFileSync(USERS_FILE));
+    const registry = JSON.parse(fs.readFileSync(TEST_PROXY_FILE));
+    users[0].role = 'unrestricted';
+    registry.users[0].role = 'unrestricted';
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users));
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify(registry));
+    const cookie = await cookieFor(account);
+    expect((await request(app).get('/api/research/access').set('Cookie', cookie)).body)
+      .toEqual({ state: 'ok', allowed: true, plan: 'unrestricted' });
+    for (const url of ['/reports/brain-stock-ranking/', '/reports/brain-stock-ranking/article.js',
+      '/reports/factor-stats/', '/reports/factor-stats/data/index.json']) {
+      expect((await request(app).get(url).set('Cookie', cookie)).statusCode).toBe(200);
+    }
+    expect(JSON.parse(fs.readFileSync(TEST_PROXY_FILE)).users[0].role).toBe('unrestricted');
   });
 });
 
