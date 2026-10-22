@@ -1619,6 +1619,7 @@ async function findLocalAccountByIdentity(identity) {
 async function findAccountLoginMatches(credential) {
   const phone = String(credential.phone || '').trim();
   const email = normalizeEmail(credential.email || '');
+  const username = String(credential.user_id || credential.username || '').trim();
   const users = await readPortalJSON(USERS_FILE);
   const registry = await readPortalJSON(PROXY_USERS_FILE, { users: [] });
   // Repeated rows for one unchanged identity are one login candidate. Conflicting
@@ -1637,7 +1638,8 @@ async function findAccountLoginMatches(credential) {
   const unique = [...candidates.entries()].filter(([id]) => !conflicts.has(id)).map(([, value]) => value);
   if (email) {
     const phoneMatches = phone ? unique.filter(row => row.phone === phone) : [];
-    return unique.filter(row => (!phone || row.phone === phone) &&
+    return unique.filter(row => (!username || accountRegistryId(row.user) === username || row.user.username === username)
+      && (!phone || row.phone === phone) &&
       (row.email ? row.email === email : Boolean(phone) && phoneMatches.length === 1)).map(row => row.user);
   }
   if (!credential.user_id && !credential.username) {
@@ -4455,7 +4457,7 @@ app.post('/api/account/login-code', asyncRoute(async (req, res) => {
   const phone = String(credential.phone || '').trim();
   const email = String(credential.email || '').trim();
 
-  if ((!username && !phone && !isValidEmail(email)) || (username && !phone) || (email && !isValidEmail(email)) || email.length > 254 || username.length > 128 || phone.length > 64) {
+  if ((!phone && !isValidEmail(email)) || (email && !isValidEmail(email)) || email.length > 254 || username.length > 128 || phone.length > 64) {
     return res.status(400).json({ success: false, message: '请提供邮箱或手机号。' });
   }
 
@@ -4549,7 +4551,7 @@ app.post('/api/account/login', identityRoute(async (req, res) => {
   const challengeId = String(credential?.challenge_id || credential?.verification_id || '').trim();
   const otpCode = String(credential?.code || credential?.verification_code || credential?.login_code || '').trim();
 
-  if ((!username && !phone && !isValidEmail(email)) || (username && !phone) || (email && !isValidEmail(email)) || email.length > 254 || username.length > 128 || phone.length > 64) {
+  if ((!phone && !isValidEmail(email)) || (email && !isValidEmail(email)) || email.length > 254 || username.length > 128 || phone.length > 64) {
     return res.status(400).json({ success: false, message: '请提供邮箱或手机号。' });
   }
 

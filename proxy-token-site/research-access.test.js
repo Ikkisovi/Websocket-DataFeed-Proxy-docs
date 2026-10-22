@@ -207,6 +207,42 @@ describe('research static URL normalization', () => {
 });
 
 describe('email and phone verification sign-in modes', () => {
+  it('disambiguates a shared email with an optional account name while keeping OTP account-bound', async () => {
+    const account = seed('premium');
+    account.user_id = 'shared-mailbox-selected';
+    const rows = JSON.parse(fs.readFileSync(USERS_FILE));
+    rows[0].username = account.user_id;
+    delete rows[0].phone;
+    rows.push({ ...rows[0], username: 'another-account' });
+    const registry = JSON.parse(fs.readFileSync(TEST_PROXY_FILE));
+    registry.users[0].user_id = account.user_id;
+    registry.users.push({ ...registry.users[0], user_id: 'another-account', token: 'another-account-secret-token' });
+    const unchanged = JSON.stringify(rows);
+    fs.writeFileSync(USERS_FILE, unchanged);
+    fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify(registry));
+    clearTestAccountLoginEmails();
+    for (const username of ['', 'not-this-account']) {
+      const sent = await request(app).post('/api/account/login-code').set('x-forwarded-for', '192.0.2.110')
+        .send({ credential: { email: account.email, username } });
+      expect(sent.statusCode).toBe(202);
+      expect(getLastTestAccountLoginEmail()).toBeNull();
+    }
+    const credential = { email: account.email, username: account.user_id };
+    const sent = await request(app).post('/api/account/login-code').set('x-forwarded-for', '192.0.2.111')
+      .send({ credential });
+    expect(sent.statusCode).toBe(202);
+    expect(getLastTestAccountLoginEmail().email).toBe(account.email);
+    const proof = { ...credential, challenge_id: sent.body.challenge_id, code: getLastTestAccountLoginEmail().code };
+    const wrongAccount = await request(app).post('/api/account/login').set('x-forwarded-for', '192.0.2.112')
+      .send({ credential: { ...proof, username: 'another-account' } });
+    expect(wrongAccount.statusCode).toBe(400);
+    expect(wrongAccount.headers['set-cookie']).toBeUndefined();
+    const login = await request(app).post('/api/account/login').set('x-forwarded-for', '192.0.2.113')
+      .send({ credential: proof });
+    expect(login.statusCode).toBe(200);
+    expect(login.body.account.user_id).toBe(account.user_id);
+    expect(fs.readFileSync(USERS_FILE, 'utf8')).toBe(unchanged);
+  });
   it('signs in an existing email-only identity with duplicate rows without rewriting them', async () => {
     const account = seed('premium');
     const rows = JSON.parse(fs.readFileSync(USERS_FILE));

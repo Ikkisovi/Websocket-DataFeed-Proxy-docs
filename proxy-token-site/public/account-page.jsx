@@ -93,6 +93,7 @@ function AccountTopbar({ loggedIn, onLogout }) {
 function AccountLogin({ onLoggedIn }) {
   const [loginMode, setLoginMode] = useAccountState("email");
   const [email, setEmail] = useAccountState("");
+  const [username, setUsername] = useAccountState("");
   const [phone, setPhone] = useAccountState("");
   const [code, setCode] = useAccountState("");
   const [challengeId, setChallengeId] = useAccountState("");
@@ -120,6 +121,7 @@ function AccountLogin({ onLoggedIn }) {
         body: JSON.stringify({
           credential: {
             email: email.trim(),
+            ...(loginMode === "email" && username.trim() ? { username: username.trim() } : {}),
             ...(loginMode === "phone" ? { phone: phone.trim() } : {}),
           },
         }),
@@ -141,6 +143,7 @@ function AccountLogin({ onLoggedIn }) {
     try {
       const credential = {
         email: email.trim(),
+        ...(loginMode === "email" && username.trim() ? { username: username.trim() } : {}),
         ...(loginMode === "phone" ? { phone: phone.trim() } : {}),
       };
       if (!challengeId) throw new Error("请先点击获取验证码。");
@@ -209,6 +212,15 @@ function AccountLogin({ onLoggedIn }) {
                 required={loginMode === "email"}
               />
             </div>
+            {loginMode === "email" && (
+              <details>
+                <summary style={{ color: "var(--ink-muted)", cursor: "pointer", fontSize: 13 }}>同一邮箱有多个账号？</summary>
+                <label className="label" style={{ marginTop: 12 }}>账号名（可选）</label>
+                <input className="input mono" autoComplete="username" value={username}
+                  onChange={event => { setUsername(event.target.value); setCode(""); setChallengeId(""); }}
+                  placeholder="填写要登录的账号名" maxLength={128} />
+              </details>
+            )}
             {loginMode === "phone" && (
             <div>
               <label className="label">手机号</label>

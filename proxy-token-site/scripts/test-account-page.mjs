@@ -32,7 +32,8 @@ for (const input of form.querySelectorAll("input")) assert.doesNotMatch(input.pl
 assert.doesNotMatch(form.textContent, /Token sign-in/);
 assert.equal(form.querySelector('input[type="password"]'), null);
 assert.equal(form.querySelector('input[type="email"]').placeholder, "Email address");
-assert.equal(form.querySelector('input[autocomplete="username"]'), null);
+assert.equal(form.querySelector('input[autocomplete="username"]').required, false);
+assert.equal(form.querySelector('input[autocomplete="username"]').closest('details').open, false);
 assert.equal(form.querySelector('input[type="tel"]'), null);
 assert.doesNotMatch(form.textContent, /老账号|老用户|手机号即可/);
 assert.equal(form.querySelector('input[maxlength="6"]').placeholder, "6-digit verification code");
