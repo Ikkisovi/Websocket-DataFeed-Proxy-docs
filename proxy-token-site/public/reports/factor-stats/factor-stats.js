@@ -33,7 +33,7 @@ const zhOf = (m, k) => lang.v === 'zh' ? (state.idx.zh[m][k] ?? k) : k;
 const ttl = r => lang.v === 'zh' ? (r.title_zh || r.title) : r.title;
 function paintShell() {
   const w = document.getElementById('asofw');
-  if (w) w.textContent = state.idx ? (lang.v === 'zh' ? `信号截至 ${state.idx.meta.last_signal_date} · 收益截至 ${state.idx.meta.last_label_date}` : `signals through ${state.idx.meta.last_signal_date} · returns through ${state.idx.meta.last_label_date}`) : '';
+  if (w) w.textContent = state.idx ? (lang.v === 'zh' ? `${state.idx.meta.update_policy ? '收盘后自动更新 · ' : ''}信号截至 ${state.idx.meta.last_signal_date} · 收益截至 ${state.idx.meta.last_label_date}` : `${state.idx.meta.update_policy ? 'Updated after the close · ' : ''}signals through ${state.idx.meta.last_signal_date} · returns through ${state.idx.meta.last_label_date}`) : '';
   const t = document.getElementById('fs-title'); if (t) t.textContent = lang.v === 'zh' ? '因子目录实测' : 'Factor Directory Stats';
   const d = document.getElementById('fs-deck'); if (d) d.textContent = lang.v === 'zh' ? '每个因子的覆盖率、Rank IC、五分位纯多/空头/多空组合，可在全部历史与近 7、14、30 天之间切换。' : 'Coverage, rank IC and quintile long-only, short and long-short portfolios for every factor, switchable between full history and the last 7, 14 and 30 days.';
   document.querySelectorAll('.nav a[data-t]').forEach(a => { a.textContent = a.dataset.t.split('|')[lang.v === 'en' ? 1 : 0]; });
@@ -67,7 +67,9 @@ async function factor(id) {
   if (!row) throw new Error('unknown factor');
   if (!state.cache[row.shard]) {
     // A failed shard (expired session, network) is not cached, so the next open retries it.
-    state.cache[row.shard] = fetch(`/reports/factor-stats/data/s${row.shard}.json`, { credentials: 'same-origin', cache: 'no-store' }).then(r => {
+    const version = state.idx.meta.snapshot_id;
+    const query = version ? `?v=${encodeURIComponent(version)}` : '';
+    state.cache[row.shard] = fetch(`/reports/factor-stats/data/s${row.shard}.json${query}`, { credentials: 'same-origin', cache: 'no-store' }).then(r => {
       if (!r.ok) { const e = new Error(r.status === 401 || r.status === 403 ? 'access' : 'http ' + r.status); e.status = r.status; throw e; }
       return r.json();
     }).catch(e => { delete state.cache[row.shard]; throw e; });
@@ -192,7 +194,8 @@ async function renderDetail(id) {
     <div class="notes"><strong>${tr('How to read this.')}</strong><ul>${state.idx.meta.caveats.map(c => `<li>${esc(tr(c))}</li>`).join('')}
       <li>${tr('Explanations and symbol notes come from the source page and are shown in English.')}</li>
       <li>${lang.v === 'zh' ? '标签：次日收盘到收盘收益；因子值最高的 20% 为纯多，最低的 20% 为末 20%，多空为两者之差；保持因子自然符号，不翻转。' : `Label: ${esc(state.idx.meta.label)}; the 20% of names with the highest factor value form Long only, the lowest 20% form Bottom 20%; Long-short is the difference. The factor's natural sign is kept.`}</li>
-      <li>${lang.v === 'zh' ? `成员覆盖率 ${pct(rec.coverage, 1)}；首个有效交易日 ${esc(rec.first_valid)}。` : `Coverage on members: ${pct(rec.coverage, 1)}; first valid session ${esc(rec.first_valid)}.`}</li></ul></div>`;
+      <li>${lang.v === 'zh' ? `成员覆盖率 ${pct(rec.coverage, 1)}；首个有效交易日 ${esc(rec.first_valid)}。` : `Coverage on members: ${pct(rec.coverage, 1)}; first valid session ${esc(rec.first_valid)}.`}</li>
+      ${rec.latest_names != null ? `<li>${lang.v === 'zh' ? `最近有效因子日期 ${esc(rec.last_signal_date || '–')}；最新交易日有值 ${rec.latest_names} 只。` : `Latest finite factor date ${esc(rec.last_signal_date || '–')}; ${rec.latest_names} names available on the latest session.`}</li>` : ''}</ul></div>`;
   app.querySelectorAll('[data-win]').forEach(b => b.onclick = () => { state.win = b.dataset.win; app.querySelectorAll('[data-win]').forEach(x => x.setAttribute('aria-pressed', x.dataset.win === state.win)); renderMeasure(rec); });
   renderMeasure(rec);
 }

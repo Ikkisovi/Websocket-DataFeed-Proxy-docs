@@ -6,6 +6,7 @@ ARG SOURCE_COMMIT
 LABEL org.opencontainers.image.revision=${SOURCE_COMMIT}
 COPY --chown=node:node server.js /app/
 COPY --chown=node:node commerce/research-access.cjs /app/commerce/
+COPY --chown=node:node commerce/factor-site.cjs /app/commerce/
 COPY --chown=node:node public/account.html public/account-page.jsx public/research-data.html public/research-data-page.jsx public/research-data.css public/language.js /app/public/
 COPY --chown=node:node public/assets/account-page.js public/assets/research-data-page.js public/assets/reports-page.js /app/public/assets/
 COPY --chown=node:node public/reports/index.html public/reports/reports.css public/reports/locked.html /app/public/reports/

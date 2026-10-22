@@ -129,6 +129,7 @@ app.use(asyncRoute((req, res, next) => {
   return next();
 }));
 // Generated statistics live outside Git and outside public/; serve them only behind the gate.
+app.use('/reports/factor-stats/data', require('./commerce/factor-site.cjs').createFactorDataHandler('/app/factor-site'));
 app.use('/reports/factor-stats/data', express.static(path.join(RESEARCH_PRIVATE_DIR, 'factor-stats', 'data'), {
   index: false, fallthrough: false, maxAge: 0, setHeaders: res => res.setHeader('Cache-Control', 'private, no-store')
 }));
