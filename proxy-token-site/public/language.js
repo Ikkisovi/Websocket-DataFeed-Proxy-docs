@@ -20,6 +20,8 @@
     "账户管理": "Account",
     "行情图表": "Market chart",
     "手机号登录": "Phone sign-in",
+    "保持登录 30 天": "Keep me signed in for 30 days",
+    "仅在你自己的设备上勾选；公共电脑请不要勾选，用完请退出登录。": "Only tick this on your own device. Do not tick it on a shared computer, and sign out when you are done.",
     "账户记录不一致，请联系管理员。": "The account record is inconsistent. Contact the administrator.",
     "账户已绑定邮箱，不能在线修改。": "An email is already bound and cannot be changed online.",
     "验证码已发送，请查收邮件。": "Code sent. Check your inbox.",

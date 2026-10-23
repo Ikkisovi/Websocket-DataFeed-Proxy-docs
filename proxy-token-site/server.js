@@ -525,6 +525,12 @@ const ACCOUNT_SESSION_TTL_MS = Math.max(
   15 * 60 * 1000,
   Math.min(Number(process.env.ACCOUNT_SESSION_TTL_MS) || 8 * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000)
 );
+// "Keep me signed in": a remembered session lives up to 30 days (cap 90). The mode is carried by the
+// session id prefix, so it needs no schema change and cannot be upgraded without the secret itself.
+const ACCOUNT_REMEMBER_TTL_MS = Math.max(
+  ACCOUNT_SESSION_TTL_MS,
+  Math.min(Number(process.env.ACCOUNT_REMEMBER_TTL_MS) || 30 * 24 * 60 * 60 * 1000, 90 * 24 * 60 * 60 * 1000)
+);
 const ACCOUNT_LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const ACCOUNT_LOGIN_IP_MAX_ATTEMPTS = 10;
 const ACCOUNT_LOGIN_ACCOUNT_MAX_ATTEMPTS = 8;
@@ -1470,8 +1476,12 @@ function parseCookies(req) {
   return cookies;
 }
 
+function sessionTtlMs(sessionId) {
+  return String(sessionId).startsWith('r.') ? ACCOUNT_REMEMBER_TTL_MS : ACCOUNT_SESSION_TTL_MS;
+}
+
 function setAccountSessionCookie(res, sessionId) {
-  const maxAgeSeconds = Math.floor(ACCOUNT_SESSION_TTL_MS / 1000);
+  const maxAgeSeconds = Math.floor(sessionTtlMs(sessionId) / 1000);
   res.setHeader(
     'Set-Cookie',
     `${ACCOUNT_SESSION_COOKIE}=${encodeURIComponent(sessionId)}; Path=/; Max-Age=${maxAgeSeconds}; HttpOnly; Secure; SameSite=Strict`
@@ -1657,16 +1667,16 @@ function maskToken(token) {
   return `${value.slice(0, 6)}····${value.slice(-4)}`;
 }
 
-async function createAccountSession(userId) {
-  const sessionId = crypto.randomBytes(32).toString('base64url');
-  await portalStore.createSession(userId, sessionId, ACCOUNT_SESSION_TTL_MS);
+async function createAccountSession(userId, remember = false) {
+  const sessionId = (remember ? 'r.' : 's.') + crypto.randomBytes(32).toString('base64url');
+  await portalStore.createSession(userId, sessionId, sessionTtlMs(sessionId));
   return sessionId;
 }
 
 async function resolveAccountSession(req) {
   const sessionId = parseCookies(req)[ACCOUNT_SESSION_COOKIE];
   if (!sessionId) return null;
-  return portalStore.resolveSession(sessionId, ACCOUNT_SESSION_TTL_MS);
+  return portalStore.resolveSession(sessionId, sessionTtlMs(sessionId));
 }
 
 async function requireAccount(req, res, next) {
@@ -4596,7 +4606,7 @@ app.post('/api/account/login', identityRoute(async (req, res) => {
   }
 
   clearAccountLoginFailures(req, accountId);
-  const sessionId = (await createAccountSession(accountId));
+  const sessionId = (await createAccountSession(accountId, credential?.remember === true));
   setAccountSessionCookie(res, sessionId);
   const current=subscriptionPolicy.project(proxyUser,localUser,await readPaymentOrders());
   return res.json({

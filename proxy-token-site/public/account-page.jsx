@@ -97,6 +97,7 @@ function AccountLogin({ onLoggedIn }) {
   const [phone, setPhone] = useAccountState("");
   const [code, setCode] = useAccountState("");
   const [token, setToken] = useAccountState("");
+  const [remember, setRemember] = useAccountState(false);
   const [challengeId, setChallengeId] = useAccountState("");
   const [countdown, setCountdown] = useAccountState(0);
   const [sendingCode, setSendingCode] = useAccountState(false);
@@ -146,7 +147,7 @@ function AccountLogin({ onLoggedIn }) {
         if (!username.trim() || !phone.trim() || !token.trim()) throw new Error("请输入账号名、手机号和 Token。");
         await accountRequest("/api/account/login", {
           method: "POST",
-          body: JSON.stringify({ credential: { user_id: username.trim(), phone: phone.trim(), token: token.trim() } }),
+          body: JSON.stringify({ credential: { user_id: username.trim(), phone: phone.trim(), token: token.trim(), remember } }),
         });
         setPhone(""); setToken("");
         await onLoggedIn();
@@ -159,6 +160,7 @@ function AccountLogin({ onLoggedIn }) {
       };
       if (!challengeId) throw new Error("请先点击获取验证码。");
       if (!code.trim()) throw new Error("请输入 6 位邮箱验证码。");
+      credential.remember = remember;
       credential.challenge_id = challengeId;
       credential.code = code.trim();
 
@@ -287,6 +289,10 @@ function AccountLogin({ onLoggedIn }) {
                 </div>
               </div>}
 
+            <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, color: "var(--ink-muted)", cursor: "pointer" }}>
+              <input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)} style={{ marginTop: 3 }} />
+              <span>保持登录 30 天<br /><span style={{ fontSize: 12 }}>仅在你自己的设备上勾选；公共电脑请不要勾选，用完请退出登录。</span></span>
+            </label>
             <button className="btn primary" disabled={loading} style={{ justifyContent: "center", padding: 12 }}>
               {loading ? "验证中…" : "进入账户管理 →"}
             </button>

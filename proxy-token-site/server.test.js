@@ -4953,6 +4953,38 @@ describe('Portal security repair (20261001)', () => {
       expect(overview.body.account.capabilities.ws.stocks).toBe(true);
     });
 
+    describe('keep me signed in', () => {
+      const seedAccount = () => {
+        fs.writeFileSync(USERS_FILE, JSON.stringify([{ username: 'keeper', phone: '13800000090', role: 'standard', tier: 'standard', email: 'keeper@example.com' }], null, 2));
+        fs.writeFileSync(TEST_PROXY_FILE, JSON.stringify({ users: [{ user_id: 'keeper', token: 'tok-keeper', role: 'standard', email: 'keeper@example.com' }] }, null, 2));
+      };
+      const login = remember => request(app).post('/api/account/login')
+        .send({ credential: { user_id: 'keeper', phone: '13800000090', token: 'tok-keeper', ...(remember === undefined ? {} : { remember }) } });
+
+      it('defaults to the short session and extends to 30 days only when asked', async () => {
+        seedAccount();
+        const short = await login();
+        expect(short.statusCode).toBe(200);
+        expect(short.headers['set-cookie'][0]).toMatch(/Max-Age=28800;/);
+        const refused = await login('true');
+        expect(refused.headers['set-cookie'][0]).toMatch(/Max-Age=28800;/);
+        const long = await login(true);
+        const cookie = long.headers['set-cookie'][0];
+        expect(cookie).toMatch(/Max-Age=2592000;/);
+        expect(cookie).toMatch(/HttpOnly/); expect(cookie).toMatch(/Secure/); expect(cookie).toMatch(/SameSite=Strict/);
+        const session = await request(app).get('/api/account/session').set('Cookie', cookie.split(';')[0]);
+        expect(session.statusCode).toBe(200);
+      });
+
+      it('does not let a short session id be relabelled as remembered', async () => {
+        seedAccount();
+        const short = await login();
+        const value = decodeURIComponent(short.headers['set-cookie'][0].split(';')[0].split('=')[1]);
+        const forged = `leandata_account_session=${encodeURIComponent('r.' + value.slice(2))}`;
+        expect((await request(app).get('/api/account/session').set('Cookie', forged)).statusCode).toBe(401);
+      });
+    });
+
     describe('accounts registered without an email', () => {
       const phone = '13800000077';
       const seed = () => {
