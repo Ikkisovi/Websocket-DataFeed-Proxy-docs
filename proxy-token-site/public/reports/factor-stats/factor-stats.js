@@ -108,6 +108,87 @@ async function factor(id) {
   return (await state.cache[row.shard])[id];
 }
 
+
+
+function carryNote() {
+  const mc = state.idx.meta.membership_carry;
+  if (!mc || !mc.sessions) return '';
+  const ds = mc.dates, runs = []; let start = ds[0], prev = ds[0];
+  const gap = (a, b) => (Date.parse(b) - Date.parse(a)) / 864e5 > 5;
+  for (const d of ds.slice(1)) { if (gap(prev, d)) { runs.push([start, prev]); start = d; } prev = d; }
+  runs.push([start, prev]);
+  const big = runs.filter(r => (Date.parse(r[1]) - Date.parse(r[0])) / 864e5 > 14).map(r => `${r[0]}–${r[1]}`).join(L('、', ', '));
+  return `<li>${L(`成员池口径：成员为 SPY 与 QQQ 当日开盘前可知的持仓并集。其中 ${mc.sessions} 个交易日的持仓快照无法确认（${big} 等），我们沿用前一交易日的成员，并仍按当日价格与因子值统计。这是我们的做法，不是原始成员记录。`,
+    `Universe: members are the union of SPY and QQQ holdings known before the open. On ${mc.sessions} sessions (${big} and others) a holdings snapshot could not be resolved; we carry the previous session’s members and still score those days on their own prices and factor values. This is our convention, not an original membership record.`)}</li>`;
+}
+/* ---------- replication with the Leandata API ---------- */
+const L = (zh, en) => lang.v === 'zh' ? zh : en;
+const MS_NATIVE = { cash: 'cash_and_equivalents', current_assets: 'current_assets_3m', current_liabilities: 'current_liabilities_3m',
+  free_cash_flow_3m: 'free_cash_flow_3m', goodwill: 'goodwill_3m', gross_profit_3m: 'gross_profit_3m', intangible_assets: 'other_intangible_assets_3m',
+  inventory: 'inventory_3m', net_income_3m: 'net_income_3m', net_receivables: 'receivables_3m', operating_cash_flow_3m: 'operating_cash_flow_3m',
+  operating_income_3m: 'operating_income_3m', retained_earnings: 'retained_earnings_3m', revenue_3m: 'total_revenue_3m', stockholders_equity: 'stockholders_equity',
+  total_assets: 'total_assets', total_debt: 'total_debt_3m', total_liabilities: 'total_liabilities',
+  weighted_average_shares_basic: 'basic_average_shares_3m', weighted_average_shares_diluted: 'diluted_average_shares_3m', market_cap: 'market_cap', shares_outstanding: 'shares_outstanding' };
+const MS_TTM = { basic_eps_ttm: 'basic_eps_3m', diluted_eps_ttm: 'diluted_eps_3m', gross_profit_ttm: 'gross_profit_3m', net_income_ttm: 'net_income_3m',
+  operating_income_ttm: 'operating_income_3m', revenue_ttm: 'total_revenue_3m', selling_general_admin_ttm: 'sga_3m' };
+const MDAY = {
+  tail_vol_share: ['volume in the last 30 minutes ÷ session volume', '最后 30 分钟成交量 ÷ 全天成交量'],
+  rv: ['sum of squared 5-minute log returns', '5 分钟对数收益平方和'],
+  rv_up: ['sum of squared positive 5-minute log returns', '5 分钟正对数收益平方和'],
+  iskew: ['sqrt(N)·Σ(r−mean)³ / (Σ(r−mean)²)^1.5 on 5-minute log returns', '5 分钟对数收益的偏度 sqrt(N)·Σ(r−mean)³ / (Σ(r−mean)²)^1.5'],
+  shortcut_illiq: ['Σ over 5-minute buckets of (2·(H−L)−|C−O|) ÷ dollar volume', '各 5 分钟桶 (2·(H−L)−|C−O|) ÷ 成交额 之和'],
+  pv_corr: ['correlation of 1-minute close and volume', '1 分钟收盘价与成交量的相关系数'],
+  vol_std: ['std of 1-minute volume over the whole session grid (a missing minute counts as 0)', '全天分钟网格上分钟成交量的标准差（缺失分钟记 0）'],
+  px_noon: ['last trade close at or before 12:00', '12:00 及之前最后一笔成交的收盘价'],
+  px_last: ['last trade close of the session', '当日最后一笔成交的收盘价'] };
+function replicateCard(rec) {
+  const req = rec.requires || [];
+  const isLeaf = rec.id.startsWith('fm_');
+  const rows = []; const fields = new Set(); let bars = false, minute = false, fund = false, universe = false;
+  const add = (inp, how) => rows.push(`<tr><td class="mono">${esc(inp)}</td><td>${how}</td></tr>`);
+  const PX = { open: 'o', high: 'h', low: 'l', close: 'c', volume: 'v', vwap: 'vw' };
+  for (const q of req) {
+    if (PX[q]) { bars = true; add(q, L(`<code>POST /v1/history/bars</code>，<code>timeframe=1Day</code>，字段 <code>${PX[q]}</code>`, `<code>POST /v1/history/bars</code>, <code>timeframe=1Day</code>, field <code>${PX[q]}</code>`)); }
+    else if (q === 'ret') { bars = true; add(q, L('复权收盘价的日收益：<code>c / c.shift(1) − 1</code>', 'daily return of the adjusted close: <code>c / c.shift(1) − 1</code>')); }
+    else if (q === 'amount') { bars = true; add(q, L('成交额 = <code>v × vw</code>（无 vwap 时用 <code>c</code>）', 'dollar volume = <code>v × vw</code> (<code>c</code> when vwap is missing)')); }
+    else if (q === 'turnover') { bars = true; fund = true; fields.add('shares_outstanding'); add(q, L('<code>v ÷ shares_outstanding</code>', '<code>v ÷ shares_outstanding</code>')); }
+    else if (q === 'market_cap') { fund = true; fields.add('market_cap'); add(q, L('Morningstar 日频字段 <code>market_cap</code>（我们的口径：拆股复权、未做分红调整的收盘价 × 观测股本）', 'Morningstar daily field <code>market_cap</code> (ours: split-adjusted, dividend-unadjusted close × observed shares)')); }
+    else if (q === 'shares') { fund = true; fields.add('shares_outstanding'); add(q, L('Morningstar 日频字段 <code>shares_outstanding</code>', 'Morningstar daily field <code>shares_outstanding</code>')); }
+    else if (q === 'member') { universe = true; add(q, L('<code>GET /v1/universes/NDX_SPX/snapshots/current</code>（当前成员；我们历史用的是 SPY+QQQ 持仓的逐日成员）', '<code>GET /v1/universes/NDX_SPX/snapshots/current</code> (current members; our history uses day-by-day SPY+QQQ holdings)')); }
+    else if (q === 'mkt_ret') { bars = true; fund = true; fields.add('market_cap'); add(q, L('成员的市值加权日收益，权重用上一交易日的 <code>market_cap</code>', 'member return weighted by the previous session <code>market_cap</code>')); }
+    else if (q === 'sectors') add(q, L('静态行业分类（不是接口字段，请用自己的行业表）', 'static sector labels (not an endpoint field; use your own sector table)'));
+    else if (q.startsWith('mday.')) { minute = true; const d = MDAY[q.slice(5)]; add(q, L(`<code>POST /v1/history/bars</code>，<code>timeframe=1Min</code>，仅常规交易时段成交分钟：${d ? d[1] : ''}`, `<code>POST /v1/history/bars</code>, <code>timeframe=1Min</code>, regular-hours trade minutes only: ${d ? d[0] : ''}`)); }
+    else if (q === 'ms_enterprise_value') { fund = true; ['market_cap', 'total_debt_3m', 'cash_and_equivalents'].forEach(f => fields.add(f)); add(q, L('<code>market_cap + total_debt_3m − cash_and_equivalents</code>', '<code>market_cap + total_debt_3m − cash_and_equivalents</code>')); }
+    else if (q.startsWith('ms_')) {
+      const k = q.slice(3);
+      if (MS_NATIVE[k]) { fund = true; fields.add(MS_NATIVE[k]); add(q, L(`Morningstar 日频字段 <code>${MS_NATIVE[k]}</code>`, `Morningstar daily field <code>${MS_NATIVE[k]}</code>`)); }
+      else if (MS_TTM[k]) { fund = true; fields.add(MS_TTM[k]); add(q, L(`最近连续四个季度 <code>${MS_TTM[k]}</code> 之和（相邻报告间隔 70–115 天，缺季则不可用）`, `sum of the last four consecutive quarterly <code>${MS_TTM[k]}</code> reports (70–115 days apart; a missing quarter makes it unavailable)`)); }
+      else add(q, L('Morningstar 日频字段（见字段表）', 'Morningstar daily field (see the field table)'));
+    } else add(q, '–');
+  }
+  if (isLeaf) { minute = true; add('minute bars', L('分钟 K 线：<code>POST /v1/history/bars</code>，<code>timeframe=1Min</code>；收盘时钟，只用 15:59 及之前的成交分钟', 'minute bars: <code>POST /v1/history/bars</code>, <code>timeframe=1Min</code>; close clock, trade minutes up to 15:59 only')); }
+  const snippet = [
+    'import requests, pandas as pd',
+    'API, H = "https://api.leandata.uk", {"Authorization": "Bearer <TOKEN>"}',
+    universe ? 'snap = requests.get(f"{API}/v1/universes/NDX_SPX/snapshots/current", headers=H).json()\nsymbols = sorted({m["symbol"]["value"] for c in snap["components"] for m in c["members"]})' : 'symbols = ["AAPL", "MSFT"]  # your universe',
+    bars ? 'r = requests.post(f"{API}/v1/history/bars", headers=H, json={"symbol": ",".join(symbols[:100]), "timeframe": "1Day",\n                                                        "start": "2015-01-01", "end": "2026-10-23"}).json()\nclose = pd.DataFrame({s: pd.Series({b["t"][:10]: b["c"] for b in v}) for s, v in r["bars"].items()})' : '',
+    minute ? '# minute bars: same call with "timeframe": "1Min", one session per request for large universes' : '',
+    fund ? `f = requests.get(f"{API}/v1/fundamentals/morningstar/daily/history", headers=H,\n                 params={"symbols": ",".join(symbols[:100]), "fields": "${[...fields].join(',')}",\n                         "start": "2015-01-01", "end": "2026-10-23"}).json()["rows"]` : '',
+  ].filter(Boolean).join('\n');
+  return `<section class="card repl"><h2>${L('如何用 Leandata 接口复现这个因子', 'Replicate this factor with the Leandata API')}</h2>
+    <p>${L(`所需输入如下；公式见上方，回看 ${rec.lookback_sessions || 1} 个交易日。接口在 <a href="/docs/market/stocks/">股票行情</a>、<a href="/docs/financial/morningstar/">Morningstar 财务</a>、<a href="/docs/universes/">成员列表</a> 文档中。`,
+      `Inputs are listed below; the formula is above and looks back ${rec.lookback_sessions || 1} sessions. Endpoints are documented under <a href="/docs/market/stocks/">stock bars</a>, <a href="/docs/financial/morningstar/">Morningstar financials</a> and <a href="/docs/universes/">universe lists</a>.`)}</p>
+    <div class="tbl"><table><thead><tr><th>${L('输入', 'Input')}</th><th>${L('取数方式', 'How to get it')}</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+    <pre class="code"><code>${esc(snippet)}</code></pre>
+    <h3>${L('评估口径（与本页统计一致）', 'Evaluation recipe (matches the statistics on this page)')}</h3>
+    <ul>
+      <li>${L('用同一个交易日的收盘数据算因子；标签是下一交易日的收盘到收盘收益；收益超过 ±40% 的样本剔除（视为公司行为）。', 'Compute the factor from that session’s close data; the label is the next session’s close-to-close return; samples beyond ±40% are dropped as corporate actions.')}</li>
+      <li>${L('每日横截面 Spearman Rank IC（至少 30 只有效股票）；因子最高 20% 等权做多、最低 20% 等权做空，每日调仓，不计成本。', 'Daily cross-sectional Spearman rank IC (at least 30 valid names); equal-weight the top 20% as the long leg and the bottom 20% as the short leg, rebalanced daily, no costs.')}</li>
+      <li>${L('因子为 NaN 或无穷时视为缺失，不是 0；IC 在两边都有限的股票上重新排序。', 'NaN or infinite factor values are missing, not zero; IC re-ranks on names finite on both sides.')}</li>
+      <li>${L('你的结果会与本页略有差异：我们的历史用 QuantConnect 复权价、Morningstar 当前修订版本和逐日 SPY+QQQ 持仓成员；接口返回的是当前版本与当前成员。', 'Your numbers will differ slightly: our history uses QuantConnect-adjusted prices, the current restated Morningstar vintage and day-by-day SPY+QQQ holdings; the endpoints return the current vintage and current members.')}</li>
+    </ul></section>`;
+}
+
 /* ---------- list ---------- */
 const COLS = [
   ['ic', 'IC mean', r => r.summary[state.win].ic.mean, v => f3(v)],
@@ -227,9 +308,11 @@ async function renderDetail(id) {
     ${defn}
     <div class="measured"><h2>${tr('Measured on our data')}</h2><div class="seg" role="group" aria-label="Window">${WINDOWS.map(([k, l]) => `<button data-win="${k}" aria-pressed="${state.win === k}">${tr(l)}</button>`).join('')}</div></div>
     <div id="measure"></div>
+    ${replicateCard(rec)}
     <div class="notes"><strong>${tr('How to read this.')}</strong><ul>${state.idx.meta.caveats.map(c => `<li>${esc(tr(c))}</li>`).join('')}
       <li>${tr('Explanations and symbol notes follow the selected language; formulas retain their original definitions.')}</li>
       <li>${lang.v === 'zh' ? '标签：次日收盘到收盘收益；因子值最高的 20% 为纯多，最低的 20% 为末 20%，多空为两者之差；保持因子自然符号，不翻转。' : `Label: ${esc(state.idx.meta.label)}; the 20% of names with the highest factor value form Long only, the lowest 20% form Bottom 20%; Long-short is the difference. The factor's natural sign is kept.`}</li>
+      ${carryNote()}
       <li>${lang.v === 'zh' ? `成员覆盖率 ${pct(rec.coverage, 1)}；首个有效交易日 ${esc(rec.first_valid)}。` : `Coverage on members: ${pct(rec.coverage, 1)}; first valid session ${esc(rec.first_valid)}.`}</li>
       ${rec.latest_names != null ? `<li>${lang.v === 'zh' ? `最近有效因子日期 ${esc(rec.last_signal_date || '–')}；最新交易日有值 ${rec.latest_names} 只。` : `Latest finite factor date ${esc(rec.last_signal_date || '–')}; ${rec.latest_names} names available on the latest session.`}</li>` : ''}</ul></div>`;
   app.querySelectorAll('[data-win]').forEach(b => b.onclick = () => { state.win = b.dataset.win; app.querySelectorAll('[data-win]').forEach(x => x.setAttribute('aria-pressed', x.dataset.win === state.win)); renderMeasure(rec); });
