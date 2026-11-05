@@ -37,6 +37,7 @@ const pages = {
   "bulk/download": "Bulk Data Download",
   "realtime/websocket": "WebSocket Realtime API",
   "realtime/subscriptions": "WebSocket Subscriptions & Messages",
+  "data-updates": "Leandata Data Update Schedule",
   "status": "Leandata Service Status",
   "usage": "Leandata Usage Statistics",
 };

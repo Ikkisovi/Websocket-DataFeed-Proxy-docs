@@ -11,6 +11,7 @@ import React, {
 import { DOC_PATHS, NAV_GROUPS, DOC_PAGE_CONFIG, DOC_PAGE_BY_PATH, DOC_ARTICLES, SECTION_ZH_LABELS, getDocSections, docSectionId, docArticlePath, resolveLegacyDocPath } from "./doc-navigation.mjs";
 import { DocContent, CodeRail, DocsSearch, TopicLinks, CopyCode, textOf } from "./doc-components.jsx";
 import { UsagePage } from "./usage-page.jsx";
+import { DataUpdates } from "./data-updates.jsx";
 
 // ── StatusBody component ──
 // Fetches live data from /api/status, /api/uptime, /api/latency, /api/incidents.
@@ -597,6 +598,7 @@ function DocsSite({ initialTab = "proxy", hideTopbar = false } = {}) {
     : config.tab === "morningstar" ? <MorningstarCustomerBody articleId={article?.id} isZh={isZh} />
     : page === "bulk" ? <BulkOrderBody />
     : config.tab === "ws" ? <WsUsageBody {...bodyProps} />
+    : page === "schedule" ? <DataUpdates isZh={isZh} />
     : page === "usage" ? <UsagePage /> : <StatusBody />;
 
   return (

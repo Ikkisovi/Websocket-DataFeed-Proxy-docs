@@ -31,8 +31,10 @@ DOC_PAGE_INDEXES = (
     "docs/bulk/download/index.html",
     "docs/realtime/websocket/index.html",
     "docs/realtime/subscriptions/index.html",
+    "docs/data-updates/index.html",
     "docs/status/index.html",
     "docs/usage/index.html",
+    "docs/universes/index.html",
 )
 
 # BEGIN GENERATED ARTICLE FILES
@@ -243,6 +245,13 @@ RETIRED_DOC_INDEXES = tuple("docs/market/overview/" + name + "/index.html" for n
     "post-admin-login", "get-admin-pending", "post-admin-approve", "post-admin-reject",
 ))
 
+RETIRED_DOC_INDEXES += (
+    "docs/financial/morningstar/morningstar-daily-history/index.html",
+    "docs/financial/morningstar/morningstar-daily-coverage/index.html",
+    "docs/financial/morningstar/morningstar-v3/index.html",
+    "docs/financial/eodhd/eodhd-fields/index.html",
+)
+
 FILES = (
     "assets/docs-page.js", "assets/token-page.js", "assets/register-page.js",
     "assets/account-page.js", "account-page.jsx", "account.html",
@@ -253,7 +262,7 @@ FILES = (
     "docs/public-api-contract.json", "docs/api-contract-source.json",
     "docs/illustrations/brain-ranking-horizontal-v2.png",
     "docs/doc-navigation.mjs", "docs/doc-components.jsx", "docs/doc-layout.css",
-    "docs/docs-site.jsx", "docs/tokens.css", "tokens.css",
+    "docs/docs-site.jsx", "docs/data-updates.jsx", "docs/tokens.css", "tokens.css",
     *DOC_PAGE_INDEXES, *DOC_ARTICLE_INDEXES, *RETIRED_DOC_INDEXES, "index.html",
 )
 

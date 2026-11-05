@@ -71,6 +71,20 @@ for (const language of ["zh", "en"]) {
   }
 }
 
+for (const language of ["zh", "en"]) {
+  const schedule = await render("/docs/data-updates/", language);
+  const main = schedule.window.document.querySelector("main");
+  assert.match(main.textContent, language === "zh" ? /数据更新时间/ : /Data update schedule/);
+  assert.match(main.textContent, /05:00/);
+  assert.match(main.textContent, /15:35/);
+  assert.match(main.textContent, /America\/New_York/);
+  assert.match(main.textContent, /snapshot_id/);
+  assert.equal(main.querySelectorAll("tbody tr").length, 7);
+  assert(schedule.window.document.querySelector('a[href="/docs/data-updates/"]'));
+  schedule.window.LeandataI18n.destroy();
+  schedule.window.close();
+}
+
 const stocks = await render("/docs/market/stocks/");
 assert(isVisible(stocks.window.document.getElementById("stock-data-availability")));
 assert(isVisible(stocks.window.document.getElementById("post-v1-history-bars")));

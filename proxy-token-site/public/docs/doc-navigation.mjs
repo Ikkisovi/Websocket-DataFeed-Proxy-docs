@@ -19,6 +19,7 @@ const DOC_PATHS = {
   bulk: "/docs/bulk/download/",
   websocket: "/docs/realtime/websocket/",
   subscriptions: "/docs/realtime/subscriptions/",
+  schedule: "/docs/data-updates/",
   status: "/docs/status/",
   usage: "/docs/usage/",
 };
@@ -68,9 +69,10 @@ const NAV_GROUPS = [
   {
     key: "ops",
     label: "状态与用量", en: "Status & usage",
-    match: ["status", "usage"],
+    match: ["status", "usage", "schedule"],
     mainTab: "status",
     items: [
+      { label: "数据更新时间", en: "Data updates", desc: "Schedule · Archive · Availability", href: DOC_PATHS.schedule },
       { label: "服务状态", en: "Service status", desc: "Live · Latency · Uptime", href: DOC_PATHS.status },
       { label: "用量统计", en: "Usage", desc: "30d · Token stats", href: DOC_PATHS.usage },
       { label: "产品更新", en: "Product updates", desc: "Changelog", href: "/updates" },
@@ -97,6 +99,7 @@ const DOC_PAGE_CONFIG = {
   bulk: { path: DOC_PATHS.bulk, tab: "bulk" },
   websocket: { path: DOC_PATHS.websocket, tab: "ws" },
   subscriptions: { path: DOC_PATHS.subscriptions, tab: "ws", focus: "subscriptions" },
+  schedule: { path: DOC_PATHS.schedule, tab: "schedule" },
   status: { path: DOC_PATHS.status, tab: "status" },
   usage: { path: DOC_PATHS.usage, tab: "usage" },
 };
